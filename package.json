@@ -1,7 +1,8 @@
 {
-  "name": "60s-api",
+  "name": "daily-hot",
   "type": "module",
-  "version": "2.54.0",
+  "version": "1.0.0",
+  "author": "木木",
   "updateTime": "2026/06/25 12:30:36",
   "packageManager": "pnpm@10.29.2",
   "prettier": {
@@ -37,8 +38,8 @@
     "prerelease": "node ./scripts/write-update-time.ts && git add . && git commit -m \"chore: update time in package.json\"",
     "release": "bumpp",
     "update-lockfile": "pnpm install && bun install && deno install --allow-scripts",
-    "docker:build": "docker build -t vikiboss/60s .",
-    "docker:run": "docker run --name 60s -p 4399:4399 -d vikiboss/60s",
-    "docker:re-run": "docker stop 60s && docker rm 60s && pnpm run docker:run"
+    "docker:build": "docker build -t daily-hot .",
+    "docker:run": "docker run --name daily-hot -p 4399:4399 -d daily-hot",
+    "docker:re-run": "docker stop daily-hot && docker rm daily-hot && pnpm run docker:run"
   }
 }

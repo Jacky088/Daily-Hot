@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>每日热榜 · 一站看完天下事</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='f' x1='0%25' y1='100%25' x2='0%25' y2='0%25'%3E%3Cstop offset='0%25' stop-color='%236366f1'/%3E%3Cstop offset='50%25' stop-color='%23818cf8'/%3E%3Cstop offset='100%25' stop-color='%23fbbf24'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M12 2c0 0-1.5 2-3 4.5S6.5 11 8 13c-1-.5-2-1.5-2.5-3 0 0-1.5 2-1 4.5C5 17.5 7 20 12 22c5-2 7-4.5 7.5-7.5.5-2.5-1-4.5-1-4.5-.5 1.5-1.5 2.5-2.5 3 1.5-2 1-4.5-.5-7S13.5 4 12 2z' fill='url(%23f)'/%3E%3C/svg%3E" type="image/svg+xml">
+<style>
+  /* ============ 主题变量 ============ */
+  :root[data-theme="dark"] {
+    --bg: #0a0b10;
+    --bg-grad: radial-gradient(ellipse at top, #131521 0%, #0a0b10 60%);
+    --card: #14161f;
+    --card-hover: #1b1e2a;
+    --border: #232634;
+    --border-light: #2d3142;
+    --text: #e6e8ef;
+    --text-dim: #7a8094;
+    --text-dimmer: #555a6e;
+    --accent: #6366f1;
+    --accent-light: #818cf8;
+    --accent-bg: rgba(99,102,241,0.1);
+    --accent-glow: 0 0 20px rgba(99,102,241,0.15);
+    --success: #34d399;
+    --warn: #fbbf24;
+    --error: #f87171;
+    --shadow: 0 4px 24px rgba(0,0,0,0.3);
+    --mesh-line: rgba(99,102,241,0.08);
+    --mesh-dot: rgba(129,140,248,0.5);
+    --mesh-glow: rgba(99,102,241,0.03);
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f7fb;
+    --bg-grad: radial-gradient(ellipse at top, #ffffff 0%, #f0f2f8 70%);
+    --card: #ffffff;
+    --card-hover: #f9fafc;
+    --border: #e5e7ec;
+    --border-light: #d1d5db;
+    --text: #1a1d28;
+    --text-dim: #6b7280;
+    --text-dimmer: #9ca3af;
+    --accent: #6366f1;
+    --accent-light: #4f46e5;
+    --accent-bg: rgba(99,102,241,0.08);
+    --accent-glow: 0 0 20px rgba(99,102,241,0.1);
+    --success: #059669;
+    --warn: #d97706;
+    --error: #dc2626;
+    --shadow: 0 2px 12px rgba(0,0,0,0.06);
+    --mesh-line: rgba(99,102,241,0.06);
+    --mesh-dot: rgba(99,102,241,0.25);
+    --mesh-glow: rgba(99,102,241,0.02);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    background-image: var(--bg-grad);
+    background-attachment: fixed;
+    color: var(--text);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    transition: background 0.3s, color 0.3s;
+    min-height: 100vh;
+  }
+  a { color: var(--accent-light); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ============ 流动多边形网格背景 ============ */
+  .mesh-bg {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 0; pointer-events: none;
+  }
+  .mesh-bg canvas { width: 100%; height: 100%; display: block; }
+  .header, .cat-nav, .main, .foot { position: relative; z-index: 1; }
+
+  /* ============ Header ============ */
+  .header {
+    position: sticky; top: 0; z-index: 100;
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .header-left { display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0; }
+  .header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .header-right a, .header-right button {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: var(--card); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.2s; flex-shrink: 0;
+    text-decoration: none;
+  }
+  .header-right a:hover, .header-right button:hover { border-color: var(--accent); box-shadow: var(--accent-glow); }
+  .header-right svg { width: 18px; height: 18px; color: var(--text-dim); }
+  .logo { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .logo svg { width: 24px; height: 24px; flex-shrink: 0; filter: drop-shadow(0 0 6px rgba(99,102,241,0.3)); }
+  .logo .text { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo .subtitle { font-size: 12px; font-weight: 400; color: var(--text-dim); letter-spacing: 0; }
+  .search-wrap { flex: 1; min-width: 180px; max-width: 360px; position: relative; }
+  .search-wrap input {
+    width: 100%; padding: 7px 12px 7px 34px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-size: 13px; outline: none; transition: all 0.2s;
+  }
+  .search-wrap input:focus { border-color: var(--accent); box-shadow: var(--accent-glow); }
+  .search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); opacity: 0.4; }
+
+  /* theme toggle icon visibility */
+  .theme-toggle .sun { display: none; }
+  :root[data-theme="light"] .theme-toggle .moon { display: none; }
+  :root[data-theme="light"] .theme-toggle .sun { display: block; }
+
+  /* ============ Category Nav ============ */
+  .cat-nav {
+    display: flex; gap: 4px; padding: 10px 24px;
+    overflow-x: auto; border-bottom: 1px solid var(--border);
+    scrollbar-width: thin;
+    max-width: 1600px; margin: 0 auto;
+  }
+  .cat-nav::-webkit-scrollbar { height: 3px; }
+  .cat-nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .cat-nav button {
+    padding: 5px 12px; background: transparent; border: 1px solid transparent;
+    border-radius: 16px; color: var(--text-dim); font-size: 12px;
+    cursor: pointer; white-space: nowrap; transition: all 0.2s; font-weight: 500;
+  }
+  .cat-nav button:hover { color: var(--text); background: var(--card); }
+  .cat-nav button.active {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+  }
+
+  /* ============ Main ============ */
+  .main { padding: 20px 24px 60px; max-width: 1600px; margin: 0 auto; }
+  .cat-section { margin-bottom: 32px; }
+  .cat-title {
+    font-size: 14px; font-weight: 800; margin-bottom: 14px;
+    color: var(--text); letter-spacing: 0.3px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .cat-title::after {
+    content: ""; flex: 1; height: 1px; background: var(--border);
+  }
+  .cat-title .count {
+    font-size: 10px; font-weight: 500; color: var(--text-dimmer);
+    background: var(--card); padding: 2px 8px; border-radius: 8px; border: 1px solid var(--border);
+  }
+
+  /* ============ Grid ============ */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+  }
+
+  /* ============ Card ============ */
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden; transition: all 0.2s;
+    display: flex; flex-direction: column;
+  }
+  .card:hover { border-color: var(--border-light); box-shadow: var(--shadow); }
+  .card-head {
+    padding: 11px 16px; display: flex; align-items: center;
+    justify-content: space-between; border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .card-title { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 7px; }
+  .card-title .icon { font-size: 15px; }
+  .card-actions { display: flex; gap: 5px; }
+  .card-actions button {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text-dim); font-size: 11px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+  }
+  .card-actions button:hover { border-color: var(--accent); color: var(--accent); }
+
+  .card-body {
+    padding: 12px 16px; flex: 1; overflow-y: auto; max-height: 460px;
+    scrollbar-width: thin; scrollbar-color: var(--border-light) transparent;
+  }
+  .card-body::-webkit-scrollbar { width: 6px; }
+  .card-body::-webkit-scrollbar-track { background: transparent; margin: 4px 0; }
+  .card-body::-webkit-scrollbar-thumb {
+    background: var(--border); border-radius: 3px; border: 2px solid transparent; background-clip: padding-box;
+  }
+  .card-body::-webkit-scrollbar-thumb:hover { background: var(--border-light); background-clip: padding-box; }
+
+  /* Input row */
+  .input-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .input-row input, .input-row select {
+    flex: 1; min-width: 60px; padding: 7px 10px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-size: 12px; outline: none; transition: border 0.2s;
+  }
+  .input-row input:focus { border-color: var(--accent); }
+  .input-row .go {
+    padding: 7px 16px; background: var(--accent); border: none;
+    border-radius: 6px; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer;
+    white-space: nowrap; transition: background 0.2s;
+  }
+  .input-row .go:hover { background: var(--accent-light); }
+
+  /* Fanyi (translation) layout */
+  .fanyi-textarea {
+    width: 100%; min-height: 80px; resize: vertical; margin-bottom: 12px;
+    padding: 10px 12px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 14px; font-family: inherit;
+    outline: none; transition: border 0.2s; line-height: 1.6;
+    -webkit-appearance: none; appearance: none;
+  }
+  .fanyi-textarea:focus { border-color: var(--accent); box-shadow: var(--accent-glow); }
+  .fanyi-lang-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .fanyi-lang-row select {
+    flex: 1; min-width: 0; padding: 8px 28px 8px 10px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+    font-size: 13px; outline: none; cursor: pointer; transition: border 0.2s;
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a8094' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 8px center;
+  }
+  .fanyi-lang-row select:focus { border-color: var(--accent); }
+  .fanyi-lang-row .arrow {
+    color: var(--text-dim); font-size: 16px; flex-shrink: 0; user-select: none;
+    cursor: pointer; padding: 4px; border-radius: 4px; transition: all 0.2s;
+  }
+  .fanyi-lang-row .arrow:hover { color: var(--accent); background: var(--accent-bg); }
+  .fanyi-submit {
+    width: 100%; padding: 11px 16px; background: var(--accent); border: none;
+    border-radius: 8px; color: #fff; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; margin-bottom: 12px;
+    -webkit-appearance: none; appearance: none; -webkit-tap-highlight-color: transparent;
+  }
+  .fanyi-submit:hover { background: var(--accent-light); }
+  .fanyi-submit:active { transform: scale(0.98); }
+
+  /* Loading & placeholder */
+  .loading { text-align: center; padding: 24px; color: var(--text-dimmer); font-size: 12px; }
+  .loading::after {
+    content: ""; display: inline-block; width: 14px; height: 14px;
+    border: 2px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.7s linear infinite; margin-left: 8px; vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .placeholder { color: var(--text-dimmer); font-size: 12px; padding: 6px 0; }
+  .badge {
+    display: inline-block; padding: 1px 6px; border-radius: 4px;
+    font-size: 10px; font-weight: 600;
+  }
+  .badge.fail { background: rgba(248,113,113,0.12); color: var(--error); }
+
+  /* ============ List item (ranked) ============ */
+  .item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 9px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+    font-size: 13px;
+  }
+  .item:last-child { border-bottom: none; }
+  .item .rank {
+    min-width: 22px; height: 22px; border-radius: 5px;
+    background: var(--bg); font-size: 11px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-dimmer); flex-shrink: 0; margin-top: 1px;
+  }
+  .item .rank.top1 { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #000; }
+  .item .rank.top2 { background: linear-gradient(135deg, #d1d5db, #9ca3af); color: #000; }
+  .item .rank.top3 { background: linear-gradient(135deg, #fb923c, #ea580c); color: #fff; }
+  .item .body { flex: 1; min-width: 0; }
+  .item .body a, .item .body .t {
+    color: var(--text); text-decoration: none; display: block; word-break: break-word; line-height: 1.5;
+  }
+  .item .body a:hover { color: var(--accent-light); }
+  .item .meta { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+  .item .hot { color: var(--warn); font-weight: 500; }
+  .item .desc { font-size: 11.5px; color: var(--text-dim); margin-top: 3px; line-height: 1.5; }
+
+  /* News (60s) */
+  .news-item { padding: 7px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent); font-size: 13px; display: flex; gap: 8px; line-height: 1.6; }
+  .news-item:last-child { border: none; }
+  .news-item .num { color: var(--accent-light); font-weight: 700; flex-shrink: 0; font-size: 12px; min-width: 18px; }
+  .news-item a, .news-item .nt { color: var(--text); text-decoration: none; }
+  .news-item a:hover { color: var(--accent-light); }
+  .news-tip {
+    margin-top: 10px; padding: 10px 12px; background: var(--accent-bg);
+    border-left: 2px solid var(--accent); border-radius: 4px;
+    font-size: 12.5px; color: var(--text-dim); line-height: 1.6;
+  }
+  .news-header {
+    font-size: 11px; color: var(--text-dim); margin-bottom: 8px;
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .news-header span { background: var(--bg); padding: 3px 9px; border-radius: 6px; border: 1px solid var(--border); }
+
+  /* KV */
+  .kv { display: flex; flex-direction: column; gap: 6px; }
+  .kv-row { display: flex; gap: 8px; font-size: 13px; padding: 3px 0; }
+  .kv-row .k { color: var(--text-dim); min-width: 72px; flex-shrink: 0; font-size: 12px; }
+  .kv-row .v { color: var(--text); word-break: break-word; }
+  .kv-row .v.mono { font-family: "SF Mono", Consolas, monospace; font-size: 11.5px; }
+
+  /* Color */
+  .swatch { width: 100%; height: 50px; border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--border); }
+  .palette-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .palette-chip { text-align: center; font-size: 9px; }
+  .palette-chip .c { width: 40px; height: 40px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 2px; }
+
+  /* QR */
+  .qr-wrap { text-align: center; }
+  .qr-wrap img { max-width: 180px; border-radius: 8px; border: 1px solid var(--border); }
+
+  /* Image */
+  .img-wrap { margin-bottom: 8px; }
+  .img-wrap img { max-width: 100%; border-radius: 8px; border: 1px solid var(--border); }
+
+  /* Password */
+  .pwd-box {
+    font-family: monospace; font-size: 14px; padding: 10px;
+    background: var(--bg); border-radius: 6px; border: 1px solid var(--border);
+    text-align: center; word-break: break-all; cursor: pointer; transition: border 0.2s;
+  }
+  .pwd-box:hover { border-color: var(--accent); }
+  .pwd-box.copied { border-color: var(--success); color: var(--success); }
+
+  /* Text */
+  .text-block { white-space: pre-wrap; word-break: break-word; font-size: 13px; line-height: 1.8; }
+
+  /* JSON */
+  .json-view {
+    font-family: "SF Mono", Consolas, monospace; font-size: 11px;
+    background: var(--bg); padding: 10px; border-radius: 6px; overflow-x: auto;
+    white-space: pre; max-height: 400px; overflow-y: auto; line-height: 1.5;
+    scrollbar-width: thin; scrollbar-color: var(--border-light) transparent;
+  }
+  .json-view::-webkit-scrollbar { width: 6px; height: 6px; }
+  .json-view::-webkit-scrollbar-track { background: transparent; }
+  .json-view::-webkit-scrollbar-thumb {
+    background: var(--border); border-radius: 3px; border: 2px solid transparent; background-clip: padding-box;
+  }
+  .json-view::-webkit-scrollbar-thumb:hover { background: var(--border-light); background-clip: padding-box; }
+
+  /* Progress bar (moyu) */
+  .progress-bar { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; margin-top: 2px; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.5s; }
+
+  /* Foot */
+  .foot { text-align: center; padding: 30px; color: var(--text-dimmer); font-size: 12px; }
+
+  /* Game card */
+  .game-card { margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .game-card:last-child { border: none; }
+  .game-card img { border-radius: 6px; }
+  .game-title { font-weight: 600; font-size: 13px; margin-top: 6px; }
+  .game-free { display: inline-block; padding: 1px 7px; background: rgba(52,211,153,0.15); color: var(--success); border-radius: 4px; font-size: 10px; font-weight: 600; margin-top: 3px; }
+
+  /* Weather */
+  .weather-main { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+  .weather-temp { font-size: 32px; font-weight: 800; color: var(--text); }
+  .weather-info { font-size: 13px; color: var(--text-dim); }
+
+  @media (max-width: 640px) {
+    .header { padding: 10px 14px; }
+    .main { padding: 14px; }
+    .grid { grid-template-columns: 1fr; }
+    .logo .subtitle { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="mesh-bg"><canvas id="meshCanvas"></canvas></div>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="flame" x1="0%" y1="100%" x2="0%" y2="0%">
+            <stop offset="0%" stop-color="#6366f1"/>
+            <stop offset="50%" stop-color="#818cf8"/>
+            <stop offset="100%" stop-color="#fbbf24"/>
+          </linearGradient>
+        </defs>
+        <path d="M12 2c0 0-1.5 2-3 4.5S6.5 11 8 13c-1-.5-2-1.5-2.5-3 0 0-1.5 2-1 4.5C5 17.5 7 20 12 22c5-2 7-4.5 7.5-7.5.5-2.5-1-4.5-1-4.5-.5 1.5-1.5 2.5-2.5 3 1.5-2 1-4.5-.5-7S13.5 4 12 2z" fill="url(#flame)"/>
+      </svg>
+      <span class="text">每日热榜</span>
+      <span class="subtitle">一站看完天下事</span>
+    </div>
+    <div class="search-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" id="search" placeholder="搜索接口…">
+    </div>
+  </div>
+  <div class="header-right">
+    <a href="https://github.com/Jacky088/Daily-Hot" target="_blank" rel="noopener" title="GitHub" class="github-link">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+    </a>
+    <button class="theme-toggle" id="themeToggle" title="切换主题">
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+  </div>
+</div>
+
+<div class="cat-nav" id="catNav"></div>
+<div class="main" id="main"></div>
+<div class="foot">数据来源 <a href="https://github.com/vikiboss/60s" target="_blank">vikiboss/60s</a> · Powered by Cloudflare Workers</div>
+
+<script>
+const API = location.origin;
+
+const CATS = [
+  { id: 'all', name: '全部' },
+  { id: 'news', name: '📰 新闻资讯' },
+  { id: 'ent', name: '🎬 影视娱乐' },
+  { id: 'tools', name: '🛠️ 实用工具' },
+  { id: 'life', name: '🌤️ 生活信息' },
+  { id: 'fun', name: '🎯 趣味内容' },
+  { id: 'trans', name: '🔤 翻译' },
+];
+
+// type: news|list|kv|obj|text|json|qr|color|palette|pwd|fanyi|lyric|hash|weather|weatherfc|fuel|gold|lunar|bing|epic|ncm|maoyan|moyu|whois|js|exchange|hist|ainews
+const EPS = [
+  // 新闻
+  { cat:'news', id:'60s', name:'60秒读懂世界', icon:'⏰', path:'/v2/60s', type:'news', auto:1 },
+  { cat:'news', id:'weibo', name:'微博热搜', icon:'🔥', path:'/v2/weibo', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
+  { cat:'news', id:'zhihu', name:'知乎热榜', icon:'💡', path:'/v2/zhihu', type:'list', auto:1, f:{t:'title',h:'hot_value_desc',l:'link', d:'detail'} },
+  { cat:'news', id:'bili', name:'B站热门', icon:'📺', path:'/v2/bili', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
+  { cat:'news', id:'douyin', name:'抖音热点', icon:'🎵', path:'/v2/douyin', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
+  { cat:'news', id:'toutiao', name:'今日头条', icon:'📰', path:'/v2/toutiao', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
+  { cat:'news', id:'bdhot', name:'百度热搜', icon:'🔍', path:'/v2/baidu/hot', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'url', d:'desc'} },
+  { cat:'news', id:'bdtv', name:'百度电视剧榜', icon:'🎭', path:'/v2/baidu/teleplay', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'link'} },
+  { cat:'news', id:'bdtieba', name:'百度贴吧热议', icon:'💬', path:'/v2/baidu/tieba', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'link', d:'abstract'} },
+  { cat:'news', id:'douban', name:'豆瓣电影周榜', icon:'🎬', path:'/v2/douban/weekly/movie', type:'douban', auto:1 },
+  { cat:'news', id:'hn', name:'Hacker News', icon:'🟧', path:'/v2/hacker-news/top', type:'list', auto:1, f:{t:'title',h:'score',l:'link'} },
+  { cat:'news', id:'itnews', name:'IT资讯', icon:'💻', path:'/v2/it-news', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'description'} },
+  { cat:'news', id:'ainews', name:'AI新闻', icon:'🤖', path:'/v2/ai-news', type:'ainews', auto:1 },
+  { cat:'news', id:'history', name:'历史上的今天', icon:'📜', path:'/v2/today-in-history', type:'hist', auto:1 },
+  { cat:'news', id:'rednote', name:'小红书热榜', icon:'📕', path:'/v2/rednote', type:'list', auto:1, f:{t:'title',h:'score',l:'link'} },
+
+  // 娱乐
+  { cat:'ent', id:'maoyan', name:'猫眼票房', icon:'🍿', path:'/v2/maoyan/all/movie', type:'maoyan', auto:1 },
+  { cat:'ent', id:'epic', name:'Epic免费游戏', icon:'🎮', path:'/v2/epic', type:'epic', auto:1 },
+  { cat:'ent', id:'ncm', name:'网易云排行榜', icon:'🎵', path:'/v2/ncm-rank/list', type:'ncm', auto:1 },
+  { cat:'ent', id:'lyric', name:'歌词搜索', icon:'🎶', path:'/v2/lyric', type:'lyric', auto:0, inputs:[{n:'query',p:'歌名/歌手'}] },
+  { cat:'ent', id:'changya', name:'唱鸭', icon:'🎤', path:'/v2/changya', type:'obj', auto:1, keys:['user','song'] },
+  { cat:'ent', id:'moyu', name:'摸鱼日历', icon:'🐟', path:'/v2/moyu', type:'moyu', auto:1 },
+
+  // 工具
+  { cat:'tools', id:'qr', name:'二维码生成', icon:'📱', path:'/v2/qrcode', type:'qr', auto:0, inputs:[{n:'text',p:'内容',d:'https://github.com/vikiboss/60s'},{n:'size',p:'尺寸',d:'256'}] },
+  { cat:'tools', id:'hash', name:'哈希加密', icon:'#️⃣', path:'/v2/hash', type:'hash', auto:0, inputs:[{n:'content',p:'文本',d:'hello'}] },
+  { cat:'tools', id:'og', name:'网页OG信息', icon:'🌐', path:'/v2/og', type:'og', auto:0, inputs:[{n:'url',p:'URL',d:'github.com'}] },
+  { cat:'tools', id:'ip', name:'IP查询', icon:'📍', path:'/v2/ip', type:'kv', auto:1, keys:['ip','country','prov','city','isp','lat','lng','timezone'] },
+  { cat:'tools', id:'whois', name:'WHOIS查询', icon:'🔗', path:'/v2/whois', type:'whois', auto:0, inputs:[{n:'domain',p:'域名',d:'baidu.com'}] },
+  { cat:'tools', id:'pwd', name:'密码生成', icon:'🔐', path:'/v2/password', type:'pwd', auto:0, inputs:[{n:'length',p:'长度',d:'16'}] },
+  { cat:'tools', id:'pwdchk', name:'密码强度检测', icon:'💪', path:'/v2/password/check', type:'kv', auto:0, inputs:[{n:'password',p:'密码',d:'Test123456'}], keys:['password','length','score','strength','time_to_crack'] },
+  { cat:'tools', id:'color', name:'随机颜色', icon:'🎨', path:'/v2/color/random', type:'color', auto:1 },
+  { cat:'tools', id:'palette', name:'配色方案', icon:'🖌️', path:'/v2/color/palette', type:'palette', auto:0, inputs:[{n:'color',p:'hex',d:''}] },
+  { cat:'tools', id:'chem', name:'化学元素', icon:'⚗️', path:'/v2/chemical', type:'kv', auto:1, keys:['name','mass','formula'] },
+
+  // 生活
+  { cat:'life', id:'wnow', name:'实时天气', icon:'☀️', path:'/v2/weather/realtime', type:'weather', auto:0, inputs:[{n:'city',p:'城市',d:'北京'}] },
+  { cat:'life', id:'wfc', name:'天气预报', icon:'🌦️', path:'/v2/weather/forecast', type:'weatherfc', auto:0, inputs:[{n:'city',p:'城市',d:'北京'}] },
+  { cat:'life', id:'exrate', name:'汇率', icon:'💱', path:'/v2/exchange-rate', type:'exchange', auto:1 },
+  { cat:'life', id:'fuel', name:'油价', icon:'⛽', path:'/v2/fuel-price', type:'fuel', auto:1 },
+  { cat:'life', id:'gold', name:'金价', icon:'🥇', path:'/v2/gold-price', type:'gold', auto:1 },
+  { cat:'life', id:'lunar', name:'农历信息', icon:'🌙', path:'/v2/lunar', type:'lunar', auto:1 },
+
+  // 趣味
+  { cat:'fun', id:'duanzi', name:'随机段子', icon:'😂', path:'/v2/duanzi', type:'text', auto:1, dk:'duanzi' },
+  { cat:'fun', id:'dadjoke', name:'英文冷笑话', icon:'🤣', path:'/v2/dad-joke', type:'text', auto:1, dk:'content' },
+  { cat:'fun', id:'hitokoto', name:'一言', icon:'💬', path:'/v2/hitokoto', type:'text', auto:1, dk:'hitokoto' },
+  { cat:'fun', id:'kfc', name:'KFC疯狂星期四', icon:'🍗', path:'/v2/kfc', type:'text', auto:1, dk:'kfc' },
+  { cat:'fun', id:'fabing', name:'发病文案', icon:'🤪', path:'/v2/fabing', type:'text', auto:1, dk:'saying' },
+  { cat:'fun', id:'luck', name:'今日运势', icon:'🍀', path:'/v2/luck', type:'kv', auto:1, keys:['luck_desc','luck_rank','luck_tip'] },
+  { cat:'fun', id:'answer', name:'答案之书', icon:'📖', path:'/v2/answer', type:'text', auto:1, dk:'answer' },
+  { cat:'fun', id:'bing', name:'必应壁纸', icon:'🖼️', path:'/v2/bing', type:'bing', auto:1 },
+  { cat:'fun', id:'awjs', name:'JS题目', icon:'🧩', path:'/v2/awesome-js', type:'js', auto:1 },
+  { cat:'fun', id:'quark', name:'夸克网盘资源', icon:'☁️', path:'/v2/quark', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'summary'} },
+
+  // 翻译
+  { cat:'trans', id:'fanyi', name:'有道翻译', icon:'🔤', path:'/v2/fanyi', type:'fanyi', auto:0, inputs:[{n:'text',p:'文本',d:'hello'},{n:'from',p:'源语言',d:'en'},{n:'to',p:'目标',d:'zh-CHS'}] },
+];
+
+let curCat = 'all';
+let jsonMode = {};
+let fanyiLangs = null;
+
+// 加载有道翻译支持的语言列表（预加载，不依赖卡片渲染）
+async function loadFanyiLangs() {
+  if (fanyiLangs) { fillFanyiSelects(); return; }
+  try {
+    const r = await fetch(API + '/v2/fanyi/langs');
+    const j = await r.json();
+    if (j.code === 200 && Array.isArray(j.data)) {
+      fanyiLangs = j.data.sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'));
+      fillFanyiSelects();
+    }
+  } catch(e) {}
+}
+
+function fillFanyiSelects() {
+  if (!fanyiLangs) return;
+  const opts = fanyiLangs.map(l => `<option value="${l.code}">${l.label}</option>`).join('');
+  document.querySelectorAll('select[data-role="fanyi-lang"]').forEach(sel => {
+    const cur = sel.value;
+    sel.innerHTML = opts;
+    if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+  });
+}
+
+// ============ Init ============
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function init() {
+  // Theme
+  const saved = localStorage.getItem('theme') || 'dark';
+  document.documentElement.dataset.theme = saved;
+  $('#themeToggle').onclick = () => {
+    const cur = document.documentElement.dataset.theme;
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem('theme', next);
+  };
+
+  // 从 URL hash 恢复分类状态（刷新不丢失）
+  const hash = location.hash.replace('#', '');
+  if (hash && CATS.some(c => c.id === hash)) curCat = hash;
+
+  const nav = $('#catNav');
+  CATS.forEach(c => {
+    const b = document.createElement('button');
+    b.textContent = c.name;
+    b.dataset.cat = c.id;
+    if (c.id === curCat) b.classList.add('active');
+    b.onclick = () => {
+      curCat = c.id;
+      location.hash = c.id;
+      $$('.cat-nav button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      // 移动端：将选中的分类按钮滚动到可视区域
+      b.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      render();
+    };
+    nav.appendChild(b);
+  });
+
+  $('#search').oninput = render;
+  render();
+}
+
+function render() {
+  const kw = $('#search').value.trim().toLowerCase();
+  const main = $('#main');
+  main.innerHTML = '';
+
+  if (curCat !== 'all') {
+    const cat = CATS.find(c => c.id === curCat);
+    const eps = EPS.filter(ep => ep.cat === curCat && matchKw(ep, kw));
+    if (eps.length === 0) { main.innerHTML = '<div class="placeholder" style="text-align:center;padding:40px;">无匹配接口</div>'; return; }
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+    eps.forEach(ep => grid.appendChild(makeCard(ep)));
+    main.appendChild(grid);
+  } else {
+    CATS.filter(c => c.id !== 'all').forEach(c => {
+      const eps = EPS.filter(ep => ep.cat === c.id && matchKw(ep, kw));
+      if (eps.length === 0) return;
+      const sec = document.createElement('div');
+      sec.className = 'cat-section';
+      sec.innerHTML = `<div class="cat-title">${c.name}<span class="count">${eps.length}</span></div>`;
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+      eps.forEach(ep => grid.appendChild(makeCard(ep)));
+      sec.appendChild(grid);
+      main.appendChild(sec);
+    });
+  }
+
+  if (main.children.length === 0) {
+    main.innerHTML = '<div class="placeholder" style="text-align:center;padding:40px;">无匹配接口</div>';
+    return;
+  }
+
+  // Auto load
+  EPS.forEach(ep => {
+    if (ep.auto && matchKw(ep, kw) && (curCat === 'all' || curCat === ep.cat)) {
+      load(ep);
+    }
+  });
+}
+
+function matchKw(ep, kw) {
+  if (!kw) return true;
+  return ep.name.toLowerCase().includes(kw) || ep.id.includes(kw) || ep.path.includes(kw);
+}
+
+function makeCard(ep) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.id = 'card-' + ep.id;
+
+  const head = document.createElement('div');
+  head.className = 'card-head';
+  head.innerHTML = `<div class="card-title"><span class="icon">${ep.icon}</span>${ep.name}</div>
+    <div class="card-actions">
+      <button class="btn-json" title="JSON">{ }</button>
+      <button class="btn-refresh" title="刷新">↻</button>
+    </div>`;
+  card.appendChild(head);
+
+  const body = document.createElement('div');
+  body.className = 'card-body';
+  body.id = 'body-' + ep.id;
+
+  if (ep.inputs) {
+    if (ep.id === 'fanyi') {
+      // 翻译模块:专用布局
+      const textInput = document.createElement('textarea');
+      textInput.className = 'fanyi-textarea';
+      textInput.name = 'text';
+      textInput.placeholder = '输入要翻译的文本…';
+      textInput.value = ep.inputs.find(i => i.n === 'text')?.d || '';
+      body.appendChild(textInput);
+
+      // 语言选择行
+      const langRow = document.createElement('div');
+      langRow.className = 'fanyi-lang-row';
+      const fromSel = document.createElement('select');
+      fromSel.name = 'from';
+      fromSel.dataset.role = 'fanyi-lang';
+      const arrow = document.createElement('span');
+      arrow.className = 'arrow';
+      arrow.textContent = '⇄';
+      arrow.title = '交换语言';
+      const toSel = document.createElement('select');
+      toSel.name = 'to';
+      toSel.dataset.role = 'fanyi-lang';
+      // 如果语言列表已缓存，直接填充；否则显示加载中
+      if (fanyiLangs) {
+        const opts = fanyiLangs.map(l => `<option value="${l.code}">${l.label}</option>`).join('');
+        fromSel.innerHTML = opts;
+        toSel.innerHTML = opts;
+        fromSel.value = ep.inputs.find(i => i.n === 'from')?.d || 'en';
+        toSel.value = ep.inputs.find(i => i.n === 'to')?.d || 'zh-CHS';
+      } else {
+        fromSel.innerHTML = `<option value="en">加载中…</option>`;
+        toSel.innerHTML = `<option value="zh-CHS">加载中…</option>`;
+      }
+      // 点击箭头交换语言
+      arrow.onclick = () => {
+        const tmp = fromSel.value;
+        fromSel.value = toSel.value;
+        toSel.value = tmp;
+      };
+      langRow.appendChild(fromSel);
+      langRow.appendChild(arrow);
+      langRow.appendChild(toSel);
+      body.appendChild(langRow);
+
+      // 翻译按钮（独立一行，全宽，触屏友好）
+      const go = document.createElement('button');
+      go.className = 'fanyi-submit';
+      go.textContent = '翻译';
+      go.onclick = () => load(ep);
+      body.appendChild(go);
+
+      // 异步加载语言列表（如果尚未加载）
+      if (!fanyiLangs) loadFanyiLangs();
+    } else {
+      const row = document.createElement('div');
+      row.className = 'input-row';
+      ep.inputs.forEach(inp => {
+        const el = document.createElement('input');
+        el.type = 'text';
+        el.name = inp.n;
+        el.placeholder = inp.p;
+        el.value = inp.d || '';
+        row.appendChild(el);
+      });
+      const go = document.createElement('button');
+      go.className = 'go';
+      go.textContent = '查询';
+      go.onclick = () => load(ep);
+      row.appendChild(go);
+      body.appendChild(row);
+    }
+  }
+
+  const content = document.createElement('div');
+  content.id = 'content-' + ep.id;
+  content.innerHTML = ep.auto ? '<div class="loading">加载中</div>' : '<div class="placeholder">点击查询获取数据</div>';
+  body.appendChild(content);
+
+  card.appendChild(body);
+  card.querySelector('.btn-refresh').onclick = () => load(ep);
+  card.querySelector('.btn-json').onclick = () => toggleJson(ep);
+
+  return card;
+}
+
+async function load(ep) {
+  const c = document.getElementById('content-' + ep.id);
+  if (!c) return;
+  c.innerHTML = '<div class="loading">加载中</div>';
+  jsonMode[ep.id] = false;
+
+  let url = API + ep.path;
+  const params = new URLSearchParams();
+  if (ep.inputs) {
+    const card = document.getElementById('card-' + ep.id);
+    ep.inputs.forEach(inp => {
+      const sel = card.querySelector(`select[name="${inp.n}"]`);
+      if (sel && sel.value) { params.set(inp.n, sel.value); return; }
+      const el = card.querySelector(`*[name="${inp.n}"]`);
+      if (el && el.value) params.set(inp.n, el.value);
+    });
+  }
+  if (ep.type === 'qr') params.set('encoding', 'image');
+  const qs = params.toString();
+  if (qs) url += '?' + qs;
+
+  try {
+    const res = await fetch(url);
+    if (ep.type === 'qr') {
+      const blob = await res.blob();
+      c.innerHTML = `<div class="qr-wrap"><img src="${URL.createObjectURL(blob)}" alt="QR"></div>`;
+      return;
+    }
+    const json = await res.json();
+    if (json.code !== 200) {
+      c.innerHTML = `<div class="placeholder"><span class="badge fail">错误 ${json.code}</span> ${esc(json.message)}</div>`;
+      return;
+    }
+    renderData(ep, json.data, c);
+  } catch(e) {
+    c.innerHTML = `<div class="placeholder"><span class="badge fail">请求失败</span> ${esc(e.message)}</div>`;
+  }
+}
+
+function toggleJson(ep) {
+  const c = document.getElementById('content-' + ep.id);
+  if (!c) return;
+  if (jsonMode[ep.id]) {
+    jsonMode[ep.id] = false;
+    load(ep);
+  } else {
+    jsonMode[ep.id] = true;
+    fetch(API + ep.path).then(r => r.json()).then(j => {
+      c.innerHTML = `<div class="json-view">${esc(JSON.stringify(j, null, 2))}</div>`;
+    }).catch(() => load(ep));
+  }
+}
+
+// ============ Renderers ============
+function renderData(ep, d, c) {
+  const fn = {
+    news: rNews, list: rList, douban: rDouban, ainews: rAINews, hist: rHist,
+    kv: rKV, obj: rObj, text: rText, qr: () => {}, color: rColor, palette: rPalette,
+    pwd: rPwd, fanyi: rFanyi, lyric: rLyric, hash: rHash, weather: rWeather,
+    weatherfc: rWeatherFC, fuel: rFuel, gold: rGold, lunar: rLunar, bing: rBing,
+    epic: rEpic, ncm: rNCM, maoyan: rMaoyan, moyu: rMoyu, whois: rWhois,
+    js: rJS, exchange: rExchange, og: rOG,
+  }[ep.type] || rJSON;
+  fn(d, c, ep);
+}
+
+function rNews(d, c) {
+  let h = '';
+  if (d.date || d.day_of_week) {
+    h += '<div class="news-header">';
+    if (d.date) h += `<span>📅 ${esc(d.date)}</span>`;
+    if (d.day_of_week) h += `<span>${esc(d.day_of_week)}</span>`;
+    if (d.lunar_date) h += `<span>🌙 ${esc(d.lunar_date)}</span>`;
+    h += '</div>';
+  }
+  (d.news || []).forEach((n, i) => {
+    const t = typeof n === 'string' ? n : n.title;
+    const l = typeof n === 'string' ? '' : n.link;
+    h += `<div class="news-item"><span class="num">${i+1}</span>`;
+    h += l ? `<a href="${esc(l)}" target="_blank" rel="noopener">${esc(t)}</a>` : `<span class="nt">${esc(t)}</span>`;
+    h += '</div>';
+  });
+  if (d.tip) h += `<div class="news-tip">💡 ${esc(d.tip)}</div>`;
+  c.innerHTML = h;
+}
+
+function rList(d, c, ep) {
+  if (!Array.isArray(d)) return rJSON(d, c);
+  if (!d.length) { c.innerHTML = '<div class="placeholder">暂无数据</div>'; return; }
+  const f = ep.f || {};
+  let h = '';
+  d.forEach((it, i) => {
+    const rank = it.rank || (i + 1);
+    const cls = rank <= 3 ? `top${rank}` : '';
+    const t = it[f.t] || it.title || '';
+    const l = it[f.l] || it.link || it.url || '';
+    const hot = f.h ? it[f.h] : '';
+    const desc = f.d ? it[f.d] : '';
+    let meta = '';
+    if (hot) meta += `<span class="hot">🔥 ${esc(String(hot))}</span>`;
+    h += `<div class="item"><span class="rank ${cls}">${rank}</span><div class="body">`;
+    h += l ? `<a href="${esc(l)}" target="_blank" rel="noopener">${esc(t)}</a>` : `<span class="t">${esc(t)}</span>`;
+    if (meta) h += `<div class="meta">${meta}</div>`;
+    if (desc) h += `<div class="desc">${esc(String(desc).slice(0, 80))}${String(desc).length > 80 ? '…' : ''}</div>`;
+    h += '</div></div>';
+  });
+  c.innerHTML = h;
+}
+
+function rDouban(d, c) {
+  if (!Array.isArray(d)) return rJSON(d, c);
+  let h = '';
+  d.forEach((it, i) => {
+    const rank = it.rank || (i + 1);
+    const cls = rank <= 3 ? `top${rank}` : '';
+    const l = it.url || it.link || '';
+    h += `<div class="item"><span class="rank ${cls}">${rank}</span><div class="body">`;
+    h += l ? `<a href="${esc(l)}" target="_blank" rel="noopener">${esc(it.title)}</a>` : `<span class="t">${esc(it.title)}</span>`;
+    let meta = '';
+    if (it.rating) meta += `⭐ ${esc(String(it.rating))} `;
+    if (it.rating_count) meta += `(${esc(String(it.rating_count))}) `;
+    if (it.card_subtitle) meta += ` · ${esc(it.card_subtitle)}`;
+    if (meta) h += `<div class="meta">${meta}</div>`;
+    h += '</div></div>';
+  });
+  c.innerHTML = h;
+}
+
+function rAINews(d, c) {
+  let h = '';
+  if (d.date) h += `<div class="news-header"><span>📅 ${esc(d.date)}</span></div>`;
+  (d.news || []).forEach((n, i) => {
+    h += `<div class="news-item"><span class="num">${i+1}</span>`;
+    h += n.link ? `<a href="${esc(n.link)}" target="_blank" rel="noopener">${esc(n.title)}</a>` : `<span class="nt">${esc(n.title)}</span>`;
+    h += '</div>';
+    if (n.summary) h += `<div class="desc" style="margin-left:22px;font-size:11px;color:var(--text-dim);margin-bottom:2px;">${esc(n.summary)}</div>`;
+  });
+  c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
+}
+
+function rHist(d, c) {
+  let h = `<div class="news-header"><span>📅 ${esc(d.month)}月${esc(d.day)}日</span></div>`;
+  (d.items || []).forEach(it => {
+    h += `<div class="news-item"><span class="num">${esc(it.year)}</span>`;
+    h += it.link ? `<a href="${esc(it.link)}" target="_blank" rel="noopener">${esc(it.title)}</a>` : `<span class="nt">${esc(it.title)}</span>`;
+    h += '</div>';
+  });
+  c.innerHTML = h;
+}
+
+function rKV(d, c, ep) {
+  let h = '<div class="kv">';
+  const entries = ep.keys ? ep.keys.map(k => [k, d[k]]) : Object.entries(d);
+  entries.forEach(([k, v]) => {
+    if (v == null || v === '') return;
+    let disp = typeof v === 'object' ? JSON.stringify(v) : Array.isArray(v) ? v.join(', ') : v;
+    h += `<div class="kv-row"><span class="k">${esc(k)}</span><span class="v">${esc(String(disp))}</span></div>`;
+  });
+  h += '</div>';
+  c.innerHTML = h;
+}
+
+function rObj(d, c, ep) {
+  let h = '<div class="kv">';
+  const entries = ep.keys ? ep.keys.map(k => [k, d[k]]) : Object.entries(d).slice(0, 10);
+  entries.forEach(([k, v]) => {
+    if (v == null || v === '') return;
+    let disp = typeof v === 'object' ? JSON.stringify(v) : v;
+    h += `<div class="kv-row"><span class="k">${esc(k)}</span><span class="v">${esc(String(disp))}</span></div>`;
+  });
+  h += '</div>';
+  c.innerHTML = h;
+}
+
+function rOG(d, c) {
+  let h = '';
+  if (d.image) h += `<div class="img-wrap"><img src="${esc(d.image)}" alt="og"></div>`;
+  h += '<div class="kv">';
+  if (d.title) h += `<div class="kv-row"><span class="k">标题</span><span class="v">${esc(d.title)}</span></div>`;
+  if (d.description) h += `<div class="kv-row"><span class="k">描述</span><span class="v">${esc(d.description)}</span></div>`;
+  h += '</div>';
+  c.innerHTML = h;
+}
+
+function rText(d, c, ep) {
+  const t = ep.dk ? d[ep.dk] : (typeof d === 'string' ? d : JSON.stringify(d, null, 2));
+  c.innerHTML = `<div class="text-block">${esc(t)}</div>`;
+}
+
+function rColor(d, c) {
+  let h = `<div class="swatch" style="background:${esc(d.hex||'#000')}"></div><div class="kv">`;
+  ['hex','name','rgb','hsl','brightness'].forEach(k => {
+    const v = d[k];
+    if (v == null) return;
+    h += `<div class="kv-row"><span class="k">${esc(k)}</span><span class="v">${esc(typeof v==='object'?JSON.stringify(v):v)}</span></div>`;
+  });
+  h += '</div>';
+  c.innerHTML = h;
+}
+
+function rPalette(d, c) {
+  let h = '';
+  if (d.input) {
+    h += `<div class="swatch" style="background:${esc(d.input.hex||'#000')}"></div>`;
+    h += `<div class="kv-row"><span class="k">输入</span><span class="v">${esc(d.input.hex||'')} ${esc(d.input.name||'')}</span></div>`;
+  }
+  if (d.palettes) {
+    d.palettes.slice(0, 4).forEach(p => {
+      h += `<div style="font-size:11px;font-weight:600;margin:8px 0 4px;">${esc(p.name||'')}</div><div class="palette-grid">`;
+      (p.colors||[]).forEach(col => {
+        h += `<div class="palette-chip"><div class="c" style="background:${esc(col.hex)}"></div>${esc(col.hex)}</div>`;
+      });
+      h += '</div>';
+    });
+  }
+  c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
+}
+
+function rPwd(d, c) {
+  c.innerHTML = `<div class="pwd-box" onclick="navigator.clipboard.writeText('${esc(d.password)}').then(()=>{this.classList.add('copied');this.innerText='已复制 ✓';setTimeout(()=>{this.classList.remove('copied');this.innerText='${esc(d.password)}'},1500)})">${esc(d.password)}</div>
+    <div class="kv" style="margin-top:8px;"><div class="kv-row"><span class="k">长度</span><span class="v">${d.length}</span></div>
+    <div class="kv-row"><span class="k">字符集</span><span class="v">${esc((d.character_sets||[]).join(', ')||'-')}</span></div></div>`;
+}
+
+function rFanyi(d, c) {
+  let h = '';
+  if (d.source) h += `<div class="kv-row"><span class="k">原文</span><span class="v">${esc(d.source.text)} <span style="color:var(--text-dim);font-size:10px;">[${esc(d.source.type_desc)}]</span></span></div>`;
+  if (d.target) h += `<div style="padding:8px 10px;background:var(--accent-bg);border-left:2px solid var(--accent);border-radius:4px;margin:6px 0;"><div style="font-size:13px;">${esc(d.target.text)}</div><div style="font-size:10px;color:var(--text-dim);margin-top:2px;">[${esc(d.target.type_desc)}]${d.target.pronounce?' · '+esc(d.target.pronounce):''}</div></div>`;
+  c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
+}
+
+function rLyric(d, c) {
+  if (!d) { c.innerHTML = '<div class="placeholder">未找到歌词</div>'; return; }
+  let h = `<div class="kv-row"><span class="k">🎵</span><span class="v">${esc(d.title)} - ${esc((d.artists||[]).join(', '))}</span></div>`;
+  if (d.album) h += `<div class="kv-row"><span class="k">专辑</span><span class="v">${esc(d.album)}</span></div>`;
+  if (d.formatted) h += `<div class="text-block" style="margin-top:6px;">${esc(d.formatted)}</div>`;
+  c.innerHTML = h;
+}
+
+function rHash(d, c) {
+  let h = `<div class="kv-row"><span class="k">原文</span><span class="v">${esc(d.source)}</span></div>`;
+  if (d.md5) h += `<div class="kv-row"><span class="k">MD5</span><span class="v mono">${esc(d.md5)}</span></div>`;
+  if (d.sha) Object.entries(d.sha).forEach(([k, v]) => h += `<div class="kv-row"><span class="k">${k.toUpperCase()}</span><span class="v mono">${esc(v)}</span></div>`);
+  if (d.base64) Object.entries(d.base64).forEach(([k, v]) => h += `<div class="kv-row"><span class="k">b64-${k}</span><span class="v mono" style="word-break:break-all;">${esc(v)}</span></div>`);
+  c.innerHTML = '<div class="kv">' + h + '</div>';
+}
+
+function rWeather(d, c) {
+  let h = '';
+  if (d.location) h += `<div class="kv-row"><span class="k">📍</span><span class="v">${esc(d.location.name||'')} ${esc(d.location.city||'')}</span></div>`;
+  if (d.weather) {
+    const w = d.weather;
+    h += '<div class="weather-main">';
+    if (w.temperature != null) h += `<div class="weather-temp">${esc(String(w.temperature))}°</div>`;
+    h += '<div class="weather-info">';
+    if (w.weather) h += `${esc(w.weather)}<br>`;
+    if (w.humidity) h += `湿度 ${esc(String(w.humidity))} · `;
+    if (w.windDirection) h += `${esc(w.windDirection)}`;
+    if (w.windSpeed) h += ` ${esc(String(w.windSpeed))}`;
+    h += '</div></div>';
+  }
+  if (d.air_quality) {
+    const a = d.air_quality;
+    h += `<div class="kv-row"><span class="k">空气质量</span><span class="v">AQI ${esc(String(a.aqi||a.AQI||''))} ${esc(a.category||a.level||'')}</span></div>`;
+  }
+  c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
+}
+
+function rWeatherFC(d, c) {
+  let h = '';
+  if (d.location) h += `<div class="kv-row"><span class="k">📍</span><span class="v">${esc(d.location.name||'')} ${esc(d.location.city||'')}</span></div>`;
+  const fc = d.hourly_forecast || d.daily_forecast || d.forecast || [];
+  if (Array.isArray(fc)) {
+    fc.slice(0, 10).forEach(f => {
+      h += `<div class="item"><span class="rank">📅</span><div class="body"><span class="t">${esc(f.datetime||f.date||'')}</span><div class="meta">${esc(f.weather||f.text||'')} ${esc(String(f.temperature||f.temp||''))}°${f.humidity?' · 💧'+esc(String(f.humidity)):''}</div></div></div>`;
+    });
+  }
+  c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
+}
+
+function rFuel(d, c) {
+  let h = `<div class="kv-row"><span class="k">📍</span><span class="v">${esc(d.region||'')}</span></div>`;
+  if (d.trend && d.trend.description) h += `<div class="kv-row"><span class="k">趋势</span><span class="v">${esc(d.trend.description)}</span></div>`;
+  if (d.items) {
+    d.items.forEach(it => {
+      h += `<div class="item"><span class="rank">⛽</span><div class="body"><span class="t">${esc(it.name)}</span> <span class="hot">${esc(it.price_desc||it.price||'')}</span></div></div>`;
+    });
+  }
+  if (d.link) h += `<div style="margin-top:6px;font-size:11px;"><a href="${esc(d.link)}" target="_blank" rel="noopener">详情 →</a></div>`;
+  c.innerHTML = h;
+}
+
+function rGold(d, c) {
+  let h = '';
+  if (d.date) h += `<div class="kv-row"><span class="k">📅</span><span class="v">${esc(d.date)}</span></div>`;
+  if (d.metals) {
+    d.metals.slice(0, 5).forEach(m => {
+      h += `<div class="item"><span class="rank">🥇</span><div class="body"><span class="t">${esc(m.name)}</span><div class="meta">现价 ¥${esc(m.today_price||m.sell_price||'')}/g · 高 ¥${esc(m.high_price||'')} · 低 ¥${esc(m.low_price||'')}</div></div></div>`;
+    });
+  }
+  c.innerHTML = h || rJSON(d, c, true);
+}
+
+function rLunar(d, c) {
+  let h = '<div class="kv">';
+  const s = d.solar || {}, l = d.lunar || {};
+  if (s.full) h += `<div class="kv-row"><span class="k">公历</span><span class="v">${esc(s.full)} ${esc(s.week_desc||'')}</span></div>`;
+  if (l.desc_short) h += `<div class="kv-row"><span class="k">农历</span><span class="v">${esc(l.desc_short)}</span></div>`;
+  [['zodiac','生肖'],['term','节气'],['constellation','星座'],['festival','节日'],['phase','月相'],['fortune','运势']].forEach(([k,label]) => {
+    if (d[k]) h += `<div class="kv-row"><span class="k">${label}</span><span class="v">${esc(String(d[k]))}</span></div>`;
+  });
+  h += '</div>';
+  c.innerHTML = h;
+}
+
+function rBing(d, c) {
+  let h = '';
+  if (d.cover) h += `<div class="img-wrap"><img src="${esc(d.cover)}" alt="bing"></div>`;
+  h += '<div class="kv">';
+  if (d.copyright) h += `<div class="kv-row"><span class="k">描述</span><span class="v">${esc(d.copyright)}</span></div>`;
+  if (d.update_date) h += `<div class="kv-row"><span class="k">日期</span><span class="v">${esc(d.update_date)}</span></div>`;
+  h += '</div>';
+  c.innerHTML = h;
+}
+
+function rEpic(d, c) {
+  if (!Array.isArray(d)) return rJSON(d, c);
+  let h = '';
+  d.forEach(g => {
+    h += '<div class="game-card">';
+    if (g.cover) h += `<div class="img-wrap"><img src="${esc(g.cover)}" alt="${esc(g.title)}"></div>`;
+    h += `<div class="game-title">🎮 ${esc(g.title)}</div>`;
+    if (g.description) h += `<div class="desc">${esc(g.description.slice(0, 80))}…</div>`;
+    if (g.is_free_now) h += '<span class="game-free">免费</span>';
+    if (g.free_end) h += ` <span style="font-size:10px;color:var(--warn);">截止 ${esc(g.free_end)}</span>`;
+    if (g.link) h += `<div style="margin-top:4px;"><a href="${esc(g.link)}" target="_blank" rel="noopener" style="font-size:11px;">领取 →</a></div>`;
+    h += '</div>';
+  });
+  c.innerHTML = h;
+}
+
+function rNCM(d, c) {
+  if (!Array.isArray(d)) return rJSON(d, c);
+  let h = '';
+  d.slice(0, 15).forEach((r, i) => {
+    const cls = i < 3 ? `top${i+1}` : '';
+    h += `<div class="item"><span class="rank ${cls}">${i+1}</span><div class="body">`;
+    h += r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.name)}</a>` : `<span class="t">${esc(r.name)}</span>`;
+    if (r.update_frequency) h += `<div class="meta">🔄 ${esc(r.update_frequency)}</div>`;
+    h += '</div></div>';
+  });
+  c.innerHTML = h;
+}
+
+function rMaoyan(d, c) {
+  let h = '';
+  if (d.update_time) h += `<div class="kv-row"><span class="k">📅</span><span class="v">${esc(d.update_time)}</span></div>`;
+  const m = d.movie || d;
+  if (m.box_office_desc) h += `<div class="kv-row"><span class="k">总票房</span><span class="v" style="font-size:15px;font-weight:700;color:var(--warn);">${esc(m.box_office_desc||'')}</span></div>`;
+  if (m.list) {
+    m.list.slice(0, 10).forEach((it, i) => {
+      const cls = i < 3 ? `top${i+1}` : '';
+      h += `<div class="item"><span class="rank ${cls}">${i+1}</span><div class="body"><span class="t">${esc(it.movie_name)}</span><div class="meta">票房 ${esc(it.box_office_desc||'')} · ${esc(it.sum_box_desc||'')} <span class="hot">🔥${esc(it.box_rate||'')}</span></div></div></div>`;
+    });
+  }
+  c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
+}
+
+function rMoyu(d, c) {
+  let h = '';
+  if (d.today) h += `<div class="kv-row"><span class="k">📅</span><span class="v">${esc(d.today.isWorkday?'工作日':'休息日')}</span></div>`;
+  if (d.progress) {
+    [['week','本周'],['month','本月'],['year','本年']].forEach(([k, label]) => {
+      const p = d.progress[k];
+      if (p && p.percentage != null) {
+        h += `<div class="kv-row"><span class="k">${label}</span><span class="v">${esc(String(p.percentage))}% (${esc(String(p.passed))}/${esc(String(p.total))})</span></div>`;
+        h += `<div class="progress-bar"><div class="progress-fill" style="width:${p.percentage}%"></div></div>`;
+      }
+    });
+  }
+  if (d.moyuQuote) h += `<div class="news-tip">🐟 ${esc(d.moyuQuote)}</div>`;
+  c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
+}
+
+function rWhois(d, c) {
+  let h = '<div class="kv">';
+  [['domain','域名'],['registrar','注册商'],['created','创建日期'],['updated','更新日期'],['expires','过期日期']].forEach(([k, label]) => {
+    const v = d[k];
+    if (v == null) return;
+    const disp = Array.isArray(v) ? v.join(', ') : v;
+    h += `<div class="kv-row"><span class="k">${label}</span><span class="v">${esc(String(disp))}</span></div>`;
+  });
+  if (d.status && d.status.length) h += `<div class="kv-row"><span class="k">状态</span><span class="v">${esc(d.status.join(', '))}</span></div>`;
+  h += '</div>';
+  c.innerHTML = h;
+}
+
+function rJS(d, c) {
+  let h = `<div style="font-weight:600;font-size:12px;margin-bottom:6px;">${esc(d.question||'')}</div>`;
+  if (d.code) h += `<div class="json-view">${esc(d.code)}</div>`;
+  if (d.options) {
+    h += '<div style="margin-top:6px;">';
+    d.options.forEach((opt, i) => {
+      const isAns = d.answer === i || d.answer === opt;
+      h += `<div style="padding:3px 8px;margin:2px 0;border-radius:4px;font-size:12px;${isAns?'background:rgba(52,211,153,0.12);color:var(--success);':'background:var(--bg);'}">${String.fromCharCode(65+i)}. ${esc(opt)} ${isAns?'✓':''}</div>`;
+    });
+    h += '</div>';
+  }
+  if (d.explanation) h += `<div class="desc" style="margin-top:6px;">${esc(d.explanation)}</div>`;
+  c.innerHTML = h;
+}
+
+function rExchange(d, c) {
+  let h = `<div class="kv-row"><span class="k">基准</span><span class="v">${esc(d.base_code||'')}</span></div>`;
+  if (d.rates) {
+    const popular = ['USD','EUR','JPY','GBP','HKD','KRW','AUD','CAD','SGD','TWD'];
+    const map = {};
+    d.rates.forEach(r => { map[r.currency] = r.rate; });
+    h += '<div class="kv" style="margin-top:4px;">';
+    popular.forEach(code => {
+      if (map[code] != null) h += `<div class="kv-row"><span class="k">${code}</span><span class="v">${esc(String(map[code]))}</span></div>`;
+    });
+    h += '</div>';
+  }
+  if (d.updated) h += `<div class="meta" style="margin-top:6px;">更新于 ${esc(d.updated)}</div>`;
+  c.innerHTML = h;
+}
+
+function rJSON(d, c) {
+  c.innerHTML = `<div class="json-view">${esc(JSON.stringify(d, null, 2))}</div>`;
+}
+
+// ============ 流动多边形网格背景 ============
+  const cv = document.getElementById('meshCanvas');
+  const cx = cv.getContext('2d');
+  let pts = [];
+  let meshW = 0, meshH = 0;
+  const SPACING = 130; // 网格间距
+  let rafId = null;
+
+  function getMeshColors() {
+    const dark = document.documentElement.dataset.theme === 'dark';
+    return {
+      line: dark ? 'rgba(99,102,241,0.07)' : 'rgba(99,102,241,0.06)',
+      lineNear: dark ? 'rgba(129,140,248,0.14)' : 'rgba(99,102,241,0.12)',
+      dot: dark ? 'rgba(129,140,248,0.5)' : 'rgba(99,102,241,0.25)',
+      glow: dark ? 'rgba(99,102,241,0.03)' : 'rgba(99,102,241,0.02)',
+    };
+  }
+
+  function initMesh() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    meshW = window.innerWidth;
+    meshH = window.innerHeight;
+    cv.width = meshW * dpr;
+    cv.height = meshH * dpr;
+    cv.style.width = meshW + 'px';
+    cv.style.height = meshH + 'px';
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // 生成网格点，每个点有原始位置和偏移
+    pts = [];
+    const cols = Math.ceil(meshW / SPACING) + 2;
+    const rows = Math.ceil(meshH / SPACING) + 2;
+    for (let i = 0; i < cols; i++) {
+      for (let j = 0; j < rows; j++) {
+        const ox = (i - 1) * SPACING;
+        const oy = (j - 1) * SPACING;
+        pts.push({
+          ox, oy, x: ox, y: oy,
+          // 每个点独立的浮动参数
+          phase: Math.random() * Math.PI * 2,
+          speed: 0.0003 + Math.random() * 0.0005,
+          amp: 15 + Math.random() * 25,
+        });
+      }
+    }
+  }
+
+  function drawMesh(ts) {
+    cx.clearRect(0, 0, meshW, meshH);
+    const colors = getMeshColors();
+    const maxDist = SPACING * 1.6;
+
+    // 更新点位置
+    for (const p of pts) {
+      p.x = p.ox + Math.cos(ts * p.speed + p.phase) * p.amp;
+      p.y = p.oy + Math.sin(ts * p.speed * 1.3 + p.phase) * p.amp;
+    }
+
+    // 画连线
+    cx.lineWidth = 1;
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const dx = pts[i].x - pts[j].x;
+        const dy = pts[i].y - pts[j].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < maxDist) {
+          const alpha = 1 - dist / maxDist;
+          cx.strokeStyle = colors.line;
+          cx.globalAlpha = alpha;
+          cx.beginPath();
+          cx.moveTo(pts[i].x, pts[i].y);
+          cx.lineTo(pts[j].x, pts[j].y);
+          cx.stroke();
+        }
+      }
+    }
+
+    // 画节点
+    cx.globalAlpha = 1;
+    for (const p of pts) {
+      cx.fillStyle = colors.dot;
+      cx.beginPath();
+      cx.arc(p.x, p.y, 1.8, 0, Math.PI * 2);
+      cx.fill();
+    }
+
+    rafId = requestAnimationFrame(drawMesh);
+  }
+
+  // 主题切换时刷新颜色（无需重建网格）
+  const observer = new MutationObserver(() => { /* 颜色在 drawMesh 内实时读取，自动适配 */ });
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  initMesh();
+  rafId = requestAnimationFrame(drawMesh);
+
+  // 窗口缩放时重建
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      cancelAnimationFrame(rafId);
+      initMesh();
+      rafId = requestAnimationFrame(drawMesh);
+    }, 200);
+  });
+
+  // 页面不可见时暂停动画，节省资源
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    } else if (!rafId) {
+      rafId = requestAnimationFrame(drawMesh);
+    }
+  });
+
+init();
+</script>
+</body>
+</html>

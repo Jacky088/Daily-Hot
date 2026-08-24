@@ -1,200 +1,165 @@
-# ⏰ 60s API
+# 🔥 每日热榜
 
-> [!IMPORTANT]
-> 
-> 公共 API 已迁移到 Cloudflare Workers，每日额度有限，有能力建议自行部署，~~也可以给我 V 个 Pro 套餐，加点请求额度~~。
+> 一站看完天下事 · 基于 [60s API](https://github.com/vikiboss/60s) 构建的一站式热榜聚合面板
 
-![Update Status](https://github.com/vikiboss/60s-static-host/workflows/schedule/badge.svg) ![GitHub](https://img.shields.io/github/v/release/vikiboss/60s?label=GitHub) ![Docker](https://img.shields.io/docker/v/vikiboss/60s?style=flat&label=Docker) ![Node.js](https://img.shields.io/badge/Node.js-6DA55F?logo=node.js&logoColor=white) ![Bun](https://img.shields.io/badge/Bun-%23000000.svg?logo=bun&logoColor=white) ![Deno](https://img.shields.io/badge/Deno-000000?logo=deno&logoColor=white) [![群](https://img.shields.io/badge/%E4%BC%81%E9%B9%85%E7%BE%A4-595941841-ff69b4)](https://qm.qq.com/q/RpJXzgfAMG)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white) ](https://workers.cloudflare.com/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white) ](https://docker.com/)
+[![License](https://img.shields.io/badge/license-MIT-green) ](./license)
 
-<a href="https://hellogithub.com/repository/vikiboss/60s" target="_blank" ref="noreferrer noopener" ><img src="https://api.hellogithub.com/v1/widgets/recommend.svg?rid=8e9af473df2244f59d84b79915298fcc&claim_uid=wXMelR56paDoO2x&theme=dark" alt="Featured｜HelloGitHub" style="width: 250px; height: 54px;" width="250" height="54" /></a>
+聚合 40+ 个热门数据源，一个页面看遍全网热点。涵盖新闻资讯、影视娱乐、实用工具、生活信息、趣味内容和翻译，部署即用，支持 Cloudflare Workers 和 Docker。
 
-一系列 **高质量、开源、可靠、全球 CDN 加速** 的开放 API 集合，让你用最简单的方式获取最准确的数据。构建于现代技术栈 [Deno](https://deno.com/)，托管在 [Deno Deploy](https://deno.com/deploy)，同时支持 [Docker](https://docker.com)、[Cloudflare Workers](https://www.cloudflare.com/zh-cn/developer-platform/products/workers/)、[Bun](https://bun.sh/) 和 [Node.js](https://nodejs.org/) 等多种部署方式。
+## ✨ 功能特性
 
-## 🎯 项目起源
+### 📰 全网热榜聚合
 
-本项目最早源于 [这篇博客文章](https://blog.viki.moe/60s) 中提到的想法。随着项目的发展，逐渐演变成一个多功能的开放 API 平台，旨在为开发者提供便捷的数据获取方式。
+一个面板覆盖 40+ 个数据源，按 6 大分类组织：
 
-## 🌍 读懂世界 · 每天 60 秒读懂世界
+| 分类 | 包含接口 |
+| ---- | -------- |
+| 📰 新闻资讯 | 60 秒读懂世界、微博热搜、知乎热榜、B 站热门、抖音热点、今日头条、百度热搜/电视剧/贴吧、豆瓣电影周榜、Hacker News、IT 资讯、AI 新闻、历史上的今天、小红书 |
+| 🎬 影视娱乐 | 猫眼票房、Epic 免费游戏、网易云排行榜、歌词搜索、唱鸭、摸鱼日历 |
+| 🛠️ 实用工具 | 二维码生成、哈希加密、网页 OG 信息、IP 查询、WHOIS 查询、密码生成/检测、随机颜色、配色方案、化学元素 |
+| 🌤️ 生活信息 | 实时天气、天气预报、汇率、油价、金价、农历信息 |
+| 🎯 趣味内容 | 段子、冷笑话、一言、KFC 疯狂星期四、发病文案、今日运势、答案之书、必应壁纸、JS 题目、夸克网盘资源 |
+| 🔤 翻译 | 有道翻译（支持 109 种语言下拉选择） |
 
-本项目的 **核心功能**：获取每日精选新闻，让你快速了解世界大事。
+### 🎨 体验设计
 
-**📡 API 调用示例**
+- **🌙 日间 / 夜间模式** — 默认夜间，一键切换，自动记忆偏好
+- **🕸️ 流动网格背景** — Canvas 动态多边形网状结构，适配双主题
+- **📱 移动端适配** — 触屏友好控件，响应式布局，分类导航自动滚动居中
+- **🔗 链接可跳转** — 所有带原链接的数据均可点击跳转到来源页面
+- **⚡ 智能加载** — 无参数接口自动加载，有参数接口提供输入控件
+- **🏆 排行榜样式** — 前三名金银铜渐变色块，热度数值高亮
+- **🔄 刷新记忆** — F5 刷新停留在当前分类，不会跳回首页
 
-> 主域名 (60s.viki.moe) 每日请求额度有限，限流配置较严格，仅供开发调试使用。生产环境建议自行部署，或使用他人分享的 [公共实例](https://docs.60s-api.viki.moe/7306811m0)。
+## 🚀 部署
+
+### Cloudflare Workers（推荐）
 
 ```bash
-# JSON 格式 (默认)
-curl "https://60s.viki.moe/v2/60s"
-
-# 纯文本格式
-curl "https://60s.viki.moe/v2/60s?encoding=text"
-
-# 原图直链 (重定向到数据仓库原图 CDN 直链)
-curl "https://60s.viki.moe/v2/60s?encoding=image" --location --output "$(date +%Y-%m-%d).png"
-
-# 代理直链 (代理请求，直接返回图片二进制数据)
-curl "https://60s.viki.moe/v2/60s?encoding=image-proxy" --output "$(date +%Y-%m-%d).png"
+git clone <your-repo-url>
+cd daily-hot
+npm install
+npx wrangler deploy
 ```
 
-**📊 数据特性**
+部署完成后访问 Worker 域名即可使用。静态前端通过 `wrangler.toml` 的 `[assets]` 配置自动服务，API 请求由 Worker 脚本处理。
 
-- **数据源**: 微信公众号，详情参考 [这里](https://github.com/vikiboss/60s-static-host/blob/main/src/constants.ts#L4-L12)
-- **更新频率**: 每半小时自动尝试更新，正常情况最晚上午 10 点会更新
-- **数据处理**: [vikiboss/60s-static-host](https://github.com/vikiboss/60s-static-host) 仓库定时利用 Gemini 大模型精准抓取
-- **响应速度**: 毫秒级缓存响应，全球 CDN 加速
-- **内容质量**: 精选 15 条国内外优质新闻 + 每日微语
-
-**💡 使用场景**
-
-- 📱 移动应用新闻模块
-- 🖥️ 网站首页资讯展示  
-- 🤖 聊天机器人新闻推送
-- 📧 邮件订阅日报生成
-- 🔔 桌面通知提醒
-
-## 🤖 Agent Skills
-
-本项目支持 Agent Skills 方式调用，你可以在 [skills.sh](https://skills.sh/?q=vikiboss) 查看相关 skills，更多详情可参考 [vikiboss/60s-skills](https://github.com/vikiboss/60s-skills) 源码仓库，欢迎贡献。
-
-## 🎯 API 设计理念
-
-- **权威数据源** - 优先选择官方、权威的数据来源，确保信息准确性
-- **毫秒级响应** - 部分接口采取智能缓存策略，用户无感的高速响应体验
-- **开发者友好** - 统一的 API 设计，简洁的参数结构，完善的文档支持
-
-## 📚 完整 API 列表与文档
-
-完整 API 文档托管在 [Apifox](https://docs.60s-api.viki.moe)，持续更新中，欢迎贡献。
-
----
-
-## 🚀 快速开始
-
-你可以通过 [API 文档](https://docs.60s-api.viki.moe) 中提供的 [官方实例](https://60s.viki.moe) 或者 [社区公共实例](https://docs.60s-api.viki.moe/7306811m0) 快速开始。如果你想要更多的**掌控感**和**稳定性保证**，也可以通过下面的方式自行部署。
-
-### 📦 一键部署
-
-**Docker 方式（推荐）**
+### Docker
 
 ```bash
 docker run -d \
   --restart always \
-  --name 60s \
+  --name daily-hot \
   -p 4399:4399 \
-  vikiboss/60s:latest
+  daily-hot:latest
 ```
 
-**其他 JS/TS 运行时（备选）**
+访问 `http://localhost:4399` 使用面板和 API。Docker 模式通过内置 `static-assets` 中间件服务前端页面，开箱即用。
+
+### 本地开发
 
 ```bash
-# Deno
-deno install && deno run -A deno.ts
-
-# Bun
-bun install && bun run bun.ts
-
 # Node.js (需要 v22.6+)
-npm install && node --experimental-strip-types node.ts
+npm install
+npm run dev          # 开发模式，端口 4398
+npm start            # 生产模式，端口 4398
+
+# 或直接部署到 Workers
+npx wrangler deploy
 ```
 
-### ☁️ 云端部署
+## ⚙️ 配置
 
-**Cloudflare Workers**
+所有环境变量均为**可选**，不设置也能正常运行：
 
-方式一，使用 Workers 的可视化界面：
+| 变量名 | 默认值 | 说明 |
+| ------ | ------ | ---- |
+| `PORT` | `4399` | 监听端口（仅 Docker / Node 模式） |
+| `HOST` | `0.0.0.0` | 监听地址（仅 Docker / Node 模式） |
+| `DEBUG` | `false` | 开启调试日志 |
+| `OVERSEAS_FIRST` | `false` | CDN 优先级（`true` 海外优先） |
+| `ENCODING_PARAM_NAME` | `encoding` | 响应格式参数名 |
+| `BLACKLIST_IPS` | `[]` | IP 黑名单，JSON 字符串格式 |
 
-1. [Fork 本仓库](https://github.com/vikiboss/60s/fork)
-2. 在 [Cloudflare Workers](https://workers.cloudflare.com/) 通过 GitHub 创建项目
-3. 使用默认配置直接部署
+## 📡 API 使用
 
-> 仓库已预置 Workers 配置，无需额外设置。后续更新只需同步主仓库即可。
-
-方式二，命令行操作，clone 本仓库然后执行：
+部署后，根路径 `/` 返回前端面板，`/v2/*` 返回 API 数据。
 
 ```bash
-npm install && npx wrangler publish
+# 60 秒读懂世界（JSON，默认）
+curl "https://your-domain/v2/60s"
+
+# 纯文本格式
+curl "https://your-domain/v2/60s?encoding=text"
+
+# 微博热搜
+curl "https://your-domain/v2/weibo"
+
+# 实时天气
+curl "https://your-domain/v2/weather/realtime?city=北京"
+
+# 查看全部接口列表
+curl "https://your-domain/endpoints"
 ```
 
----
+所有接口支持 `encoding=json`（默认）/ `text` / `markdown` 三种返回格式。
 
-## 📋 数据更新机制
+## 🏗️ 技术架构
 
-![数据流架构图](./images/arch.png)
+```
+前端面板                          后端 API
+┌──────────────────┐            ┌──────────────────────┐
+│  单页 HTML/CSS/JS │            │  Oak Framework (TS)   │
+│  ├ Canvas 网格背景 │            │  ├ 40+ 模块化接口     │
+│  ├ 响应式布局     │  ── API ──→│  ├ 中间件链           │
+│  ├ 日夜间主题     │            │  ├ 静态资源服务       │
+│  └ 无框架依赖     │            │  └ 多运行时入口       │
+└──────────────────┘            └──────────────────────┘
+        │                                │
+        ├─ Workers: [assets] 配置        ├─ Workers: cf-worker.ts
+        └─ Docker: static-assets 中间件  ├─ Docker: node.ts
+                                         ├─ Deno: deno.ts
+                                         └─ Bun: bun.ts
+```
 
-### 🔄 更新策略
-- **数据抓取**: GitHub Actions 定时任务
-- **存储方式**: 静态 JSON 文件 + CDN 缓存  
-- **更新频率**: 每日自动更新
+**技术栈：**
 
-> 可视化架构图: [60s 更新策略 - Excalidraw](https://excalidraw.com/#json=VRffPBlMuFBkOlTbGe7IH,0C6yClfLME65ZhmQ30ywdg)
+- **后端**：TypeScript + [Oak](https://oakserver.github.io/oak/) 框架
+- **前端**：纯 HTML/CSS/JS，无框架依赖
+- **数据源**：[vikiboss/60s](https://github.com/vikiboss/60s) + [60s-static-host](https://github.com/vikiboss/60s-static-host)
+- **部署**：Cloudflare Workers / Docker / Node.js / Deno / Bun
 
----
+## 📋 项目结构
 
-## 🤝 社区与支持
+```
+.
+├── public/
+│   └── index.html          # 前端面板（单文件，含全部 UI 逻辑）
+├── src/
+│   ├── app.ts              # Oak 应用入口 + 中间件注册
+│   ├── config.ts           # 环境变量配置
+│   ├── common.ts           # 通用工具函数
+│   ├── router.ts           # 路由集中注册
+│   ├── middlewares/        # 中间件（CORS/错误处理/静态资源等）
+│   └── modules/            # 40+ API 模块
+├── cf-worker.ts            # Cloudflare Workers 入口
+├── node.ts                 # Node.js 入口
+├── deno.ts                 # Deno 入口
+├── bun.ts                  # Bun 入口
+├── wrangler.toml           # Cloudflare Workers 配置
+├── Dockerfile              # Docker 构建文件
+└── package.json
+```
 
-### 🙏 致谢
+## 🙏 致谢
 
-本项目的部分代码、灵感、实现方式等参考了以下优秀开源项目，排名不分先后：
+本项目基于以下开源项目构建：
 
-- [DIYgod/RSSHub](https://github.com/DIYgod/RSSHub)
-- [Rankslive/RanksLiveApi](https://github.com/Rankslive/RanksLiveApi)
+- **[vikiboss/60s](https://github.com/vikiboss/60s)** — 提供 40+ 个 API 接口
+- **[vikiboss/60s-static-host](https://github.com/vikiboss/60s-static-host)** — 每日新闻数据源（Gemini 大模型抓取）
 
-### 💬 交流
+## 🪪 License
 
-- **QQ 群**: [![加入群聊](https://img.shields.io/badge/%E4%BC%81%E9%B5%9D%E7%BE%A4-595941841-ff69b4)](https://qm.qq.com/q/RpJXzgfAMG) (问题反馈、使用交流)
-- **GitHub**: [Issues](https://github.com/vikiboss/60s/issues) (Bug 报告、功能建议)
-- **文档**: [API 文档](https://docs.60s-api.viki.moe) (详细使用说明)
-
-## 💰 赞赏项目
-
-如果觉得这个项目对你有帮助，欢迎请我喝咖啡 ☕️
-
-> 采取**自愿**原则, 收到的赞赏将用于提高开发者积极性和开发环境。
-
-<div id='readme-reward' style="display: flex; gap: 8px; flex-wrap: wrap; width: 100%">
-  <img src="https://s2.loli.net/2022/11/16/X2kFMdaxvSc1V5P.jpg" alt="wxpay" height="160px"style="margin: 24px;"/>
-  <img src="https://s2.loli.net/2022/11/16/vZ4xkCopKRmIFVX.jpg" alt="alipay" height="160px" style="margin:24px;"/>
-</div>
-
-
-<details>
-<summary>感谢以下小伙伴的赞赏（点击展开/收起，排名不分先后）</summary>
-
-<!-- 表格 -->
-|           赞赏人            |  金额  |  途径  |                  备注                  |
-| :-------------------------: | :----: | :----: | :------------------------------------: |
-|           Update            |  6.66  | WeChat |           感谢大佬的开源分享           |
-|            匿名             |  0.01  | WeChat |                   -                    |
-|         月夜忆江南          |  5.00  | WeChat |                   -                    |
-|            匿名             |  1.66  | WeChat |                   -                    |
-|         GoooodJooB7         |  1.66  | WeChat |              谢谢大佬开源              |
-|            匿名             |  1.66  | WeChat |                   -                    |
-| 十七岁就学会吃饭的天才少年  |  5.00  | WeChat |                   -                    |
-|          Sundrops           |  1.66  | WeChat |             感谢友友的接口             |
-|        春风伴我余生         | 10.00  | WeChat |                   -                    |
-|             杰              |  1.00  | WeChat |                   -                    |
-|            Blue             |  6.66  | WeChat |           Blue 祝开发者 6666           |
-|           聆听、            | 10.00  | WeChat |           喝杯咖啡，记得加冰           |
-|            匿名             | 100.00 | WeChat |                 好项目                 |
-| 卤蛋 （HelloGitHub 发起人） | 88.88  | WeChat |      很喜欢你的项目，加油 ^ O ^ ~      |
-|             Lee             |  6.66  | WeChat |                感谢分享                |
-|          世界和平           | 66.00  | WeChat |           世界需要更多的英雄           |
-|         севастополь         |  6.66  | WeChat |                买包辣条                |
-|             爪              |  2.00  | WeChat |                   -                    |
-|             LMQ             | 18.80  | WeChat | 大佬的响应速度，我泪目了，请大佬喝咖啡 |
-|             ---             |  ---   |  ---   |                  ---                   |
-|             *斌             | 12.90  | Alipay |                   -                    |
-|             *杰             | 20.00  | Alipay |                   -                    |
-|            **杰             |  9.90  | Alipay |                   -                    |
-|             *瑞             | 666.66 | Alipay |               100 杯咖啡               |
-|             ---             |  ---   |  ---   |                  ---                   |
-|             Ko.             | 11.66  |   QQ   |                   -                    |
-|           yijiong           | 15.00  |   QQ   |            a cup of coffee             |
-
-> 如有遗漏，欢迎通过 issue 或者 QQ 群 595941841 反馈。
-
-</details>
-
-## 🪪 License （开源协议）
-
-[MIT](license) License © 2022-PRESENT Viki
+[MIT](./license) License © 2022-PRESENT 木木

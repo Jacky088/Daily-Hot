@@ -9,11 +9,14 @@ import { debug } from './middlewares/debug.ts'
 import { blacklist } from './middlewares/blacklist.ts'
 import { encoding } from './middlewares/encoding.ts'
 import { handleGlobalError } from './middlewares/handle-global-error.ts'
+import { staticAssets } from './middlewares/static-assets.ts'
 
 export const app = new Application()
 
 app.use(handleGlobalError())
 app.use(blacklist(), debug(), cors(), favicon(), encoding())
+
+app.use(staticAssets())
 
 app.use(rootRouter.routes(), rootRouter.allowedMethods())
 app.use(appRouter.routes(), appRouter.allowedMethods())

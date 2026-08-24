@@ -1,1 +1,7 @@
 node_modules
+.git
+.github
+CLAUDE.md
+COPILOT.md
+readme.md
+scripts

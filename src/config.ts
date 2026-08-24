@@ -2,7 +2,7 @@ export const config = {
   host: process.env.HOST || '0.0.0.0',
   port: process.env.PORT ? +process.env.PORT : 4399,
   group: '595941841',
-  author: 'Viki <hi@viki.moe>',
+  author: '木木',
   github: 'https://github.com/vikiboss/60s',
   debug: !!process.env.DEBUG,
   overseas_first: !!process.env.OVERSEAS_FIRST,

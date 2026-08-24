@@ -21,8 +21,8 @@ COPY . .
 FROM node:lts-alpine AS runner
 
 # 维护信息
-LABEL maintainer="Viki <hi@viki.moe> (https://github.com/vikiboss)"
-LABEL description="⏰ 60s API，每天 60 秒读懂世界｜一系列 高质量、开源、可靠 的开放 API 集合"
+LABEL maintainer="木木"
+LABEL description="🔥 每日热榜 · 一站看完天下事 · 基于 60s API 构建的一站式热榜聚合面板"
 
 # 设置工作目录
 WORKDIR /app
