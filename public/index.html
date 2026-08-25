@@ -361,7 +361,10 @@
   .weather-info { font-size: 13px; color: var(--text-dim); }
 
   @media (max-width: 640px) {
-    .header { padding: 10px 14px; }
+    .header { padding: 10px 14px; flex-wrap: wrap; gap: 10px; }
+    .header-left { flex: 1 1 100%; gap: 10px; }
+    .header-right { flex: 1 1 100%; justify-content: flex-end; }
+    .search-wrap { min-width: 0; max-width: none; }
     .main { padding: 14px; }
     .grid { grid-template-columns: 1fr; }
     .logo .subtitle { display: none; }
@@ -431,22 +434,20 @@ const EPS = [
   { cat:'news', id:'douyin', name:'抖音热点', icon:'🎵', path:'/v2/douyin', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
   { cat:'news', id:'toutiao', name:'今日头条', icon:'📰', path:'/v2/toutiao', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
   { cat:'news', id:'bdhot', name:'百度热搜', icon:'🔍', path:'/v2/baidu/hot', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'url', d:'desc'} },
-  { cat:'news', id:'bdtv', name:'百度电视剧榜', icon:'🎭', path:'/v2/baidu/teleplay', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'link'} },
   { cat:'news', id:'bdtieba', name:'百度贴吧热议', icon:'💬', path:'/v2/baidu/tieba', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'link', d:'abstract'} },
-  { cat:'news', id:'douban', name:'豆瓣电影周榜', icon:'🎬', path:'/v2/douban/weekly/movie', type:'douban', auto:1 },
   { cat:'news', id:'hn', name:'Hacker News', icon:'🟧', path:'/v2/hacker-news/top', type:'list', auto:1, f:{t:'title',h:'score',l:'link'} },
   { cat:'news', id:'itnews', name:'IT资讯', icon:'💻', path:'/v2/it-news', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'description'} },
-  { cat:'news', id:'ainews', name:'AI新闻', icon:'🤖', path:'/v2/ai-news', type:'ainews', auto:1 },
   { cat:'news', id:'history', name:'历史上的今天', icon:'📜', path:'/v2/today-in-history', type:'hist', auto:1 },
   { cat:'news', id:'rednote', name:'小红书热榜', icon:'📕', path:'/v2/rednote', type:'list', auto:1, f:{t:'title',h:'score',l:'link'} },
 
   // 娱乐
-  { cat:'ent', id:'maoyan', name:'猫眼票房', icon:'🍿', path:'/v2/maoyan/all/movie', type:'maoyan', auto:1 },
+  { cat:'ent', id:'maoyan', name:'猫眼历史票房', icon:'🍿', path:'/v2/maoyan/all/movie', type:'maoyan', auto:1 },
+  { cat:'ent', id:'bdtv', name:'百度电视剧榜', icon:'🎭', path:'/v2/baidu/teleplay', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'link'} },
+  { cat:'ent', id:'douban', name:'豆瓣电影周榜', icon:'🎬', path:'/v2/douban/weekly/movie', type:'douban', auto:1 },
   { cat:'ent', id:'epic', name:'Epic免费游戏', icon:'🎮', path:'/v2/epic', type:'epic', auto:1 },
   { cat:'ent', id:'ncm', name:'网易云排行榜', icon:'🎵', path:'/v2/ncm-rank/list', type:'ncm', auto:1 },
   { cat:'ent', id:'lyric', name:'歌词搜索', icon:'🎶', path:'/v2/lyric', type:'lyric', auto:0, inputs:[{n:'query',p:'歌名/歌手'}] },
   { cat:'ent', id:'changya', name:'唱鸭', icon:'🎤', path:'/v2/changya', type:'obj', auto:1, keys:['user','song'] },
-  { cat:'ent', id:'moyu', name:'摸鱼日历', icon:'🐟', path:'/v2/moyu', type:'moyu', auto:1 },
 
   // 工具
   { cat:'tools', id:'qr', name:'二维码生成', icon:'📱', path:'/v2/qrcode', type:'qr', auto:0, inputs:[{n:'text',p:'内容',d:'https://github.com/vikiboss/60s'},{n:'size',p:'尺寸',d:'256'}] },
@@ -467,6 +468,7 @@ const EPS = [
   { cat:'life', id:'fuel', name:'油价', icon:'⛽', path:'/v2/fuel-price', type:'fuel', auto:1 },
   { cat:'life', id:'gold', name:'金价', icon:'🥇', path:'/v2/gold-price', type:'gold', auto:1 },
   { cat:'life', id:'lunar', name:'农历信息', icon:'🌙', path:'/v2/lunar', type:'lunar', auto:1 },
+  { cat:'life', id:'moyu', name:'摸鱼日历', icon:'🐟', path:'/v2/moyu', type:'moyu', auto:1 },
 
   // 趣味
   { cat:'fun', id:'duanzi', name:'随机段子', icon:'😂', path:'/v2/duanzi', type:'text', auto:1, dk:'duanzi' },
@@ -474,7 +476,7 @@ const EPS = [
   { cat:'fun', id:'hitokoto', name:'一言', icon:'💬', path:'/v2/hitokoto', type:'text', auto:1, dk:'hitokoto' },
   { cat:'fun', id:'kfc', name:'KFC疯狂星期四', icon:'🍗', path:'/v2/kfc', type:'text', auto:1, dk:'kfc' },
   { cat:'fun', id:'fabing', name:'发病文案', icon:'🤪', path:'/v2/fabing', type:'text', auto:1, dk:'saying' },
-  { cat:'fun', id:'luck', name:'今日运势', icon:'🍀', path:'/v2/luck', type:'kv', auto:1, keys:['luck_desc','luck_rank','luck_tip'] },
+  { cat:'fun', id:'luck', name:'今日运势', icon:'🍀', path:'/v2/luck', type:'kv', auto:1, keys:[['luck_desc','综合运势'],['luck_rank','运势指数'],['luck_tip','今日提示']] },
   { cat:'fun', id:'answer', name:'答案之书', icon:'📖', path:'/v2/answer', type:'text', auto:1, dk:'answer' },
   { cat:'fun', id:'bing', name:'必应壁纸', icon:'🖼️', path:'/v2/bing', type:'bing', auto:1 },
   { cat:'fun', id:'awjs', name:'JS题目', icon:'🧩', path:'/v2/awesome-js', type:'js', auto:1 },
@@ -859,11 +861,11 @@ function rHist(d, c) {
 
 function rKV(d, c, ep) {
   let h = '<div class="kv">';
-  const entries = ep.keys ? ep.keys.map(k => [k, d[k]]) : Object.entries(d);
-  entries.forEach(([k, v]) => {
+  const entries = ep.keys ? ep.keys.map(k => Array.isArray(k) ? [k[0], d[k[0]], k[1]] : [k, d[k]]) : Object.entries(d).map(([k, v]) => [k, v]);
+  entries.forEach(([k, v, label]) => {
     if (v == null || v === '') return;
     let disp = typeof v === 'object' ? JSON.stringify(v) : Array.isArray(v) ? v.join(', ') : v;
-    h += `<div class="kv-row"><span class="k">${esc(k)}</span><span class="v">${esc(String(disp))}</span></div>`;
+    h += `<div class="kv-row"><span class="k">${esc(label || k)}</span><span class="v">${esc(String(disp))}</span></div>`;
   });
   h += '</div>';
   c.innerHTML = h;
