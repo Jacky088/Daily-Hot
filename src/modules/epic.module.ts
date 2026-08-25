@@ -1,11 +1,12 @@
 import { Common } from '../common.ts'
+import { cached } from '../cache.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceEpic {
   handle(): RouterMiddleware<'/epic'> {
     return async (ctx) => {
-      const data = await this.#fetch()
+      const data = await cached('epic', () => this.#fetch(), { ttl: 60 * 60 * 1000 })
 
       switch (ctx.state.encoding) {
         case 'text':

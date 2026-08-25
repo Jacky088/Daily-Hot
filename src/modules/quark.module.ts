@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { cached } from '../cache.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -83,7 +84,7 @@ interface QuarkHotItem {
 class ServiceQuark {
   handle(): RouterMiddleware<'/quark'> {
     return async (ctx) => {
-      const data = await this.#fetch()
+      const data = await cached('quark', () => this.#fetch(), { ttl: 10 * 60 * 1000 })
 
       switch (ctx.state.encoding) {
         case 'text':

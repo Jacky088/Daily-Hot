@@ -1,11 +1,12 @@
 import { Common } from '../common.ts'
+import { cached } from '../cache.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceBaidu {
   handleHotSearch(): RouterMiddleware<'/baidu/hot'> {
     return async (ctx) => {
-      const data = await this.#fetchRealtimeHot()
+      const data = await cached('baidu:hot', () => this.#fetchRealtimeHot())
 
       switch (ctx.state.encoding) {
         case 'text':
@@ -35,7 +36,7 @@ class ServiceBaidu {
 
   handleTeleplay(): RouterMiddleware<'/baidu/teleplay'> {
     return async (ctx) => {
-      const data = await this.#fetchTeleplay()
+      const data = await cached('baidu:teleplay', () => this.#fetchTeleplay())
 
       switch (ctx.state.encoding) {
         case 'text':
@@ -65,7 +66,7 @@ class ServiceBaidu {
 
   handleTieba(): RouterMiddleware<'/baidu/tieba'> {
     return async (ctx) => {
-      const data = await this.#fetchTieba()
+      const data = await cached('baidu:tieba', () => this.#fetchTieba())
 
       switch (ctx.state.encoding) {
         case 'text':

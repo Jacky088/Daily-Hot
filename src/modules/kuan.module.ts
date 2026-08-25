@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 import dayjs from 'dayjs'
 import bcrypt from 'bcryptjs'
 import { Common } from '../common.ts'
+import { cached } from '../cache.ts'
 import { Buffer } from 'node:buffer'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -102,7 +103,7 @@ function generateAppAuth(): { deviceCode: string; token: string } {
 class ServiceKuan {
   handle(): RouterMiddleware<'/kuan'> {
     return async (ctx) => {
-      const data = await this.#fetch()
+      const data = await cached('kuan', () => this.#fetch())
 
       switch (ctx.state.encoding) {
         case 'text': {

@@ -1,5 +1,6 @@
 import { load } from 'cheerio'
 import { Common, dayjs, TZ_SHANGHAI } from '../common.ts'
+import { cached } from '../cache.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -204,7 +205,7 @@ export class GoldPriceService {
 
   handle(): RouterMiddleware<'/gold-price'> {
     return async (ctx) => {
-      const data = await this.#fetch()
+      const data = await cached('gold-price', () => this.#fetch(), { ttl: 10 * 60 * 1000 })
       const encoding = ctx.state.encoding as string | undefined
 
       switch (encoding) {

@@ -1,11 +1,12 @@
 import { Common } from '../common.ts'
+import { cached } from '../cache.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceDouyin {
   handle(): RouterMiddleware<'/douyin'> {
     return async (ctx) => {
-      const data = await this.#fetch()
+      const data = await cached('douyin', () => this.#fetch())
 
       switch (ctx.state.encoding) {
         case 'text':

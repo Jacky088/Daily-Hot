@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { cached } from '../cache.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -8,7 +9,7 @@ class ServiceWeibo {
 
   handle(): RouterMiddleware<'/weibo'> {
     return async (ctx) => {
-      const data = await this.#fetch()
+      const data = await cached('weibo', () => this.#fetch())
 
       switch (ctx.state.encoding) {
         case 'text':

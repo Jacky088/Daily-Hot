@@ -1,11 +1,12 @@
 import { Common } from '../common.ts'
+import { cached } from '../cache.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceDongchedi {
   handle(): RouterMiddleware<'/dongchedi'> {
     return async (ctx) => {
-      const list = await this.#fetch()
+      const list = await cached('dongchedi', () => this.#fetch())
 
       switch (ctx.state.encoding) {
         case 'text':

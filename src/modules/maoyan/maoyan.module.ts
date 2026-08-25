@@ -1,4 +1,5 @@
 import { Common, dayjs } from '../../common.ts'
+import { cached } from '../../cache.ts'
 import { fetchBoxOfficeByType } from './encode.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -6,7 +7,7 @@ import type { RouterMiddleware } from '@oak/oak'
 class ServiceMaoyan {
   handleAllMovie(): RouterMiddleware<'/maoyan/all/movie'> {
     return async (ctx) => {
-      const { list, tips } = await this.fetchHTMLData()
+      const { list, tips } = await cached('maoyan:history', () => this.fetchHTMLData(), { ttl: 60 * 60 * 1000 })
 
       const data = {
         list: list
@@ -52,7 +53,7 @@ class ServiceMaoyan {
   handleRealtime(type: 'movie' | 'tv' | 'web'): RouterMiddleware<'/maoyan/movie'> {
     return async (ctx) => {
       const date = ctx.request.url.searchParams.get('date') || ''
-      const data = await fetchBoxOfficeByType(type, date)
+      const data = await cached(`maoyan:${type}:${date}`, () => fetchBoxOfficeByType(type, date), { ttl: 10 * 60 * 1000 })
 
       switch (ctx.state.encoding) {
         case 'text': {
