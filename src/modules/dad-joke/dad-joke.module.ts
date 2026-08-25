@@ -3,10 +3,6 @@ import { Common } from '../../common.ts'
 import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceDadJoke {
-  private lastFetchTime = 0
-  private cacheDuration = 60 * 1000 // 缓存 1 分钟，减少重复请求
-  private cache: { id: string; joke: string } | null = null
-
   handle(): RouterMiddleware<'/dad-joke'> {
     return async (ctx) => {
       const result = await this.#fetch()
@@ -32,10 +28,6 @@ class ServiceDadJoke {
   }
 
   async #fetch(): Promise<{ id: string; joke: string }> {
-    if (this.cache && Date.now() - this.lastFetchTime <= this.cacheDuration) {
-      return this.cache
-    }
-
     const response = await fetch('https://icanhazdadjoke.com/', {
       headers: {
         Accept: 'application/json',
@@ -49,9 +41,7 @@ class ServiceDadJoke {
     }
 
     const data = (await response.json()) as { id: string; joke: string; status: number }
-    this.cache = { id: data.id, joke: data.joke }
-    this.lastFetchTime = Date.now()
-    return this.cache
+    return { id: data.id, joke: data.joke }
   }
 }
 
