@@ -35,7 +35,6 @@
 - **🔗 链接可跳转** — 所有带原链接的数据均可点击跳转到来源页面
 - **⚡ 智能加载** — 无参数接口自动加载，有参数接口提供输入控件
 - **🏆 排行榜样式** — 前三名金银铜渐变色块，热度数值高亮
-- **🔄 刷新记忆** — F5 刷新停留在当前分类，不会跳回首页
 
 ## 🚀 部署
 
@@ -48,7 +47,7 @@ npm install
 npx wrangler deploy
 ```
 
-部署完成后访问 Worker 域名即可使用。静态前端通过 `wrangler.toml` 的 `[assets]` 配置自动服务，API 请求由 Worker 脚本处理。
+部署完成后访问 Worker 域名即可使用。
 
 ### Docker
 
@@ -60,7 +59,7 @@ docker run -d \
   daily-hot:latest
 ```
 
-访问 `http://localhost:4399` 使用面板和 API。Docker 模式通过内置 `static-assets` 中间件服务前端页面，开箱即用。
+访问 `http://localhost:4399` 使用面板和 API。
 
 ### 本地开发
 
@@ -162,8 +161,8 @@ curl "https://your-domain/endpoints"
 本项目基于以下开源项目构建：
 
 - **[vikiboss/60s](https://github.com/vikiboss/60s)** — 提供 40+ 个 API 接口
-- **[vikiboss/60s-static-host](https://github.com/vikiboss/60s-static-host)** — 每日新闻数据源（Gemini 大模型抓取）
+- **[vikiboss/60s-static-host](https://github.com/vikiboss/60s-static-host)** — 每日新闻数据源
 
 ## 🪪 License
 
-[MIT](./license) License © 2022-PRESENT 木木
+[MIT](./license) License © 2026-PRESENT 木木
