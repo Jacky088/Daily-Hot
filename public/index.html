@@ -516,6 +516,8 @@ const EPS = [
   { cat:'tech', id:'kuan', name:'酷安热榜', icon:'📱', path:'/v2/kuan', type:'kuan', auto:1 },
   { cat:'tech', id:'36kr', name:'36氪热榜', icon:'📰', path:'/v2/36kr', type:'36kr', auto:1 },
   { cat:'tech', id:'reddit', name:'Reddit热帖', icon:'👽', path:'/v2/reddit', type:'reddit', auto:1 },
+  { cat:'tech', id:'sspai', name:'少数派热榜', icon:'🎨', path:'/v2/sspai', type:'sspai', auto:1 },
+  { cat:'tech', id:'huxiu', name:'虎嗅热榜', icon:'🐯', path:'/v2/huxiu', type:'huxiu', auto:1 },
 
   // 娱乐
   { cat:'ent', id:'maoyan', name:'猫眼历史票房', icon:'🍿', path:'/v2/maoyan/all/movie', type:'maoyan', auto:1 },
@@ -857,7 +859,7 @@ function renderData(ep, d, c) {
     weatherfc: rWeatherFC, fuel: rFuel, gold: rGold, lunar: rLunar, bing: rBing,
     epic: rEpic, steam: rSteam, ncm: rNCM, maoyan: rMaoyan, moyu: rMoyu, whois: rWhois,
     js: rJS, exchange: rExchange, og: rOG, answer: rAnswer, quote: rQuote,
-    kuan: rKuan, '36kr': r36Kr, reddit: rReddit,
+    kuan: rKuan, '36kr': r36Kr, reddit: rReddit, sspai: rSspai, huxiu: rHuxiu,
   }[ep.type] || rJSON;
   fn(d, c, ep);
 }
@@ -1345,6 +1347,40 @@ function rReddit(d, c) {
     let meta = '';
     if (e.subreddit) meta += `<span class="hot">r/${esc(e.subreddit)}</span>`;
     if (e.author) meta += ` · u/${esc(e.author)}`;
+    if (meta) h += `<div class="meta">${meta}</div>`;
+    h += '</div></div>';
+  });
+  c.innerHTML = h;
+}
+
+// 少数派热榜
+function rSspai(d, c) {
+  if (!Array.isArray(d)) return rJSON(d, c);
+  let h = '';
+  d.forEach((e, i) => {
+    h += `<div class="item"><span class="rank ${i < 3 ? 'top'+(i+1) : ''}">${e.rank || i+1}</span><div class="body">`;
+    h += `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`;
+    let meta = '';
+    if (e.hot) meta += `<span class="hot">👍 ${esc(String(e.hot))}</span>`;
+    if (e.author) meta += ` · ${esc(e.author)}`;
+    if (e.comments) meta += ` · 💬 ${esc(String(e.comments))}`;
+    if (meta) h += `<div class="meta">${meta}</div>`;
+    h += '</div></div>';
+  });
+  c.innerHTML = h;
+}
+
+// 虎嗅热榜
+function rHuxiu(d, c) {
+  if (!Array.isArray(d)) return rJSON(d, c);
+  let h = '';
+  d.forEach((e, i) => {
+    h += `<div class="item"><span class="rank ${i < 3 ? 'top'+(i+1) : ''}">${e.rank || i+1}</span><div class="body">`;
+    h += `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`;
+    let meta = '';
+    if (e.hot) meta += `<span class="hot">🔥 ${esc(String(e.hot))}</span>`;
+    if (e.author) meta += ` · ${esc(e.author)}`;
+    if (e.comments) meta += ` · 💬 ${esc(String(e.comments))}`;
     if (meta) h += `<div class="meta">${meta}</div>`;
     h += '</div></div>';
   });

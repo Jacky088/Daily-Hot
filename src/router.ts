@@ -41,6 +41,8 @@ import { serviceBaidu } from './modules/baidu.module.ts'
 import { serviceDongchedi } from './modules/dongchedi.module.ts'
 import { service36Kr } from './modules/kr36.module.ts'
 import { serviceReddit } from './modules/reddit.module.ts'
+import { serviceSspai } from './modules/sspai.module.ts'
+import { serviceHuxiu } from './modules/huxiu.module.ts'
 import { serviceHealth } from './modules/health.module.ts'
 import { servicePassword } from './modules/password/password.module.ts'
 import { serviceColor } from './modules/color.module.ts'
@@ -115,6 +117,8 @@ appRouter.get('/rednote', serviceRednote.handle())
 appRouter.get('/dongchedi', serviceDongchedi.handle())
 appRouter.get('/36kr', service36Kr.handle())
 appRouter.get('/reddit', serviceReddit.handle())
+appRouter.get('/sspai', serviceSspai.handle())
+appRouter.get('/huxiu', serviceHuxiu.handle())
 appRouter.get('/moyu', serviceMoyu.handle())
 appRouter.get('/quark', serviceQuark.handle())
 appRouter.get('/whois', serviceWhois.handle())
