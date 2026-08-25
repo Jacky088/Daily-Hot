@@ -3,6 +3,9 @@ import { Common } from '../common.ts'
 import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceReddit {
+  // 缓存成功结果：Reddit 对未认证请求限流严格（约 1 分钟窗口仅 2~3 次，429 后需等待约 1 分钟）
+  #cache: { data: RedditItem[]; ts: number } | null = null
+
   handle(): RouterMiddleware<'/reddit'> {
     return async (ctx) => {
       const data = await this.#fetch()
@@ -33,22 +36,55 @@ class ServiceReddit {
   }
 
   async #fetch(): Promise<RedditItem[]> {
-    const url = 'https://www.reddit.com/r/all/hot.rss'
+    const FRESH_TTL = 5 * 60 * 1000 // 5 分钟内直接返回缓存，不打上游
+    const STALE_TTL = 60 * 60 * 1000 // 上游限流/失败时，1 小时内的旧数据兜底
 
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'cloudflare:daily-hot:0.1.0 (by /u/dailyhot)',
-        Accept: 'application/atom+xml',
-      },
-      signal: AbortSignal.timeout(10000),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch reddit: HTTP ${response.status}`)
+    if (this.#cache && Date.now() - this.#cache.ts < FRESH_TTL) {
+      return this.#cache.data
     }
 
-    const xml = await response.text()
-    return this.#parse(xml)
+    let lastError: unknown = null
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await fetch('https://www.reddit.com/r/all/hot.rss', {
+          headers: {
+            'User-Agent': 'cloudflare:daily-hot:0.1.0 (by /u/dailyhot)',
+            Accept: 'application/atom+xml',
+          },
+          signal: AbortSignal.timeout(10000),
+        })
+
+        if (response.ok) {
+          const xml = await response.text()
+          const data = this.#parse(xml)
+          this.#cache = { data, ts: Date.now() }
+          return data
+        }
+
+        if (response.status === 429 && attempt < 2) {
+          const retryAfter = Number(response.headers.get('retry-after'))
+          const delay =
+            Number.isFinite(retryAfter) && retryAfter > 0 && retryAfter <= 5
+              ? retryAfter * 1000
+              : 2000 * (attempt + 1)
+          await new Promise((r) => setTimeout(r, delay))
+          continue
+        }
+
+        throw new Error(`Failed to fetch reddit: HTTP ${response.status}`)
+      } catch (e) {
+        lastError = e
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 1000))
+      }
+    }
+
+    // 重试耗尽：旧数据兜底（比直接报错体验好）
+    if (this.#cache && Date.now() - this.#cache.ts < STALE_TTL) {
+      return this.#cache.data
+    }
+
+    throw lastError instanceof Error ? lastError : new Error('Failed to fetch reddit')
   }
 
   #parse(xml: string): RedditItem[] {
