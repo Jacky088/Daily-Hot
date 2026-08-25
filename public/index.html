@@ -493,7 +493,7 @@ const CATS = [
   { id: 'trans', name: '🔤 翻译' },
 ];
 
-// type: news|list|kv|obj|text|json|qr|color|palette|pwd|fanyi|lyric|hash|weather|weatherfc|fuel|gold|lunar|bing|epic|ncm|maoyan|moyu|whois|js|exchange|hist|ainews
+// type: news|list|kv|obj|text|json|qr|color|palette|pwd|fanyi|lyric|hash|weather|weatherfc|fuel|gold|lunar|bing|epic|steam|ncm|maoyan|moyu|whois|js|exchange|hist|ainews
 const EPS = [
   // 新闻
   { cat:'news', id:'60s', name:'60秒读懂世界', icon:'⏰', path:'/v2/60s', type:'news', auto:1 },
@@ -515,6 +515,7 @@ const EPS = [
   { cat:'ent', id:'bdtv', name:'百度电视剧榜', icon:'🎭', path:'/v2/baidu/teleplay', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'link'} },
   { cat:'ent', id:'douban', name:'豆瓣电影周榜', icon:'🎬', path:'/v2/douban/weekly/movie', type:'douban', auto:1 },
   { cat:'ent', id:'epic', name:'Epic免费游戏', icon:'🎮', path:'/v2/epic', type:'epic', auto:1 },
+  { cat:'ent', id:'steam', name:'Steam免费游戏', icon:'🎮', path:'/v2/steam', type:'steam', auto:1 },
   { cat:'ent', id:'ncm', name:'网易云排行榜', icon:'🎵', path:'/v2/ncm-rank/list', type:'ncm', auto:1 },
   { cat:'ent', id:'lyric', name:'歌词搜索', icon:'🎶', path:'/v2/lyric', type:'lyric', auto:0, inputs:[{n:'query',p:'歌名 歌手，如：稻香 周杰伦'}], hint:'精确搜索：使用「歌名 歌手」格式；避免只输入歌词片段' },
   { cat:'ent', id:'changya', name:'唱鸭', icon:'🎤', path:'/v2/changya', type:'changya', auto:1 },
@@ -847,7 +848,7 @@ function renderData(ep, d, c) {
     kv: rKV, obj: rObj, text: rText, qr: () => {}, color: rColor, palette: rPalette,
     pwd: rPwd, fanyi: rFanyi, lyric: rLyric, hash: rHash, weather: rWeather, changya: rChangya,
     weatherfc: rWeatherFC, fuel: rFuel, gold: rGold, lunar: rLunar, bing: rBing,
-    epic: rEpic, ncm: rNCM, maoyan: rMaoyan, moyu: rMoyu, whois: rWhois,
+    epic: rEpic, steam: rSteam, ncm: rNCM, maoyan: rMaoyan, moyu: rMoyu, whois: rWhois,
     js: rJS, exchange: rExchange, og: rOG, answer: rAnswer, quote: rQuote,
   }[ep.type] || rJSON;
   fn(d, c, ep);
@@ -1268,6 +1269,23 @@ function rEpic(d, c) {
     if (g.description) h += `<div class="desc">${esc(g.description.slice(0, 80))}…</div>`;
     if (g.is_free_now) h += '<span class="game-free">免费</span>';
     if (g.free_end) h += ` <span style="font-size:10px;color:var(--warn);">截止 ${esc(g.free_end)}</span>`;
+    if (g.link) h += `<div style="margin-top:4px;"><a href="${esc(g.link)}" target="_blank" rel="noopener" style="font-size:11px;">领取 →</a></div>`;
+    h += '</div>';
+  });
+  c.innerHTML = h;
+}
+
+// Steam 免费游戏：复用 epic 的卡片样式
+function rSteam(d, c) {
+  if (!Array.isArray(d)) return rJSON(d, c);
+  if (!d.length) { c.innerHTML = '<div class="placeholder">暂无免费游戏</div>'; return; }
+  let h = '';
+  d.forEach(g => {
+    h += '<div class="game-card">';
+    if (g.cover) h += `<div class="img-wrap"><img src="${esc(g.cover)}" alt="${esc(g.title)}" loading="lazy" onerror="this.style.display=\'none\'"></div>`;
+    h += `<div class="game-title">🎮 ${esc(g.title)}</div>`;
+    if (g.is_free_now) h += '<span class="game-free">免费</span>';
+    if (g.original_price) h += ` <span style="font-size:10px;color:var(--text-dim);text-decoration:line-through;">${esc(g.original_price)}</span>`;
     if (g.link) h += `<div style="margin-top:4px;"><a href="${esc(g.link)}" target="_blank" rel="noopener" style="font-size:11px;">领取 →</a></div>`;
     h += '</div>';
   });
