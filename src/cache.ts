@@ -2,6 +2,9 @@
 // - 命中且未过期：直接返回缓存，不打上游
 // - 未命中或已过期：请求上游，成功后写入缓存
 // - 请求失败：staleTtl 内回退旧数据兜底，避免直接报错
+// - 容量上限：避免无限制增长导致内存耗尽（DoS 防护）
+
+const MAX_CACHE_SIZE = 500
 
 const store = new Map<string, { data: unknown; ts: number }>()
 
@@ -20,6 +23,11 @@ export async function cached<T>(
 
   try {
     const data = await loader()
+    // 容量上限：超出时淘汰最早的条目（近似 LRU）
+    if (store.size >= MAX_CACHE_SIZE) {
+      const firstKey = store.keys().next().value
+      if (firstKey != null) store.delete(firstKey)
+    }
     store.set(key, { data, ts: now })
     return data
   } catch (e) {

@@ -1,4 +1,4 @@
-import { join, dirname } from 'node:path'
+import { join, dirname, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readFile } from 'node:fs/promises'
 import { existsSync, statSync } from 'node:fs'
@@ -53,10 +53,12 @@ export function staticAssets(): Middleware {
     }
 
     // 根路径 → index.html
-    const filePath = path === '/' ? join(publicDir, 'index.html') : join(publicDir, path)
+    const filePath = path === '/' ? join(publicDir, 'index.html') : resolve(publicDir, path)
 
-    // 防止路径穿越 + 确保是文件
-    if (!filePath.startsWith(publicDir) || !existsSync(filePath) || !statSync(filePath).isFile()) {
+    // 防止路径穿越：规范化后必须仍在 publicDir 内（含分隔符，避免前缀误判）
+    const safeRoot = resolve(publicDir) + sep
+    const safeFile = filePath + sep
+    if (!safeFile.startsWith(safeRoot) || !existsSync(filePath) || !statSync(filePath).isFile()) {
       await next()
       return
     }

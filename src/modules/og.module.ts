@@ -46,6 +46,9 @@ class ServiceOG {
       throw new Error('无效的 URL')
     }
 
+    // SSRF 防护：仅允许 http(s)，禁止内网/回环/链路本地/元数据地址
+    this.#assertSafeUrl(_url)
+
     const response = await fetch(_url)
     const type = response.headers.get('content-type') || ''
     const isHTML = ['text/html', 'application/xhtml+xml'].some((e) => type.includes(e))
@@ -122,6 +125,42 @@ class ServiceOG {
 
       return match
     })
+  }
+
+  // SSRF 防护：校验目标 URL，禁止访问内网/回环/链路本地/云元数据等敏感地址
+  #assertSafeUrl(url: URL): void {
+    // 仅允许 http/https 协议
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      throw new Error('仅支持 http/https 协议')
+    }
+
+    const host = url.hostname.toLowerCase()
+
+    // 阻止 IPv6 回环及映射地址
+    if (host === '::1' || host === '[::1]' || host.startsWith('::ffff:') || host === '[::]') {
+      throw new Error('禁止访问该地址')
+    }
+
+    // 阻止主机名直接等于元数据地址（部分平台）
+    if (host === '169.254.169.254' || host === 'metadata.google.internal' || host === 'metadata') {
+      throw new Error('禁止访问该地址')
+    }
+
+    // 阻止 localhost 及常见内网/私有 IP 段
+    const ipMatch = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+    if (ipMatch) {
+      const [a, b] = ipMatch.slice(1).map(Number)
+      const isLoopback = a === 127
+      const isPrivate = a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)
+      const isLinkLocal = a === 169 && b === 254
+      const isCarrierNat = a === 100 && b >= 64 && b <= 127
+      if (isLoopback || isPrivate || isLinkLocal || isCarrierNat) {
+        throw new Error('禁止访问内网地址')
+      }
+    } else if (host === 'localhost') {
+      throw new Error('禁止访问内网地址')
+    }
+    // 非纯 IP 的域名（如 github.com）在 Workers 环境下由平台解析，此处不再做 DNS 二次校验
   }
 }
 

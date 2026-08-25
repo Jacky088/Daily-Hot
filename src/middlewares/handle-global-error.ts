@@ -8,12 +8,11 @@ export function handleGlobalError(): Middleware {
       await next()
     } catch (err: any) {
       const isJSON = !ctx.state.encoding || ctx.state.encoding === 'json'
-      const message = `服务器出错了... ${err?.message || err}`
-
+      // 仅在服务端日志记录完整错误，避免向前端泄露内部信息
       console.error(err)
 
       ctx.response.status = 500
-      ctx.response.body = isJSON ? Common.buildJson(null, 500, message) : message
+      ctx.response.body = isJSON ? Common.buildJson(null, 500, '服务器内部错误，请稍后重试') : '服务器内部错误，请稍后重试'
     }
   }
 }

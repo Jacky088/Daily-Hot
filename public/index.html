@@ -111,6 +111,59 @@
   .search-wrap input:focus { border-color: var(--accent); box-shadow: var(--accent-glow); }
   .search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); opacity: 0.4; }
 
+  /* ============ Clock ============ */
+  .clock {
+    position: relative;
+    display: flex; align-items: center; gap: 7px;
+    white-space: nowrap; flex-shrink: 0;
+    padding: 6px 12px 6px 9px; border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+    background:
+      linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
+      var(--card);
+    color: var(--text-dim); font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    font-family: "SF Mono", "JetBrains Mono", Consolas, monospace;
+    letter-spacing: 0.3px;
+    box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 12%, transparent);
+    transition: border 0.2s, box-shadow 0.2s;
+  }
+  .clock::before {
+    content: ""; position: absolute; left: 0; top: 12%; bottom: 12%;
+    width: 3px; border-radius: 0 3px 3px 0;
+    background: linear-gradient(180deg, var(--accent), var(--accent-light));
+    box-shadow: 0 0 8px var(--accent);
+  }
+  .clock-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 6px var(--accent);
+    animation: clockPulse 2s ease-in-out infinite;
+  }
+  @keyframes clockPulse {
+    0%, 100% { opacity: 0.45; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.15); }
+  }
+  .clock .clock-time { color: var(--text); font-weight: 600; }
+  .clock .clock-date {
+    color: var(--text-dim); font-size: 10.5px; font-weight: 500;
+    padding-right: 8px; margin-right: 2px;
+    border-right: 1px solid var(--border-light);
+  }
+  .clock-desktop { display: flex; }
+  .clock-mobile { display: none; }
+  /* 窄屏：header 提前换行 + 时钟切到移动版（github 左侧、左对齐），
+     避免在中等宽度区间桌面时钟与右侧按钮重叠 */
+  @media (max-width: 820px) {
+    .clock-desktop { display: none; }
+    /* 左对齐：auto 右边距把 github/主题按钮推到行尾 */
+    .clock-mobile { display: flex; margin-right: auto; }
+    .header { padding: 10px 14px; flex-wrap: wrap; gap: 10px; }
+    .header-left { flex: 1 1 100%; gap: 10px; }
+    .header-right { flex: 1 1 100%; justify-content: flex-end; }
+    .search-wrap { min-width: 0; max-width: none; }
+    .logo .subtitle { display: none; }
+  }
+
   /* theme toggle icon visibility */
   .theme-toggle .sun { display: none; }
   :root[data-theme="light"] .theme-toggle .moon { display: none; }
@@ -415,13 +468,8 @@
   .wx-hour-c { font-size: 10px; color: var(--text-dimmer); white-space: nowrap; }
 
   @media (max-width: 640px) {
-    .header { padding: 10px 14px; flex-wrap: wrap; gap: 10px; }
-    .header-left { flex: 1 1 100%; gap: 10px; }
-    .header-right { flex: 1 1 100%; justify-content: flex-end; }
-    .search-wrap { min-width: 0; max-width: none; }
     .main { padding: 14px; }
     .grid { grid-template-columns: 1fr; }
-    .logo .subtitle { display: none; }
     /* 触屏分类栏：增大触控区域、隐藏滚动条、横滑流畅 */
     .cat-nav { padding: 8px 14px; gap: 6px; }
     .cat-nav button { padding: 8px 14px; font-size: 13px; }
@@ -498,8 +546,20 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         <input type="text" id="search" placeholder="搜索接口…">
       </div>
+      <!-- 桌面端时钟：搜索框右侧 -->
+      <div class="clock clock-desktop" id="clockDesktop" title="当前时间">
+        <span class="clock-dot"></span>
+        <span class="clock-date" id="clockDateDesktop">----/--/--</span>
+        <span class="clock-time" id="clockTimeDesktop">--:--:--</span>
+      </div>
     </div>
     <div class="header-right">
+      <!-- 移动端时钟：github 图标左侧、左对齐 -->
+      <div class="clock clock-mobile" id="clockMobile" title="当前时间">
+        <span class="clock-dot"></span>
+        <span class="clock-date" id="clockDateMobile">----/--/--</span>
+        <span class="clock-time" id="clockTimeMobile">--:--:--</span>
+      </div>
       <a href="https://github.com/Jacky088/Daily-Hot" target="_blank" rel="noopener" title="GitHub" class="github-link">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
       </a>
@@ -632,7 +692,18 @@ const $$ = s => document.querySelectorAll(s);
 
 function esc(s) {
   if (s == null) return '';
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// 安全 URL 校验：仅放行 http/https/mailto，其余（javascript:、data: 等）替换为 #
+function safeUrl(u) {
+  if (!u) return '#';
+  try {
+    const url = new URL(u, location.origin);
+    return ['http:', 'https:', 'mailto:'].includes(url.protocol) ? u : '#';
+  } catch {
+    return '#';
+  }
 }
 
 function init() {
@@ -671,6 +742,22 @@ function init() {
   });
 
   $('#search').oninput = render;
+
+  // 实时时钟（精确到秒）
+  const timeEls = [$('#clockTimeDesktop'), $('#clockTimeMobile')];
+  const dateEls = [$('#clockDateDesktop'), $('#clockDateMobile')];
+  const wdNames = ['日', '一', '二', '三', '四', '五', '六'];
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function tick() {
+    const d = new Date();
+    const t = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    const dt = `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} 周${wdNames[d.getDay()]}`;
+    timeEls.forEach(el => { if (el) el.textContent = t; });
+    dateEls.forEach(el => { if (el) el.textContent = dt; });
+  }
+  tick();
+  setInterval(tick, 1000);
+
   render();
 }
 
@@ -911,7 +998,7 @@ function rNews(d, c) {
     const t = typeof n === 'string' ? n : n.title;
     const l = typeof n === 'string' ? '' : n.link;
     h += `<div class="news-item"><span class="num">${i+1}</span>`;
-    h += l ? `<a href="${esc(l)}" target="_blank" rel="noopener">${esc(t)}</a>` : `<span class="nt">${esc(t)}</span>`;
+    h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener">${esc(t)}</a>` : `<span class="nt">${esc(t)}</span>`;
     h += '</div>';
   });
   if (d.tip) h += `<div class="news-tip">💡 ${esc(d.tip)}</div>`;
@@ -933,7 +1020,7 @@ function rList(d, c, ep) {
     let meta = '';
     if (hot) meta += `<span class="hot">🔥 ${esc(String(hot))}</span>`;
     h += `<div class="item"><span class="rank ${cls}">${rank}</span><div class="body">`;
-    h += l ? `<a href="${esc(l)}" target="_blank" rel="noopener">${esc(t)}</a>` : `<span class="t">${esc(t)}</span>`;
+    h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener">${esc(t)}</a>` : `<span class="t">${esc(t)}</span>`;
     if (meta) h += `<div class="meta">${meta}</div>`;
     if (desc) h += `<div class="desc">${esc(String(desc).slice(0, 80))}${String(desc).length > 80 ? '…' : ''}</div>`;
     h += '</div></div>';
@@ -949,7 +1036,7 @@ function rDouban(d, c) {
     const cls = rank <= 3 ? `top${rank}` : '';
     const l = it.url || it.link || '';
     h += `<div class="item"><span class="rank ${cls}">${rank}</span><div class="body">`;
-    h += l ? `<a href="${esc(l)}" target="_blank" rel="noopener">${esc(it.title)}</a>` : `<span class="t">${esc(it.title)}</span>`;
+    h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener">${esc(it.title)}</a>` : `<span class="t">${esc(it.title)}</span>`;
     let meta = '';
     if (it.rating) meta += `⭐ ${esc(String(it.rating))} `;
     if (it.rating_count) meta += `(${esc(String(it.rating_count))}) `;
@@ -965,7 +1052,7 @@ function rAINews(d, c) {
   if (d.date) h += `<div class="news-header"><span>📅 ${esc(d.date)}</span></div>`;
   (d.news || []).forEach((n, i) => {
     h += `<div class="news-item"><span class="num">${i+1}</span>`;
-    h += n.link ? `<a href="${esc(n.link)}" target="_blank" rel="noopener">${esc(n.title)}</a>` : `<span class="nt">${esc(n.title)}</span>`;
+    h += n.link ? `<a href="${safeUrl(n.link)}" target="_blank" rel="noopener">${esc(n.title)}</a>` : `<span class="nt">${esc(n.title)}</span>`;
     h += '</div>';
     if (n.summary) h += `<div class="desc" style="margin-left:22px;font-size:11px;color:var(--text-dim);margin-bottom:2px;">${esc(n.summary)}</div>`;
   });
@@ -976,7 +1063,7 @@ function rHist(d, c) {
   let h = `<div class="news-header"><span>📅 ${esc(d.month)}月${esc(d.day)}日</span></div>`;
   (d.items || []).forEach(it => {
     h += `<div class="news-item"><span class="num">${esc(it.year)}</span>`;
-    h += it.link ? `<a href="${esc(it.link)}" target="_blank" rel="noopener">${esc(it.title)}</a>` : `<span class="nt">${esc(it.title)}</span>`;
+    h += it.link ? `<a href="${safeUrl(it.link)}" target="_blank" rel="noopener">${esc(it.title)}</a>` : `<span class="nt">${esc(it.title)}</span>`;
     h += '</div>';
   });
   c.innerHTML = h;
@@ -1096,7 +1183,7 @@ function rChangya(d, c) {
   if (a.duration) { const sec = Math.round(a.duration / 1000); h += `<div class="kv-row"><span class="k">时长</span><span class="v">${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}</span></div>`; }
   if (a.like_count != null) h += `<div class="kv-row"><span class="k">点赞</span><span class="v">${a.like_count}</span></div>`;
   if (a.publish) h += `<div class="kv-row"><span class="k">发布时间</span><span class="v">${esc(a.publish)}</span></div>`;
-  if (a.link) h += `<div class="kv-row"><span class="k">作品链接</span><span class="v"><a href="${esc(a.link)}" target="_blank" rel="noopener">在线收听</a></span></div>`;
+  if (a.link) h += `<div class="kv-row"><span class="k">作品链接</span><span class="v"><a href="${safeUrl(a.link)}" target="_blank" rel="noopener">在线收听</a></span></div>`;
   h += '</div>';
   c.innerHTML = h;
 }
@@ -1106,11 +1193,25 @@ function rPwd(d, c) {
   const sets = d.character_sets || {};
   const used = Object.keys(setLabels).filter(k => sets[k]).map(k => setLabels[k]);
   const gi = d.generation_info || {};
-  c.innerHTML = `<div class="pwd-box" onclick="navigator.clipboard.writeText('${esc(d.password)}').then(()=>{this.classList.add('copied');this.innerText='已复制 ✓';setTimeout(()=>{this.classList.remove('copied');this.innerText='${esc(d.password)}'},1500)})">${esc(d.password)}</div>
+  const pwd = esc(d.password);
+  c.innerHTML = `<div class="pwd-box" data-pwd="${pwd}">${pwd}</div>
     <div class="kv" style="margin-top:8px;"><div class="kv-row"><span class="k">长度</span><span class="v">${d.length}</span></div>
     ${gi.strength ? `<div class="kv-row"><span class="k">强度</span><span class="v">${esc(gi.strength)}</span></div>` : ''}
     ${gi.time_to_crack ? `<div class="kv-row"><span class="k">预估破解耗时</span><span class="v">${esc(gi.time_to_crack)}</span></div>` : ''}
     <div class="kv-row"><span class="k">包含字符</span><span class="v">${esc(used.join('、') || '-')}</span></div></div>`;
+  // 点击复制：通过 data 属性取值，避免内联拼接 JS 字符串导致引号注入
+  const box = c.querySelector('.pwd-box');
+  if (box) {
+    box.style.cursor = 'pointer';
+    box.onclick = () => {
+      const val = box.dataset.pwd || '';
+      navigator.clipboard.writeText(val).then(() => {
+        box.classList.add('copied');
+        box.innerText = '已复制 ✓';
+        setTimeout(() => { box.classList.remove('copied'); box.innerText = val; }, 1500);
+      });
+    };
+  }
 }
 
 function rFanyi(d, c) {
@@ -1264,7 +1365,7 @@ function rFuel(d, c) {
     h += rFuelChart(d.history, d.history_region);
   }
 
-  if (d.link) h += `<div class="fuel-link"><a href="${esc(d.link)}" target="_blank" rel="noopener">数据来源详情 →</a></div>`;
+  if (d.link) h += `<div class="fuel-link"><a href="${safeUrl(d.link)}" target="_blank" rel="noopener">数据来源详情 →</a></div>`;
   c.innerHTML = h;
 }
 
@@ -1398,7 +1499,7 @@ function rEpic(d, c) {
     if (g.description) h += `<div class="desc">${esc(g.description.slice(0, 80))}…</div>`;
     if (g.is_free_now) h += '<span class="game-free">免费</span>';
     if (g.free_end) h += ` <span style="font-size:10px;color:var(--warn);">截止 ${esc(g.free_end)}</span>`;
-    if (g.link) h += `<div style="margin-top:4px;"><a href="${esc(g.link)}" target="_blank" rel="noopener" style="font-size:11px;">领取 →</a></div>`;
+    if (g.link) h += `<div style="margin-top:4px;"><a href="${safeUrl(g.link)}" target="_blank" rel="noopener" style="font-size:11px;">领取 →</a></div>`;
     h += '</div>';
   });
   c.innerHTML = h;
@@ -1415,7 +1516,7 @@ function rSteam(d, c) {
     h += `<div class="game-title">🎮 ${esc(g.title)}</div>`;
     if (g.is_free_now) h += '<span class="game-free">免费</span>';
     if (g.original_price) h += ` <span style="font-size:10px;color:var(--text-dim);text-decoration:line-through;">${esc(g.original_price)}</span>`;
-    if (g.link) h += `<div style="margin-top:4px;"><a href="${esc(g.link)}" target="_blank" rel="noopener" style="font-size:11px;">领取 →</a></div>`;
+    if (g.link) h += `<div style="margin-top:4px;"><a href="${safeUrl(g.link)}" target="_blank" rel="noopener" style="font-size:11px;">领取 →</a></div>`;
     h += '</div>';
   });
   c.innerHTML = h;
@@ -1427,7 +1528,7 @@ function rKuan(d, c) {
   let h = '';
   d.topics.forEach((t, i) => {
     h += `<div class="item"><span class="rank ${i < 3 ? 'top'+(i+1) : ''}">${i+1}</span><div class="body">`;
-    h += `<a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.title)}</a>`;
+    h += `<a href="${safeUrl(t.url)}" target="_blank" rel="noopener">${esc(t.title)}</a>`;
     let meta = '';
     if (t.hotness) meta += `<span class="hot">🔥 ${esc(String(t.hotness))}</span>`;
     if (t.followers) meta += ` · 👥 ${esc(String(t.followers))}`;
@@ -1445,7 +1546,7 @@ function r36Kr(d, c) {
   let h = '';
   d.forEach((e, i) => {
     h += `<div class="item"><span class="rank ${i < 3 ? 'top'+(i+1) : ''}">${e.rank || i+1}</span><div class="body">`;
-    h += `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`;
+    h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`;
     let meta = '';
     if (e.hot) meta += `<span class="hot">🔥 ${esc(e.hot_desc || String(e.hot))}</span>`;
     if (e.author) meta += ` · ${esc(e.author)}`;
@@ -1462,7 +1563,7 @@ function rReddit(d, c) {
   let h = '';
   d.forEach((e, i) => {
     h += `<div class="item"><span class="rank ${i < 3 ? 'top'+(i+1) : ''}">${e.rank || i+1}</span><div class="body">`;
-    h += `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`;
+    h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`;
     let meta = '';
     if (e.subreddit) meta += `<span class="hot">r/${esc(e.subreddit)}</span>`;
     if (e.author) meta += ` · u/${esc(e.author)}`;
@@ -1478,7 +1579,7 @@ function rSspai(d, c) {
   let h = '';
   d.forEach((e, i) => {
     h += `<div class="item"><span class="rank ${i < 3 ? 'top'+(i+1) : ''}">${e.rank || i+1}</span><div class="body">`;
-    h += `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`;
+    h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`;
     let meta = '';
     if (e.hot) meta += `<span class="hot">👍 ${esc(String(e.hot))}</span>`;
     if (e.author) meta += ` · ${esc(e.author)}`;
@@ -1495,7 +1596,7 @@ function rHuxiu(d, c) {
   let h = '';
   d.forEach((e, i) => {
     h += `<div class="item"><span class="rank ${i < 3 ? 'top'+(i+1) : ''}">${e.rank || i+1}</span><div class="body">`;
-    h += `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`;
+    h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`;
     let meta = '';
     if (e.hot) meta += `<span class="hot">🔥 ${esc(String(e.hot))}</span>`;
     if (e.author) meta += ` · ${esc(e.author)}`;
@@ -1512,7 +1613,7 @@ function rNCM(d, c) {
   d.slice(0, 15).forEach((r, i) => {
     const cls = i < 3 ? `top${i+1}` : '';
     h += `<div class="item"><span class="rank ${cls}">${i+1}</span><div class="body">`;
-    h += r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.name)}</a>` : `<span class="t">${esc(r.name)}</span>`;
+    h += r.link ? `<a href="${safeUrl(r.link)}" target="_blank" rel="noopener">${esc(r.name)}</a>` : `<span class="t">${esc(r.name)}</span>`;
     if (r.update_frequency) h += `<div class="meta">🔄 ${esc(r.update_frequency)}</div>`;
     h += '</div></div>';
   });
