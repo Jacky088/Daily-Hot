@@ -1,4 +1,3 @@
-import { load } from 'cheerio'
 import { Common } from '../common.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -12,14 +11,14 @@ class ServiceDongchedi {
         case 'text':
           ctx.response.body = `懂车帝热搜\n\n${list
             .slice(0, 20)
-            .map((e, i) => `${i + 1}. ${e.title} (${e.score_desc})`)
+            .map((e, i) => `${i + 1}. ${e.title}`)
             .join('\n')}`
           break
 
         case 'markdown':
           ctx.response.body = `# 懂车帝热搜\n\n${list
             .slice(0, 20)
-            .map((e, i) => `${i + 1}. [${e.title}](${e.url}) \`${e.score_desc}\``)
+            .map((e, i) => `${i + 1}. [${e.title}](${e.url})`)
             .join('\n')}`
           break
 
@@ -31,41 +30,41 @@ class ServiceDongchedi {
     }
   }
 
-  #formateScore(score: number) {
-    if (score >= 10000) return (score / 10000).toFixed(1) + 'w'
-    return score.toString()
-  }
-
   async #fetch() {
-    // const api = 'https://www.dongchedi.com/motor/searchpage/launcher/main/v1/?aid=1839&app_name=auto_web_pc'
-    // const response = await fetch(api)
-    // const data = await response.json()
+    const api = 'https://www.dongchedi.com/motor/searchpage/launcher/main/v1/?aid=1839&app_name=auto_web_pc'
 
-    const home = 'https://www.dongchedi.com/news'
-    const html = await (await fetch(home, { headers: { 'user-agent': Common.chromeUA } })).text()
+    const response = await fetch(api, {
+      headers: { 'User-Agent': Common.chromeUA },
+      signal: AbortSignal.timeout(10000),
+    })
 
-    const $ = load(html)
-    const json = $('script#__NEXT_DATA__', html).contents().text()
-    const data = JSON.parse(json)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch dongchedi: HTTP ${response.status}`)
+    }
 
-    return ((data?.props?.pageProps?.hotSearchList || []) as HotItem[]).map((e, idx) => ({
+    const data = (await response.json()) as DcdResponse
+
+    // 取第一批 hot_search_words（热搜词）
+    const hotWords = data?.data?.hot_search_roll_info_v2?.[0]?.hot_search_words || []
+
+    return hotWords.map((word, idx) => ({
       rank: idx + 1,
-      title: e.title,
-      url: `https://www.dongchedi.com/search?keyword=${encodeURIComponent(e.title)}`,
-      // is_hot: e.is_hot,
-      score: e.score,
-      score_desc: this.#formateScore(e.score),
+      title: word.title,
+      url: `https://www.dongchedi.com/search?keyword=${encodeURIComponent(word.title)}`,
     }))
   }
 }
 
-export const serviceDongchedi = new ServiceDongchedi()
-
-interface HotItem {
-  gid: string
-  title: string
-  is_hot: number
-  score: number
-  description: string
-  serial_icon: string
+interface DcdResponse {
+  data: {
+    hot_search_roll_info_v2: Array<{
+      hot_search_words: Array<{
+        title: string
+        origin: string
+        search_mode: string
+      }>
+    }>
+  }
 }
+
+export const serviceDongchedi = new ServiceDongchedi()
