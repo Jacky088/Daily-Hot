@@ -327,6 +327,29 @@
   /* Text */
   .text-block { white-space: pre-wrap; word-break: break-word; font-size: 13px; line-height: 1.8; }
 
+  /* 唱鸭 */
+  .changya-user { display: flex; align-items: center; gap: 10px; }
+  .changya-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+
+  /* 答案之书 */
+  .answer-book { text-align: center; padding: 22px 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; }
+  .answer-quote { font-size: 22px; color: var(--accent); font-family: Georgia, serif; line-height: 1; }
+  .answer-zh { font-size: 20px; font-weight: 700; font-family: Georgia, "Songti SC", "SimSun", serif; letter-spacing: 2px; line-height: 1.6; margin: 6px 0; word-break: break-word; }
+  .answer-en { font-size: 12px; color: var(--text-dim); font-style: italic; font-family: Georgia, serif; }
+  .answer-meta { font-size: 10px; color: var(--text-dimmer); margin-top: 12px; }
+
+  /* 金句卡片（一言/段子/KFC/发病文案等） */
+  .quote-card { position: relative; text-align: center; padding: 20px 16px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .quote-card::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% -20%, var(--accent-bg), transparent 65%); pointer-events: none; }
+  .quote-mark { font-family: Georgia, serif; font-size: 34px; color: var(--accent); line-height: 1; height: 18px; }
+  .quote-text { position: relative; font-family: Georgia, "Songti SC", "SimSun", serif; font-size: 14px; line-height: 2; letter-spacing: 0.5px; white-space: pre-wrap; word-break: break-word; margin-top: 6px; }
+  .quote-card.long { text-align: left; }
+  .quote-card.long .quote-text { font-family: inherit; font-size: 13px; letter-spacing: 0; line-height: 1.9; }
+  .quote-card.long .quote-mark { height: 14px; font-size: 26px; }
+  .quote-meta { position: relative; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 10px; color: var(--text-dimmer); margin-top: 14px; }
+  .quote-meta i { width: 26px; height: 1px; background: var(--border-light); }
+  .quote-card.long .quote-meta { justify-content: flex-start; }
+
   /* JSON */
   .json-view {
     font-family: "SF Mono", Consolas, monospace; font-size: 11px;
@@ -356,9 +379,37 @@
   .game-free { display: inline-block; padding: 1px 7px; background: rgba(52,211,153,0.15); color: var(--success); border-radius: 4px; font-size: 10px; font-weight: 600; margin-top: 3px; }
 
   /* Weather */
-  .weather-main { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
-  .weather-temp { font-size: 32px; font-weight: 800; color: var(--text); }
-  .weather-info { font-size: 13px; color: var(--text-dim); }
+  .wx-loc { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+  .wx-upd { font-size: 10px; font-weight: 400; color: var(--text-dimmer); }
+  .wx-alert { display: flex; align-items: center; gap: 6px; background: rgba(248,113,113,0.1); color: var(--error); border: 1px solid rgba(248,113,113,0.3); border-radius: 8px; padding: 5px 10px; font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+  .wx-main { display: flex; align-items: center; gap: 14px; padding: 6px 0 10px; }
+  .wx-icon { width: 52px; height: 52px; flex-shrink: 0; }
+  .wx-temp { font-size: 38px; font-weight: 800; line-height: 1; }
+  .wx-cond { font-size: 13px; font-weight: 500; color: var(--text-dim); margin-top: 4px; }
+  .wx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .wx-stat { display: flex; justify-content: space-between; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 12px; }
+  .wx-stat .k { color: var(--text-dim); }
+  .wx-aqi { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: var(--text-dim); }
+  .wx-aqi-badge { padding: 2px 10px; border-radius: 10px; color: #fff; font-size: 11px; font-weight: 700; }
+  .wx-sun { margin-top: 8px; font-size: 12px; color: var(--text-dim); display: flex; gap: 14px; }
+  .wx-life { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+  .wx-chip { font-size: 10px; padding: 2px 8px; border-radius: 8px; background: var(--accent-bg); color: var(--accent-light); border: 1px solid transparent; cursor: help; white-space: nowrap; }
+  .wx-chip:hover { border-color: var(--accent); }
+  .wx-chart { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 4px 8px; }
+  .wx-chart-head, .wx-chart-foot { display: grid; }
+  .wxc-col { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; color: var(--text-dim); padding: 0 1px; }
+  .wxc-col img { width: 26px; height: 26px; }
+  .wx-chart-svg { margin-top: 4px; }
+  .wx-chart-svg svg { display: block; }
+  .wxc-day { text-align: center; font-size: 11px; color: var(--text-dim); font-weight: 600; margin-top: 2px; }
+  .wxc-day.today { color: var(--accent-light); }
+  .wx-hourly-title { font-size: 11px; color: var(--text-dim); margin: 12px 0 6px; font-weight: 600; }
+  .wx-hourly { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+  .wx-hour { flex-shrink: 0; width: 56px; text-align: center; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 2px; }
+  .wx-hour-t { font-size: 10px; color: var(--text-dim); }
+  .wx-hour img { width: 26px; height: 26px; margin: 2px 0; }
+  .wx-hour-temp { font-size: 13px; font-weight: 700; }
+  .wx-hour-c { font-size: 10px; color: var(--text-dimmer); white-space: nowrap; }
 
   @media (max-width: 640px) {
     .header { padding: 10px 14px; flex-wrap: wrap; gap: 10px; }
@@ -368,6 +419,13 @@
     .main { padding: 14px; }
     .grid { grid-template-columns: 1fr; }
     .logo .subtitle { display: none; }
+    /* 文字卡片小屏适配：收紧留白、缩小字号 */
+    .quote-card { padding: 14px 12px 10px; }
+    .quote-text { font-size: 13px; letter-spacing: 0; line-height: 1.9; }
+    .quote-card.long .quote-text { font-size: 12.5px; }
+    .answer-book { padding: 16px 8px 10px; }
+    .answer-zh { font-size: 17px; letter-spacing: 1px; }
+    .answer-en { font-size: 11px; }
   }
 </style>
 </head>
@@ -439,6 +497,7 @@ const EPS = [
   { cat:'news', id:'itnews', name:'IT资讯', icon:'💻', path:'/v2/it-news', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'description'} },
   { cat:'news', id:'history', name:'历史上的今天', icon:'📜', path:'/v2/today-in-history', type:'hist', auto:1 },
   { cat:'news', id:'rednote', name:'小红书热榜', icon:'📕', path:'/v2/rednote', type:'list', auto:1, f:{t:'title',h:'score',l:'link'} },
+  { cat:'news', id:'quark', name:'夸克每日资讯', icon:'☁️', path:'/v2/quark', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'summary'} },
 
   // 娱乐
   { cat:'ent', id:'maoyan', name:'猫眼历史票房', icon:'🍿', path:'/v2/maoyan/all/movie', type:'maoyan', auto:1 },
@@ -446,24 +505,24 @@ const EPS = [
   { cat:'ent', id:'douban', name:'豆瓣电影周榜', icon:'🎬', path:'/v2/douban/weekly/movie', type:'douban', auto:1 },
   { cat:'ent', id:'epic', name:'Epic免费游戏', icon:'🎮', path:'/v2/epic', type:'epic', auto:1 },
   { cat:'ent', id:'ncm', name:'网易云排行榜', icon:'🎵', path:'/v2/ncm-rank/list', type:'ncm', auto:1 },
-  { cat:'ent', id:'lyric', name:'歌词搜索', icon:'🎶', path:'/v2/lyric', type:'lyric', auto:0, inputs:[{n:'query',p:'歌名/歌手'}] },
-  { cat:'ent', id:'changya', name:'唱鸭', icon:'🎤', path:'/v2/changya', type:'obj', auto:1, keys:['user','song'] },
+  { cat:'ent', id:'lyric', name:'歌词搜索', icon:'🎶', path:'/v2/lyric', type:'lyric', auto:0, inputs:[{n:'query',p:'歌名 歌手，如：稻香 周杰伦'}], hint:'精确搜索：使用「歌名 歌手」格式；避免只输入歌词片段' },
+  { cat:'ent', id:'changya', name:'唱鸭', icon:'🎤', path:'/v2/changya', type:'changya', auto:1 },
 
   // 工具
-  { cat:'tools', id:'qr', name:'二维码生成', icon:'📱', path:'/v2/qrcode', type:'qr', auto:0, inputs:[{n:'text',p:'内容',d:'https://github.com/vikiboss/60s'},{n:'size',p:'尺寸',d:'256'}] },
-  { cat:'tools', id:'hash', name:'哈希加密', icon:'#️⃣', path:'/v2/hash', type:'hash', auto:0, inputs:[{n:'content',p:'文本',d:'hello'}] },
-  { cat:'tools', id:'og', name:'网页OG信息', icon:'🌐', path:'/v2/og', type:'og', auto:0, inputs:[{n:'url',p:'URL',d:'github.com'}] },
-  { cat:'tools', id:'ip', name:'IP查询', icon:'📍', path:'/v2/ip', type:'kv', auto:1, keys:['ip','country','prov','city','isp','lat','lng','timezone'] },
-  { cat:'tools', id:'whois', name:'WHOIS查询', icon:'🔗', path:'/v2/whois', type:'whois', auto:0, inputs:[{n:'domain',p:'域名',d:'baidu.com'}] },
-  { cat:'tools', id:'pwd', name:'密码生成', icon:'🔐', path:'/v2/password', type:'pwd', auto:0, inputs:[{n:'length',p:'长度',d:'16'}] },
-  { cat:'tools', id:'pwdchk', name:'密码强度检测', icon:'💪', path:'/v2/password/check', type:'kv', auto:0, inputs:[{n:'password',p:'密码',d:'Test123456'}], keys:['password','length','score','strength','time_to_crack'] },
-  { cat:'tools', id:'color', name:'随机颜色', icon:'🎨', path:'/v2/color/random', type:'color', auto:1 },
-  { cat:'tools', id:'palette', name:'配色方案', icon:'🖌️', path:'/v2/color/palette', type:'palette', auto:0, inputs:[{n:'color',p:'hex',d:''}] },
-  { cat:'tools', id:'chem', name:'化学元素', icon:'⚗️', path:'/v2/chemical', type:'kv', auto:1, keys:['name','mass','formula'] },
+  { cat:'tools', id:'qr', name:'二维码生成', icon:'📱', path:'/v2/qrcode', type:'qr', auto:0, inputs:[{n:'text',p:'内容',d:'https://github.com/vikiboss/60s'},{n:'size',p:'尺寸',d:'256'}], hint:'内容支持任意文本或链接；尺寸为图片边长像素，默认 256' },
+  { cat:'tools', id:'hash', name:'哈希加密', icon:'#️⃣', path:'/v2/hash', type:'hash', auto:0, inputs:[{n:'content',p:'文本',d:'hello'}], hint:'一次性输出 MD5、SHA1/256/512、Base64、URL 编码等常用编解码结果' },
+  { cat:'tools', id:'og', name:'网页OG信息', icon:'🌐', path:'/v2/og', type:'og', auto:0, inputs:[{n:'url',p:'URL',d:'github.com'}], hint:'提取网页标题、描述、图标等 OG 元信息；输入域名即可，无需带协议' },
+  { cat:'tools', id:'ip', name:'IP查询', icon:'📍', path:'/v2/ip', type:'kv', auto:1, keys:[['ip','IP 地址'],['country','国家'],['prov','省份'],['city','城市'],['isp','运营商'],['lat','纬度'],['lng','经度'],['timezone','时区']], hint:'自动识别当前访问 IP 的归属地与运营商信息' },
+  { cat:'tools', id:'whois', name:'WHOIS查询', icon:'🔗', path:'/v2/whois', type:'whois', auto:0, inputs:[{n:'domain',p:'域名',d:'baidu.com'}], hint:'查询域名的注册商、注册/到期时间与 DNS 服务器等注册信息' },
+  { cat:'tools', id:'pwd', name:'密码生成', icon:'🔐', path:'/v2/password', type:'pwd', auto:0, inputs:[{n:'length',p:'长度',d:'16'}], hint:'生成含大小写字母、数字、符号的随机强密码；建议长度 16 位以上' },
+  { cat:'tools', id:'pwdchk', name:'密码强度检测', icon:'💪', path:'/v2/password/check', type:'kv', auto:0, inputs:[{n:'password',p:'密码',d:'Test123456'}], keys:[['password','密码'],['length','长度'],['score','评分'],['strength','强度'],['entropy','熵值'],['time_to_crack','破解耗时']], hint:'评估密码强度与暴力破解耗时；出于安全考虑，请勿检测真实在用的密码' },
+  { cat:'tools', id:'color', name:'随机颜色', icon:'🎨', path:'/v2/color/random', type:'color', auto:1, hint:'随机生成一个颜色，含 RGB/HSL/CMYK 多格式与配色建议' },
+  { cat:'tools', id:'palette', name:'配色方案', icon:'🖌️', path:'/v2/color/palette', type:'palette', auto:0, inputs:[{n:'color',p:'hex',d:''}], hint:'输入 hex 颜色值（如 #6366F1）生成互补、类似、三角配色方案；留空则随机' },
+  { cat:'tools', id:'chem', name:'化学元素', icon:'⚗️', path:'/v2/chemical', type:'kv', auto:1, keys:[['name','名称'],['formula','分子式'],['mass','平均质量'],['monoisotopicMass','单同位素质量']], hint:'随机展示一个化合物；加 id 参数可查询指定化合物' },
 
   // 生活
-  { cat:'life', id:'wnow', name:'实时天气', icon:'☀️', path:'/v2/weather/realtime', type:'weather', auto:0, inputs:[{n:'city',p:'城市',d:'北京'}] },
-  { cat:'life', id:'wfc', name:'天气预报', icon:'🌦️', path:'/v2/weather/forecast', type:'weatherfc', auto:0, inputs:[{n:'city',p:'城市',d:'北京'}] },
+  { cat:'life', id:'wnow', name:'实时天气', icon:'☀️', path:'/v2/weather/realtime', type:'weather', auto:0, inputs:[{n:'query',p:'城市',d:'北京'}] },
+  { cat:'life', id:'wfc', name:'天气预报', icon:'🌦️', path:'/v2/weather/forecast', type:'weatherfc', auto:0, inputs:[{n:'query',p:'城市',d:'北京'}] },
   { cat:'life', id:'exrate', name:'汇率', icon:'💱', path:'/v2/exchange-rate', type:'exchange', auto:1 },
   { cat:'life', id:'fuel', name:'油价', icon:'⛽', path:'/v2/fuel-price', type:'fuel', auto:1 },
   { cat:'life', id:'gold', name:'金价', icon:'🥇', path:'/v2/gold-price', type:'gold', auto:1 },
@@ -471,16 +530,15 @@ const EPS = [
   { cat:'life', id:'moyu', name:'摸鱼日历', icon:'🐟', path:'/v2/moyu', type:'moyu', auto:1 },
 
   // 趣味
-  { cat:'fun', id:'duanzi', name:'随机段子', icon:'😂', path:'/v2/duanzi', type:'text', auto:1, dk:'duanzi' },
-  { cat:'fun', id:'dadjoke', name:'英文冷笑话', icon:'🤣', path:'/v2/dad-joke', type:'text', auto:1, dk:'content' },
-  { cat:'fun', id:'hitokoto', name:'一言', icon:'💬', path:'/v2/hitokoto', type:'text', auto:1, dk:'hitokoto' },
-  { cat:'fun', id:'kfc', name:'KFC疯狂星期四', icon:'🍗', path:'/v2/kfc', type:'text', auto:1, dk:'kfc' },
-  { cat:'fun', id:'fabing', name:'发病文案', icon:'🤪', path:'/v2/fabing', type:'text', auto:1, dk:'saying' },
+  { cat:'fun', id:'duanzi', name:'随机段子', icon:'😂', path:'/v2/duanzi', type:'quote', auto:1, dk:'duanzi' },
+  { cat:'fun', id:'dadjoke', name:'英文冷笑话', icon:'🤣', path:'/v2/dad-joke', type:'quote', auto:1, dk:'content' },
+  { cat:'fun', id:'hitokoto', name:'一言', icon:'💬', path:'/v2/hitokoto', type:'quote', auto:1, dk:'hitokoto' },
+  { cat:'fun', id:'kfc', name:'KFC疯狂星期四', icon:'🍗', path:'/v2/kfc', type:'quote', auto:1, dk:'kfc' },
+  { cat:'fun', id:'fabing', name:'发病文案', icon:'🤪', path:'/v2/fabing', type:'quote', auto:1, dk:'saying' },
   { cat:'fun', id:'luck', name:'今日运势', icon:'🍀', path:'/v2/luck', type:'kv', auto:1, keys:[['luck_desc','综合运势'],['luck_rank','运势指数'],['luck_tip','今日提示']] },
-  { cat:'fun', id:'answer', name:'答案之书', icon:'📖', path:'/v2/answer', type:'text', auto:1, dk:'answer' },
+  { cat:'fun', id:'answer', name:'答案之书', icon:'📖', path:'/v2/answer', type:'answer', auto:1, hint:'心中默念你的问题，点击 ↻ 揭晓答案' },
   { cat:'fun', id:'bing', name:'必应壁纸', icon:'🖼️', path:'/v2/bing', type:'bing', auto:1 },
   { cat:'fun', id:'awjs', name:'JS题目', icon:'🧩', path:'/v2/awesome-js', type:'js', auto:1 },
-  { cat:'fun', id:'quark', name:'夸克网盘资源', icon:'☁️', path:'/v2/quark', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'summary'} },
 
   // 翻译
   { cat:'trans', id:'fanyi', name:'有道翻译', icon:'🔤', path:'/v2/fanyi', type:'fanyi', auto:0, inputs:[{n:'text',p:'文本',d:'hello'},{n:'from',p:'源语言',d:'en'},{n:'to',p:'目标',d:'zh-CHS'}] },
@@ -697,6 +755,13 @@ function makeCard(ep) {
     }
   }
 
+  if (ep.hint) {
+    const tip = document.createElement('div');
+    tip.className = 'news-tip';
+    tip.textContent = '💡 ' + ep.hint;
+    body.appendChild(tip);
+  }
+
   const content = document.createElement('div');
   content.id = 'content-' + ep.id;
   content.innerHTML = ep.auto ? '<div class="loading">加载中</div>' : '<div class="placeholder">点击查询获取数据</div>';
@@ -767,10 +832,10 @@ function renderData(ep, d, c) {
   const fn = {
     news: rNews, list: rList, douban: rDouban, ainews: rAINews, hist: rHist,
     kv: rKV, obj: rObj, text: rText, qr: () => {}, color: rColor, palette: rPalette,
-    pwd: rPwd, fanyi: rFanyi, lyric: rLyric, hash: rHash, weather: rWeather,
+    pwd: rPwd, fanyi: rFanyi, lyric: rLyric, hash: rHash, weather: rWeather, changya: rChangya,
     weatherfc: rWeatherFC, fuel: rFuel, gold: rGold, lunar: rLunar, bing: rBing,
     epic: rEpic, ncm: rNCM, maoyan: rMaoyan, moyu: rMoyu, whois: rWhois,
-    js: rJS, exchange: rExchange, og: rOG,
+    js: rJS, exchange: rExchange, og: rOG, answer: rAnswer, quote: rQuote,
   }[ep.type] || rJSON;
   fn(d, c, ep);
 }
@@ -898,13 +963,42 @@ function rText(d, c, ep) {
   c.innerHTML = `<div class="text-block">${esc(t)}</div>`;
 }
 
+function rAnswer(d, c) {
+  const zh = d.answer || '';
+  const en = d.answer_en || '';
+  const idx = d.index != null ? Number(d.index) + 1 : null;
+  c.innerHTML = `<div class="answer-book">
+    <div class="answer-quote">「</div>
+    <div class="answer-zh">${esc(zh)}</div>
+    ${en ? `<div class="answer-en">${esc(en)}</div>` : ''}
+    <div class="answer-meta">${idx ? `第 ${idx} 个答案` : ''}</div>
+  </div>`;
+}
+
+// 通用金句卡片：短文本居中衬线排版，长文本左对齐易读
+function rQuote(d, c, ep) {
+  const t = (ep.dk ? d[ep.dk] : '') || '';
+  const idx = d.index != null ? Number(d.index) + 1 : null;
+  const isLong = t.length > 64;
+  c.innerHTML = `<div class="quote-card${isLong ? ' long' : ''}">
+    <div class="quote-mark">“</div>
+    <div class="quote-text">${esc(t)}</div>
+    ${idx ? `<div class="quote-meta"><i></i><span>第 ${idx} 条</span><i></i></div>` : ''}
+  </div>`;
+}
+
 function rColor(d, c) {
+  const labels = { hex: 'HEX', name: '色系', rgb: 'RGB', hsl: 'HSL', hsv: 'HSV', cmyk: 'CMYK', brightness: '亮度', complementary: '互补色' };
   let h = `<div class="swatch" style="background:${esc(d.hex||'#000')}"></div><div class="kv">`;
-  ['hex','name','rgb','hsl','brightness'].forEach(k => {
+  Object.entries(labels).forEach(([k, label]) => {
     const v = d[k];
-    if (v == null) return;
-    h += `<div class="kv-row"><span class="k">${esc(k)}</span><span class="v">${esc(typeof v==='object'?JSON.stringify(v):v)}</span></div>`;
+    if (v == null || v === '') return;
+    // rgb/hsl 等色彩对象自带格式化字符串 (如 "rgb(19, 9, 72)")
+    const disp = typeof v === 'object' ? (v.string || JSON.stringify(v)) : v;
+    h += `<div class="kv-row"><span class="k">${esc(label)}</span><span class="v">${esc(String(disp))}</span></div>`;
   });
+  if (d.analogous?.length) h += `<div class="kv-row"><span class="k">类似色</span><span class="v">${esc(d.analogous.join('、'))}</span></div>`;
+  if (d.triadic?.length) h += `<div class="kv-row"><span class="k">三角配色</span><span class="v">${esc(d.triadic.join('、'))}</span></div>`;
   h += '</div>';
   c.innerHTML = h;
 }
@@ -927,10 +1021,38 @@ function rPalette(d, c) {
   c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
 }
 
+function rChangya(d, c) {
+  const u = d.user || {}, s = d.song || {}, a = d.audio || {};
+  const gender = u.gender === 'male' ? '♂' : u.gender === 'female' ? '♀' : '';
+  let h = '<div class="changya-user">';
+  if (u.avatar_url) h += `<img class="changya-avatar" src="${esc(u.avatar_url)}" alt="" onerror="this.style.display='none'">`;
+  h += `<div><div style="font-weight:600;">${esc(u.nickname || '')} ${gender}</div>`;
+  if (s.name) h += `<div style="font-size:12px;color:var(--text-dim);">演唱《${esc(s.name)}》${s.singer ? ` · 原唱: ${esc(s.singer)}` : ''}</div>`;
+  h += '</div></div>';
+  const audioUrl = a.url ? a.url.replace(/^http:\/\//, 'https://') : '';
+  if (audioUrl) h += `<audio controls preload="none" src="${esc(audioUrl)}" style="width:100%;height:36px;margin:8px 0;"></audio>`;
+  if (Array.isArray(s.lyrics) && s.lyrics.length) {
+    h += `<div class="text-block" style="margin-top:6px;">${esc(s.lyrics.join('\n'))}</div>`;
+  }
+  h += '<div class="kv" style="margin-top:8px;">';
+  if (a.duration) { const sec = Math.round(a.duration / 1000); h += `<div class="kv-row"><span class="k">时长</span><span class="v">${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}</span></div>`; }
+  if (a.like_count != null) h += `<div class="kv-row"><span class="k">点赞</span><span class="v">${a.like_count}</span></div>`;
+  if (a.publish) h += `<div class="kv-row"><span class="k">发布时间</span><span class="v">${esc(a.publish)}</span></div>`;
+  if (a.link) h += `<div class="kv-row"><span class="k">作品链接</span><span class="v"><a href="${esc(a.link)}" target="_blank" rel="noopener">在线收听</a></span></div>`;
+  h += '</div>';
+  c.innerHTML = h;
+}
+
 function rPwd(d, c) {
+  const setLabels = { lowercase: '小写字母', uppercase: '大写字母', numbers: '数字', symbols: '特殊符号' };
+  const sets = d.character_sets || {};
+  const used = Object.keys(setLabels).filter(k => sets[k]).map(k => setLabels[k]);
+  const gi = d.generation_info || {};
   c.innerHTML = `<div class="pwd-box" onclick="navigator.clipboard.writeText('${esc(d.password)}').then(()=>{this.classList.add('copied');this.innerText='已复制 ✓';setTimeout(()=>{this.classList.remove('copied');this.innerText='${esc(d.password)}'},1500)})">${esc(d.password)}</div>
     <div class="kv" style="margin-top:8px;"><div class="kv-row"><span class="k">长度</span><span class="v">${d.length}</span></div>
-    <div class="kv-row"><span class="k">字符集</span><span class="v">${esc((d.character_sets||[]).join(', ')||'-')}</span></div></div>`;
+    ${gi.strength ? `<div class="kv-row"><span class="k">强度</span><span class="v">${esc(gi.strength)}</span></div>` : ''}
+    ${gi.time_to_crack ? `<div class="kv-row"><span class="k">预估破解耗时</span><span class="v">${esc(gi.time_to_crack)}</span></div>` : ''}
+    <div class="kv-row"><span class="k">包含字符</span><span class="v">${esc(used.join('、') || '-')}</span></div></div>`;
 }
 
 function rFanyi(d, c) {
@@ -956,37 +1078,105 @@ function rHash(d, c) {
   c.innerHTML = '<div class="kv">' + h + '</div>';
 }
 
+// 城市名去重：优先 city + county（name 可能是"北京北京"这类重复值）
+function wxLoc(loc) {
+  if (!loc) return '';
+  return loc.city ? (loc.city + (loc.county ? ' ' + loc.county : '')) : (loc.name || '');
+}
+
 function rWeather(d, c) {
-  let h = '';
-  if (d.location) h += `<div class="kv-row"><span class="k">📍</span><span class="v">${esc(d.location.name||'')} ${esc(d.location.city||'')}</span></div>`;
-  if (d.weather) {
-    const w = d.weather;
-    h += '<div class="weather-main">';
-    if (w.temperature != null) h += `<div class="weather-temp">${esc(String(w.temperature))}°</div>`;
-    h += '<div class="weather-info">';
-    if (w.weather) h += `${esc(w.weather)}<br>`;
-    if (w.humidity) h += `湿度 ${esc(String(w.humidity))} · `;
-    if (w.windDirection) h += `${esc(w.windDirection)}`;
-    if (w.windSpeed) h += ` ${esc(String(w.windSpeed))}`;
-    h += '</div></div>';
+  const w = d.weather || {}, a = d.air_quality || {}, s = d.sunrise || {};
+  const alerts = d.alerts || [], life = d.life_indices || [];
+  const aqiColors = { 1: '#22c55e', 2: '#eab308', 3: '#f97316', 4: '#ef4444', 5: '#a855f7', 6: '#7f1d1d' };
+  let h = `<div class="wx-loc"><span>📍 ${esc(wxLoc(d.location))}</span>${w.updated ? `<span class="wx-upd">更新于 ${esc(w.updated)}</span>` : ''}</div>`;
+  alerts.forEach(al => { h += `<div class="wx-alert" title="${esc(al.detail||'')}">⚠️ ${esc(al.type)}${esc(al.level)}预警</div>`; });
+  h += '<div class="wx-main">';
+  if (w.weather_icon) h += `<img class="wx-icon" src="${esc(w.weather_icon)}" alt="" onerror="this.style.display='none'">`;
+  h += `<div class="wx-temp">${esc(String(w.temperature ?? '--'))}°<div class="wx-cond">${esc(w.condition || '')}</div></div></div>`;
+  const stats = [];
+  if (w.humidity != null) stats.push(['湿度', `${w.humidity}%`]);
+  if (w.wind_direction) stats.push(['风力', `${w.wind_direction} ${w.wind_power || ''}${w.wind_power ? '级' : ''}`]);
+  if (w.pressure != null) stats.push(['气压', `${w.pressure} hPa`]);
+  if (w.precipitation != null) stats.push(['降水量', `${w.precipitation} mm`]);
+  if (stats.length) h += `<div class="wx-grid">${stats.map(([k, v]) => `<div class="wx-stat"><span class="k">${esc(k)}</span><span>${esc(v)}</span></div>`).join('')}</div>`;
+  if (a.aqi != null) {
+    h += `<div class="wx-aqi"><span class="wx-aqi-badge" style="background:${aqiColors[a.level] || '#6b7280'}">${esc(a.quality || '')}</span><span>AQI ${esc(String(a.aqi))} · PM2.5 ${esc(String(a.pm25 ?? '-'))} · PM10 ${esc(String(a.pm10 ?? '-'))}${a.rank ? ` · 全国第 ${a.rank}/${a.total_cities} 位` : ''}</span></div>`;
   }
-  if (d.air_quality) {
-    const a = d.air_quality;
-    h += `<div class="kv-row"><span class="k">空气质量</span><span class="v">AQI ${esc(String(a.aqi||a.AQI||''))} ${esc(a.category||a.level||'')}</span></div>`;
+  if (s.sunrise_desc) h += `<div class="wx-sun"><span>🌅 日出 ${esc(s.sunrise_desc)}</span><span>🌇 日落 ${esc(s.sunset_desc)}</span></div>`;
+  if (life.length) {
+    h += `<div class="wx-life">${life.slice(0, 10).map(li => `<span class="wx-chip" title="${esc(li.description || '')}">${esc(li.name)}·${esc(li.level)}</span>`).join('')}</div>`;
   }
   c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
 }
 
+// 7 日温度曲线 SVG：最高温实线（渐变面积），最低温虚线
+function wxTempChart(days, W) {
+  const H = 110, padT = 16, padB = 16;
+  const n = days.length, colW = W / n;
+  const xs = days.map((_, i) => colW * i + colW / 2);
+  const maxs = days.map(x => x.max_temperature ?? 0);
+  const mins = days.map(x => x.min_temperature ?? 0);
+  const hi = Math.max(...maxs), lo = Math.min(...mins);
+  const y = t => padT + ((hi + 0.6 - t) / (hi - lo + 1.2)) * (H - padT - padB);
+  const smooth = pts => {
+    let p = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i], mx = (a.x + b.x) / 2;
+      p += ` C ${mx.toFixed(1)} ${a.y.toFixed(1)} ${mx.toFixed(1)} ${b.y.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+    }
+    return p;
+  };
+  const maxPts = maxs.map((t, i) => ({ x: xs[i], y: y(t) }));
+  const minPts = mins.map((t, i) => ({ x: xs[i], y: y(t) }));
+  const maxPath = smooth(maxPts), minPath = smooth(minPts);
+  const area = maxPath + ` L ${xs[n - 1].toFixed(1)} ${H} L ${xs[0].toFixed(1)} ${H} Z`;
+  let s = `<svg width="${Math.round(W)}" height="${H}" viewBox="0 0 ${Math.round(W)} ${H}" role="img" aria-label="7日温度曲线">`;
+  s += `<defs><linearGradient id="wxgrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity="0.28"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>`;
+  [0.35, 0.7].forEach(f => s += `<line x1="4" x2="${W - 4}" y1="${(H * f).toFixed(1)}" y2="${(H * f).toFixed(1)}" stroke="var(--border)" stroke-dasharray="3 5" stroke-width="0.5"/>`);
+  s += `<path d="${area}" fill="url(#wxgrad)"/>`;
+  s += `<path d="${minPath}" fill="none" stroke="var(--text-dimmer)" stroke-width="1.5" stroke-dasharray="4 3" stroke-linecap="round"/>`;
+  s += `<path d="${maxPath}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" style="filter:drop-shadow(0 1px 3px rgba(99,102,241,0.35))"/>`;
+  maxPts.forEach((p, i) => {
+    s += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="var(--accent)" stroke="var(--card)" stroke-width="1.5"/>`;
+    s += `<text x="${p.x.toFixed(1)}" y="${(p.y - 8).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--text)">${esc(String(maxs[i]))}°</text>`;
+  });
+  minPts.forEach((p, i) => {
+    s += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.5" fill="var(--card)" stroke="var(--text-dimmer)" stroke-width="1.5"/>`;
+    s += `<text x="${p.x.toFixed(1)}" y="${(p.y + 15).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--text-dim)">${esc(String(mins[i]))}°</text>`;
+  });
+  return s + '</svg>';
+}
+
 function rWeatherFC(d, c) {
-  let h = '';
-  if (d.location) h += `<div class="kv-row"><span class="k">📍</span><span class="v">${esc(d.location.name||'')} ${esc(d.location.city||'')}</span></div>`;
-  const fc = d.hourly_forecast || d.daily_forecast || d.forecast || [];
-  if (Array.isArray(fc)) {
-    fc.slice(0, 10).forEach(f => {
-      h += `<div class="item"><span class="rank">📅</span><div class="body"><span class="t">${esc(f.datetime||f.date||'')}</span><div class="meta">${esc(f.weather||f.text||'')} ${esc(String(f.temperature||f.temp||''))}°${f.humidity?' · 💧'+esc(String(f.humidity)):''}</div></div></div>`;
+  let h = `<div class="wx-loc"><span>📍 ${esc(wxLoc(d.location))}</span><span class="wx-upd">7 日温度趋势 · 24 小时预报</span></div>`;
+  const wdNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const daily = (d.daily_forecast || []).filter(x => x.date >= todayStr);
+  if (daily.length) {
+    const cols = `grid-template-columns:repeat(${daily.length},1fr)`;
+    h += `<div class="wx-chart"><div class="wx-chart-head" style="${cols}">`;
+    daily.forEach(day => {
+      h += `<div class="wxc-col" title="${esc(day.day_condition || '')} 转 ${esc(day.night_condition || '')} · 夜间 ${esc(day.night_wind_direction || '')}${esc(day.night_wind_power || '')}级">${day.day_weather_icon ? `<img src="${esc(day.day_weather_icon)}" alt="" onerror="this.style.display='none'">` : ''}<span>${esc(day.day_condition || '')}</span></div>`;
     });
+    h += `</div><div class="wx-chart-svg"></div><div class="wx-chart-foot" style="${cols}">`;
+    daily.forEach(day => {
+      const isToday = day.date === todayStr;
+      h += `<div class="wxc-day${isToday ? ' today' : ''}">${isToday ? '今天' : esc(wdNames[new Date(day.date).getDay()])}</div>`;
+    });
+    h += '</div></div>';
+  }
+  const hourly = d.hourly_forecast || [];
+  if (hourly.length) {
+    h += '<div class="wx-hourly-title">⏱ 24 小时预报（可横向滑动）</div><div class="wx-hourly">';
+    hourly.slice(0, 24).forEach(f => {
+      h += `<div class="wx-hour"><div class="wx-hour-t">${esc((f.datetime || '').slice(11, 16))}</div><img src="${esc(f.weather_icon || '')}" alt="" onerror="this.style.display='none'"><div class="wx-hour-temp">${esc(String(f.temperature ?? '-'))}°</div><div class="wx-hour-c">${esc(f.condition || '')}</div></div>`;
+    });
+    h += '</div>';
   }
   c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
+  const box = c.querySelector('.wx-chart-svg');
+  if (box && daily.length) box.innerHTML = wxTempChart(daily, box.clientWidth || 280);
 }
 
 function rFuel(d, c) {
@@ -1017,9 +1207,30 @@ function rLunar(d, c) {
   const s = d.solar || {}, l = d.lunar || {};
   if (s.full) h += `<div class="kv-row"><span class="k">公历</span><span class="v">${esc(s.full)} ${esc(s.week_desc||'')}</span></div>`;
   if (l.desc_short) h += `<div class="kv-row"><span class="k">农历</span><span class="v">${esc(l.desc_short)}</span></div>`;
-  [['zodiac','生肖'],['term','节气'],['constellation','星座'],['festival','节日'],['phase','月相'],['fortune','运势']].forEach(([k,label]) => {
-    if (d[k]) h += `<div class="kv-row"><span class="k">${label}</span><span class="v">${esc(String(d[k]))}</span></div>`;
-  });
+  const z = d.zodiac;
+  if (z && z.year) h += `<div class="kv-row"><span class="k">生肖</span><span class="v">${esc(z.year)}年 ${esc(z.month)}月 ${esc(z.day)}日 ${esc(z.hour)}时</span></div>`;
+  const t = d.term;
+  if (t && (t.today || t.stage?.name)) {
+    const txt = t.today ? `今日${t.today}` : `${t.stage.name} 第${t.stage.position}天`;
+    h += `<div class="kv-row"><span class="k">节气</span><span class="v">${esc(txt)}</span></div>`;
+  }
+  if (d.constellation?.name) h += `<div class="kv-row"><span class="k">星座</span><span class="v">${esc(d.constellation.name)}</span></div>`;
+  const f = d.festival;
+  const ftxt = f ? (f.both_desc || [f.solar, f.lunar].filter(Boolean).join('、')) : '';
+  if (ftxt) h += `<div class="kv-row"><span class="k">节日</span><span class="v">${esc(ftxt)}</span></div>`;
+  if (d.phase?.name) h += `<div class="kv-row"><span class="k">月相</span><span class="v">${esc(d.phase.name)}</span></div>`;
+  const fo = d.fortune;
+  if (fo) {
+    if (fo.today_luck) h += `<div class="kv-row"><span class="k">今日运势</span><span class="v">${esc(fo.today_luck)}</span></div>`;
+    if (fo.career) h += `<div class="kv-row"><span class="k">事业</span><span class="v">${esc(fo.career)}</span></div>`;
+    if (fo.money) h += `<div class="kv-row"><span class="k">财运</span><span class="v">${esc(fo.money)}</span></div>`;
+    if (fo.love) h += `<div class="kv-row"><span class="k">感情</span><span class="v">${esc(fo.love)}</span></div>`;
+  }
+  const tb = d.taboo?.day;
+  if (tb) {
+    if (tb.recommends) h += `<div class="kv-row"><span class="k">宜</span><span class="v">${esc(tb.recommends)}</span></div>`;
+    if (tb.avoids) h += `<div class="kv-row"><span class="k">忌</span><span class="v">${esc(tb.avoids)}</span></div>`;
+  }
   h += '</div>';
   c.innerHTML = h;
 }

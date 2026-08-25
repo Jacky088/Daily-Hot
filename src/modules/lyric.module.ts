@@ -8,18 +8,28 @@ class ServiceLyric {
       const query = ctx.request.url.searchParams.get('query')
 
       if (!query) {
-        return Common.requireArguments('query', ctx.response)
+        ctx.response.status = 400
+        ctx.response.body = Common.buildJson(
+          null,
+          400,
+          '参数 query 不能为空。精确搜索技巧：使用「歌名 歌手」格式，如「稻香 周杰伦」',
+        )
+        return
       }
 
       const clean = ctx.request.url.searchParams.get('clean') !== 'false'
 
       const data = await this.#fetchLyric(query, clean).catch((err) => {
-        throw new Error(`搜索歌曲 ID 失败: ${err instanceof Error ? err.message : String(err)}`)
+        throw new Error(`搜索歌词失败: ${err instanceof Error ? err.message : String(err)}`)
       })
 
       if (!data) {
         ctx.response.status = 404
-        ctx.response.body = Common.buildJson(null, 404, '未找到歌曲或歌词')
+        ctx.response.body = Common.buildJson(
+          null,
+          404,
+          '未找到歌曲或歌词。精确搜索技巧：使用「歌名 歌手」格式（如：稻香 周杰伦）；避免只输入歌词片段、专辑名或过长的关键词',
+        )
         return
       }
 
@@ -40,69 +50,67 @@ class ServiceLyric {
     }
   }
 
+  // 数据源优先级: LRCLIB → 网易云音乐
+  // (LRCLIB 排序质量高且不限制来源; 网易云旧搜索接口排名被翻唱占据, 且会屏蔽数据中心 IP)
   async #fetchLyric(query: string, clean = false) {
-    const options = { headers: { 'User-Agent': Common.chromeUA, Referer: 'https://y.qq.com/' } }
+    const lrclib = await this.#fetchFromLrclib(query, clean).catch(() => null)
+    if (lrclib) return lrclib
+    return await this.#fetchFromNcm(query, clean).catch(() => null)
+  }
 
-    // async function fetchSongInfo(songName) {
-    //   const api = `https://c.y.qq.com/splcloud/fcgi-bin/smartbox_new.fcg?key=${encodeURIComponent(songName)}`
-    //   const data = (await (await fetch(api, options)).json()) as QQMusicSearchRes2
-    //   return data?.data?.song?.itemlist?.[0] ?? null
-    // }
+  async #fetchFromNcm(query: string, clean = false) {
+    const options = { headers: { 'User-Agent': Common.chromeUA, Referer: 'https://music.163.com/' } }
 
-    // 第一步: 搜索歌曲获取 songmid
-    // const searchApi = `https://c.y.qq.com/soso/fcgi-bin/client_search_cp?format=json&p=1&n=1&w=${encodeURIComponent(query)}`
-    // const searchRes = await fetch(searchApi, options)
-    // const searchData = (await searchRes.json()) as QQMusicSearchRes
+    // 第一步: 搜索歌曲获取歌曲 ID
+    const searchApi = `https://music.163.com/api/search/get?s=${encodeURIComponent(query)}&type=1&limit=1`
+    const searchRes = await fetch(searchApi, options)
+    const searchData = (await searchRes.json()) as NcmSearchRes
 
-    // console.log('搜索结果:', searchData) // 调试输出搜索结果结构
-
-    // if (!searchData?.data?.song?.list?.length) return null
-
-    // const song = searchData.data.song.list[0]
-    // const songmid = song.songmid
-    // const title = song.songname
-    // const artists = song.singer.map((s) => s.name)
-    // const album = song.albumname
-
-    const songs = await fetch('https://u.y.qq.com/cgi-bin/musicu.fcg', {
-      headers: { 'Content-Type': 'application/json;charset=utf-8', ...options.headers },
-      method: 'POST',
-      body: JSON.stringify({
-        req: {
-          method: 'DoSearchForQQMusicDesktop',
-          module: 'music.search.SearchCgiService',
-          param: {
-            query,
-            num_per_page: 1,
-            page_num: 1,
-            search_type: 0,
-          },
-        },
-      }),
-    }).then((res) => res.json())
-
-    const song = songs?.req?.data?.body?.song?.list?.[0]
+    const song = searchData?.result?.songs?.[0]
 
     if (!song) return null
 
-    const songmid = song.mid
     const title = song.name
-    const artists = song.singer.map((s) => s.name)
-    const album = song.album.name
+    const artists = song.artists.map((s) => s.name)
+    const album = song.album?.name ?? ''
 
     // 第二步: 获取歌词
-    const lyricApi = `https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?format=json&nobase64=1&type=1&songmid=${songmid}`
+    const lyricApi = `https://music.163.com/api/song/lyric?id=${song.id}&lv=1&tv=-1`
     const lyricRes = await fetch(lyricApi, options)
-    const lyricData = (await lyricRes.json()) as QQMusicLyricRes
+    const lyricData = (await lyricRes.json()) as NcmLyricRes
 
-    if (!lyricData?.lyric) return null
+    if (!lyricData?.lrc?.lyric) return null
 
-    const raw_lyric = lyricData.lyric
+    return this.#buildResult(title, artists, album, lyricData.lrc.lyric, clean)
+  }
+
+  async #fetchFromLrclib(query: string, clean = false) {
+    const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, {
+      headers: { 'User-Agent': Common.chromeUA },
+    })
+    const list = (await res.json()) as LrclibSearchItem[]
+
+    // 优先选择带同步歌词 (LRC 格式) 的结果
+    const item = list?.find((e) => e.syncedLyrics) ?? list?.[0]
+    if (!item) return null
+
+    const raw_lyric = item.syncedLyrics || item.plainLyrics || ''
+    if (!raw_lyric) return null
+
+    const artists = item.artistName
+      .split(/[,，、&/]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+
+    return this.#buildResult(item.trackName, artists, item.albumName || '', raw_lyric, clean)
+  }
+
+  #buildResult(title: string, artists: string[], album: string, raw_lyric: string, clean = false) {
     const offset = +(raw_lyric.match(/\[offset:(-?\d+)\]/)?.[1] || 0)
     const lyrics = this.#parseLyric(raw_lyric, clean)
     const formatted = this.#cleanLyric(raw_lyric, clean)
 
-    const result = {
+    return {
       title,
       artists,
       album,
@@ -111,8 +119,6 @@ class ServiceLyric {
       formatted,
       raw_lyric,
     }
-
-    return result
   }
 
   #parseLyric(lyric: string, cleanInfo = true): Array<{ ms: number; time: string; label: string; lyric: string }> {
@@ -374,90 +380,44 @@ class ServiceLyric {
 
 export const serviceLyric = new ServiceLyric()
 
-interface QQMusicSearchRes {
+interface NcmSearchRes {
   code: number
-  data: {
-    keyword: string
-    priority: number
-    qc: any[]
-    semantic: {
-      curnum: number
-      curpage: number
-      list: any[]
-      totalnum: number
-    }
-    song: {
-      curnum: number
-      curpage: number
-      list: {
-        songmid: string
-        songname: string
-        singer: {
-          id: number
-          mid: string
-          name: string
-        }[]
-        albumname: string
-        albummid: string
-        albumid: number
+  result: {
+    songs: {
+      id: number
+      name: string
+      artists: {
+        id: number
+        name: string
       }[]
-      totalnum: number
-    }
+      album: {
+        id: number
+        name: string
+      }
+    }[]
+    songCount: number
   }
 }
 
-export interface QQMusicSearchRes2 {
+interface NcmLyricRes {
   code: number
-  data: {
-    album: {
-      count: number
-      itemlist: any[]
-      name: string
-      order: number
-      type: number
-    }
-    mv: {
-      count: number
-      itemlist: Array<{
-        docid: string
-        id: string
-        mid: string
-        name: string
-        singer: string
-        vid: string
-      }>
-      name: string
-      order: number
-      type: number
-    }
-    singer: {
-      count: number
-      itemlist: any[]
-      name: string
-      order: number
-      type: number
-    }
-    song: {
-      count: number
-      itemlist: Array<{
-        docid: string
-        id: string
-        mid: string
-        name: string
-        singer: string
-      }>
-      name: string
-      order: number
-      type: number
-    }
+  lrc: {
+    version: number
+    lyric: string
   }
-  subcode: number
+  tlyric?: {
+    version: number
+    lyric: string
+  }
 }
 
-interface QQMusicLyricRes {
-  code: number
-  lyric: string
-  retcode: number
-  subcode: number
-  trans: string
+interface LrclibSearchItem {
+  id: number
+  trackName: string
+  artistName: string
+  albumName: string
+  duration: number
+  instrumental: boolean
+  plainLyrics: string | null
+  syncedLyrics: string | null
 }
