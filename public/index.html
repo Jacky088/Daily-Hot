@@ -486,6 +486,7 @@ const API = location.origin;
 const CATS = [
   { id: 'all', name: '全部' },
   { id: 'news', name: '📰 新闻资讯' },
+  { id: 'tech', name: '🚀 科技资讯' },
   { id: 'ent', name: '🎬 影视娱乐' },
   { id: 'tools', name: '🛠️ 实用工具' },
   { id: 'life', name: '🌤️ 生活信息' },
@@ -504,15 +505,17 @@ const EPS = [
   { cat:'news', id:'toutiao', name:'今日头条', icon:'📰', path:'/v2/toutiao', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
   { cat:'news', id:'bdhot', name:'百度热搜', icon:'🔍', path:'/v2/baidu/hot', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'url', d:'desc'} },
   { cat:'news', id:'bdtieba', name:'百度贴吧热议', icon:'💬', path:'/v2/baidu/tieba', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'link', d:'abstract'} },
-  { cat:'news', id:'hn', name:'Hacker News', icon:'🟧', path:'/v2/hacker-news/top', type:'list', auto:1, f:{t:'title',h:'score',l:'link'} },
-  { cat:'news', id:'itnews', name:'IT资讯', icon:'💻', path:'/v2/it-news', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'description'} },
   { cat:'news', id:'history', name:'历史上的今天', icon:'📜', path:'/v2/today-in-history', type:'hist', auto:1 },
   { cat:'news', id:'rednote', name:'小红书热榜', icon:'📕', path:'/v2/rednote', type:'list', auto:1, f:{t:'title',h:'score',l:'link'} },
   { cat:'news', id:'quark', name:'夸克每日资讯', icon:'☁️', path:'/v2/quark', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'summary'} },
-  { cat:'news', id:'kuan', name:'酷安热榜', icon:'📱', path:'/v2/kuan', type:'kuan', auto:1 },
   { cat:'news', id:'dongchedi', name:'汽车热榜', icon:'🚗', path:'/v2/dongchedi', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'url'} },
-  { cat:'news', id:'36kr', name:'36氪热榜', icon:'📰', path:'/v2/36kr', type:'36kr', auto:1 },
-  { cat:'news', id:'reddit', name:'Reddit热帖', icon:'👽', path:'/v2/reddit', type:'reddit', auto:1 },
+
+  // 科技
+  { cat:'tech', id:'hn', name:'Hacker News', icon:'🟧', path:'/v2/hacker-news/top', type:'list', auto:1, f:{t:'title',h:'score',l:'link'} },
+  { cat:'tech', id:'itnews', name:'IT资讯', icon:'💻', path:'/v2/it-news', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'description'} },
+  { cat:'tech', id:'kuan', name:'酷安热榜', icon:'📱', path:'/v2/kuan', type:'kuan', auto:1 },
+  { cat:'tech', id:'36kr', name:'36氪热榜', icon:'📰', path:'/v2/36kr', type:'36kr', auto:1 },
+  { cat:'tech', id:'reddit', name:'Reddit热帖', icon:'👽', path:'/v2/reddit', type:'reddit', auto:1 },
 
   // 娱乐
   { cat:'ent', id:'maoyan', name:'猫眼历史票房', icon:'🍿', path:'/v2/maoyan/all/movie', type:'maoyan', auto:1 },
@@ -854,7 +857,7 @@ function renderData(ep, d, c) {
     weatherfc: rWeatherFC, fuel: rFuel, gold: rGold, lunar: rLunar, bing: rBing,
     epic: rEpic, steam: rSteam, ncm: rNCM, maoyan: rMaoyan, moyu: rMoyu, whois: rWhois,
     js: rJS, exchange: rExchange, og: rOG, answer: rAnswer, quote: rQuote,
-    kuan: rKuan, kr36: r36Kr, reddit: rReddit,
+    kuan: rKuan, '36kr': r36Kr, reddit: rReddit,
   }[ep.type] || rJSON;
   fn(d, c, ep);
 }

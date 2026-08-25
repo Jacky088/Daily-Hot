@@ -26,6 +26,10 @@ class ServiceRednote {
 
       const apiData = (await response.json()) as RednoteRawResponse
 
+      if (!apiData.success || !apiData.data?.items) {
+        throw new Error(`小红书接口返回异常：${apiData.msg || '未知错误'}（code: ${apiData.code ?? response.status}）`)
+      }
+
       const hotList: RednoteItem[] = apiData.data.items.map((item, idx) => {
         return {
           rank: idx + 1,
