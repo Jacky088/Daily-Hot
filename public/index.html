@@ -437,6 +437,40 @@
     .answer-zh { font-size: 17px; letter-spacing: 1px; }
     .answer-en { font-size: 11px; }
   }
+
+  /* ===== 油价模块 ===== */
+  .fuel-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .fuel-region { font-size: 15px; font-weight: 700; color: var(--text); }
+  .fuel-updated { font-size: 11px; color: var(--text-dimmer); }
+  .fuel-trend { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; border-radius: 10px; margin-bottom: 12px; font-size: 12px; border: 1px solid; }
+  .fuel-trend .dir { font-weight: 700; }
+  .fuel-trend .desc { color: var(--text-dim); }
+  .fuel-trend .date { margin-left: auto; color: var(--text-dimmer); font-size: 11px; }
+  .fuel-trend.up { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.25); }
+  .fuel-trend.up .dir { color: #ef4444; }
+  .fuel-trend.down { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.25); }
+  .fuel-trend.down .dir { color: #10b981; }
+  .fuel-trend.flat { background: var(--accent-bg); border-color: var(--border); }
+  .fuel-trend.flat .dir { color: var(--text-dim); }
+  .fuel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 14px; }
+  .fuel-card { position: relative; padding: 12px 10px 10px 14px; border-radius: 12px; background: var(--card-hover); border: 1px solid var(--border); overflow: hidden; }
+  .fuel-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--c); border-radius: 3px; }
+  .fuel-card .name { display: block; font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
+  .fuel-card .price { font-size: 20px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; }
+  .fuel-card .price small { font-size: 10px; font-weight: 400; color: var(--text-dimmer); margin-left: 3px; }
+  .fuel-chart { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--card-hover); }
+  .fuel-chart-title { font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 8px; }
+  .fuel-chart-svg { width: 100%; height: auto; display: block; }
+  .fl-grid { stroke: var(--border); stroke-width: 0.5; stroke-dasharray: 2 3; }
+  .fl-ylabel { font-size: 8.5px; fill: var(--text-dimmer); }
+  .fl-xlabel { font-size: 8.5px; fill: var(--text-dimmer); }
+  .fl-last { font-size: 9px; font-weight: 700; fill: #f59e0b; }
+  .fuel-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; font-size: 10.5px; color: var(--text-dim); }
+  .fuel-legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .fuel-legend i { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
+  .fuel-link { margin-top: 10px; font-size: 11px; text-align: right; }
+  .fuel-link a { color: var(--text-dim); text-decoration: none; }
+  .fuel-link a:hover { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -545,7 +579,7 @@ const EPS = [
   { cat:'life', id:'wnow', name:'实时天气', icon:'☀️', path:'/v2/weather/realtime', type:'weather', auto:0, inputs:[{n:'query',p:'城市',d:'北京'}] },
   { cat:'life', id:'wfc', name:'天气预报', icon:'🌦️', path:'/v2/weather/forecast', type:'weatherfc', auto:0, inputs:[{n:'query',p:'城市',d:'北京'}] },
   { cat:'life', id:'exrate', name:'汇率', icon:'💱', path:'/v2/exchange-rate', type:'exchange', auto:1 },
-  { cat:'life', id:'fuel', name:'油价', icon:'⛽', path:'/v2/fuel-price', type:'fuel', auto:1 },
+  { cat:'life', id:'fuel', name:'油价', icon:'⛽', path:'/v2/fuel-price', type:'fuel', auto:1, inputs:[{n:'region', p:'输入城市名，如：上海 / 广东 / 成都', d:'北京'}] },
   { cat:'life', id:'gold', name:'金价', icon:'🥇', path:'/v2/gold-price', type:'gold', auto:1 },
   { cat:'life', id:'lunar', name:'农历信息', icon:'🌙', path:'/v2/lunar', type:'lunar', auto:1 },
   { cat:'life', id:'moyu', name:'摸鱼日历', icon:'🐟', path:'/v2/moyu', type:'moyu', auto:1 },
@@ -1204,15 +1238,100 @@ function rWeatherFC(d, c) {
 }
 
 function rFuel(d, c) {
-  let h = `<div class="kv-row"><span class="k">📍</span><span class="v">${esc(d.region||'')}</span></div>`;
-  if (d.trend && d.trend.description) h += `<div class="kv-row"><span class="k">趋势</span><span class="v">${esc(d.trend.description)}</span></div>`;
-  if (d.items) {
-    d.items.forEach(it => {
-      h += `<div class="item"><span class="rank">⛽</span><div class="body"><span class="t">${esc(it.name)}</span> <span class="hot">${esc(it.price_desc||it.price||'')}</span></div></div>`;
-    });
+  // 顶部：位置 + 更新时间
+  let h = `<div class="fuel-head"><span class="fuel-region">📍 ${esc(d.region || '')}</span>${d.updated ? `<span class="fuel-updated">更新于 ${esc(d.updated)}</span>` : ''}</div>`;
+
+  // 下次调价预测条
+  if (d.trend && d.trend.description) {
+    const up = d.trend.direction === '上调', down = d.trend.direction === '下调';
+    const cls = up ? 'up' : (down ? 'down' : 'flat');
+    const arrow = up ? '▲' : (down ? '▼' : '●');
+    h += `<div class="fuel-trend ${cls}"><span class="dir">${arrow} ${esc(d.trend.direction)}</span><span class="desc">${esc(d.trend.change_ton_desc ? '预计' + d.trend.change_ton_desc : '')}${d.trend.change_liter_desc ? ' ' + esc(d.trend.change_liter_desc) : ''}</span><span class="date">⏱ ${esc(d.trend.next_adjustment_date || '')}</span></div>`;
   }
-  if (d.link) h += `<div style="margin-top:6px;font-size:11px;"><a href="${esc(d.link)}" target="_blank" rel="noopener">详情 →</a></div>`;
+
+  // 油价卡片网格
+  if (Array.isArray(d.items) && d.items.length) {
+    const palette = ['#f59e0b', '#6366f1', '#ec4899', '#10b981'];
+    h += '<div class="fuel-grid">';
+    d.items.forEach((it, i) => {
+      h += `<div class="fuel-card" style="--c:${palette[i % 4]}"><span class="name">${esc(it.name)}</span><span class="price">${esc(String(it.price != null ? it.price.toFixed ? it.price.toFixed(2) : it.price : ''))}<small>元/升</small></span></div>`;
+    });
+    h += '</div>';
+  }
+
+  // 历史油价曲线（SVG）
+  if (Array.isArray(d.history) && d.history.length > 1) {
+    h += rFuelChart(d.history, d.history_region);
+  }
+
+  if (d.link) h += `<div class="fuel-link"><a href="${esc(d.link)}" target="_blank" rel="noopener">数据来源详情 →</a></div>`;
   c.innerHTML = h;
+}
+
+// 油价历史曲线图（纯 SVG，无依赖）
+function rFuelChart(rows, regionName) {
+  const series = [
+    { key: 'p92', name: '92#汽油', color: '#f59e0b' },
+    { key: 'p95', name: '95#汽油', color: '#6366f1' },
+    { key: 'p98', name: '98#汽油', color: '#ec4899' },
+    { key: 'p0', name: '0#柴油', color: '#10b981' },
+  ];
+  const W = 560, H = 200, PADL = 34, PADR = 14, PADT = 16, PADB = 24;
+  const iw = W - PADL - PADR, ih = H - PADT - PADB;
+  const n = rows.length;
+  let min = Infinity, max = -Infinity;
+  rows.forEach(r => series.forEach(s => {
+    const v = r[s.key];
+    if (v != null && !isNaN(v)) { if (v < min) min = v; if (v > max) max = v; }
+  }));
+  if (!isFinite(min) || !isFinite(max)) return '';
+  if (max - min < 0.4) { const mid = (max + min) / 2; min = mid - 0.2; max = mid + 0.2; }
+  else { const pad = (max - min) * 0.08; min -= pad; max += pad; }
+  const x = i => PADL + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
+  const y = v => PADT + ih - ((v - min) / (max - min)) * ih;
+  let g = '';
+  // 网格线 + Y 轴刻度
+  for (let i = 0; i <= 4; i++) {
+    const gy = PADT + (ih / 4) * i;
+    const val = (max - ((max - min) / 4) * i).toFixed(2);
+    g += `<line x1="${PADL}" y1="${gy}" x2="${W - PADR}" y2="${gy}" class="fl-grid"/><text x="${PADL - 6}" y="${gy + 3}" class="fl-ylabel" text-anchor="end">${val}</text>`;
+  }
+  // X 轴日期标注（首/中/尾）
+  [0, Math.floor((n - 1) / 2), n - 1].forEach(i => {
+    const label = (rows[i].date || '').slice(2);
+    g += `<text x="${x(i)}" y="${H - 8}" class="fl-xlabel" text-anchor="${i === 0 ? 'start' : (i === n - 1 ? 'end' : 'middle')}">${esc(label)}</text>`;
+  });
+  // 折线 + 92# 面积渐变
+  const first = series[0];
+  let area = `M ${x(0)} ${y(rows[0][first.key])}`;
+  rows.forEach((r, i) => { if (i) area += ` L ${x(i)} ${y(r[first.key])}`; });
+  area += ` L ${x(n - 1)} ${PADT + ih} L ${x(0)} ${PADT + ih} Z`;
+  series.forEach(s => {
+    let pts = '';
+    rows.forEach((r, i) => {
+      const v = r[s.key];
+      if (v != null && !isNaN(v)) pts += `${x(i)},${y(v)} `;
+    });
+    g += `<polyline points="${pts.trim()}" fill="none" stroke="${s.color}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>`;
+  });
+  // 92# 面积（在折线下层，重新拼）
+  let svg = `<svg viewBox="0 0 ${W} ${H}" class="fuel-chart-svg" role="img">`;
+  svg += `<defs><linearGradient id="fuelArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f59e0b" stop-opacity="0.18"/><stop offset="1" stop-color="#f59e0b" stop-opacity="0"/></linearGradient></defs>`;
+  svg += `<path d="${area}" fill="url(#fuelArea)"/>`;
+  svg += g;
+  // 最后一点高亮（92#）
+  const lastV = rows[n - 1][first.key];
+  if (lastV != null && !isNaN(lastV)) {
+    svg += `<circle cx="${x(n - 1)}" cy="${y(lastV)}" r="3.2" fill="#f59e0b"/>`;
+    svg += `<text x="${x(n - 1)}" y="${y(lastV) - 7}" class="fl-last" text-anchor="end">${lastV.toFixed(2)}</text>`;
+  }
+  svg += '</svg>';
+  // 图例
+  let legend = '<div class="fuel-legend">';
+  series.forEach(s => { legend += `<span><i style="background:${s.color}"></i>${s.name}</span>`; });
+  legend += '</div>';
+  const title = regionName ? `${esc(regionName)} · 最近 ${n} 期调价走势` : `最近 ${n} 期调价走势`;
+  return `<div class="fuel-chart"><div class="fuel-chart-title">📈 ${title}</div>${svg}${legend}</div>`;
 }
 
 function rGold(d, c) {

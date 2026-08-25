@@ -8,10 +8,64 @@ type FuelRegion = (typeof regions)[number]
 
 const sortedRegion = regions.toSorted((a, b) => a.region.length - b.region.length)
 
+// 历史油价数据源（you.jxgjtz.com）的省级区域拼音映射
+// 注意：该站点部分拼音拼写特殊（西藏=xicang、内蒙古=namenggu、陕西=shanxi2），以其 URL 为准
+const JXGJTZ_PROVINCES: Record<string, string> = {
+  北京: 'beijing',
+  上海: 'shanghai',
+  天津: 'tianjin',
+  重庆: 'chongqing',
+  河北: 'hebei',
+  山西: 'shanxi',
+  辽宁: 'liaoning',
+  吉林: 'jilin',
+  黑龙江: 'heilongjiang',
+  江苏: 'jiangsu',
+  浙江: 'zhejiang',
+  安徽: 'anhui',
+  福建: 'fujian',
+  江西: 'jiangxi',
+  山东: 'shandong',
+  河南: 'henan',
+  湖北: 'hubei',
+  湖南: 'hunan',
+  广东: 'guangdong',
+  海南: 'hainan',
+  四川: 'sichuan',
+  贵州: 'guizhou',
+  云南: 'yunnan',
+  陕西: 'shanxi2',
+  甘肃: 'gansu',
+  青海: 'qinghai',
+  广西: 'guangxi',
+  宁夏: 'ningxia',
+  新疆: 'xinjiang',
+  内蒙古: 'namenggu',
+  西藏: 'xicang',
+}
+
+// 从区域名（可能是"安徽安庆"这类地级市）提取所属省级的拼音
+function provincePinyin(region: string): { name: string; pinyin: string } | null {
+  for (const p of ['黑龙江', '内蒙古']) {
+    if (region.startsWith(p)) return { name: p, pinyin: JXGJTZ_PROVINCES[p] }
+  }
+  const prefix2 = region.slice(0, 2)
+  const pinyin = JXGJTZ_PROVINCES[prefix2]
+  return pinyin ? { name: prefix2, pinyin } : null
+}
+
 interface FuelPrice {
   name: string
   price: number
   price_desc: string
+}
+
+interface FuelHistoryPoint {
+  date: string
+  p92: number
+  p95: number
+  p98: number
+  p0: number
 }
 
 interface FuelTrend {
@@ -35,8 +89,10 @@ interface FuelTrend {
 
 class ServiceFuelPrice {
   #BASE_URL: string = 'http://www.qiyoujiage.com'
+  #HISTORY_URL: string = 'https://you.jxgjtz.com'
 
   private cache = new Map<string, { ts: number; items: FuelPrice[]; trend: FuelTrend | null }>()
+  private historyCache = new Map<string, { ts: number; data: FuelHistoryPoint[] }>()
   // 60 minutes
   private readonly CACHE_TTL_MS = 60 * 60 * 1000
 
@@ -52,31 +108,48 @@ class ServiceFuelPrice {
           return
         }
 
-        const { items, trend, ts } = await this.#fetch(target, forceUpdate)
+        const [{ items, trend, ts }, history] = await Promise.all([
+          this.#fetch(target, forceUpdate),
+          this.#fetchHistory(target.region, forceUpdate),
+        ])
+
+        const province = provincePinyin(target.region)
+        const historyRegion = province ? province.name : ''
 
         const data = {
           region: target.region,
           trend,
           items,
+          history,
+          history_region: historyRegion,
           link: `${this.#BASE_URL}${target.url}`,
           updated: Common.localeTime(ts),
           updated_at: ts,
         }
 
         const trendText = data.trend ? `\n\n${data.trend.description}` : ''
+        const historyText = history.length
+          ? `\n\n历史油价（${historyRegion}，最近 ${history.length} 期）:\n${history
+              .slice(-5)
+              .map((e) => `${e.date} 92#: ${e.p92} 95#: ${e.p95} 98#: ${e.p98} 0#: ${e.p0}`)
+              .join('\n')}`
+          : ''
 
         switch (ctx.state.encoding) {
           case 'text': {
             ctx.response.body = `今日油价 (${queryRegion})\n\n${data.items
               .map((e) => `${e.name}: ${e.price_desc}`)
-              .join('\n')}${trendText}\n\n更新时间: ${data.updated}`
+              .join('\n')}${trendText}${historyText}\n\n更新时间: ${data.updated}`
             break
           }
 
           case 'markdown': {
             ctx.response.body = `# 今日油价 (${queryRegion})\n\n${data.items
               .map((e) => `- **${e.name}**: ${e.price_desc}`)
-              .join('\n')}${data.trend ? `\n\n> ${data.trend.description}` : ''}\n\n更新时间: ${data.updated}`
+              .join('\n')}${data.trend ? `\n\n> ${data.trend.description}` : ''}${history.length ? `\n\n## 历史油价（${historyRegion}）\n\n| 日期 | 92# | 95# | 98# | 0# |\n|---|---|---|---|---|\n${history
+              .slice(-10)
+              .map((e) => `| ${e.date} | ${e.p92} | ${e.p95} | ${e.p98} | ${e.p0} |`)
+              .join('\n')}` : ''}\n\n更新时间: ${data.updated}`
             break
           }
 
@@ -124,10 +197,69 @@ class ServiceFuelPrice {
     return data
   }
 
+  // 历史油价：you.jxgjtz.com 提供省级最近 30 期调价记录，失败时返回空数组（不阻塞主数据）
+  async #fetchHistory(regionName: string, forceUpdate: boolean = false): Promise<FuelHistoryPoint[]> {
+    const province = provincePinyin(regionName)
+    if (!province) return []
+
+    const cacheKey = `FUEL_HISTORY_${province.pinyin}`
+
+    if (forceUpdate) {
+      this.historyCache.delete(cacheKey)
+    }
+
+    const cachedEntry = this.historyCache.get(cacheKey)
+    if (cachedEntry && Date.now() - cachedEntry.ts < this.CACHE_TTL_MS) {
+      return cachedEntry.data
+    }
+
+    try {
+      const response = await fetch(`${this.#HISTORY_URL}/${province.pinyin}/`, {
+        headers: { 'User-Agent': Common.chromeUA },
+        signal: AbortSignal.timeout(10000),
+      })
+
+      if (!response.ok) return []
+
+      const html = await response.text()
+      const section = html.slice(html.indexOf('历史油价数据'))
+      const trs = section.match(/<tr[^>]*>[\s\S]*?<\/tr>/g) || []
+
+      const rows: FuelHistoryPoint[] = []
+
+      for (const tr of trs) {
+        const tds = tr.match(/<td[^>]*>[\s\S]*?<\/td>/g) || []
+        if (tds.length < 6) continue
+
+        const date = (tds[0].replace(/<[^>]+>/g, '').trim().match(/\d{4}-\d{2}-\d{2}/) || [])[0]
+        if (!date) continue
+
+        const cells = tds.slice(1).map((td) => {
+          const text = td.replace(/<[^>]+>/g, ' ')
+          return parseFloat(text.trim().match(/\d+\.?\d*/)?.[0] ?? '')
+        })
+
+        if (Number.isNaN(cells[1])) continue
+
+        rows.push({ date, p92: cells[1], p95: cells[2], p98: cells[3], p0: cells[4] })
+      }
+
+      if (rows.length === 0) return []
+
+      // 按日期升序（旧 -> 新），便于前端绘制曲线
+      rows.sort((a, b) => a.date.localeCompare(b.date))
+
+      this.historyCache.set(cacheKey, { ts: Date.now(), data: rows })
+
+      return rows
+    } catch {
+      return []
+    }
+  }
+
   parsePrices(html: string): FuelPrice[] {
     const $ = load(html)
     const items: FuelPrice[] = []
-
     $('#youjia dl').each((_, dl) => {
       const $dl = $(dl)
       const dts = $dl.find('dt')
