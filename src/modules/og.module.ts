@@ -58,25 +58,45 @@ class ServiceOG {
     }
 
     const html = await response.text()
+    const httpOk = response.ok // 仅在 2xx 时回退到 <title>/<meta description>，避免误取 403/404 错误页标题
 
-    const ogTitlePattern = /<meta property="og:title" content="(?<title>[^"]+)"\s*\/?>/i
-    const ogImagePattern = /<meta property="og:image" content="(?<image>[^"]+)"\s*\/?>/i
-    const ogDescriptionPattern = /<meta property="og:description" content="(?<description>[^"]+)"\s*\/?>/i
+    // 通用 meta 提取：匹配 <meta ... attr="value" ...> 并取出 content（兼容属性先后顺序）
+    const pickMeta = (attr: string, value: string): string => {
+      const tag = new RegExp(`<meta[^>]*\\s${attr}=["']${value}["'][^>]*>`, 'i').exec(html)?.[0] || ''
+      return /content=["'](?<c>[^"']*)["']/i.exec(tag)?.groups?.c || ''
+    }
 
-    const [titleMatch, imageMatch, descriptionMatch] = [
-      ogTitlePattern.exec(html),
-      ogImagePattern.exec(html),
-      ogDescriptionPattern.exec(html),
-    ]
+    // 标题：og:title → twitter:title → <title>（仅 2xx）
+    const titleRaw =
+      pickMeta('property', 'og:title') ||
+      pickMeta('name', 'twitter:title') ||
+      (httpOk ? /<title[^>]*>(?<t>[^<]*)<\/title>/i.exec(html)?.groups?.t || '' : '')
 
-    const title = this.decodeHtmlEntities(titleMatch?.groups?.title || '')
-    const image = this.decodeHtmlEntities(imageMatch?.groups?.image || '')
-    const description = this.decodeHtmlEntities(descriptionMatch?.groups?.description || '')
+    // 图片：og:image → twitter:image → itemprop="image"
+    const imageRaw =
+      pickMeta('property', 'og:image') ||
+      pickMeta('name', 'twitter:image') ||
+      (httpOk ? pickMeta('itemprop', 'image') : '')
+
+    // 描述：og:description → meta description → twitter:description（仅 2xx）
+    const descriptionRaw =
+      pickMeta('property', 'og:description') ||
+      (httpOk ? pickMeta('name', 'description') || pickMeta('name', 'twitter:description') : '')
+
+    // 相对路径图片解析为绝对 URL
+    const resolveUrl = (raw: string): string => {
+      if (!raw) return ''
+      try {
+        return new URL(raw, _url).href
+      } catch {
+        return raw
+      }
+    }
 
     return {
-      title,
-      image,
-      description,
+      title: this.decodeHtmlEntities(titleRaw.trim()),
+      image: resolveUrl(this.decodeHtmlEntities(imageRaw.trim())),
+      description: this.decodeHtmlEntities(descriptionRaw.trim()),
     }
   }
 
