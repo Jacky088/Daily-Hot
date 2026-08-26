@@ -117,6 +117,7 @@ const EPS = [
   { cat:'fun', id:'answer', name:'答案之书', icon:'📖', path:'/v2/answer', type:'answer', auto:1, hint:'心中默念你的问题，点击 ↻ 揭晓答案' },
   { cat:'fun', id:'bing', name:'必应壁纸', icon:'🖼️', path:'/v2/bing', type:'bing', auto:1 },
   { cat:'fun', id:'awjs', name:'JS题目', icon:'🧩', path:'/v2/awesome-js', type:'js', auto:1 },
+  { cat:'fun', id:'geng', name:'梗百科', icon:'🎭', path:'/v2/geng', type:'geng', auto:1 },
 
   // 翻译
   { cat:'trans', id:'fanyi', name:'有道翻译', icon:'🔤', path:'/v2/fanyi', type:'fanyi', auto:0, inputs:[{n:'text',p:'文本',d:'hello'},{n:'from',p:'源语言',d:'en'},{n:'to',p:'目标',d:'zh-CHS'}] },
@@ -578,7 +579,7 @@ function renderData(ep, d, c) {
     epic: rEpic, steam: rSteam, ncm: rNCM, maoyan: rMaoyan, moyu: rMoyu, whois: rWhois,
     js: rJS, exchange: rExchange, og: rOG, answer: rAnswer, quote: rQuote,
     kuan: rKuan, '36kr': r36Kr, reddit: rReddit, sspai: rSspai, huxiu: rHuxiu,
-    baike: rBaike, health: rHealth,
+    baike: rBaike, health: rHealth, geng: rGeng,
   }[ep.type] || rJSON;
   fn(d, c, ep);
 }
@@ -727,6 +728,15 @@ function rQuote(d, c, ep) {
     <div class="quote-mark">“</div>
     <div class="quote-text">${esc(t)}</div>
     ${idx ? `<div class="quote-meta"><i></i><span>第 ${idx} 条</span><i></i></div>` : ''}
+  </div>`;
+}
+
+function rGeng(d, c) {
+  const idx = d.index != null ? Number(d.index) + 1 : null;
+  c.innerHTML = `<div class="geng-card">
+    <div class="geng-title">${esc(d.title || '')}</div>
+    <div class="geng-content">${esc(d.content || '')}</div>
+    ${idx ? `<div class="geng-meta">第 ${idx} 个梗</div>` : ''}
   </div>`;
 }
 

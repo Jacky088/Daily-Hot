@@ -18,6 +18,7 @@ import { serviceSteam } from './modules/steam.module.ts'
 import { serviceExRate } from './modules/exchange-rate.module.ts'
 import { serviceFabing } from './modules/fabing/fabing.module.ts'
 import { serviceFanyi } from './modules/fanyi/fanyi.module.ts'
+import { serviceGeng } from './modules/geng/geng.module.ts'
 import { serviceHash } from './modules/hash.module.ts'
 import { serviceHitokoto } from './modules/hitokoto/hitokoto.module.ts'
 import { serviceIP } from './modules/ip.module.ts'
@@ -97,6 +98,7 @@ appRouter.get('/epic', serviceEpic.handle())
 appRouter.get('/steam', serviceSteam.handle())
 appRouter.get('/exchange-rate', serviceExRate.handle())
 appRouter.get('/fabing', serviceFabing.handle())
+appRouter.get('/geng', serviceGeng.handle())
 appRouter.get('/hitokoto', serviceHitokoto.handle())
 appRouter.get('/ip', serviceIP.handle())
 appRouter.get('/kfc', serviceKfc.handle())
