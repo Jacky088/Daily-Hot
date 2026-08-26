@@ -139,6 +139,17 @@
     background: var(--accent); box-shadow: 0 0 6px var(--accent);
     animation: clockPulse 2s ease-in-out infinite;
   }
+  /* 一日进度填充层：0 点 0%，24 点 100%，每秒平滑推进 */
+  .clock-fill {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
+    border-radius: inherit; z-index: 0; pointer-events: none;
+    background: linear-gradient(90deg, var(--accent), var(--accent-light));
+    opacity: 0.16;
+    transition: width 1s linear;
+  }
+  :root[data-theme="light"] .clock-fill { opacity: 0.12; }
+  .clock-dot, .clock-date, .clock-time, .clock::before { position: relative; z-index: 1; }
+  .clock::before { position: absolute; z-index: 2; }
   @keyframes clockPulse {
     0%, 100% { opacity: 0.45; transform: scale(0.9); }
     50% { opacity: 1; transform: scale(1.15); }
@@ -548,6 +559,7 @@
       </div>
       <!-- 桌面端时钟：搜索框右侧 -->
       <div class="clock clock-desktop" id="clockDesktop" title="当前时间">
+        <div class="clock-fill" data-fill="desktop"></div>
         <span class="clock-dot"></span>
         <span class="clock-date" id="clockDateDesktop">----/--/--</span>
         <span class="clock-time" id="clockTimeDesktop">--:--:--</span>
@@ -556,6 +568,7 @@
     <div class="header-right">
       <!-- 移动端时钟：github 图标左侧、左对齐 -->
       <div class="clock clock-mobile" id="clockMobile" title="当前时间">
+        <div class="clock-fill" data-fill="mobile"></div>
         <span class="clock-dot"></span>
         <span class="clock-date" id="clockDateMobile">----/--/--</span>
         <span class="clock-time" id="clockTimeMobile">--:--:--</span>
@@ -746,6 +759,7 @@ function init() {
   // 实时时钟（精确到秒）
   const timeEls = [$('#clockTimeDesktop'), $('#clockTimeMobile')];
   const dateEls = [$('#clockDateDesktop'), $('#clockDateMobile')];
+  const fillEls = document.querySelectorAll('.clock-fill');
   const wdNames = ['日', '一', '二', '三', '四', '五', '六'];
   function pad(n) { return String(n).padStart(2, '0'); }
   function tick() {
@@ -754,6 +768,9 @@ function init() {
     const dt = `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} 周${wdNames[d.getDay()]}`;
     timeEls.forEach(el => { if (el) el.textContent = t; });
     dateEls.forEach(el => { if (el) el.textContent = dt; });
+    // 一日进度：0 点 0%，24 点 100%，每秒平滑推进
+    const dayProgress = (d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) / 86400 * 100;
+    fillEls.forEach(el => { el.style.width = dayProgress + '%'; });
   }
   tick();
   setInterval(tick, 1000);
