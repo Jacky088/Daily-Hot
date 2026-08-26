@@ -85,6 +85,8 @@ const EPS = [
   { cat:'ent', id:'changya', name:'唱鸭', icon:'🎤', path:'/v2/changya', type:'changya', auto:1 },
 
   // 工具
+  { cat:'tools', id:'baike', name:'百度百科', icon:'📖', path:'/v2/baike', type:'baike', auto:0, inputs:[{n:'word',p:'关键词',d:'人工智能'}], hint:'查询百度百科词条摘要；输入任意关键词，返回定义、摘要与封面图' },
+  { cat:'tools', id:'health', name:'健康计算器', icon:'🧮', path:'/v2/health', type:'health', auto:0, inputs:[{n:'height',p:'身高 cm',d:'175'},{n:'weight',p:'体重 kg',d:'70'},{n:'gender',p:'性别 male/female',d:'male'},{n:'age',p:'年龄',d:'30'}], hint:'输入身高、体重、性别、年龄，计算 BMI、体脂率、基础代谢率等健康指标' },
   { cat:'tools', id:'qr', name:'二维码生成', icon:'📱', path:'/v2/qrcode', type:'qr', auto:0, inputs:[{n:'text',p:'内容',d:'https://github.com/vikiboss/60s'},{n:'size',p:'尺寸',d:'256'}], hint:'内容支持任意文本或链接；尺寸为图片边长像素，默认 256' },
   { cat:'tools', id:'hash', name:'哈希加密', icon:'#️⃣', path:'/v2/hash', type:'hash', auto:0, inputs:[{n:'content',p:'文本',d:'hello'}], hint:'一次性输出 MD5、SHA1/256/512、Base64、URL 编码等常用编解码结果' },
   { cat:'tools', id:'og', name:'网页OG信息', icon:'🌐', path:'/v2/og', type:'og', auto:0, inputs:[{n:'url',p:'URL',d:'github.com'}], hint:'提取网页标题、描述、图标等 OG 元信息；输入域名即可，无需带协议' },
@@ -576,6 +578,7 @@ function renderData(ep, d, c) {
     epic: rEpic, steam: rSteam, ncm: rNCM, maoyan: rMaoyan, moyu: rMoyu, whois: rWhois,
     js: rJS, exchange: rExchange, og: rOG, answer: rAnswer, quote: rQuote,
     kuan: rKuan, '36kr': r36Kr, reddit: rReddit, sspai: rSspai, huxiu: rHuxiu,
+    baike: rBaike, health: rHealth,
   }[ep.type] || rJSON;
   fn(d, c, ep);
 }
@@ -725,6 +728,44 @@ function rQuote(d, c, ep) {
     <div class="quote-text">${esc(t)}</div>
     ${idx ? `<div class="quote-meta"><i></i><span>第 ${idx} 条</span><i></i></div>` : ''}
   </div>`;
+}
+
+function rBaike(d, c) {
+  let h = '';
+  if (d.cover) h += `<div class="img-wrap"><img src="${esc(d.cover)}" alt="${esc(d.title)}"></div>`;
+  h += '<div class="kv">';
+  if (d.title) h += `<div class="kv-row"><span class="k">词条</span><span class="v">${esc(d.title)}</span></div>`;
+  if (d.description) h += `<div class="kv-row"><span class="k">简介</span><span class="v">${esc(d.description)}</span></div>`;
+  if (d.abstract) h += `<div class="kv-row"><span class="k">摘要</span><span class="v">${esc(d.abstract)}</span></div>`;
+  if (d.has_other) h += `<div class="kv-row"><span class="k">备注</span><span class="v">该词条有多个义项</span></div>`;
+  if (d.link) h += `<div class="kv-row"><span class="k">链接</span><span class="v"><a href="${esc(d.link)}" target="_blank">查看完整词条 ↗</a></span></div>`;
+  h += '</div>';
+  c.innerHTML = h;
+}
+
+function rHealth(d, c) {
+  const row = (k, v) => (v ? `<div class="kv-row"><span class="k">${k}</span><span class="v">${esc(String(v))}</span></div>` : '');
+  const sec = (title, body) => `<div class="health-sec"><div class="health-sec-title">${title}</div><div class="kv">${body}</div></div>`;
+  let h = '';
+  const bi = d.basic_info || {};
+  h += sec('基本信息', row(bi.height_desc || '身高', bi.height) + row(bi.weight_desc || '体重', bi.weight) + row(bi.gender_desc || '性别', bi.gender) + row(bi.age_desc || '年龄', bi.age));
+  const bmi = d.bmi || {};
+  h += sec('体质指数 BMI', row(bmi.value_desc || 'BMI', bmi.value) + row(bmi.category_desc || '分类', bmi.category) + row(bmi.evaluation_desc || '评价', bmi.evaluation) + row(bmi.risk_desc || '风险', bmi.risk));
+  const wa = d.weight_assessment || {};
+  h += sec('体重评估', row(wa.status_desc || '状态', wa.status) + row(wa.ideal_weight_range_desc || '理想范围', wa.ideal_weight_range) + row(wa.standard_weight_desc || '标准体重', wa.standard_weight) + row(wa.adjustment_desc || '调整建议', wa.adjustment));
+  const me = d.metabolism || {};
+  h += sec('代谢与热量', row(me.bmr_desc || '基础代谢率', me.bmr) + row(me.tdee_desc || '每日总消耗', me.tdee) + row(me.recommended_calories_desc || '推荐摄入', me.recommended_calories) + row(me.weight_loss_calories_desc || '减重卡路里', me.weight_loss_calories) + row(me.weight_gain_calories_desc || '增重卡路里', me.weight_gain_calories));
+  const bf = d.body_fat || {};
+  h += sec('体脂与身体组成', row(bf.percentage_desc || '体脂率', bf.percentage) + row(bf.category_desc || '体脂分类', bf.category) + row(bf.fat_weight_desc || '脂肪重量', bf.fat_weight) + row(bf.lean_weight_desc || '瘦体重', bf.lean_weight));
+  const bsa = d.body_surface_area || {};
+  h += sec('体表面积', row(bsa.value_desc || '体表面积', bsa.value) + row(bsa.formula_desc || '计算公式', bsa.formula));
+  const im = d.ideal_measurements || {};
+  h += sec('理想三围参考', row(im.chest_desc || '胸围', im.chest) + row(im.waist_desc || '腰围', im.waist) + row(im.hip_desc || '臀围', im.hip) + (im.note ? row('说明', im.note) : ''));
+  const ha = d.health_advice || {};
+  const tips = Array.isArray(ha.health_tips) ? ha.health_tips.slice(0, 4).map(t => row('•', t)).join('') : '';
+  h += sec('个性化建议', row(ha.daily_water_intake_desc || '每日饮水', ha.daily_water_intake) + row(ha.exercise_recommendation_desc || '运动建议', ha.exercise_recommendation) + row(ha.nutrition_advice_desc || '营养建议', ha.nutrition_advice) + tips);
+  if (d.disclaimer) h += `<div class="news-tip">⚠️ ${esc(d.disclaimer)}</div>`;
+  c.innerHTML = h;
 }
 
 function rColor(d, c) {

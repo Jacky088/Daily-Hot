@@ -399,6 +399,10 @@ a:hover { text-decoration: underline; }
 .img-wrap { margin-bottom: 8px; }
 .img-wrap img { max-width: 100%; border-radius: 8px; border: 1px solid var(--border); }
 
+/* Health report sections */
+.health-sec { margin-bottom: 10px; }
+.health-sec-title { font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 4px; padding-bottom: 3px; border-bottom: 1px solid var(--border); }
+
 /* Password */
 .pwd-box {
   font-family: monospace; font-size: 14px; padding: 10px;
