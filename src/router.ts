@@ -27,6 +27,7 @@ import { serviceLuck } from './modules/luck/luck.module.ts'
 import { serviceLunar } from './modules/lunar/lunar.module.ts'
 import { serviceMaoyan } from './modules/maoyan/maoyan.module.ts'
 import { serviceNcm } from './modules/ncm.module.ts'
+import { serviceNodeSeek } from './modules/nodeseek.module.ts'
 import { serviceOG } from './modules/og.module.ts'
 import { serviceQQ } from './modules/qq.module.ts'
 import { serviceQRCode } from './modules/qrcode/qrcode.module.ts'
@@ -118,6 +119,7 @@ appRouter.get('/dad-joke', serviceDadJoke.handle())
 appRouter.get('/rednote', serviceRednote.handle())
 appRouter.get('/dongchedi', serviceDongchedi.handle())
 appRouter.get('/36kr', service36Kr.handle())
+appRouter.get('/nodeseek', serviceNodeSeek.handle())
 appRouter.get('/reddit', serviceReddit.handle())
 appRouter.get('/sspai', serviceSspai.handle())
 appRouter.get('/huxiu', serviceHuxiu.handle())
