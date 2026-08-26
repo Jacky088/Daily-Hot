@@ -1,0 +1,16 @@
+{
+  "name": "每日热榜 · 一站看完天下事",
+  "short_name": "每日热榜",
+  "description": "聚合 40+ 数据源的热榜聚合面板",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0b10",
+  "theme_color": "#6366f1",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cdefs%3E%3ClinearGradient id='f' x1='0%25' y1='100%25' x2='0%25' y2='0%25'%3E%3Cstop offset='0%25' stop-color='%236366f1'/%3E%3Cstop offset='50%25' stop-color='%23818cf8'/%3E%3Cstop offset='100%25' stop-color='%23fbbf24'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M256 40c0 0-30 40-60 90s-60 110-30 150c-20-10-40-30-50-60 0 0-30 40-20 90C100 370 140 420 256 460c116-40 156-90 166-140 10-50-20-90-20-90-10 30-30 50-50 60 30-40 20-90-10-140S286 80 256 40z' fill='url(%23f)'/%3E%3C/svg%3E",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
