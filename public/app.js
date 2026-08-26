@@ -71,6 +71,8 @@ const EPS = [
   { cat:'tech', id:'sspai', name:'少数派热榜', icon:'🎨', path:'/v2/sspai', type:'sspai', auto:1 },
   { cat:'tech', id:'huxiu', name:'虎嗅热榜', icon:'🐯', path:'/v2/huxiu', type:'huxiu', auto:1 },
   { cat:'tech', id:'nodeseek', name:'NodeSeek热帖', icon:'🌐', path:'/v2/nodeseek', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'description'} },
+  { cat:'tech', id:'v2ex', name:'V2EX热帖', icon:'💬', path:'/v2/v2ex', type:'list', auto:1, f:{t:'title',h:'replies',l:'link', d:'node'} },
+  { cat:'tech', id:'let', name:'LowEndTalk', icon:'🖥️', path:'/v2/lowendtalk', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'description'} },
 
   // 娱乐
   { cat:'ent', id:'maoyan', name:'猫眼历史票房', icon:'🍿', path:'/v2/maoyan/all/movie', type:'maoyan', auto:1 },

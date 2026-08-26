@@ -23,6 +23,7 @@ import { serviceHash } from './modules/hash.module.ts'
 import { serviceHitokoto } from './modules/hitokoto/hitokoto.module.ts'
 import { serviceIP } from './modules/ip.module.ts'
 import { serviceKfc } from './modules/kfc.module.ts'
+import { serviceLowEndTalk } from './modules/lowendtalk.module.ts'
 import { serviceLuck } from './modules/luck/luck.module.ts'
 import { serviceLunar } from './modules/lunar/lunar.module.ts'
 import { serviceMaoyan } from './modules/maoyan/maoyan.module.ts'
@@ -55,6 +56,7 @@ import { serviceFuelPrice } from './modules/fuel-price/fuel-price.module.ts'
 import { GoldPriceService } from './modules/gold-price.module.ts'
 import { serviceQuark } from './modules/quark.module.ts'
 import { serviceWhois } from './modules/whois.module.ts'
+import { serviceV2ex } from './modules/v2ex.module.ts'
 import { olympicsService } from './modules/olympics/olympics.module.ts'
 import { serviceDoubanWeekly } from './modules/douban-weekly.module.ts'
 import { serviceITNews } from './modules/it-news.module.ts'
@@ -120,6 +122,8 @@ appRouter.get('/rednote', serviceRednote.handle())
 appRouter.get('/dongchedi', serviceDongchedi.handle())
 appRouter.get('/36kr', service36Kr.handle())
 appRouter.get('/nodeseek', serviceNodeSeek.handle())
+appRouter.get('/v2ex', serviceV2ex.handle())
+appRouter.get('/lowendtalk', serviceLowEndTalk.handle())
 appRouter.get('/reddit', serviceReddit.handle())
 appRouter.get('/sspai', serviceSspai.handle())
 appRouter.get('/huxiu', serviceHuxiu.handle())
