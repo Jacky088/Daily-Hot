@@ -114,25 +114,126 @@ class ServiceIP {
   }
 
   async fetchIpInfo(ip: string): Promise<IpInfo> {
-    // https://qifu-api.baidubce.com/ip/geo/v1/district?ip=
-    // 上述接口已失效，使用 ip.sb 接口简单 fallback 对齐，防止接口异常
-    const data = await (await fetch('https://api.ip.sb/geoip')).json().catch(() => {})
+    // 多源回退：ipinfo.io（IPv4+IPv6）→ ip-api.com（IPv4 中文省市）→ ip.sb（兜底）
+    const isIPv4 = ip.includes('.') && !ip.includes(':')
 
+    // 1. 主源：ipinfo.io —— 同时支持 IPv4/IPv6，数据准确
+    try {
+      const res = await fetch(`https://ipinfo.io/${ip}/json`, { signal: AbortSignal.timeout(5000) })
+      if (res.ok) {
+        const d = await res.json()
+        if (d && d.ip && !d.error) {
+          const [lat, lng] = (d.loc || ',').split(',')
+          // org 形如 "AS13335 Cloudflare, Inc."，提取运营商名
+          const orgMatch = (d.org || '').match(/^AS\d+\s+(.+)$/)
+          const isp = orgMatch ? orgMatch[1] : (d.org || '')
+          const asMatch = (d.org || '').match(/^AS(\d+)/)
+          return {
+            ip,
+            continent: '',
+            country: d.country || '',
+            zipcode: d.postal || '',
+            timezone: d.timezone || '',
+            accuracy: '',
+            owner: '',
+            isp,
+            source: 'ipinfo.io',
+            areacode: d.country || '',
+            adcode: '',
+            asnumber: asMatch ? asMatch[1] : '',
+            lat: lat || '',
+            lng: lng || '',
+            radius: '',
+            prov: d.region || '',
+            city: d.city || '',
+            district: '',
+          }
+        }
+      }
+    } catch {}
+
+    // 2. 回退：ip-api.com —— 仅 IPv4，中文省市更友好
+    if (isIPv4) {
+      try {
+        const res = await fetch(
+          `http://ip-api.com/json/${ip}?lang=zh-CN&fields=status,message,country,countryCode,regionName,city,isp,org,as,lat,lon,timezone`,
+          { signal: AbortSignal.timeout(5000) },
+        )
+        if (res.ok) {
+          const d = await res.json()
+          if (d && d.status === 'success') {
+            const asMatch = (d.as || '').match(/^AS(\d+)/)
+            return {
+              ip,
+              continent: '',
+              country: d.country || '',
+              zipcode: '',
+              timezone: d.timezone || '',
+              accuracy: '',
+              owner: d.org || '',
+              isp: d.isp || '',
+              source: 'ip-api.com',
+              areacode: d.countryCode || '',
+              adcode: '',
+              asnumber: asMatch ? asMatch[1] : (d.as || ''),
+              lat: String(d.lat || ''),
+              lng: String(d.lon || ''),
+              radius: '',
+              prov: d.regionName || '',
+              city: d.city || '',
+              district: '',
+            }
+          }
+        }
+      } catch {}
+    }
+
+    // 3. 最后兜底：ip.sb
+    try {
+      const res = await fetch(`https://api.ip.sb/geoip/${ip}`, { signal: AbortSignal.timeout(5000) })
+      if (res.ok) {
+        const d = await res.json()
+        if (d && d.ip) {
+          return {
+            ip,
+            continent: d.continent_code || '',
+            country: d.country || '',
+            zipcode: '',
+            timezone: d.timezone || '',
+            accuracy: '',
+            owner: '',
+            isp: d.isp || d.organization || '',
+            source: 'ip.sb',
+            areacode: d.country_code || '',
+            adcode: '',
+            asnumber: String(d.asn || ''),
+            lat: String(d.latitude || ''),
+            lng: String(d.longitude || ''),
+            radius: '',
+            prov: d.region || '',
+            city: d.city || '',
+            district: '',
+          }
+        }
+      }
+    } catch {}
+
+    // 全部失败：返回基础信息
     return {
       ip,
-      continent: data?.continent_code || '',
-      country: data?.country || '',
+      continent: '',
+      country: '',
       zipcode: '',
-      timezone: data?.timezone || '',
+      timezone: '',
       accuracy: '',
       owner: '',
-      isp: data?.isp || '',
-      source: 'ip.sb',
+      isp: '',
+      source: 'unknown',
       areacode: '',
       adcode: '',
-      asnumber: String(data?.asn || ''),
-      lat: data?.latitude || '',
-      lng: data?.longitude || '',
+      asnumber: '',
+      lat: '',
+      lng: '',
       radius: '',
       prov: '',
       city: '',
