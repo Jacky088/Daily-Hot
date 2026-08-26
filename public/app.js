@@ -284,18 +284,25 @@ function render() {
     eps.forEach(ep => grid.appendChild(makeCard(ep)));
     main.appendChild(grid);
   } else {
-    CATS.filter(c => c.id !== 'all').forEach(c => {
-      const eps = EPS.filter(ep => ep.cat === c.id && matchKw(ep, kw));
-      if (eps.length === 0) return;
-      const sec = document.createElement('div');
-      sec.className = 'cat-section';
-      sec.innerHTML = `<div class="cat-title">${c.name}<span class="count">${eps.length}</span></div>`;
-      const grid = document.createElement('div');
-      grid.className = 'grid';
-      eps.forEach(ep => grid.appendChild(makeCard(ep)));
-      sec.appendChild(grid);
-      main.appendChild(sec);
-    });
+    // 只渲染选中的分类
+    const selCat = CATS.find(c => c.id === curCat);
+    if (selCat) {
+      const eps = EPS.filter(ep => ep.cat === curCat && matchKw(ep, kw));
+      if (eps.length > 0) {
+        const sec = document.createElement('div');
+        sec.className = 'cat-section';
+        sec.innerHTML = `<div class="cat-title">${selCat.name}<span class="count">${eps.length}</span></div>`;
+        const grid = document.createElement('div');
+        grid.className = 'grid';
+        eps.forEach(ep => {
+          const card = makeCard(ep);
+          card.style.animationDelay = (eps.indexOf(ep) * 0.03) + 's';
+          grid.appendChild(card);
+        });
+        sec.appendChild(grid);
+        main.appendChild(sec);
+      }
+    }
   }
 
   if (main.children.length === 0) {
@@ -1476,3 +1483,5 @@ function clearKbFocus() {
 }
 
 init();
+
+
