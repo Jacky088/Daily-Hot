@@ -86,7 +86,7 @@ const EPS = [
 
   // 工具
   { cat:'tools', id:'baike', name:'百度百科', icon:'📖', path:'/v2/baike', type:'baike', auto:0, inputs:[{n:'word',p:'关键词',d:'人工智能'}], hint:'查询百度百科词条摘要；输入任意关键词，返回定义、摘要与封面图' },
-  { cat:'tools', id:'health', name:'健康计算器', icon:'🧮', path:'/v2/health', type:'health', auto:0, inputs:[{n:'height',p:'身高 cm',d:'175'},{n:'weight',p:'体重 kg',d:'70'},{n:'gender',p:'性别 male/female',d:'male'},{n:'age',p:'年龄',d:'30'}], hint:'输入身高、体重、性别、年龄，计算 BMI、体脂率、基础代谢率等健康指标' },
+  { cat:'tools', id:'health', name:'健康计算器', icon:'🧮', path:'/v2/health', type:'health', auto:0, inputs:[{n:'height',p:'身高 50-300cm',d:'175'},{n:'weight',p:'体重 10-300kg',d:'70'},{n:'gender',p:'性别 male 或 female',d:'male'},{n:'age',p:'年龄 1-150岁',d:'30'}], hint:'输入身高(cm)、体重(kg)、性别(male/female)、年龄，计算 BMI、体脂率、基础代谢率等健康指标' },
   { cat:'tools', id:'qr', name:'二维码生成', icon:'📱', path:'/v2/qrcode', type:'qr', auto:0, inputs:[{n:'text',p:'内容',d:'https://github.com/vikiboss/60s'},{n:'size',p:'尺寸',d:'256'}], hint:'内容支持任意文本或链接；尺寸为图片边长像素，默认 256' },
   { cat:'tools', id:'hash', name:'哈希加密', icon:'#️⃣', path:'/v2/hash', type:'hash', auto:0, inputs:[{n:'content',p:'文本',d:'hello'}], hint:'一次性输出 MD5、SHA1/256/512、Base64、URL 编码等常用编解码结果' },
   { cat:'tools', id:'og', name:'网页OG信息', icon:'🌐', path:'/v2/og', type:'og', auto:0, inputs:[{n:'url',p:'URL',d:'github.com'}], hint:'提取网页标题、描述、图标等 OG 元信息；输入域名即可，无需带协议' },
@@ -732,7 +732,7 @@ function rQuote(d, c, ep) {
 
 function rBaike(d, c) {
   let h = '';
-  if (d.cover) h += `<div class="img-wrap"><img src="${esc(d.cover)}" alt="${esc(d.title)}"></div>`;
+  if (d.cover) h += `<div class="img-wrap"><img src="${esc(d.cover)}" alt="${esc(d.title)}" referrerpolicy="no-referrer"></div>`;
   h += '<div class="kv">';
   if (d.title) h += `<div class="kv-row"><span class="k">词条</span><span class="v">${esc(d.title)}</span></div>`;
   if (d.description) h += `<div class="kv-row"><span class="k">简介</span><span class="v">${esc(d.description)}</span></div>`;
