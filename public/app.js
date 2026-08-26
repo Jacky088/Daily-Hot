@@ -78,6 +78,8 @@ const EPS = [
   { cat:'ent', id:'epic', name:'Epic免费游戏', icon:'🎮', path:'/v2/epic', type:'epic', auto:1 },
   { cat:'ent', id:'steam', name:'Steam免费游戏', icon:'🎮', path:'/v2/steam', type:'steam', auto:1 },
   { cat:'ent', id:'ncm', name:'网易云热歌榜', icon:'🎵', path:'/v2/ncm-rank/3778678', type:'ncm', auto:1 },
+  { cat:'ent', id:'ncm-soar', name:'网易云飙升榜', icon:'🚀', path:'/v2/ncm-rank/19723756', type:'ncm', auto:1 },
+  { cat:'ent', id:'ncm-acg', name:'网易云ACG榜', icon:'🌸', path:'/v2/ncm-rank/71385702', type:'ncm', auto:1 },
   { cat:'ent', id:'billboard', name:'Billboard Hot 100', icon:'🇺🇸', path:'/v2/ncm-rank/60198', type:'ncm', auto:1 },
   { cat:'ent', id:'lyric', name:'歌词搜索', icon:'🎶', path:'/v2/lyric', type:'lyric', auto:0, inputs:[{n:'query',p:'歌名 歌手，如：稻香 周杰伦'}], hint:'精确搜索：使用「歌名 歌手」格式；避免只输入歌词片段' },
   { cat:'ent', id:'changya', name:'唱鸭', icon:'🎤', path:'/v2/changya', type:'changya', auto:1 },
