@@ -57,21 +57,22 @@ class ServiceSteam {
   #parseHtml(html: string): SteamGame[] {
     const games: SteamGame[] = []
 
-    // 每个游戏是一个 <a> 标签，以 data-ds-appid 开始
+    // 每个游戏块：提取 appid、标题、原价、现价、封面图
     const itemRe =
-      /data-ds-appid="(\d+)"[^]*?<span class="title"[^>]*>([^<]+)<\/span>[\s\S]*?<div class="discount_original_price">([^<]*)<\/div>[\s\S]*?<div class="discount_final_price">([^<]*)<\/div>/g
+      /data-ds-appid="(\d+)"[^]*?<div class="search_capsule"><img src="([^"]+)"[^]*?<span class="title"[^>]*>([^<]+)<\/span>[\s\S]*?<div class="discount_original_price">([^<]*)<\/div>[\s\S]*?<div class="discount_final_price">([^<]*)<\/div>/g
 
     let m: RegExpExecArray | null
     while ((m = itemRe.exec(html)) !== null) {
       const appid = m[1]
-      const title = m[2].trim()
-      const originalPrice = m[3].trim()
-      const finalPrice = m[4].trim()
+      const cover = m[2].trim()
+      const title = m[3].trim()
+      const originalPrice = m[4].trim()
+      const finalPrice = m[5].trim()
 
       games.push({
         appid,
         title,
-        cover: `https://cdn.cloudflare.steamstatic.com/steam/apps/${appid}/header.jpg`,
+        cover,
         original_price: originalPrice,
         final_price: finalPrice,
         is_free_now: true,
