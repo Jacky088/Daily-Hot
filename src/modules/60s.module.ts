@@ -1,5 +1,7 @@
 import { Common, dayjs, TZ_SHANGHAI } from '../common.ts'
 import { SolarDay } from 'tyme4ts'
+import { serviceIP } from './ip.module.ts'
+import { allowForceUpdate, forceUpdateKey } from '../force-update-guard.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 import { config } from '../config.ts'
@@ -17,7 +19,10 @@ class Service60s {
   handle(): RouterMiddleware<'/60s'> {
     return async (ctx) => {
       const forceUpdate = ctx.request.url.searchParams.has('force-update')
-      const data = await this.#fetch(ctx.request.url.searchParams.get('date'), forceUpdate)
+      // 限流防护：同一调用方 60 秒内仅允许一次强制刷新，否则回退缓存
+      const ip = serviceIP.getClientIP(ctx.request.headers) || ctx.request.ip || 'unknown'
+      const allowedForce = forceUpdate && allowForceUpdate(forceUpdateKey(ctx.request.url.pathname, ip))
+      const data = await this.#fetch(ctx.request.url.searchParams.get('date'), allowedForce)
 
       switch (ctx.state.encoding) {
         case 'text': {

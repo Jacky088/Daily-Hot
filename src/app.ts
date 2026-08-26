@@ -7,6 +7,7 @@ import { notFound } from './middlewares/not-found.ts'
 import { favicon } from './middlewares/favicon.ts'
 import { debug } from './middlewares/debug.ts'
 import { blacklist } from './middlewares/blacklist.ts'
+import { rateLimit } from './middlewares/rate-limit.ts'
 import { encoding } from './middlewares/encoding.ts'
 import { handleGlobalError } from './middlewares/handle-global-error.ts'
 import { staticAssets } from './middlewares/static-assets.ts'
@@ -14,7 +15,7 @@ import { staticAssets } from './middlewares/static-assets.ts'
 export const app = new Application()
 
 app.use(handleGlobalError())
-app.use(blacklist(), debug(), cors(), favicon(), encoding())
+app.use(blacklist(), debug(), cors(), favicon(), encoding(), rateLimit())
 
 app.use(staticAssets())
 

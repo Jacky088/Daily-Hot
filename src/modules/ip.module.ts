@@ -3,6 +3,12 @@ import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceIP {
   getClientIP(requestHeaders: Headers): string {
+    // Cloudflare Workers 环境下 cf-connecting-ip 由平台设置，无法被客户端伪造，优先使用
+    const cfIP = requestHeaders.get('cf-connecting-ip')?.trim()
+    if (cfIP) return cfIP
+
+    // 自托管环境（Node/Bun/Deno）经过反向代理时，转发头作为回退
+    // 注意：这些头可被客户端伪造，仅用于日志展示，不可用于安全决策
     const headerFields = ['x-forwarded-for', 'x-real-ip', 'x-client-ip', 'x-real-client-ip']
 
     for (const field of headerFields) {

@@ -1,6 +1,8 @@
 import regions from './regions.json' with { type: 'json' }
 import { load } from 'cheerio'
 import { Common } from '../../common.ts'
+import { serviceIP } from '../ip.module.ts'
+import { allowForceUpdate, forceUpdateKey } from '../../force-update-guard.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -101,6 +103,9 @@ class ServiceFuelPrice {
       try {
         const queryRegion = ctx.request.url.searchParams.get('region') || '北京'
         const forceUpdate = !!ctx.request.url.searchParams.get('force-update')
+        // 限流防护：同一调用方 60 秒内仅允许一次强制刷新，否则回退缓存
+        const ip = serviceIP.getClientIP(ctx.request.headers) || ctx.request.ip || 'unknown'
+        const allowedForce = forceUpdate && allowForceUpdate(forceUpdateKey(ctx.request.url.pathname, ip))
         const target = sortedRegion.find((e) => e.region.endsWith(queryRegion))
 
         if (!target) {
@@ -109,8 +114,8 @@ class ServiceFuelPrice {
         }
 
         const [{ items, trend, ts }, history] = await Promise.all([
-          this.#fetch(target, forceUpdate),
-          this.#fetchHistory(target.region, forceUpdate),
+          this.#fetch(target, allowedForce),
+          this.#fetchHistory(target.region, allowedForce),
         ])
 
         const province = provincePinyin(target.region)
