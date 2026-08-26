@@ -77,7 +77,7 @@ const EPS = [
   { cat:'ent', id:'douban', name:'豆瓣电影周榜', icon:'🎬', path:'/v2/douban/weekly/movie', type:'douban', auto:1 },
   { cat:'ent', id:'epic', name:'Epic免费游戏', icon:'🎮', path:'/v2/epic', type:'epic', auto:1 },
   { cat:'ent', id:'steam', name:'Steam免费游戏', icon:'🎮', path:'/v2/steam', type:'steam', auto:1 },
-  { cat:'ent', id:'ncm', name:'网易云排行榜', icon:'🎵', path:'/v2/ncm-rank/list', type:'ncm', auto:1 },
+  { cat:'ent', id:'ncm', name:'网易云热歌榜', icon:'🎵', path:'/v2/ncm-rank/3778678', type:'ncm', auto:1 },
   { cat:'ent', id:'lyric', name:'歌词搜索', icon:'🎶', path:'/v2/lyric', type:'lyric', auto:0, inputs:[{n:'query',p:'歌名 歌手，如：稻香 周杰伦'}], hint:'精确搜索：使用「歌名 歌手」格式；避免只输入歌词片段' },
   { cat:'ent', id:'changya', name:'唱鸭', icon:'🎤', path:'/v2/changya', type:'changya', auto:1 },
 
@@ -1202,11 +1202,16 @@ function rHuxiu(d, c) {
 function rNCM(d, c) {
   if (!Array.isArray(d)) return rJSON(d, c);
   let h = '';
-  d.slice(0, 15).forEach((r, i) => {
+  d.slice(0, 20).forEach((r, i) => {
     const cls = i < 3 ? `top${i+1}` : '';
+    const artistNames = (r.artist || []).map(a => a.name).join('、');
     h += `<div class="item"><span class="rank ${cls}">${i+1}</span><div class="body">`;
-    h += r.link ? `<a href="${safeUrl(r.link)}" target="_blank" rel="noopener">${esc(r.name)}</a>` : `<span class="t">${esc(r.name)}</span>`;
-    if (r.update_frequency) h += `<div class="meta">🔄 ${esc(r.update_frequency)}</div>`;
+    h += r.link ? `<a href="${safeUrl(r.link)}" target="_blank" rel="noopener">${esc(r.title)}</a>` : `<span class="t">${esc(r.title)}</span>`;
+    let meta = '';
+    if (artistNames) meta += esc(artistNames);
+    if (r.album?.name) meta += ` · ${esc(r.album.name)}`;
+    if (r.duration_desc) meta += ` · ${esc(r.duration_desc)}`;
+    if (meta) h += `<div class="meta">${meta}</div>`;
     h += '</div></div>';
   });
   c.innerHTML = h;
@@ -1487,6 +1492,7 @@ function clearKbFocus() {
 }
 
 init();
+
 
 
 
