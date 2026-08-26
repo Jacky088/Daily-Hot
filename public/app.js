@@ -94,8 +94,8 @@ const EPS = [
   { cat:'tools', id:'chem', name:'化学元素', icon:'⚗️', path:'/v2/chemical', type:'kv', auto:1, keys:[['name','名称'],['formula','分子式'],['mass','平均质量'],['monoisotopicMass','单同位素质量']], hint:'随机展示一个化合物；加 id 参数可查询指定化合物' },
 
   // 生活
-  { cat:'life', id:'wnow', name:'实时天气', icon:'☀️', path:'/v2/weather/realtime', type:'weather', auto:0, inputs:[{n:'query',p:'城市',d:'北京'}] },
-  { cat:'life', id:'wfc', name:'天气预报', icon:'🌦️', path:'/v2/weather/forecast', type:'weatherfc', auto:0, inputs:[{n:'query',p:'城市',d:'北京'}] },
+  { cat:'life', id:'wnow', name:'实时天气', icon:'☀️', path:'/v2/weather/realtime', type:'weather', auto:1, inputs:[{n:'query',p:'城市',d:'北京'}] },
+  { cat:'life', id:'wfc', name:'天气预报', icon:'🌦️', path:'/v2/weather/forecast', type:'weatherfc', auto:1, inputs:[{n:'query',p:'城市',d:'北京'}] },
   { cat:'life', id:'exrate', name:'汇率', icon:'💱', path:'/v2/exchange-rate', type:'exchange', auto:1 },
   { cat:'life', id:'fuel', name:'油价', icon:'⛽', path:'/v2/fuel-price', type:'fuel', auto:1, inputs:[{n:'region', p:'输入城市名，如：上海 / 广东 / 成都', d:'北京'}] },
   { cat:'life', id:'gold', name:'金价', icon:'🥇', path:'/v2/gold-price', type:'gold', auto:1 },
@@ -1487,6 +1487,7 @@ function clearKbFocus() {
 }
 
 init();
+
 
 
 
