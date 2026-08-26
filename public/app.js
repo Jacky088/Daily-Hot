@@ -485,13 +485,17 @@ async function fetchWithRetry(ep, url, ck, c, retriesLeft) {
   try {
     const res = await fetch(url);
 
-    // 速率限制：等待后重试
-    if (res.status === 429) {
+    // 速率限制或服务器错误：等待后重试
+    if (res.status === 429 || res.status >= 500) {
       if (retriesLeft > 0) {
         await new Promise(r => setTimeout(r, 1500));
         return fetchWithRetry(ep, url, ck, c, retriesLeft - 1);
       }
-      c.innerHTML = retryHTML(ep);
+      if (res.status >= 500) {
+        c.innerHTML = `<div class="placeholder"><span class="badge fail">服务器错误 ${res.status}</span> ${res.statusText || '请稍后重试'}</div>`;
+      } else {
+        c.innerHTML = retryHTML(ep);
+      }
       return;
     }
 
@@ -1483,5 +1487,6 @@ function clearKbFocus() {
 }
 
 init();
+
 
 
