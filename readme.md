@@ -6,7 +6,7 @@
 [![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white) ](https://docker.com/)
 [![License](https://img.shields.io/badge/license-MIT-green) ](./license)
 
-聚合 40+ 个热门数据源，一个页面看遍全网热点。涵盖新闻资讯、影视娱乐、实用工具、生活信息、趣味内容和翻译，部署即用，支持 Cloudflare Workers 和 Docker。
+聚合 60+ 个热门数据源，一个页面看遍全网热点。涵盖新闻资讯、科技资讯、影视娱乐、实用工具、生活信息、趣味内容和翻译，部署即用，支持 Cloudflare Workers 和 Docker。
 
 ## 界面预览
 
@@ -16,15 +16,16 @@
 
 ### 📰 全网热榜聚合
 
-一个面板覆盖 40+ 个数据源，按 6 大分类组织：
+一个面板覆盖 60+ 个数据源，按 7 大分类组织：
 
 | 分类 | 包含接口 |
 | ---- | -------- |
-| 📰 新闻资讯 | 60 秒读懂世界、微博热搜、知乎热榜、B 站热门、抖音热点、今日头条、百度热搜/电视剧/贴吧、豆瓣电影周榜、Hacker News、IT 资讯、AI 新闻、历史上的今天、小红书 |
-| 🎬 影视娱乐 | 猫眼票房、Epic 免费游戏、网易云排行榜、歌词搜索、唱鸭、摸鱼日历 |
-| 🛠️ 实用工具 | 二维码生成、哈希加密、网页 OG 信息、IP 查询、WHOIS 查询、密码生成/检测、随机颜色、配色方案、化学元素 |
-| 🌤️ 生活信息 | 实时天气、天气预报、汇率、油价、金价、农历信息 |
-| 🎯 趣味内容 | 段子、冷笑话、一言、KFC 疯狂星期四、发病文案、今日运势、答案之书、必应壁纸、JS 题目、夸克网盘资源 |
+| 📰 新闻资讯 | 60 秒读懂世界、微博热搜、知乎热榜、B 站热门、抖音热点、今日头条、百度热搜/电视剧/贴吧、夸克每日资讯、汽车热榜、历史上的今天、小红书 |
+| 💻 科技资讯 | NodeSeek 新帖、V2EX 热帖、LowEndTalk、Hacker News、IT 资讯、酷安热榜、36 氪热榜、Reddit 热帖、少数派热榜、虎嗅热榜 |
+| 🎬 影视娱乐 | 猫眼票房、百度电视剧榜、豆瓣电影周榜、Epic 免费游戏、Steam 免费游戏、网易云热歌榜/飙升榜/ACG 榜、Billboard Hot 100、歌词搜索、唱鸭 |
+| 🛠️ 实用工具 | 百度百科、健康计算器、二维码生成、哈希加密、网页 OG 信息、IP 查询、WHOIS 查询、密码生成/检测、随机颜色、配色方案、化学元素 |
+| 🌤️ 生活信息 | 实时天气、天气预报、汇率、油价、金价、农历信息、摸鱼日历 |
+| 🎯 趣味内容 | 段子、冷笑话、一言、KFC 疯狂星期四、发病文案、今日运势、答案之书、必应壁纸、JS 题目、梗百科 |
 | 🔤 翻译 | 有道翻译（支持 109 种语言下拉选择） |
 
 ### 🎨 体验设计
@@ -41,9 +42,9 @@
 ### Cloudflare Workers（推荐）
 
 ```bash
-git clone <your-repo-url>
-cd daily-hot
-npm install
+git clone https://github.com/Jacky088/Daily-Hot.git
+cd Daily-Hot
+pnpm install
 npx wrangler deploy
 ```
 
@@ -52,22 +53,42 @@ npx wrangler deploy
 ### Docker
 
 ```bash
+git clone https://github.com/Jacky088/Daily-Hot.git
+cd Daily-Hot
+
+# 构建镜像
+docker build -t daily-hot .
+
+# 运行容器
 docker run -d \
   --restart always \
   --name daily-hot \
   -p 4399:4399 \
-  daily-hot:latest
+  daily-hot
 ```
 
 访问 `http://localhost:4399` 使用面板和 API。
+
+更新到最新版本：
+
+```bash
+git pull origin main
+docker build -t daily-hot .
+docker stop daily-hot && docker rm daily-hot
+docker run -d \
+  --restart always \
+  --name daily-hot \
+  -p 4399:4399 \
+  daily-hot
+```
 
 ### 本地开发
 
 ```bash
 # Node.js (需要 v22.6+)
-npm install
-npm run dev          # 开发模式，端口 4398
-npm start            # 生产模式，端口 4398
+pnpm install
+pnpm run dev          # 开发模式，端口 4398
+pnpm start            # 生产模式，端口 4398
 
 # 或直接部署到 Workers
 npx wrangler deploy
@@ -115,7 +136,7 @@ curl "https://your-domain/endpoints"
 前端面板                          后端 API
 ┌──────────────────┐            ┌──────────────────────┐
 │  单页 HTML/CSS/JS │            │  Oak Framework (TS)   │
-│  ├ Canvas 网格背景 │            │  ├ 40+ 模块化接口     │
+│  ├ Canvas 网格背景 │            │  ├ 60+ 模块化接口     │
 │  ├ 响应式布局     │  ── API ──→│  ├ 中间件链           │
 │  ├ 日夜间主题     │            │  ├ 静态资源服务       │
 │  └ 无框架依赖     │            │  └ 多运行时入口       │
@@ -131,7 +152,7 @@ curl "https://your-domain/endpoints"
 
 - **后端**：TypeScript + [Oak](https://oakserver.github.io/oak/) 框架
 - **前端**：纯 HTML/CSS/JS，无框架依赖
-- **数据源**：[vikiboss/60s](https://github.com/vikiboss/60s) + [60s-static-host](https://github.com/vikiboss/60s-static-host)
+- **数据源**：[vikiboss/60s](https://github.com/vikiboss/60s) + [60s-static-host](https://github.com/vikiboss/60s-static-host) + NodeSeek / V2EX / LowEndTalk RSS
 - **部署**：Cloudflare Workers / Docker / Node.js / Deno / Bun
 
 ## 📋 项目结构
@@ -139,14 +160,27 @@ curl "https://your-domain/endpoints"
 ```
 .
 ├── public/
-│   └── index.html          # 前端面板（单文件，含全部 UI 逻辑）
+│   ├── index.html          # 前端面板（单文件 HTML）
+│   ├── app.js              # 前端逻辑（EPS 注册 + 渲染器）
+│   ├── style.css           # 样式
+│   ├── manifest.json       # PWA 配置
+│   └── sw.js               # Service Worker
 ├── src/
 │   ├── app.ts              # Oak 应用入口 + 中间件注册
 │   ├── config.ts           # 环境变量配置
 │   ├── common.ts           # 通用工具函数
 │   ├── router.ts           # 路由集中注册
+│   ├── cache.ts            # 缓存中间件
 │   ├── middlewares/        # 中间件（CORS/错误处理/静态资源等）
-│   └── modules/            # 40+ API 模块
+│   └── modules/            # 60+ API 模块
+│       ├── geng/            # 梗百科（打包 JSON）
+│       ├── duanzi/          # 随机段子
+│       ├── hitokoto/        # 一言
+│       ├── fabing/          # 发病文案
+│       ├── nodeseek.module.ts   # NodeSeek 新帖
+│       ├── v2ex.module.ts       # V2EX 热帖
+│       ├── lowendtalk.module.ts # LowEndTalk
+│       └── ...
 ├── cf-worker.ts            # Cloudflare Workers 入口
 ├── node.ts                 # Node.js 入口
 ├── deno.ts                 # Deno 入口
