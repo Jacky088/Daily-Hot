@@ -52,12 +52,12 @@ export function staticAssets(): Middleware {
       return
     }
 
-    // 根路径 → index.html
-    const filePath = path === '/' ? join(publicDir, 'index.html') : resolve(publicDir, path)
+    // 根路径 → index.html，其余用 join 拼接（resolve 会把 / 开头视为绝对路径导致 404）
+    const filePath = path === '/' ? join(publicDir, 'index.html') : join(publicDir, path)
 
-    // 防止路径穿越：规范化后必须仍在 publicDir 内（含分隔符，避免前缀误判）
+    // 防止路径穿越：解析后必须仍在 publicDir 内
     const safeRoot = resolve(publicDir) + sep
-    const safeFile = filePath + sep
+    const safeFile = resolve(filePath) + sep
     if (!safeFile.startsWith(safeRoot) || !existsSync(filePath) || !statSync(filePath).isFile()) {
       await next()
       return
