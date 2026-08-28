@@ -104,54 +104,32 @@ a:hover { text-decoration: underline; }
 .search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); opacity: 0.4; }
 
 /* ============ Clock ============ */
+/* 克制风格：与搜索框同语言——单层 border + card 底，仅保留一颗慢脉冲圆点作为强调色瞬间 */
 .clock {
   position: relative;
-  display: flex; align-items: center; gap: 7px;
+  display: flex; align-items: center; gap: 8px;
   white-space: nowrap; flex-shrink: 0;
-  padding: 8px 12px 8px 9px; border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
-    var(--card);
+  padding: 8px 12px; border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
   color: var(--text-dim); font-size: 13px;
   font-variant-numeric: tabular-nums;
-  font-family: "SF Mono", "JetBrains Mono", Consolas, monospace;
-  letter-spacing: 0.3px;
-  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 12%, transparent);
   transition: border 0.2s, box-shadow 0.2s;
 }
-.clock::before {
-  content: ""; position: absolute; left: 0; top: 12%; bottom: 12%;
-  width: 3px; border-radius: 0 3px 3px 0;
-  background: linear-gradient(180deg, var(--accent), var(--accent-light));
-  box-shadow: 0 0 8px var(--accent);
-}
+.clock:hover { border-color: var(--border-light); }
 .clock-dot {
   width: 6px; height: 6px; border-radius: 50%;
-  background: var(--accent); box-shadow: 0 0 6px var(--accent);
-  animation: clockPulse 2s ease-in-out infinite;
+  background: var(--accent); flex-shrink: 0;
+  animation: clockPulse 3s ease-in-out infinite;
 }
-/* 一日进度填充层：0 点 0%，24 点 100%，每秒平滑推进 */
-.clock-fill {
-  position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
-  border-radius: inherit; z-index: 0; pointer-events: none;
-  background: linear-gradient(90deg, var(--accent), var(--accent-light));
-  opacity: 0.16;
-  transition: width 1s linear;
-}
-:root[data-theme="light"] .clock-fill { opacity: 0.12; }
-.clock-dot, .clock-date, .clock-time, .clock::before { position: relative; z-index: 1; }
-.clock::before { position: absolute; z-index: 2; }
+.clock-dot, .clock-date, .clock-time { position: relative; z-index: 1; }
+/* 脉冲：谷底无发光、峰底柔光，让“活着”的信号只在一瞬出现 */
 @keyframes clockPulse {
-  0%, 100% { opacity: 0.45; transform: scale(0.9); }
-  50% { opacity: 1; transform: scale(1.15); }
+  0%, 100% { opacity: 0.4; transform: scale(0.85); box-shadow: 0 0 0 var(--accent); }
+  50% { opacity: 0.85; transform: scale(1.1); box-shadow: 0 0 6px var(--accent); }
 }
 .clock .clock-time { color: var(--text); font-weight: 600; }
-.clock .clock-date {
-  color: var(--text-dim); font-size: 11.5px; font-weight: 700;
-  padding-right: 8px; margin-right: 2px;
-  border-right: 1px solid var(--border-light);
-}
+.clock .clock-date { color: var(--text-dim); font-weight: 500; }
 .clock-desktop { display: flex; }
 .clock-mobile { display: none; }
 /* 窄屏适配的媒体查询统一放在文件末尾（需覆盖上方桌面规则） */
@@ -601,4 +579,11 @@ a:hover { text-decoration: underline; }
   .answer-book { padding: 16px 8px 10px; }
   .answer-zh { font-size: 17px; letter-spacing: 1px; }
   .answer-en { font-size: 11px; }
+  /* 时钟内边距收紧，缩短触控区与左右间距 */
+  .clock { padding: 7px 10px; font-size: 12.5px; gap: 6px; }
+}
+
+/* 极窄屏（<=360px）：仅保留时间，日期隐藏以避免挤压右侧按钮 */
+@media (max-width: 360px) {
+  .clock-date { display: none; }
 }
