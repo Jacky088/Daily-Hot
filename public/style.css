@@ -105,8 +105,9 @@ a:hover { text-decoration: underline; }
 
 /* ============ Clock ============ */
 /* 克制风格：与搜索框同语言——单层 border + card 底，仅保留一颗慢脉冲圆点作为强调色瞬间 */
+/* 一日进度填充：从 0:00 起随时间铺满，到 24:00 满格；极淡的 accent 渐变，不压低文字对比度 */
 .clock {
-  position: relative;
+  position: relative; overflow: hidden;
   display: flex; align-items: center; gap: 8px;
   white-space: nowrap; flex-shrink: 0;
   padding: 8px 12px; border-radius: 8px;
@@ -117,6 +118,14 @@ a:hover { text-decoration: underline; }
   transition: border 0.2s, box-shadow 0.2s;
 }
 .clock:hover { border-color: var(--border-light); }
+.clock-fill {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
+  border-radius: inherit; z-index: 0; pointer-events: none;
+  background: linear-gradient(90deg, var(--accent-bg), color-mix(in srgb, var(--accent) 22%, transparent));
+  opacity: 0.7;
+  transition: width 1s linear;
+}
+:root[data-theme="light"] .clock-fill { opacity: 0.85; }
 .clock-dot {
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--accent); flex-shrink: 0;

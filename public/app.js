@@ -243,8 +243,10 @@ function init() {
   // 实时时钟（精确到秒）
   // 桌面 / 移动（>360px）：“今天是 2026年8月28日周五 14:23:45”
   // 极窄屏（<=360px）：仅 “14:23:45”，日期隐藏由 CSS 控制
+  // 一日进度填充：当前秒数 / 86400 * 100，0:00 起铺满到 24:00
   const timeEls = [$('#clockTimeDesktop'), $('#clockTimeMobile')];
   const dateEls = [$('#clockDateDesktop'), $('#clockDateMobile')];
+  const fillEls = document.querySelectorAll('.clock-fill');
   const wdNames = ['日', '一', '二', '三', '四', '五', '六'];
   function pad(n) { return String(n).padStart(2, '0'); }
   function tick() {
@@ -253,6 +255,8 @@ function init() {
     const ds = `今天是 ${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 周${wdNames[d.getDay()]}`;
     timeEls.forEach(el => { if (el) el.textContent = t; });
     dateEls.forEach(el => { if (el) el.textContent = ds; });
+    const pct = ((d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) / 86400) * 100;
+    fillEls.forEach(el => { if (el) el.style.width = pct + '%'; });
   }
   tick();
   setInterval(tick, 1000);
