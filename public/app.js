@@ -1364,20 +1364,50 @@ function rJS(d, c) {
   c.innerHTML = h;
 }
 
+// 汇率：基准 + 常用币种列表 + 金额换算计算器（纯前端，基于已加载的 rates）
 function rExchange(d, c) {
-  let h = `<div class="kv-row"><span class="k">基准</span><span class="v">${esc(d.base_code||'')}</span></div>`;
-  if (d.rates) {
-    const popular = ['USD','EUR','JPY','GBP','HKD','KRW','AUD','CAD','SGD','TWD'];
-    const map = {};
-    d.rates.forEach(r => { map[r.currency] = r.rate; });
-    h += '<div class="kv" style="margin-top:4px;">';
-    popular.forEach(code => {
-      if (map[code] != null) h += `<div class="kv-row"><span class="k">${code}</span><span class="v">${esc(String(map[code]))}</span></div>`;
-    });
-    h += '</div>';
-  }
+  const base = d.base_code || 'CNY';
+  const rates = {};
+  if (Array.isArray(d.rates)) d.rates.forEach(r => { rates[r.currency] = r.rate; });
+  const popular = ['USD','EUR','JPY','GBP','HKD','KRW','AUD','CAD','SGD','TWD'].filter(c => rates[c] != null);
+
+  let h = `<div class="kv-row"><span class="k">基准</span><span class="v">${esc(base)}</span></div>`;
+  h += '<div class="kv" style="margin-top:4px;">';
+  popular.forEach(code => {
+    h += `<div class="kv-row"><span class="k">${code}</span><span class="v">${esc(String(rates[code]))}</span></div>`;
+  });
+  h += '</div>';
+
+  // 金额换算计算器
+  const allCodes = Object.keys(rates).sort();
+  h += '<div class="ex-calc">';
+  h += '<div class="ex-row">';
+  h += `<input class="ex-amount" type="number" min="0" value="100" inputmode="decimal">`;
+  h += `<select class="ex-from">${allCodes.map(c => `<option value="${c}"${c === base ? ' selected' : ''}>${c}</option>`).join('')}</select>`;
+  h += '<span class="ex-arrow">→</span>';
+  h += `<select class="ex-to">${allCodes.map(c => `<option value="${c}"${c === popular[0] ? ' selected' : ''}>${c}</option>`).join('')}</select>`;
+  h += '</div>';
+  h += '<div class="ex-result"></div>';
+  h += '</div>';
+
   if (d.updated) h += `<div class="meta" style="margin-top:6px;">更新于 ${esc(d.updated)}</div>`;
   c.innerHTML = h;
+
+  // 换算逻辑：amount * (toRate / fromRate)
+  const amountEl = c.querySelector('.ex-amount');
+  const fromEl = c.querySelector('.ex-from');
+  const toEl = c.querySelector('.ex-to');
+  const resultEl = c.querySelector('.ex-result');
+  function calc() {
+    const amt = parseFloat(amountEl.value) || 0;
+    const from = fromEl.value, to = toEl.value;
+    const fr = rates[from], tr = rates[to];
+    if (fr == null || tr == null) { resultEl.textContent = '无该币种汇率'; return; }
+    const out = (amt * tr / fr).toLocaleString('zh-CN', { maximumFractionDigits: 4 });
+    resultEl.textContent = `${amt} ${from} = ${out} ${to}`;
+  }
+  amountEl.oninput = calc; fromEl.onchange = calc; toEl.onchange = calc;
+  calc();
 }
 
 function rJSON(d, c) {
