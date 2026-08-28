@@ -20,6 +20,9 @@
   --mesh-line: rgba(180,120,200,0.09);
   --mesh-dot: rgba(200,130,220,0.45);
   --mesh-glow: rgba(180,120,210,0.04);
+  /* 毛玻璃卡片：半透明底 + 半透明描边（rim light 效果） */
+  --card-glass: rgba(25, 20, 34, 0.55);
+  --border-glass: rgba(255, 255, 255, 0.08);
 }
 :root[data-theme="light"] {
   --bg: #f9f4fb;
@@ -42,6 +45,9 @@
   --mesh-line: rgba(214,150,204,0.10);
   --mesh-dot: rgba(186,136,196,0.30);
   --mesh-glow: rgba(208,146,214,0.04);
+  /* 毛玻璃卡片：半透明白底 + 半透明白描边 */
+  --card-glass: rgba(255, 255, 255, 0.6);
+  --border-glass: rgba(255, 255, 255, 0.5);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; scroll-padding-top: 120px; }
@@ -203,7 +209,10 @@ a:hover { text-decoration: underline; }
 
 /* ============ Card ============ */
 .card {
-  background: var(--card); border: 1px solid var(--border);
+  background: var(--card-glass);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border: 1px solid var(--border-glass);
   border-radius: 12px; overflow: hidden; transition: all 0.2s;
   display: flex; flex-direction: column;
   content-visibility: auto;
@@ -212,7 +221,7 @@ a:hover { text-decoration: underline; }
 .card:hover { border-color: var(--border-light); box-shadow: var(--shadow); }
 .card-head {
   padding: 11px 16px; display: flex; align-items: center;
-  justify-content: space-between; border-bottom: 1px solid var(--border);
+  justify-content: space-between; border-bottom: 1px solid var(--border-glass);
   flex-shrink: 0;
 }
 .card-title { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 7px; }
