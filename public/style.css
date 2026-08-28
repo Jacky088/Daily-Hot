@@ -593,8 +593,9 @@ a:hover { text-decoration: underline; }
     flex-direction: row; flex-wrap: nowrap; width: 100%;
     padding: 8px 12px; border-right: none; border-bottom: 1px solid var(--border);
     overflow-x: auto; overflow-y: visible;
-    /* 吸顶：紧贴顶栏下方，下滑时分类栏始终可见可切换 */
-    position: sticky; top: 0; z-index: 90;
+    /* 吸顶：紧贴顶栏下方，下滑时分类栏始终可见可切换；
+       top 由 JS 按顶栏实际高度设置 --topbar-h，回退值 96px 适配两行 header */
+    position: sticky; top: var(--topbar-h, 96px); z-index: 90;
     background: color-mix(in srgb, var(--bg) 88%, transparent);
     backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
     max-height: none; align-self: auto; margin: 0;

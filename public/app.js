@@ -263,6 +263,16 @@ function init() {
   tick();
   setInterval(tick, 1000);
 
+  // 测量顶栏实际高度，写入 --topbar-h 供移动端分类栏 sticky 吸顶使用。
+  // 手机窄屏下 header 会换行成两行，高度不固定，不能用硬编码。
+  const topbarEl = document.querySelector('.topbar');
+  function syncTopbarH() {
+    if (topbarEl) document.documentElement.style.setProperty('--topbar-h', topbarEl.offsetHeight + 'px');
+  }
+  syncTopbarH();
+  window.addEventListener('resize', syncTopbarH);
+  window.addEventListener('load', syncTopbarH);
+
   render();
 
   // P3: 键盘快捷键
