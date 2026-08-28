@@ -1,6 +1,6 @@
 // Service Worker — Daily Hot
 // Cache-First for CSS/JS (immutable assets), Network-First for HTML
-const CACHE_NAME = 'daily-hot-v3';
+const CACHE_NAME = 'daily-hot-v4';
 const STATIC_ASSETS = ['/style.css', '/app.js', '/manifest.json'];
 
 self.addEventListener('install', (e) => {

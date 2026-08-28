@@ -222,11 +222,12 @@ function init() {
       location.hash = c.id;
       $$('.cat-nav button').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
-      // 移动端：将选中的分类按钮滚动到可视区域
-      b.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      // 窄屏（分类栏为顶部横向滚动）：将选中的按钮滚动到可视区域并回到内容顶部
+      if (window.innerWidth <= 820) {
+        b.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
       render();
-      // 切换分类时回到内容顶部
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     };
     nav.appendChild(b);
   });
@@ -1364,10 +1365,10 @@ function rJSON(d, c) {
   function getMeshColors() {
     const dark = document.documentElement.dataset.theme === 'dark';
     return {
-      line: dark ? 'rgba(99,102,241,0.07)' : 'rgba(99,102,241,0.06)',
-      lineNear: dark ? 'rgba(129,140,248,0.14)' : 'rgba(99,102,241,0.12)',
-      dot: dark ? 'rgba(129,140,248,0.5)' : 'rgba(99,102,241,0.25)',
-      glow: dark ? 'rgba(99,102,241,0.03)' : 'rgba(99,102,241,0.02)',
+      line: dark ? 'rgba(180,120,200,0.09)' : 'rgba(214,150,204,0.10)',
+      lineNear: dark ? 'rgba(200,130,220,0.16)' : 'rgba(186,136,196,0.18)',
+      dot: dark ? 'rgba(200,130,220,0.45)' : 'rgba(186,136,196,0.30)',
+      glow: dark ? 'rgba(180,120,210,0.04)' : 'rgba(208,146,214,0.05)',
     };
   }
 
