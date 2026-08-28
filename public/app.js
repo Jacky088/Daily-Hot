@@ -222,9 +222,15 @@ function init() {
       location.hash = c.id;
       $$('.cat-nav button').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
-      // 窄屏（分类栏为顶部横向滚动）：将选中的按钮滚动到可视区域并回到内容顶部
+      // 窄屏（分类栏为顶部横向滚动）：将选中的按钮在栏内水平居中，并回到内容顶部
+      // 用 nav.scrollTo 直接驱动容器水平滚动，避免 scrollIntoView 与 window.scrollTo 同时触发互相中断
       if (window.innerWidth <= 820) {
-        b.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        const btnRect = b.getBoundingClientRect();
+        const navRect = nav.getBoundingClientRect();
+        nav.scrollTo({
+          left: nav.scrollLeft + (btnRect.left - navRect.left) - (navRect.width - btnRect.width) / 2,
+          behavior: 'smooth',
+        });
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
       render();
