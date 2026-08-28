@@ -440,6 +440,17 @@ a:hover { text-decoration: underline; }
 .geng-content { font-size: 13px; color: var(--text); line-height: 1.8; word-break: break-word; }
 .geng-meta { font-size: 10px; color: var(--text-dimmer); margin-top: 12px; text-align: right; }
 
+/* 每日一句英语：中英对照 + 朗读按钮 */
+.daily-eng { padding: 14px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; position: relative; overflow: hidden; }
+.daily-eng::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% -20%, var(--accent-bg), transparent 65%); pointer-events: none; }
+.de-en { position: relative; font-family: Georgia, "Times New Roman", serif; font-size: 16px; font-weight: 600; color: var(--accent); line-height: 1.6; word-break: break-word; }
+.de-zh { position: relative; font-size: 13px; color: var(--text); line-height: 1.8; margin-top: 10px; }
+.de-tts { position: relative; margin-top: 12px; padding: 6px 14px; background: var(--accent); border: none; border-radius: 16px; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; -webkit-tap-highlight-color: transparent; }
+.de-tts:hover { background: var(--accent-light); }
+.de-tts:active { transform: scale(0.96); }
+.de-tts.playing { background: var(--accent-light); box-shadow: var(--accent-glow); }
+.de-meta { position: relative; font-size: 10px; color: var(--text-dimmer); margin-top: 12px; text-align: right; }
+
 /* JSON */
 .json-view {
   font-family: "SF Mono", Consolas, monospace; font-size: 11px;

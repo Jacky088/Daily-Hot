@@ -43,7 +43,7 @@ const CATS = [
   { id: 'tools', name: '🛠️ 实用工具' },
   { id: 'life', name: '🌤️ 生活信息' },
   { id: 'fun', name: '🎯 趣味内容' },
-  { id: 'trans', name: '🔤 翻译' },
+  { id: 'trans', name: '📚 学习工具' },
 ];
 
 // type: news|list|kv|obj|text|json|qr|color|palette|pwd|fanyi|lyric|hash|weather|weatherfc|fuel|gold|lunar|bing|epic|steam|ncm|maoyan|moyu|whois|js|exchange|hist|ainews|kuan|36kr|reddit
@@ -123,7 +123,8 @@ const EPS = [
   { cat:'fun', id:'bing', name:'必应壁纸', icon:'🖼️', path:'/v2/bing', type:'bing', auto:1 },
   { cat:'fun', id:'awjs', name:'JS题目', icon:'🧩', path:'/v2/awesome-js', type:'js', auto:1 },
 
-  // 翻译
+  // 学习工具
+  { cat:'trans', id:'daily-eng', name:'每日一句英语', icon:'📖', path:'/v2/daily-eng', type:'daily-eng', auto:1 },
   { cat:'trans', id:'fanyi', name:'有道翻译', icon:'🔤', path:'/v2/fanyi', type:'fanyi', auto:0, inputs:[{n:'text',p:'文本',d:'hello'},{n:'from',p:'源语言',d:'en'},{n:'to',p:'目标',d:'zh-CHS'}] },
 ];
 
@@ -592,7 +593,7 @@ function renderData(ep, d, c) {
     epic: rEpic, steam: rSteam, ncm: rNCM, maoyan: rMaoyan, moyu: rMoyu, whois: rWhois,
     js: rJS, exchange: rExchange, og: rOG, answer: rAnswer, quote: rQuote,
     kuan: rKuan, '36kr': r36Kr, reddit: rReddit, sspai: rSspai, huxiu: rHuxiu,
-    baike: rBaike, health: rHealth, geng: rGeng,
+    baike: rBaike, health: rHealth, geng: rGeng, 'daily-eng': rDailyEng,
   }[ep.type] || rJSON;
   fn(d, c, ep);
 }
@@ -751,6 +752,27 @@ function rGeng(d, c) {
     <div class="geng-content">${esc(d.content || '')}</div>
     ${idx ? `<div class="geng-meta">第 ${idx} 个梗</div>` : ''}
   </div>`;
+}
+
+// 每日一句英语：中英对照 + 朗读按钮（点击播放 iciba 提供的 TTS mp3）
+function rDailyEng(d, c) {
+  const hasTts = !!d.tts;
+  c.innerHTML = `<div class="daily-eng">
+    <div class="de-en">${esc(d.content || '')}</div>
+    <div class="de-zh">${esc(d.note || '')}</div>
+    ${hasTts ? `<button class="de-tts" data-tts="${esc(d.tts)}" title="朗读">🔊 朗读</button>` : ''}
+    ${d.dateline ? `<div class="de-meta">${esc(d.dateline)}</div>` : ''}
+  </div>`;
+  const btn = c.querySelector('.de-tts');
+  if (btn) {
+    let audio = null;
+    btn.onclick = () => {
+      if (!audio) audio = new Audio(btn.dataset.tts);
+      if (audio.paused) { audio.play(); btn.classList.add('playing'); }
+      else { audio.pause(); btn.classList.remove('playing'); }
+      audio.onended = () => btn.classList.remove('playing');
+    };
+  }
 }
 
 function rBaike(d, c) {
