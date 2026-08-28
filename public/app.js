@@ -116,11 +116,12 @@ const EPS = [
   { cat:'fun', id:'hitokoto', name:'一言', icon:'💬', path:'/v2/hitokoto', type:'quote', auto:1, dk:'hitokoto' },
   { cat:'fun', id:'kfc', name:'KFC疯狂星期四', icon:'🍗', path:'/v2/kfc', type:'quote', auto:1, dk:'kfc' },
   { cat:'fun', id:'fabing', name:'发病文案', icon:'🤪', path:'/v2/fabing', type:'quote', auto:1, dk:'saying' },
-  { cat:'fun', id:'luck', name:'今日运势', icon:'🍀', path:'/v2/luck', type:'kv', auto:1, keys:[['luck_desc','综合运势'],['luck_rank','运势指数'],['luck_tip','今日提示']] },
+  // 已隐藏今日运势：刷新即变、无参考价值；梗百科上移填补此位
+  // { cat:'fun', id:'luck', name:'今日运势', icon:'🍀', path:'/v2/luck', type:'kv', auto:1, keys:[['luck_desc','综合运势'],['luck_rank','运势指数'],['luck_tip','今日提示']] },
+  { cat:'fun', id:'geng', name:'梗百科', icon:'🎭', path:'/v2/geng', type:'geng', auto:1 },
   { cat:'fun', id:'answer', name:'答案之书', icon:'📖', path:'/v2/answer', type:'answer', auto:1, hint:'心中默念你的问题，点击 ↻ 揭晓答案' },
   { cat:'fun', id:'bing', name:'必应壁纸', icon:'🖼️', path:'/v2/bing', type:'bing', auto:1 },
   { cat:'fun', id:'awjs', name:'JS题目', icon:'🧩', path:'/v2/awesome-js', type:'js', auto:1 },
-  { cat:'fun', id:'geng', name:'梗百科', icon:'🎭', path:'/v2/geng', type:'geng', auto:1 },
 
   // 翻译
   { cat:'trans', id:'fanyi', name:'有道翻译', icon:'🔤', path:'/v2/fanyi', type:'fanyi', auto:0, inputs:[{n:'text',p:'文本',d:'hello'},{n:'from',p:'源语言',d:'en'},{n:'to',p:'目标',d:'zh-CHS'}] },
