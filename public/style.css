@@ -548,7 +548,11 @@ a:hover { text-decoration: underline; }
   .cat-nav button {
     padding: 9px 15px; text-align: center; font-size: 13px;
     border-radius: 17px; white-space: nowrap; flex-shrink: 0;
+    /* 屏蔽浏览器触屏默认高亮，改用 :active 状态贴合胶囊形状 */
+    -webkit-tap-highlight-color: transparent;
   }
+  .cat-nav button:active { background: var(--card); }
+  .cat-nav button.active:active { background: var(--accent-light); }
   .cat-nav button.active { background: var(--accent); box-shadow: none; }
 
   .main { padding: 14px 14px 48px; }
