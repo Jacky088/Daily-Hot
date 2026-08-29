@@ -58,7 +58,9 @@ const EPS = [
   { cat:'news', id:'bdhot', name:'百度热搜', icon:'🔍', path:'/v2/baidu/hot', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'url', d:'desc'} },
   { cat:'news', id:'bdtieba', name:'百度贴吧热议', icon:'💬', path:'/v2/baidu/tieba', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'link', d:'abstract'} },
   { cat:'news', id:'history', name:'历史上的今天', icon:'📜', path:'/v2/today-in-history', type:'hist', auto:1 },
-  { cat:'news', id:'rednote', name:'小红书热榜', icon:'📕', path:'/v2/rednote', type:'list', auto:1, f:{t:'title',h:'score',l:'link'} },
+  // 已隐藏小红书热榜：上游私有接口凭证（2023 年抓包）已被风控拉黑，
+  // 持续返回 300013「访问频繁」或空数据，后端 500。恢复需换新数据源。
+  // { cat:'news', id:'rednote', name:'小红书热榜', icon:'📕', path:'/v2/rednote', type:'list', auto:1, f:{t:'title',h:'score',l:'link'} },
   { cat:'news', id:'quark', name:'夸克每日资讯', icon:'☁️', path:'/v2/quark', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'summary'} },
   { cat:'news', id:'dongchedi', name:'汽车热榜', icon:'🚗', path:'/v2/dongchedi', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'url'} },
 
@@ -178,9 +180,13 @@ function safeUrl(u) {
 // P1: 骨架屏 HTML
 const SKELETON_HTML = '<div class="skeleton"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line skeleton-line-short"></div></div>';
 
-// P1: 重试按钮 HTML
-function retryHTML(ep) {
-  return `<div class="placeholder"><span class="badge fail">加载失败</span> <button class="retry-btn" onclick="load(window._ep_${ep.id})">点击重试</button></div>`;
+// 数据源不可用时的友好提示：不暴露错误码/堆栈，保留重试入口
+function unavailableHTML(ep, detail) {
+  return `<div class="placeholder card-unavailable">
+    <span class="un-icon">😴</span>
+    <span class="un-text">数据源开小差了，稍后再来看看${detail ? ` <span class="un-detail">（${esc(detail)}）</span>` : ''}</span>
+    <button class="retry-btn" onclick="load(window._ep_${ep.id})">再试一次</button>
+  </div>`;
 }
 
 function init() {
@@ -521,11 +527,7 @@ async function fetchWithRetry(ep, url, ck, c, retriesLeft) {
         await new Promise(r => setTimeout(r, 1500));
         return fetchWithRetry(ep, url, ck, c, retriesLeft - 1);
       }
-      if (res.status >= 500) {
-        c.innerHTML = `<div class="placeholder"><span class="badge fail">服务器错误 ${res.status}</span> ${res.statusText || '请稍后重试'}</div>`;
-      } else {
-        c.innerHTML = retryHTML(ep);
-      }
+      c.innerHTML = unavailableHTML(ep, `HTTP ${res.status}`);
       return;
     }
 
@@ -547,7 +549,7 @@ async function fetchWithRetry(ep, url, ck, c, retriesLeft) {
         await new Promise(r => setTimeout(r, 1000));
         return fetchWithRetry(ep, url, ck, c, retriesLeft - 1);
       }
-      c.innerHTML = `<div class="placeholder"><span class="badge fail">错误 ${json.code}</span> ${esc(json.message)}</div>`;
+      c.innerHTML = unavailableHTML(ep, json.message);
       return;
     }
     cacheSet(ck, json.data);
@@ -557,7 +559,7 @@ async function fetchWithRetry(ep, url, ck, c, retriesLeft) {
       await new Promise(r => setTimeout(r, 1000));
       return fetchWithRetry(ep, url, ck, c, retriesLeft - 1);
     }
-    c.innerHTML = retryHTML(ep);
+    c.innerHTML = unavailableHTML(ep, '网络异常');
   }
 }
 
