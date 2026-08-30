@@ -397,12 +397,16 @@ function init() {
       render();
     };
     catRow.appendChild(b);
-    // 桌面侧边栏手风琴：子菜单紧跟在所属分类按钮后（display:contents 让其参与纵向排列）
+    // 桌面侧边栏手风琴：子菜单紧跟在所属分类按钮后（display:contents 让其参与纵向排列）；
+    // inner 包装层供 grid-template-rows 0fr→1fr 展开动画使用
     if (c.id !== 'all') {
       const sub = document.createElement('div');
       sub.className = 'cat-sub';
       sub.dataset.for = c.id;
-      buildSubItems(sub, c.id);
+      const inner = document.createElement('div');
+      inner.className = 'cat-sub-inner';
+      buildSubItems(inner, c.id);
+      sub.appendChild(inner);
       catRow.appendChild(sub);
     }
   });
