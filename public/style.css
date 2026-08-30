@@ -470,18 +470,204 @@ a:hover { text-decoration: underline; }
 .img-wrap.ratio-portrait { aspect-ratio: 3 / 4; overflow: hidden; }
 .img-wrap.ratio-portrait img { width: 100%; height: 100%; object-fit: cover; }
 
-/* Health report sections */
-.health-sec { margin-bottom: 10px; }
-.health-sec-title { font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 4px; padding-bottom: 3px; border-bottom: 1px solid var(--border); }
-
-/* Password */
-.pwd-box {
-  font-family: monospace; font-size: 14px; padding: 10px;
-  background: var(--bg); border-radius: 6px; border: 1px solid var(--border);
-  text-align: center; word-break: break-all; cursor: pointer; transition: border 0.2s;
+/* ============ 工具卡通用：数据瓦片（健康/IP/WHOIS/密码 共用） ============ */
+.ht-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.ht-tile {
+  display: flex; flex-direction: column; gap: 2px; line-height: 1.3; min-width: 0;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
 }
-.pwd-box:hover { border-color: var(--accent); }
-.pwd-box.copied { border-color: var(--success); color: var(--success); }
+.ht-tile .k { color: var(--text-dim); font-size: 10px; }
+.ht-tile .v { font-weight: 600; font-size: 12px; word-break: break-word; font-variant-numeric: tabular-nums; }
+
+/* ============ 健康计算器 ============ */
+.ht-bmi { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+.ht-bmi-num { display: flex; flex-direction: column; align-items: center; line-height: 1; }
+.ht-bmi-num b { font-size: 40px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+.ht-bmi-num span { font-size: 11px; color: var(--text-dim); margin-top: 2px; letter-spacing: 1px; }
+.ht-bmi-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ht-bmi-info p { font-size: 12px; color: var(--text); line-height: 1.5; }
+.ht-bmi-info p.dim { color: var(--text-dim); font-size: 11px; }
+.ht-chip { display: inline-block; padding: 2px 10px; border-radius: 10px; background: var(--accent-bg); color: var(--accent); font-size: 11px; font-weight: 700; align-self: flex-start; }
+.ht-gauge { margin-bottom: 12px; }
+.ht-gauge-track {
+  position: relative; height: 10px; border-radius: 5px;
+  background: linear-gradient(90deg, #60a5fa 0 17.5%, #34d399 17.5% 45%, #fbbf24 45% 65%, #f87171 65% 100%);
+}
+.ht-gauge-track i {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--card); border: 3px solid var(--text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+.ht-gauge-scale { display: flex; justify-content: space-between; margin-top: 4px; font-size: 9.5px; color: var(--text-dimmer); }
+.ht-bigs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
+.ht-big {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: var(--accent-bg); border-radius: 10px; padding: 10px 6px; text-align: center;
+}
+.ht-big .ic { font-size: 16px; }
+.ht-big .k { font-size: 10px; color: var(--text-dim); }
+.ht-big b { font-size: 13px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+.ht-sec { margin-top: 12px; }
+.ht-sec-t { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.ht-bf { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+.ht-bf-bar { flex: 1; height: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.ht-bf-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-light)); border-radius: 4px; }
+.ht-bf b { color: var(--text); font-variant-numeric: tabular-nums; }
+.ht-details { margin-top: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+.ht-details summary {
+  padding: 9px 12px; font-size: 12px; font-weight: 600; color: var(--text-dim);
+  cursor: pointer; list-style: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.ht-details summary::before { content: '▸ '; color: var(--accent); }
+.ht-details[open] summary::before { content: '▾ '; }
+.ht-details summary:hover { color: var(--accent); }
+.ht-details > .ht-tiles, .ht-details > .ht-tip, .ht-details > div:last-child { margin: 0 12px 10px; }
+.ht-tip { font-size: 12px; color: var(--text-dim); line-height: 1.7; }
+.ht-details .ht-tiles { margin-top: 0; }
+
+/* ============ 密码生成 ============ */
+.pwd-hero {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px;
+}
+.pwd-text {
+  flex: 1; font-family: "SF Mono", Consolas, monospace; font-size: 14px; font-weight: 700;
+  word-break: break-all; line-height: 1.5; color: var(--accent-light);
+}
+.pwd-copy {
+  flex-shrink: 0; padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--accent); border-color: var(--accent); color: #fff; font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; -webkit-tap-highlight-color: transparent;
+}
+.pwd-copy:hover { background: var(--accent-light); }
+.pwd-copy.done { background: var(--success); border-color: var(--success); }
+.pwd-strength { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 11px; font-weight: 700; }
+.pwd-strength-bar { flex: 1; height: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
+.pwd-strength-bar i { display: block; height: 100%; border-radius: 3px; transition: width 0.4s; }
+
+/* ============ 密码强度检测 ============ */
+.pwchk-hero { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+.pwchk-score { display: flex; align-items: baseline; gap: 3px; line-height: 1; }
+.pwchk-score b { font-size: 42px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.pwchk-score span { font-size: 12px; color: var(--text-dim); }
+.pwchk-side { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.pwchk-strength { display: inline-block; padding: 3px 12px; border-radius: 10px; color: #fff; font-size: 13px; font-weight: 800; align-self: flex-start; }
+.pwchk-crack { font-size: 12px; color: var(--text-dim); }
+.pwchk-crack b { color: var(--text); font-weight: 700; }
+.pwchk-bar { height: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; overflow: hidden; margin-bottom: 10px; }
+.pwchk-bar i { display: block; height: 100%; border-radius: 5px; transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+.pwchk-sets { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.pwchk-set {
+  padding: 3px 10px; border-radius: 12px; font-size: 11px;
+  background: var(--bg); border: 1px solid var(--border); color: var(--text-dimmer);
+}
+.pwchk-set.on { background: var(--accent-bg); border-color: transparent; color: var(--accent); font-weight: 600; }
+.pwchk-recs { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
+.pwchk-rec {
+  font-size: 12px; color: var(--text-dim); line-height: 1.6;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
+}
+
+/* ============ 随机颜色 ============ */
+.clr-hero {
+  border-radius: 12px; padding: 26px 16px; margin-bottom: 8px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.clr-name { font-size: 12px; opacity: 0.85; }
+.clr-hero b { font-size: 26px; font-weight: 800; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+.clr-bright { font-size: 10px; opacity: 0.7; }
+.clr-rows { display: flex; flex-direction: column; gap: 5px; }
+.clr-row {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
+}
+.clr-row .k { flex-shrink: 0; width: 42px; color: var(--text-dim); font-size: 10px; font-weight: 700; letter-spacing: 0.5px; }
+.clr-row code { flex: 1; min-width: 0; font-family: "SF Mono", Consolas, monospace; font-size: 11.5px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clr-copy {
+  flex-shrink: 0; padding: 3px 9px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--card); color: var(--text-dim); font-size: 10px; cursor: pointer; transition: all 0.15s;
+}
+.clr-copy:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ============ 哈希加密 ============ */
+.hash-src {
+  font-size: 12px; color: var(--text-dim); margin-bottom: 8px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
+}
+.hash-src code { color: var(--text); word-break: break-all; }
+.hash-rows { display: flex; flex-direction: column; gap: 6px; }
+.hash-row {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+}
+.hash-alg { flex-shrink: 0; width: 58px; font-size: 10px; font-weight: 700; color: var(--accent); letter-spacing: 0.5px; }
+.hash-val {
+  flex: 1; min-width: 0; font-family: "SF Mono", Consolas, monospace; font-size: 10.5px;
+  color: var(--text); word-break: break-all; line-height: 1.5;
+}
+.hash-copy {
+  flex-shrink: 0; padding: 3px 9px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--card); color: var(--text-dim); font-size: 10px; cursor: pointer; transition: all 0.15s;
+}
+.hash-copy:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ============ WHOIS ============ */
+.whois-dom { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.whois-name { font-size: 17px; font-weight: 800; word-break: break-all; }
+.whois-dnssec {
+  flex-shrink: 0; padding: 2px 8px; border-radius: 8px; font-size: 9px; font-weight: 700;
+  background: var(--accent-bg); color: var(--accent); letter-spacing: 0.5px;
+}
+.whois-exp {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 8px; padding: 8px 12px;
+  background: var(--bg); border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 8px;
+  font-size: 12px;
+}
+.whois-exp .k { color: var(--text-dim); }
+.whois-exp b { color: var(--text); font-variant-numeric: tabular-nums; }
+.whois-remain {
+  margin-left: auto; padding: 2px 10px; border-radius: 10px;
+  border: 1px solid; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.whois-ns { margin-top: 8px; font-size: 12px; }
+.whois-ns .k { display: block; color: var(--text-dim); font-size: 11px; margin-bottom: 4px; }
+.whois-ns div { display: flex; flex-wrap: wrap; gap: 5px; }
+.whois-ns code {
+  padding: 2px 8px; border-radius: 6px; font-size: 10.5px;
+  background: var(--bg); border: 1px solid var(--border); color: var(--text-dim);
+}
+.whois-status { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.whois-pill {
+  padding: 2px 9px; border-radius: 10px; font-size: 10px;
+  background: var(--bg); border: 1px solid var(--border); color: var(--text-dimmer);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ============ IP 查询 ============ */
+.ip-hero { margin-bottom: 10px; padding: 14px 16px; background: var(--accent-bg); border-radius: 12px; text-align: center; }
+.ip-label { font-family: "SF Mono", Consolas, monospace; font-size: 20px; font-weight: 800; color: var(--accent); letter-spacing: 0.5px; word-break: break-all; }
+.ip-map {
+  display: block; margin-top: 8px; padding: 9px 12px; text-align: center;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--accent); font-size: 12px; font-weight: 600; transition: border-color 0.15s;
+}
+.ip-map:hover { border-color: var(--accent); text-decoration: none; }
+
+/* ============ OG 分享预览卡 ============ */
+.og-card {
+  border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+  background: var(--bg);
+}
+.og-img { aspect-ratio: 16 / 9; overflow: hidden; background: var(--card); }
+.og-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.og-body { padding: 12px 14px; }
+.og-title { font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.5; margin-bottom: 5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.og-desc { font-size: 12px; color: var(--text-dim); line-height: 1.7; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.og-host { margin-top: 8px; font-size: 11px; color: var(--text-dimmer); }
 
 /* Text */
 .text-block { white-space: pre-wrap; word-break: break-word; font-size: 13px; line-height: 1.8; }
@@ -950,6 +1136,10 @@ a:hover { text-decoration: underline; }
     background: color-mix(in srgb, var(--card) 88%, transparent);
     backdrop-filter: none; -webkit-backdrop-filter: none;
   }
+  /* 健康卡三列大数字在窄屏收紧字号防换行错位 */
+  .ht-big { padding: 8px 4px; }
+  .ht-big b { font-size: 11px; }
+  .ht-big .k { font-size: 9px; }
 
   /* 卡片内输入行/下拉：触屏适配——44px 触控目标 + 16px 字号防 iOS 聚焦缩放 */
   .input-row input, .input-row select {

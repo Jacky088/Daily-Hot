@@ -110,10 +110,10 @@ const EPS = [
   { cat:'tools', id:'qr', name:'二维码生成', icon:'📱', path:'/v2/qrcode', type:'qr', auto:0, inputs:[{n:'text',p:'内容',d:'https://github.com/vikiboss/60s'},{n:'size',p:'尺寸',d:'256'}], hint:'内容支持任意文本或链接；尺寸为图片边长像素，默认 256' },
   { cat:'tools', id:'hash', name:'哈希加密', icon:'#️⃣', path:'/v2/hash', type:'hash', auto:0, inputs:[{n:'content',p:'文本',d:'hello'}], hint:'一次性输出 MD5、SHA1/256/512、Base64、URL 编码等常用编解码结果' },
   { cat:'tools', id:'og', name:'网页OG信息', icon:'🌐', path:'/v2/og', type:'og', auto:0, inputs:[{n:'url',p:'URL',d:'github.com'}], hint:'提取网页标题、描述、图标等 OG 元信息；输入域名即可，无需带协议' },
-  { cat:'tools', id:'ip', name:'IP查询', icon:'📍', path:'/v2/ip', type:'kv', auto:1, inputs:[{n:'ip',p:'输入 IP，留空查本机',d:''}], keys:[['ip','IP 地址'],['country','国家'],['prov','省份'],['city','城市'],['isp','运营商'],['lat','纬度'],['lng','经度'],['timezone','时区'],['source','数据源']], hint:'自动识别当前访问 IP 的归属地；输入指定 IP 可手动查询' },
+  { cat:'tools', id:'ip', name:'IP查询', icon:'📍', path:'/v2/ip', type:'ip', auto:1, inputs:[{n:'ip',p:'输入 IP，留空查本机',d:''}], hint:'自动识别当前访问 IP 的归属地；输入指定 IP 可手动查询' },
   { cat:'tools', id:'whois', name:'WHOIS查询', icon:'🔗', path:'/v2/whois', type:'whois', auto:0, inputs:[{n:'domain',p:'域名',d:'baidu.com'}], hint:'查询域名的注册商、注册/到期时间与 DNS 服务器等注册信息' },
   { cat:'tools', id:'pwd', name:'密码生成', icon:'🔐', path:'/v2/password', type:'pwd', auto:0, inputs:[{n:'length',p:'长度',d:'16'}], hint:'生成含大小写字母、数字、符号的随机强密码；建议长度 16 位以上' },
-  { cat:'tools', id:'pwdchk', name:'密码强度检测', icon:'💪', path:'/v2/password/check', type:'kv', auto:0, inputs:[{n:'password',p:'密码',d:'Test123456'}], keys:[['password','密码'],['length','长度'],['score','评分'],['strength','强度'],['entropy','熵值'],['time_to_crack','破解耗时']], hint:'评估密码强度与暴力破解耗时；出于安全考虑，请勿检测真实在用的密码' },
+  { cat:'tools', id:'pwdchk', name:'密码强度检测', icon:'💪', path:'/v2/password/check', type:'pwdchk', auto:0, inputs:[{n:'password',p:'密码',d:'Test123456'}], hint:'评估密码强度与暴力破解耗时；出于安全考虑，请勿检测真实在用的密码' },
   { cat:'tools', id:'color', name:'随机颜色', icon:'🎨', path:'/v2/color/random', type:'color', auto:1, hint:'随机生成一个颜色，含 RGB/HSL/CMYK 多格式与配色建议' },
   { cat:'tools', id:'palette', name:'配色方案', icon:'🖌️', path:'/v2/color/palette', type:'palette', auto:0, inputs:[{n:'color',p:'hex',d:''}], hint:'输入 hex 颜色值（如 #6366F1）生成互补、类似、三角配色方案；留空则随机' },
   { cat:'tools', id:'chem', name:'化学元素', icon:'⚗️', path:'/v2/chemical', type:'kv', auto:1, keys:[['name','名称'],['formula','分子式'],['mass','平均质量'],['monoisotopicMass','单同位素质量']], hint:'随机展示一个化合物；加 id 参数可查询指定化合物' },
@@ -821,6 +821,7 @@ function renderData(ep, d, c) {
     js: rJS, exchange: rExchange, og: rOG, answer: rAnswer, quote: rQuote,
     kuan: rKuan, '36kr': r36Kr, reddit: rReddit, sspai: rSspai, huxiu: rHuxiu,
     baike: rBaike, health: rHealth, geng: rGeng, 'daily-eng': rDailyEng, simkl: rSimkl,
+    ip: rIP, pwdchk: rPwdChk,
   }[ep.type] || rJSON;
   fn(d, c, ep);
 }
@@ -933,13 +934,20 @@ function rObj(d, c, ep) {
   c.innerHTML = h;
 }
 
+// 网页 OG 信息：社交分享预览卡（大图上、标题描述下、域名行）
 function rOG(d, c) {
-  let h = '';
-  if (d.image) h += `<div class="img-wrap ratio-banner"><img src="${esc(d.image)}" alt="og" loading="lazy"></div>`;
-  h += '<div class="kv">';
-  if (d.title) h += `<div class="kv-row"><span class="k">标题</span><span class="v">${esc(d.title)}</span></div>`;
-  if (d.description) h += `<div class="kv-row"><span class="k">描述</span><span class="v">${esc(d.description)}</span></div>`;
-  h += '</div>';
+  const cardEl = c.closest('.card');
+  const urlInput = cardEl?.querySelector('input[name="url"]');
+  const u = (urlInput?.value || '').trim();
+  let host = '';
+  try { host = u ? new URL(u.startsWith('http') ? u : 'https://' + u).hostname : ''; } catch {}
+  let h = `<div class="og-card">`;
+  if (d.image) h += `<div class="og-img"><img src="${esc(d.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.remove()"></div>`;
+  h += `<div class="og-body">`;
+  if (d.title) h += `<div class="og-title">${esc(d.title)}</div>`;
+  if (d.description) h += `<div class="og-desc">${esc(d.description)}</div>`;
+  if (host) h += `<div class="og-host">🔗 ${esc(host)}</div>`;
+  h += `</div></div>`;
   c.innerHTML = h;
 }
 
@@ -1042,45 +1050,72 @@ function rBaike(d, c) {
   c.innerHTML = h;
 }
 
+// 通用数据瓦片（健康/IP/WHOIS/密码卡共用）：值为空自动跳过
+function htTile(k, v) {
+  if (v == null || v === '') return '';
+  return `<div class="ht-tile"><span class="k">${esc(k)}</span><span class="v">${esc(String(v))}</span></div>`;
+}
+
+// 健康计算器：BMI 色带标尺 + 关键数字卡 + 数据瓦片 + 三围/建议折叠
 function rHealth(d, c) {
-  const row = (k, v) => (v ? `<div class="kv-row"><span class="k">${k}</span><span class="v">${esc(String(v))}</span></div>` : '');
-  const sec = (title, body) => `<div class="health-sec"><div class="health-sec-title">${title}</div><div class="kv">${body}</div></div>`;
-  let h = '';
-  const bi = d.basic_info || {};
-  h += sec('基本信息', row(bi.height_desc || '身高', bi.height) + row(bi.weight_desc || '体重', bi.weight) + row(bi.gender_desc || '性别', bi.gender) + row(bi.age_desc || '年龄', bi.age));
-  const bmi = d.bmi || {};
-  h += sec('体质指数 BMI', row(bmi.value_desc || 'BMI', bmi.value) + row(bmi.category_desc || '分类', bmi.category) + row(bmi.evaluation_desc || '评价', bmi.evaluation) + row(bmi.risk_desc || '风险', bmi.risk));
-  const wa = d.weight_assessment || {};
-  h += sec('体重评估', row(wa.status_desc || '状态', wa.status) + row(wa.ideal_weight_range_desc || '理想范围', wa.ideal_weight_range) + row(wa.standard_weight_desc || '标准体重', wa.standard_weight) + row(wa.adjustment_desc || '调整建议', wa.adjustment));
-  const me = d.metabolism || {};
-  h += sec('代谢与热量', row(me.bmr_desc || '基础代谢率', me.bmr) + row(me.tdee_desc || '每日总消耗', me.tdee) + row(me.recommended_calories_desc || '推荐摄入', me.recommended_calories) + row(me.weight_loss_calories_desc || '减重卡路里', me.weight_loss_calories) + row(me.weight_gain_calories_desc || '增重卡路里', me.weight_gain_calories));
-  const bf = d.body_fat || {};
-  h += sec('体脂与身体组成', row(bf.percentage_desc || '体脂率', bf.percentage) + row(bf.category_desc || '体脂分类', bf.category) + row(bf.fat_weight_desc || '脂肪重量', bf.fat_weight) + row(bf.lean_weight_desc || '瘦体重', bf.lean_weight));
-  const bsa = d.body_surface_area || {};
-  h += sec('体表面积', row(bsa.value_desc || '体表面积', bsa.value) + row(bsa.formula_desc || '计算公式', bsa.formula));
-  const im = d.ideal_measurements || {};
-  h += sec('理想三围参考', row(im.chest_desc || '胸围', im.chest) + row(im.waist_desc || '腰围', im.waist) + row(im.hip_desc || '臀围', im.hip) + (im.note ? row('说明', im.note) : ''));
-  const ha = d.health_advice || {};
-  const tips = Array.isArray(ha.health_tips) ? ha.health_tips.slice(0, 4).map(t => row('•', t)).join('') : '';
-  h += sec('个性化建议', row(ha.daily_water_intake_desc || '每日饮水', ha.daily_water_intake) + row(ha.exercise_recommendation_desc || '运动建议', ha.exercise_recommendation) + row(ha.nutrition_advice_desc || '营养建议', ha.nutrition_advice) + tips);
+  const bi = d.basic_info || {}, bmi = d.bmi || {}, wa = d.weight_assessment || {},
+        me = d.metabolism || {}, bf = d.body_fat || {}, bsa = d.body_surface_area || {},
+        im = d.ideal_measurements || {}, ha = d.health_advice || {};
+  const num = v => { const n = parseFloat(v); return Number.isNaN(n) ? null : n; };
+
+  // BMI 标尺：15-35 色带（偏瘦蓝/正常绿/超重黄/肥胖红），指针落在当前值
+  let gauge = '';
+  const bv = num(bmi.value);
+  if (bv != null) {
+    const pos = Math.min(98, Math.max(2, ((bv - 15) / 20) * 100));
+    gauge = `<div class="ht-gauge"><div class="ht-gauge-track"><i style="left:${pos}%"></i></div><div class="ht-gauge-scale"><span>偏瘦</span><span>正常</span><span>超重</span><span>肥胖</span></div></div>`;
+  }
+
+  let h = `<div class="ht-bmi"><div class="ht-bmi-num"><b>${esc(String(bmi.value ?? '--'))}</b><span>BMI</span></div><div class="ht-bmi-info"><span class="ht-chip">${esc(bmi.category || '')}</span><p>${esc(bmi.evaluation || '')}</p><p class="dim">${esc(bmi.risk || '')}</p></div></div>${gauge}`;
+
+  const bigs = [
+    ['⚖️', '标准体重', wa.standard_weight],
+    ['🔥', '基础代谢', me.bmr != null ? `${me.bmr} kcal` : null],
+    ['🏃', '每日消耗', me.tdee != null ? `${me.tdee} kcal` : null],
+  ].filter(x => x[2] != null && x[2] !== '');
+  if (bigs.length) h += `<div class="ht-bigs">${bigs.map(([ic, k, v]) => `<div class="ht-big"><span class="ic">${ic}</span><div class="tx"><span class="k">${esc(k)}</span><b>${esc(String(v))}</b></div></div>`).join('')}</div>`;
+
+  const bfPct = num(bf.percentage);
+  h += `<div class="ht-sec"><div class="ht-sec-t">🧬 体脂与身体组成</div>`;
+  if (bfPct != null) {
+    h += `<div class="ht-bf"><span>体脂率</span><div class="ht-bf-bar"><i style="width:${Math.min(100, Math.round(bfPct * 2))}%"></i></div><b>${esc(String(bf.percentage))}</b></div>`;
+  }
+  h += `<div class="ht-tiles">${htTile('体脂分类', bf.category)}${htTile('脂肪重量', bf.fat_weight)}${htTile('瘦体重', bf.lean_weight)}${htTile('体表面积', bsa.value)}</div></div>`;
+
+  h += `<div class="ht-sec"><div class="ht-sec-t">🔥 热量参考</div><div class="ht-tiles">${htTile('推荐摄入', me.recommended_calories ? `${me.recommended_calories} kcal` : null)}${htTile('减重摄入', me.weight_loss_calories ? `${me.weight_loss_calories} kcal` : null)}${htTile('增重摄入', me.weight_gain_calories ? `${me.weight_gain_calories} kcal` : null)}${htTile('理想体重范围', wa.ideal_weight_range)}${htTile('身高', bi.height)}${htTile('体重', bi.weight)}${htTile('性别', bi.gender)}${htTile('年龄', bi.age)}</div></div>`;
+
+  h += `<details class="ht-details"><summary>🎯 理想三围参考</summary><div class="ht-tiles">${htTile('胸围', im.chest)}${htTile('腰围', im.waist)}${htTile('臀围', im.hip)}${htTile('说明', im.note)}</div></details>`;
+  const tips = Array.isArray(ha.health_tips) ? ha.health_tips.slice(0, 4).map(t => `<div class="ht-tip">• ${esc(t)}</div>`).join('') : '';
+  h += `<details class="ht-details"><summary>💡 个性化建议</summary><div class="ht-tiles">${htTile('每日饮水', ha.daily_water_intake)}${htTile('运动建议', ha.exercise_recommendation)}${htTile('营养建议', ha.nutrition_advice)}</div>${tips}</details>`;
   if (d.disclaimer) h += `<div class="news-tip">⚠️ ${esc(d.disclaimer)}</div>`;
   c.innerHTML = h;
 }
 
+// 随机颜色：大色块 hero（亮度自适应文字色）+ 各格式行带复制按钮
 function rColor(d, c) {
-  const labels = { hex: 'HEX', name: '色系', rgb: 'RGB', hsl: 'HSL', hsv: 'HSV', cmyk: 'CMYK', brightness: '亮度', complementary: '互补色' };
-  let h = `<div class="swatch" style="background:${esc(d.hex||'#000')}"></div><div class="kv">`;
-  Object.entries(labels).forEach(([k, label]) => {
-    const v = d[k];
-    if (v == null || v === '') return;
-    // rgb/hsl 等色彩对象自带格式化字符串 (如 "rgb(19, 9, 72)")
-    const disp = typeof v === 'object' ? (v.string || JSON.stringify(v)) : v;
-    h += `<div class="kv-row"><span class="k">${esc(label)}</span><span class="v">${esc(String(disp))}</span></div>`;
-  });
-  if (d.analogous?.length) h += `<div class="kv-row"><span class="k">类似色</span><span class="v">${esc(d.analogous.join('、'))}</span></div>`;
-  if (d.triadic?.length) h += `<div class="kv-row"><span class="k">三角配色</span><span class="v">${esc(d.triadic.join('、'))}</span></div>`;
-  h += '</div>';
+  const hex = d.hex || '#888';
+  const bright = d.brightness != null ? Number(d.brightness) : 50;
+  const fg = bright > 55 ? '#1c1917' : '#ffffff';
+  const rows = [
+    ['HEX', d.hex], ['RGB', d.rgb?.string], ['HSL', d.hsl?.string],
+    ['HSV', d.hsv?.string], ['CMYK', d.cmyk?.string], ['LAB', d.lab?.string],
+  ].filter(r => r[1]);
+  let h = `<div class="clr-hero" style="background:${esc(hex)};color:${fg}"><span class="clr-name">${esc(d.name || '')}</span><b>${esc(hex)}</b><span class="clr-bright">亮度 ${esc(String(bright))}%</span></div>`;
+  h += `<div class="clr-rows">${rows.map(([k, v]) => `<div class="clr-row"><span class="k">${esc(k)}</span><code>${esc(String(v))}</code><button class="clr-copy" type="button" data-v="${esc(String(v))}">复制</button></div>`).join('')}</div>`;
   c.innerHTML = h;
+  c.querySelectorAll('.clr-copy').forEach(btn => {
+    btn.onclick = () => {
+      navigator.clipboard.writeText(btn.dataset.v || '').then(() => {
+        btn.textContent = '已复制 ✓';
+        setTimeout(() => { btn.textContent = '复制'; }, 1200);
+      }).catch(() => {});
+    };
+  });
 }
 
 function rPalette(d, c) {
@@ -1123,30 +1158,31 @@ function rChangya(d, c) {
   c.innerHTML = h;
 }
 
+// 密码生成：大字密码 + 显式复制按钮 + 强度色条 + 字符集 chips
 function rPwd(d, c) {
-  const setLabels = { lowercase: '小写字母', uppercase: '大写字母', numbers: '数字', symbols: '特殊符号' };
+  const setLabels = { lowercase: '小写', uppercase: '大写', numbers: '数字', symbols: '符号' };
   const sets = d.character_sets || {};
-  const used = Object.keys(setLabels).filter(k => sets[k]).map(k => setLabels[k]);
+  const used = Object.keys(setLabels).filter(k => sets[k]);
   const gi = d.generation_info || {};
   const pwd = esc(d.password);
-  c.innerHTML = `<div class="pwd-box" data-pwd="${pwd}">${pwd}</div>
-    <div class="kv" style="margin-top:8px;"><div class="kv-row"><span class="k">长度</span><span class="v">${d.length}</span></div>
-    ${gi.strength ? `<div class="kv-row"><span class="k">强度</span><span class="v">${esc(gi.strength)}</span></div>` : ''}
-    ${gi.time_to_crack ? `<div class="kv-row"><span class="k">预估破解耗时</span><span class="v">${esc(gi.time_to_crack)}</span></div>` : ''}
-    <div class="kv-row"><span class="k">包含字符</span><span class="v">${esc(used.join('、') || '-')}</span></div></div>`;
-  // 点击复制：通过 data 属性取值，避免内联拼接 JS 字符串导致引号注入
-  const box = c.querySelector('.pwd-box');
-  if (box) {
-    box.style.cursor = 'pointer';
-    box.onclick = () => {
-      const val = box.dataset.pwd || '';
-      navigator.clipboard.writeText(val).then(() => {
-        box.classList.add('copied');
-        box.innerText = '已复制 ✓';
-        setTimeout(() => { box.classList.remove('copied'); box.innerText = val; }, 1500);
-      });
-    };
-  }
+  const strengthMap = { 弱: ['25%', 'var(--error)'], 中: ['55%', '#f59e0b'], 强: ['85%', 'var(--success)'], 很强: ['100%', 'var(--success)'] };
+  const [barW, barColor] = strengthMap[gi.strength] || ['50%', '#f59e0b'];
+
+  c.innerHTML = `<div class="pwd-hero">
+    <span class="pwd-text" data-pwd="${pwd}">${pwd}</span>
+    <button class="pwd-copy" type="button">复制</button>
+  </div>
+  <div class="pwd-strength"><div class="pwd-strength-bar"><i style="width:${barW};background:${barColor}"></i></div><span style="color:${barColor}">${esc(gi.strength || '')}</span></div>
+  <div class="ht-tiles">${htTile('长度', d.length)}${htTile('预估破解耗时', gi.time_to_crack)}${htTile('包含字符', used.join('、') || '-')}</div>`;
+  const copyBtn = c.querySelector('.pwd-copy');
+  const textEl = c.querySelector('.pwd-text');
+  copyBtn.onclick = () => {
+    navigator.clipboard.writeText(textEl.dataset.pwd || '').then(() => {
+      copyBtn.textContent = '已复制 ✓';
+      copyBtn.classList.add('done');
+      setTimeout(() => { copyBtn.textContent = '复制'; copyBtn.classList.remove('done'); }, 1500);
+    }).catch(() => {});
+  };
 }
 
 function rFanyi(d, c) {
@@ -1164,12 +1200,25 @@ function rLyric(d, c) {
   c.innerHTML = h;
 }
 
+// 哈希加密：原文行 + 各算法等宽块，每行带复制按钮
 function rHash(d, c) {
-  let h = `<div class="kv-row"><span class="k">原文</span><span class="v">${esc(d.source)}</span></div>`;
-  if (d.md5) h += `<div class="kv-row"><span class="k">MD5</span><span class="v mono">${esc(d.md5)}</span></div>`;
-  if (d.sha) Object.entries(d.sha).forEach(([k, v]) => h += `<div class="kv-row"><span class="k">${k.toUpperCase()}</span><span class="v mono">${esc(v)}</span></div>`);
-  if (d.base64) Object.entries(d.base64).forEach(([k, v]) => h += `<div class="kv-row"><span class="k">b64-${k}</span><span class="v mono" style="word-break:break-all;">${esc(v)}</span></div>`);
-  c.innerHTML = '<div class="kv">' + h + '</div>';
+  const src = String(d.source || '');
+  const rows = [
+    ['MD5', d.md5],
+    ['SHA-1', d.sha?.sha1], ['SHA-256', d.sha?.sha256], ['SHA-512', d.sha?.sha512],
+    ['Base64', d.base64?.encoded], ['URL 编码', d.url?.encoded],
+  ].filter(r => r[1]);
+  let h = `<div class="hash-src">原文 <code>${esc(src.slice(0, 60))}${src.length > 60 ? '…' : ''}</code></div>`;
+  h += `<div class="hash-rows">${rows.map(([k, v]) => `<div class="hash-row"><span class="hash-alg">${esc(k)}</span><code class="hash-val">${esc(String(v))}</code><button class="hash-copy" type="button" data-v="${esc(String(v))}">复制</button></div>`).join('')}</div>`;
+  c.innerHTML = h;
+  c.querySelectorAll('.hash-copy').forEach(btn => {
+    btn.onclick = () => {
+      navigator.clipboard.writeText(btn.dataset.v || '').then(() => {
+        btn.textContent = '已复制 ✓';
+        setTimeout(() => { btn.textContent = '复制'; }, 1200);
+      }).catch(() => {});
+    };
+  });
 }
 
 // 城市名去重：优先 city + county（name 可能是"北京北京"这类重复值）
@@ -1687,16 +1736,57 @@ function rMoyu(d, c) {
   c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
 }
 
+// WHOIS：域名头 + 到期倒计时徽标（临期变色）+ 数据瓦片 + NS + 状态 pills
 function rWhois(d, c) {
-  let h = '<div class="kv">';
-  [['domain','域名'],['registrar','注册商'],['created','创建日期'],['updated','更新日期'],['expires','过期日期']].forEach(([k, label]) => {
-    const v = d[k];
-    if (v == null) return;
-    const disp = Array.isArray(v) ? v.join(', ') : v;
-    h += `<div class="kv-row"><span class="k">${label}</span><span class="v">${esc(String(disp))}</span></div>`;
-  });
-  if (d.status && d.status.length) h += `<div class="kv-row"><span class="k">状态</span><span class="v">${esc(d.status.join(', '))}</span></div>`;
-  h += '</div>';
+  let remain = null;
+  if (d.expires_at) remain = Math.ceil((Number(d.expires_at) - Date.now()) / 86400000);
+  const expColor = remain == null ? 'var(--text-dim)' : remain < 30 ? 'var(--error)' : remain < 180 ? '#f59e0b' : 'var(--success)';
+
+  let h = `<div class="whois-dom"><span class="whois-name">${esc(d.domain || '')}</span>${d.dnssec ? '<span class="whois-dnssec" title="已启用 DNSSEC">DNSSEC</span>' : ''}</div>`;
+  if (d.expires) {
+    h += `<div class="whois-exp"><span class="k">到期时间</span><b>${esc(d.expires)}</b>${remain != null ? `<span class="whois-remain" style="color:${expColor};border-color:${expColor}">剩 ${remain} 天</span>` : ''}</div>`;
+  }
+  h += `<div class="ht-tiles">${htTile('注册商', d.registrar)}${htTile('创建日期', d.created)}${htTile('更新日期', d.updated)}${htTile('注册时长', d.duration_desc || d.duration)}</div>`;
+  if (d.nameservers?.length) {
+    h += `<div class="whois-ns"><span class="k">DNS 服务器</span><div>${d.nameservers.slice(0, 6).map(ns => `<code>${esc(ns)}</code>`).join('')}</div></div>`;
+  }
+  if (d.status?.length) {
+    h += `<div class="whois-status">${d.status.slice(0, 6).map(s => `<span class="whois-pill" title="${esc(s)}">${esc(s)}</span>`).join('')}</div>`;
+  }
+  c.innerHTML = h;
+}
+
+// IP 查询：IP 大字 + 归属瓦片 + OSM 地图链接
+function rIP(d, c) {
+  const loc = [d.country, d.prov, d.city].filter(Boolean).join(' · ');
+  let h = `<div class="ip-hero"><span class="ip-label">📍 ${esc(d.ip || '--')}</span></div>`;
+  h += `<div class="ht-tiles">${htTile('国家/地区', loc)}${htTile('运营商', d.isp)}${htTile('时区', d.timezone)}${htTile('AS 号', d.asnumber)}${htTile('邮编', d.zipcode)}${htTile('数据源', d.source)}</div>`;
+  const lat = parseFloat(d.lat), lng = parseFloat(d.lng);
+  if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+    h += `<a class="ip-map" href="https://www.openstreetmap.org/?mlat=${encodeURIComponent(d.lat)}&mlon=${encodeURIComponent(d.lng)}#map=11/${encodeURIComponent(d.lat)}/${encodeURIComponent(d.lng)}" target="_blank" rel="noopener">🗺️ 在 OpenStreetMap 上查看大致位置 →</a>`;
+  }
+  c.innerHTML = h;
+}
+
+// 密码强度检测：分数色带 + 强度/破解耗时 + 字符集勾选 + 改进建议
+function rPwdChk(d, c) {
+  const score = Math.min(100, Math.max(0, Number(d.score) || 0));
+  const color = score >= 80 ? 'var(--success)' : score >= 50 ? '#f59e0b' : 'var(--error)';
+  const ca = d.character_analysis || {};
+  const sets = [['小写字母', ca.has_lowercase], ['大写字母', ca.has_uppercase], ['数字', ca.has_numbers], ['特殊符号', ca.has_symbols]];
+
+  let h = `<div class="pwchk-hero">
+    <div class="pwchk-score" style="color:${color}"><b>${score}</b><span>/100</span></div>
+    <div class="pwchk-side">
+      <span class="pwchk-strength" style="background:${color}">${esc(d.strength || '未知')}</span>
+      <span class="pwchk-crack">🔓 破解耗时 <b>${esc(d.time_to_crack || '-')}</b></span>
+    </div>
+  </div>
+  <div class="pwchk-bar"><i style="width:${score}%;background:${color}"></i></div>
+  <div class="ht-tiles">${htTile('密码长度', d.length)}${htTile('熵值', d.entropy != null ? `${d.entropy} bits` : null)}${htTile('字符多样度', ca.character_variety != null ? `${ca.character_variety}%` : null)}${htTile('被测密码', d.password)}</div>
+  <div class="pwchk-sets">${sets.map(([k, v]) => `<span class="pwchk-set ${v ? 'on' : ''}">${v ? '✓' : '✗'} ${k}</span>`).join('')}</div>`;
+  const recs = Array.isArray(d.recommendations) ? d.recommendations : [];
+  if (recs.length) h += `<div class="pwchk-recs">${recs.slice(0, 4).map(r => `<div class="pwchk-rec">💡 ${esc(r)}</div>`).join('')}</div>`;
   c.innerHTML = h;
 }
 
