@@ -1,6 +1,6 @@
 // Service Worker — Daily Hot
 // Network-First for HTML/JS/CSS（保证每次部署后用户立即拿到新代码，离线才回退缓存），API 同样 Network-First
-const CACHE_NAME = 'daily-hot-v5';
+const CACHE_NAME = 'daily-hot-v6';
 const STATIC_ASSETS = ['/style.css', '/app.js', '/manifest.json'];
 
 self.addEventListener('install', (e) => {

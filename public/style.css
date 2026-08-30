@@ -588,6 +588,128 @@ a:hover { text-decoration: underline; }
 .ex-res-num { font-size: 16px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ex-res-code { font-size: 12px; font-weight: 600; color: var(--accent-light); }
 
+/* ============ 金价卡：主价格 + 区间条 + 趋势曲线 + 品种瓷片 ============ */
+.gold-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--text-dim); }
+.gold-upd { font-size: 10px; color: var(--text-dimmer); }
+.gold-hero { display: flex; align-items: baseline; gap: 10px; padding: 6px 0 2px; }
+.gold-price { font-size: 34px; font-weight: 800; color: #f59e0b; line-height: 1; font-variant-numeric: tabular-nums; }
+.gold-unit { font-size: 13px; font-weight: 500; color: var(--text-dim); margin-left: 2px; }
+.gold-name { font-size: 12px; color: var(--text-dim); }
+.gold-range { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.gold-range-bar { position: relative; flex: 1; height: 6px; border-radius: 3px; background: var(--bg); border: 1px solid var(--border); }
+.gold-range-bar i {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #f59e0b; border: 2px solid var(--card);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+}
+.gold-chart-wrap { margin-top: 10px; padding: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; }
+.gold-chart { display: block; width: 100%; height: auto; }
+.gold-chart-tip { margin-top: 10px; padding: 12px 8px; text-align: center; font-size: 11px; color: var(--text-dimmer); background: var(--bg); border: 1px dashed var(--border); border-radius: 10px; }
+.gold-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
+.gold-tile {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  padding: 7px 10px; font-size: 12px;
+}
+.gold-tile-name { color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gold-tile-val { font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ============ 摸鱼日历：日期状态头 + 倒计时瓷片 + 假期条 + 进度条 + 语录 ============ */
+.moyu-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.moyu-date { display: flex; flex-direction: column; line-height: 1.3; }
+.moyu-date b { font-size: 20px; font-weight: 800; }
+.moyu-date span { font-size: 11px; color: var(--text-dim); }
+.moyu-badge { padding: 4px 12px; border-radius: 14px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.moyu-badge.rest { background: var(--accent-bg); color: var(--accent); }
+.moyu-badge.work { background: var(--bg); border: 1px solid var(--border); color: var(--text-dim); }
+.moyu-badge.holiday { background: linear-gradient(135deg, #f97316, #fb7185); color: #fff; box-shadow: var(--accent-glow); }
+.moyu-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
+.moyu-tile {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  padding: 8px 10px;
+}
+.moyu-tile .ic { font-size: 16px; line-height: 1; flex-shrink: 0; }
+.moyu-tile .tx { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
+.moyu-tile .k { color: var(--text-dim); font-size: 10px; }
+.moyu-tile .v { font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+.moyu-tile .v i { font-style: normal; font-size: 10px; font-weight: 500; color: var(--text-dim); }
+.moyu-next {
+  margin-top: 10px; padding: 8px 12px; font-size: 12px; color: var(--text-dim);
+  background: var(--bg); border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.moyu-next b { color: var(--accent); font-weight: 800; }
+.moyu-progress { margin-top: 9px; }
+.moyu-progress-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-dim); margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+.moyu-progress-bar { height: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.moyu-progress-bar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--accent-light)); transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+.moyu-quote {
+  margin-top: 12px; padding: 10px 12px; font-size: 12.5px; line-height: 1.8; color: var(--text-dim);
+  background: var(--accent-bg); border-radius: 10px; position: relative;
+}
+
+/* ============ JS 题目：题干 + 代码块（可复制）+ 可点击答题 ============ */
+.jsq-q { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
+.jsq-no {
+  flex-shrink: 0; padding: 2px 9px; border-radius: 9px;
+  background: var(--accent); color: #fff; font-size: 11px; font-weight: 800;
+}
+.jsq-qt { font-size: 13px; font-weight: 600; line-height: 1.6; word-break: break-word; }
+.jsq-code { position: relative; margin-bottom: 10px; }
+.jsq-code pre {
+  margin: 0; padding: 12px 12px; overflow-x: auto;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  font-family: "SF Mono", Consolas, monospace; font-size: 11.5px; line-height: 1.65;
+  color: var(--text); tab-size: 2;
+}
+.jsq-copy {
+  position: absolute; top: 6px; right: 6px; padding: 2px 9px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text-dim); font-size: 10px; cursor: pointer; transition: all 0.15s;
+}
+.jsq-copy:hover { color: var(--accent); border-color: var(--accent); }
+.jsq-opts { display: flex; flex-direction: column; gap: 6px; }
+.jsq-opt {
+  display: flex; align-items: flex-start; gap: 8px; width: 100%; text-align: left;
+  padding: 9px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  color: var(--text); font-size: 12.5px; line-height: 1.6; cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.jsq-opt:hover:not(:disabled) { border-color: var(--accent); }
+.jsq-opt:active:not(:disabled) { transform: scale(0.99); }
+.jsq-opt:disabled { cursor: default; opacity: 0.75; }
+.jsq-opt-no {
+  flex-shrink: 0; width: 20px; height: 20px; line-height: 20px; text-align: center;
+  border-radius: 6px; background: var(--card); border: 1px solid var(--border);
+  color: var(--text-dim); font-size: 10px; font-weight: 700;
+}
+.jsq-opt.correct {
+  background: rgba(52, 211, 153, 0.12); border-color: var(--success); color: var(--success);
+  opacity: 1; font-weight: 600;
+}
+.jsq-opt.correct .jsq-opt-no { background: var(--success); border-color: var(--success); color: #fff; }
+.jsq-opt.wrong {
+  background: rgba(248, 113, 113, 0.1); border-color: var(--error); color: var(--error);
+  opacity: 1; animation: jsqShake 0.3s ease;
+}
+.jsq-opt.wrong .jsq-opt-no { background: var(--error); border-color: var(--error); color: #fff; }
+@keyframes jsqShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+.jsq-verdict { margin-top: 8px; font-size: 13px; font-weight: 700; }
+.jsq-verdict.ok { color: var(--success); }
+.jsq-verdict.bad { color: var(--error); }
+.jsq-exp {
+  margin-top: 8px; padding: 10px 12px; font-size: 12px; line-height: 1.8; color: var(--text-dim);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+}
+.jsq-exp-t { display: block; margin-bottom: 4px; font-weight: 700; color: var(--accent); }
+
 /* SIMKL 流媒体热门榜 */
 .simkl-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
 .simkl-item:last-child { border-bottom: none; }

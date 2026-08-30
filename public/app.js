@@ -1377,13 +1377,71 @@ function rFuelChart(rows, regionName) {
   return `<div class="fuel-chart"><div class="fuel-chart-title">📈 ${title}</div>${svg}${legend}</div>`;
 }
 
+// 金价：主价格大字 + 高低区间条 + localStorage 按日快照积累的趋势曲线 + 多品种瓷片
+function goldHistory() {
+  try { return JSON.parse(localStorage.getItem('goldHistory') || '{}'); } catch { return {}; }
+}
+function goldHistoryPush(date, price) {
+  if (!date || price == null || Number.isNaN(Number(price))) return goldHistory();
+  const h = goldHistory();
+  h[date] = Number(price);
+  const keys = Object.keys(h).sort();
+  const trimmed = {};
+  keys.slice(-30).forEach(k => { trimmed[k] = h[k]; });
+  try { localStorage.setItem('goldHistory', JSON.stringify(trimmed)); } catch {}
+  return trimmed;
+}
+
+function goldChartSVG(hist) {
+  const entries = Object.entries(hist).sort((a, b) => (a[0] < b[0] ? -1 : 1));
+  if (entries.length < 2) return '';
+  const W = 360, H = 130, padT = 22, padB = 18, padX = 12;
+  const vals = entries.map(e => e[1]);
+  const hi = Math.max(...vals), lo = Math.min(...vals);
+  const span = (hi - lo) || 1;
+  const x = i => padX + (W - padX * 2) * i / (entries.length - 1);
+  const y = v => padT + ((hi - v) / span) * (H - padT - padB);
+  const pts = vals.map((v, i) => ({ X: x(i), Y: y(v) }));
+  let line = `M ${pts[0].X.toFixed(1)} ${pts[0].Y.toFixed(1)}`;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i], mx = (a.X + b.X) / 2;
+    line += ` C ${mx.toFixed(1)} ${a.Y.toFixed(1)}, ${mx.toFixed(1)} ${b.Y.toFixed(1)}, ${b.X.toFixed(1)} ${b.Y.toFixed(1)}`;
+  }
+  const area = line + ` L ${pts[pts.length - 1].X.toFixed(1)} ${H - padB} L ${pts[0].X.toFixed(1)} ${H - padB} Z`;
+  let s = `<svg class="gold-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="金价走势">`;
+  s += `<defs><linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f59e0b" stop-opacity="0.3"/><stop offset="1" stop-color="#f59e0b" stop-opacity="0"/></linearGradient></defs>`;
+  [0.35, 0.7].forEach(f => s += `<line x1="${padX}" x2="${W - padX}" y1="${(H * f).toFixed(1)}" y2="${(H * f).toFixed(1)}" stroke="var(--border)" stroke-dasharray="3 5" stroke-width="0.5"/>`);
+  s += `<path d="${area}" fill="url(#goldGrad)"/>`;
+  s += `<path d="${line}" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>`;
+  pts.forEach((p, i) => {
+    if (i === 0 || i === pts.length - 1) s += `<circle cx="${p.X.toFixed(1)}" cy="${p.Y.toFixed(1)}" r="3" fill="#f59e0b" stroke="var(--card)" stroke-width="1.5"/>`;
+  });
+  s += `<text x="${padX}" y="${H - 4}" font-size="9" fill="var(--text-dimmer)">${esc(entries[0][0].slice(5))}</text>`;
+  s += `<text x="${W - padX}" y="${H - 4}" text-anchor="end" font-size="9" fill="var(--text-dimmer)">${esc(entries[entries.length - 1][0].slice(5))}</text>`;
+  s += `<text x="${(pts[pts.length - 1].X - 6).toFixed(1)}" y="${(pts[pts.length - 1].Y - 9).toFixed(1)}" text-anchor="end" font-size="11" font-weight="700" fill="#f59e0b">¥${esc(String(vals[vals.length - 1]))}</text>`;
+  s += `</svg>`;
+  return s;
+}
+
 function rGold(d, c) {
-  let h = '';
-  if (d.date) h += `<div class="kv-row"><span class="k">📅</span><span class="v">${esc(d.date)}</span></div>`;
-  if (d.metals) {
-    d.metals.slice(0, 5).forEach(m => {
-      h += `<div class="item"><span class="rank">🥇</span><div class="body"><span class="t">${esc(m.name)}</span><div class="meta">现价 ¥${esc(m.today_price||m.sell_price||'')}/g · 高 ¥${esc(m.high_price||'')} · 低 ¥${esc(m.low_price||'')}</div></div></div>`;
-    });
+  const main = (d.metals || []).find(m => m.name === '今日金价') || (d.metals || [])[0];
+  if (!main) return rJSON(d, c, true);
+  const cur = Number(main.today_price || main.sell_price);
+  const hist = goldHistoryPush(d.date, cur);
+  const hi = Number(main.high_price), lo = Number(main.low_price);
+  const pos = (hi > lo && !Number.isNaN(hi) && !Number.isNaN(lo)) ? Math.min(96, Math.max(4, Math.round((cur - lo) / (hi - lo) * 100))) : 50;
+
+  let h = `<div class="gold-head"><span class="gold-date">📅 ${esc(d.date || '')}</span>${main.updated ? `<span class="gold-upd">${esc(String(main.updated).slice(11))}</span>` : ''}</div>`;
+  h += `<div class="gold-hero"><div class="gold-price">¥${esc(String(cur))}<span class="gold-unit">/克</span></div><div class="gold-name">${esc(main.name)}</div></div>`;
+  if (!Number.isNaN(hi) && !Number.isNaN(lo)) {
+    h += `<div class="gold-range"><span class="gold-range-l">低 ¥${esc(String(lo))}</span><div class="gold-range-bar"><i style="left:${pos}%"></i></div><span class="gold-range-h">高 ¥${esc(String(hi))}</span></div>`;
+  }
+  const chart = goldChartSVG(hist);
+  if (chart) h += `<div class="gold-chart-wrap">${chart}</div>`;
+  else h += `<div class="gold-chart-tip">📈 已开始记录每日金价，明天起这里会出现趋势曲线</div>`;
+  const others = (d.metals || []).filter(m => m !== main).slice(0, 8);
+  if (others.length) {
+    h += `<div class="gold-grid">${others.map(m => `<div class="gold-tile"><span class="gold-tile-name">${esc(m.name)}</span><span class="gold-tile-val">¥${esc(String(m.today_price || m.sell_price || '-'))}</span></div>`).join('')}</div>`;
   }
   c.innerHTML = h || rJSON(d, c, true);
 }
@@ -1581,19 +1639,51 @@ function rMaoyan(d, c) {
   c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
 }
 
+// 摸鱼日历：日期+状态徽标 → 倒计时瓷片 → 下个假期 → 周/月/年进度条 → 摸鱼语录
 function rMoyu(d, c) {
-  let h = '';
-  if (d.today) h += `<div class="kv-row"><span class="k">📅</span><span class="v">${esc(d.today.isWorkday?'工作日':'休息日')}</span></div>`;
-  if (d.progress) {
-    [['week','本周'],['month','本月'],['year','本年']].forEach(([k, label]) => {
-      const p = d.progress[k];
-      if (p && p.percentage != null) {
-        h += `<div class="kv-row"><span class="k">${label}</span><span class="v">${esc(String(p.percentage))}% (${esc(String(p.passed))}/${esc(String(p.total))})</span></div>`;
-        h += `<div class="progress-bar"><div class="progress-fill" style="width:${p.percentage}%"></div></div>`;
-      }
-    });
+  const d0 = d.date || {};
+  const t = d.today || {};
+  const p = d.progress || {};
+  const cd = d.countdown || {};
+  const nh = d.nextHoliday || {};
+  const ch = d.currentHoliday;
+
+  // 状态徽标：法定/传统假期优先（排除英文星期名），其次休息日/工作日
+  let statusBadge = '';
+  if (ch && ch.name && t.isHoliday && !/sunday|saturday/i.test(String(ch.name))) {
+    statusBadge = `<span class="moyu-badge holiday">🎉 ${esc(String(ch.name))}假期 · 第 ${esc(String(ch.dayOfHoliday))} 天</span>`;
+  } else if (t.isWorkday === false) {
+    statusBadge = `<span class="moyu-badge rest">🌴 休息日</span>`;
+  } else {
+    statusBadge = `<span class="moyu-badge work">💼 工作日</span>`;
   }
-  if (d.moyuQuote) h += `<div class="news-tip">🐟 ${esc(d.moyuQuote)}</div>`;
+
+  const lunarTxt = d0.lunar ? `农历${esc(String(d0.lunar.monthCN))}${esc(String(d0.lunar.dayCN))}` : '';
+  let h = `<div class="moyu-head">
+    <div class="moyu-date"><b>${esc(String(d0.gregorian || '').slice(5))}</b><span>${esc(d0.weekday || '')}${lunarTxt ? ' · ' + lunarTxt : ''}</span></div>
+    ${statusBadge}
+  </div>`;
+
+  const tiles = [
+    ['💼', '距周五', cd.toFriday], ['🏖️', '距周末', cd.toWeekEnd],
+    ['📅', '距月末', cd.toMonthEnd], ['🎊', '距年末', cd.toYearEnd],
+  ].filter(x => x[2] != null);
+  if (tiles.length) {
+    h += `<div class="moyu-tiles">${tiles.map(([ic, k, v]) => `<div class="moyu-tile"><span class="ic">${ic}</span><div class="tx"><span class="k">${esc(k)}</span><span class="v">${esc(String(v))}<i> 天</i></span></div></div>`).join('')}</div>`;
+  }
+
+  if (nh.name) {
+    h += `<div class="moyu-next">🎊 下一个假期 <b>${esc(String(nh.name))}</b><span>${esc(String(nh.date || ''))} · 放 ${esc(String(nh.duration))} 天 · 还有 <b>${esc(String(nh.until))}</b> 天</span></div>`;
+  }
+
+  [['week', '本周'], ['month', '本月'], ['year', '本年']].forEach(([k, label]) => {
+    const pr = p[k];
+    if (pr && pr.percentage != null) {
+      h += `<div class="moyu-progress"><div class="moyu-progress-label"><span>${label}进度</span><span>${esc(String(pr.percentage))}% · 第 ${esc(String(pr.passed))}/${esc(String(pr.total))} 天</span></div><div class="moyu-progress-bar"><i style="width:${Math.min(100, pr.percentage)}%"></i></div></div>`;
+    }
+  });
+
+  if (d.moyuQuote) h += `<div class="moyu-quote">🐟 ${esc(d.moyuQuote)}</div>`;
   c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
 }
 
@@ -1610,19 +1700,68 @@ function rWhois(d, c) {
   c.innerHTML = h;
 }
 
+// JS 题目：题目排版 + 代码块（可复制）+ 可点击选项答题（答后揭晓正确项与解析）
 function rJS(d, c) {
-  let h = `<div style="font-weight:600;font-size:12px;margin-bottom:6px;">${esc(d.question||'')}</div>`;
-  if (d.code) h += `<div class="json-view">${esc(d.code)}</div>`;
-  if (d.options) {
-    h += '<div style="margin-top:6px;">';
-    d.options.forEach((opt, i) => {
-      const isAns = d.answer === i || d.answer === opt;
-      h += `<div style="padding:3px 8px;margin:2px 0;border-radius:4px;font-size:12px;${isAns?'background:rgba(52,211,153,0.12);color:var(--success);':'background:var(--bg);'}">${String.fromCharCode(65+i)}. ${esc(opt)} ${isAns?'✓':''}</div>`;
-    });
-    h += '</div>';
+  let ansIdx = -1;
+  if (typeof d.answer === 'number') ansIdx = d.answer;
+  else if (typeof d.answer === 'string') {
+    const t = d.answer.trim();
+    if (/^[A-Da-d]$/.test(t)) {
+      // 字母答案（"A"-"D"），上游接口返回的就是这种
+      ansIdx = t.toUpperCase().charCodeAt(0) - 65;
+    } else {
+      const byText = Array.isArray(d.options) ? d.options.indexOf(d.answer) : -1;
+      const byNum = Number(t);
+      ansIdx = byText >= 0 ? byText : (Number.isInteger(byNum) ? byNum : -1);
+    }
   }
-  if (d.explanation) h += `<div class="desc" style="margin-top:6px;">${esc(d.explanation)}</div>`;
+
+  let h = `<div class="jsq"><div class="jsq-q"><span class="jsq-no">Q${esc(String(d.id ?? ''))}</span><span class="jsq-qt">${esc(d.question || '')}</span></div>`;
+  if (d.code) {
+    h += `<div class="jsq-code"><button class="jsq-copy" type="button">复制</button><pre><code>${esc(d.code)}</code></pre></div>`;
+  }
+  if (Array.isArray(d.options)) {
+    h += `<div class="jsq-opts">${d.options.map((opt, i) => `<button class="jsq-opt" type="button" data-i="${i}"><span class="jsq-opt-no">${String.fromCharCode(65 + i)}</span>${esc(opt)}</button>`).join('')}</div>`;
+    h += `<div class="jsq-verdict" hidden></div>`;
+  }
+  if (d.explanation) h += `<div class="jsq-exp" hidden><span class="jsq-exp-t">💡 解析</span>${esc(d.explanation)}</div>`;
+  h += `</div>`;
   c.innerHTML = h;
+
+  const opts = [...c.querySelectorAll('.jsq-opt')];
+  const verdict = c.querySelector('.jsq-verdict');
+  const exp = c.querySelector('.jsq-exp');
+  const copyBtn = c.querySelector('.jsq-copy');
+  if (copyBtn) {
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(d.code || '').then(() => {
+        copyBtn.textContent = '已复制 ✓';
+        setTimeout(() => { copyBtn.textContent = '复制'; }, 1500);
+      }).catch(() => {});
+    };
+  }
+  if (!opts.length || ansIdx < 0) { if (exp) exp.hidden = false; return; }
+
+  let done = false;
+  opts.forEach(btn => {
+    btn.onclick = () => {
+      if (done) return;
+      done = true;
+      const pick = Number(btn.dataset.i);
+      const correct = pick === ansIdx;
+      opts.forEach((b, i) => {
+        b.disabled = true;
+        if (i === ansIdx) b.classList.add('correct');
+        else if (i === pick) b.classList.add('wrong');
+      });
+      if (verdict) {
+        verdict.textContent = correct ? '✓ 答对了！' : `✗ 正确答案是 ${String.fromCharCode(65 + ansIdx)}`;
+        verdict.className = 'jsq-verdict ' + (correct ? 'ok' : 'bad');
+        verdict.hidden = false;
+      }
+      if (exp) exp.hidden = false;
+    };
+  });
 }
 
 // 汇率：基准 + 常用币种列表 + 金额换算计算器（纯前端，基于已加载的 rates）
