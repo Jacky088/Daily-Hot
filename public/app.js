@@ -330,10 +330,20 @@ function init() {
     // 直接计算卡片绝对坐标用 window.scrollTo 定位最可靠。
     const card = document.getElementById('card-' + ep.id);
     if (card) {
-      const navEl = document.querySelector('.cat-nav');
-      const targetTop = () => (navEl ? navEl.getBoundingClientRect().bottom : 0) + 12;
+      // 目标停靠位：移动端是吸顶分类导航的底边；桌面端分类栏在侧边不遮挡内容，
+      // 遮挡卡片的是吸顶顶栏——必须分端测量，否则桌面会算出负偏移导致根本不滚动
+      const targetTop = () => {
+        if (window.innerWidth <= 820) {
+          const navEl = document.querySelector('.cat-nav');
+          return (navEl ? navEl.getBoundingClientRect().bottom : 0) + 12;
+        }
+        const topbar = document.querySelector('.topbar');
+        return (topbar ? topbar.getBoundingClientRect().bottom : 0) + 12;
+      };
       const absY = () => card.getBoundingClientRect().top + window.scrollY - targetTop();
-      window.scrollTo({ top: absY(), behavior: 'smooth' });
+      // 首跳用 instant：smooth 动画在后台/遮挡标签页会被暂停导致定位中断，
+      // 精确性优先于过渡动画；随后的轮询校正同样是瞬时对齐
+      window.scrollTo({ top: absY(), behavior: 'instant' });
       // 卡片数据/图片异步加载会改变前方卡片高度，轮询校正：
       // 每 400ms 瞬时对齐；仅当「连续 3 次检测文档高度无变化且已对齐」才提前退出，
       // 8s 超时兜底；用户手动滚动立即让位
