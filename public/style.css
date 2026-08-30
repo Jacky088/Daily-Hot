@@ -677,11 +677,70 @@ a:hover { text-decoration: underline; }
 .changya-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
 
 /* 答案之书 */
-.answer-book { text-align: center; padding: 22px 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; }
-.answer-quote { font-size: 22px; color: var(--accent); font-family: Georgia, serif; line-height: 1; }
-.answer-zh { font-size: 20px; font-weight: 700; font-family: Georgia, "Songti SC", "SimSun", serif; letter-spacing: 2px; line-height: 1.6; margin: 6px 0; word-break: break-word; }
-.answer-en { font-size: 12px; color: var(--text-dim); font-style: italic; font-family: Georgia, serif; }
-.answer-meta { font-size: 10px; color: var(--text-dimmer); margin-top: 12px; }
+/* ============ 答案之书：神谕卡（牌面质感 + 双线金边 + 逐字渐显） ============ */
+.answer-card {
+  position: relative; text-align: center;
+  padding: 26px 18px 18px;
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%),
+    var(--bg);
+  border: 1px solid color-mix(in srgb, #f59e0b 45%, var(--border));
+  box-shadow: inset 0 0 0 4px var(--bg), inset 0 0 0 5px color-mix(in srgb, #f59e0b 35%, var(--border));
+  overflow: hidden;
+}
+/* 四角 L 形角饰 */
+.ans-frame { position: absolute; inset: 10px; pointer-events: none; }
+.ans-frame::before, .ans-frame::after,
+.answer-card::before, .answer-card::after {
+  content: ''; position: absolute; width: 14px; height: 14px;
+  border-color: color-mix(in srgb, #f59e0b 55%, var(--border)); border-style: solid; border-width: 0;
+}
+.ans-frame::before { top: 0; left: 0; border-top-width: 1.5px; border-left-width: 1.5px; }
+.ans-frame::after { top: 0; right: 0; border-top-width: 1.5px; border-right-width: 1.5px; }
+.answer-card::before { bottom: 0; left: 0; border-bottom-width: 1.5px; border-left-width: 1.5px; }
+.answer-card::after { bottom: 0; right: 0; border-bottom-width: 1.5px; border-right-width: 1.5px; }
+
+.ans-title {
+  font-family: Georgia, serif; font-size: 9px; letter-spacing: 3px;
+  color: color-mix(in srgb, #f59e0b 80%, var(--text-dim));
+  padding-bottom: 10px; margin-bottom: 6px;
+  border-bottom: 1px solid color-mix(in srgb, #f59e0b 30%, var(--border));
+  width: fit-content; margin-left: auto; margin-right: auto;
+}
+.ans-zh {
+  font-family: Georgia, "Songti SC", "SimSun", serif;
+  font-size: 22px; font-weight: 700; line-height: 1.7;
+  letter-spacing: 3px; margin: 14px 0 4px; word-break: break-word;
+  color: var(--text);
+}
+.answer-card.vertical .ans-zh {
+  writing-mode: vertical-rl; text-orientation: upright;
+  letter-spacing: 6px; margin: 6px auto 4px;
+  min-height: 150px; display: flex; align-items: center; justify-content: center;
+}
+.ans-ch { display: inline-block; opacity: 0; animation: ansIn 0.45s ease forwards; }
+@keyframes ansIn {
+  from { opacity: 0; transform: translateY(6px); filter: blur(3px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+.ans-en {
+  font-family: Georgia, serif; font-style: italic; font-size: 12px;
+  color: var(--text-dim); margin-top: 4px; letter-spacing: 0.5px;
+}
+.answer-card.vertical .ans-en { letter-spacing: 2px; }
+.ans-sep {
+  margin-top: 14px; font-size: 8px; letter-spacing: 6px;
+  color: color-mix(in srgb, #f59e0b 60%, var(--border));
+}
+.ans-seal {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 52px; height: 52px; margin-top: 10px;
+  border: 1.5px solid color-mix(in srgb, #f59e0b 50%, var(--border)); border-radius: 50%;
+  font-family: Georgia, serif; font-size: 12px; font-weight: 700; letter-spacing: 1px;
+  color: color-mix(in srgb, #f59e0b 75%, var(--text-dim));
+  box-shadow: inset 0 0 0 3px var(--bg), inset 0 0 0 4px color-mix(in srgb, #f59e0b 25%, var(--border));
+}
 
 /* 金句卡片（一言/段子/KFC/发病文案等） */
 .quote-card { position: relative; text-align: center; padding: 20px 16px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
@@ -1176,9 +1235,12 @@ a:hover { text-decoration: underline; }
   .quote-card { padding: 14px 12px 10px; }
   .quote-text { font-size: 13px; letter-spacing: 0; line-height: 1.9; }
   .quote-card.long .quote-text { font-size: 12.5px; }
-  .answer-book { padding: 16px 8px 10px; }
-  .answer-zh { font-size: 17px; letter-spacing: 1px; }
-  .answer-en { font-size: 11px; }
+  /* 神谕卡移动端收紧 */
+  .answer-card { padding: 22px 12px 14px; }
+  .ans-zh { font-size: 19px; letter-spacing: 2px; }
+  .answer-card.vertical .ans-zh { min-height: 130px; letter-spacing: 5px; }
+  .ans-en { font-size: 11px; }
+  .ans-seal { width: 46px; height: 46px; font-size: 11px; }
   /* 时钟内边距收紧，缩短触控区与左右间距 */
   .clock { padding: 7px 10px; font-size: 12.5px; gap: 6px; }
 }

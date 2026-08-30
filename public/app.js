@@ -956,15 +956,23 @@ function rText(d, c, ep) {
   c.innerHTML = `<div class="text-block">${esc(t)}</div>`;
 }
 
+// 答案之书：神谕卡牌面——字标 + 逐字渐显答案（短答案竖排）+ 编号印章
 function rAnswer(d, c) {
   const zh = d.answer || '';
   const en = d.answer_en || '';
   const idx = d.index != null ? Number(d.index) + 1 : null;
-  c.innerHTML = `<div class="answer-book">
-    <div class="answer-quote">「</div>
-    <div class="answer-zh">${esc(zh)}</div>
-    ${en ? `<div class="answer-en">${esc(en)}</div>` : ''}
-    <div class="answer-meta">${idx ? `第 ${idx} 个答案` : ''}</div>
+  // 短答案（≤6 字符）竖排更有神谕感；逐字 span 渐显，重渲染自动重播
+  const chars = [...zh];
+  const vertical = chars.length <= 6 && chars.every(ch => /[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/.test(ch));
+  const zhHtml = chars.map((ch, i) => `<span class="ans-ch" style="animation-delay:${(0.15 + i * 0.07).toFixed(2)}s">${esc(ch)}</span>`).join('');
+  const enChars = en ? [...en].map((ch, i) => `<span class="ans-ch" style="animation-delay:${(0.5 + i * 0.03).toFixed(2)}s">${ch === ' ' ? '&nbsp;' : esc(ch)}</span>`).join('') : '';
+  c.innerHTML = `<div class="answer-card${vertical ? ' vertical' : ''}">
+    <div class="ans-frame"></div>
+    <div class="ans-title">✦ THE BOOK OF ANSWERS ✦</div>
+    <div class="ans-zh">${zhHtml}</div>
+    ${en ? `<div class="ans-en">${enChars}</div>` : ''}
+    <div class="ans-sep">◆ ◆ ◆</div>
+    <div class="ans-seal">${idx ? `№ ${String(idx).padStart(3, '0')}` : 'ORACLE'}</div>
   </div>`;
 }
 
