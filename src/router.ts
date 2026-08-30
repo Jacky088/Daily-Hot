@@ -36,6 +36,7 @@ import { serviceQQ } from './modules/qq.module.ts'
 import { serviceQRCode } from './modules/qrcode/qrcode.module.ts'
 import { serviceTodayInHistory } from './modules/today-in-history.module.ts'
 import { serviceToutiao } from './modules/toutiao.module.ts'
+import { serviceWorldNews } from './modules/world-news.module.ts'
 import { serviceWeather } from './modules/weather.module.ts'
 import { serviceWeibo } from './modules/weibo.module.ts'
 import { serviceZhihu } from './modules/zhihu.module.ts'
@@ -110,6 +111,7 @@ appRouter.get('/kfc', serviceKfc.handle())
 appRouter.get('/luck', serviceLuck.handle())
 appRouter.get('/today-in-history', serviceTodayInHistory.handle())
 appRouter.get('/toutiao', serviceToutiao.handle())
+appRouter.get('/world-news', serviceWorldNews.handle())
 appRouter.get('/weibo', serviceWeibo.handle())
 appRouter.get('/zhihu', serviceZhihu.handle())
 appRouter.get('/lunar', serviceLunar.handle())

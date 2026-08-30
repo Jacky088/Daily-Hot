@@ -55,6 +55,9 @@ const EPS = [
   { cat:'news', id:'bili', name:'B站热门', icon:'📺', path:'/v2/bili', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
   { cat:'news', id:'douyin', name:'抖音热点', icon:'🎵', path:'/v2/douyin', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
   { cat:'news', id:'toutiao', name:'今日头条', icon:'📰', path:'/v2/toutiao', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
+  { cat:'news', id:'aljazeera', name:'Al Jazeera 头条', icon:'🌍', path:'/v2/world-news', type:'list', auto:1, f:{t:'title',h:null,l:'link'}, inputs:[{ n:'source', sel:['aljazeera', 'bbc', 'cnn', 'guardian', 'npr'], d:'aljazeera' }] },
+  { cat:'news', id:'bbcnews', name:'BBC News 头条', icon:'🇬🇧', path:'/v2/world-news', type:'list', auto:1, f:{t:'title',h:null,l:'link'}, inputs:[{ n:'source', sel:['bbc', 'aljazeera', 'cnn', 'guardian', 'npr'], d:'bbc' }] },
+  { cat:'news', id:'cnnnews', name:'CNN News 头条', icon:'📡', path:'/v2/world-news', type:'list', auto:1, f:{t:'title',h:null,l:'link'}, inputs:[{ n:'source', sel:['cnn', 'aljazeera', 'bbc', 'guardian', 'npr'], d:'cnn' }] },
   { cat:'news', id:'bdhot', name:'百度热搜', icon:'🔍', path:'/v2/baidu/hot', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'url', d:'desc'} },
   // 已移除百度实时热点：实测 /baidu/realtime 与 /baidu/hot 返回同一份数据，重复
   { cat:'news', id:'bdtieba', name:'百度贴吧热议', icon:'💬', path:'/v2/baidu/tieba', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'link', d:'abstract'} },
