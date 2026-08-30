@@ -1626,35 +1626,45 @@ function rJS(d, c) {
 }
 
 // 汇率：基准 + 常用币种列表 + 金额换算计算器（纯前端，基于已加载的 rates）
+// 汇率：瓷片格展示常用币种（每 100 基准货币）+ 换算计算器（支持币种互换）
+// 用货币符号而非国旗 emoji：Windows 不渲染区域旗帜，会退化成字母对
+const EX_SYMBOLS = { CNY:'¥', USD:'$', EUR:'€', JPY:'¥', GBP:'£', HKD:'HK$', KRW:'₩', AUD:'A$', CAD:'C$', SGD:'S$', TWD:'NT$', THB:'฿', RUB:'₽', INR:'₹', CHF:'Fr', NZD:'NZ$', MYR:'RM', PHP:'₱', VND:'₫', TRY:'₺', BRL:'R$', ZAR:'R' };
+
 function rExchange(d, c) {
   const base = d.base_code || 'CNY';
   const rates = {};
   if (Array.isArray(d.rates)) d.rates.forEach(r => { rates[r.currency] = r.rate; });
   const popular = ['USD','EUR','JPY','GBP','HKD','KRW','AUD','CAD','SGD','TWD'].filter(c => rates[c] != null);
+  const sym = code => EX_SYMBOLS[code] || '¤';
 
-  let h = `<div class="kv-row"><span class="k">基准</span><span class="v">${esc(base)}</span></div>`;
-  h += '<div class="kv" style="margin-top:4px;">';
-  popular.forEach(code => {
-    h += `<div class="kv-row"><span class="k">${code}</span><span class="v">${esc(String(rates[code]))}</span></div>`;
-  });
-  h += '</div>';
+  // 头部：基准徽标 + 更新时间
+  let h = `<div class="ex-head"><span class="ex-base">基准 <b>${esc(base)}</b></span>${d.updated ? `<span class="ex-upd">${esc(d.updated)}</span>` : ''}</div>`;
 
-  // 金额换算计算器
+  // 常用币种瓷片：每 100 基准货币兑换值（比小数直观，同银行牌价习惯）
+  h += `<div class="ex-tiles">${popular.map(code => {
+    const v = (rates[code] * 100);
+    const vs = v >= 100 ? v.toLocaleString('zh-CN', { maximumFractionDigits: 1 }) : v.toFixed(2);
+    return `<div class="ex-tile"><span class="ex-sym">${esc(sym(code))}</span><div class="ex-tile-tx"><span class="ex-code">${code}</span><span class="ex-val">${vs}</span></div></div>`;
+  }).join('')}</div>`;
+
+  // 换算计算器：金额+源币种在上，结果+目标币种在下，中间互换按钮
   const allCodes = Object.keys(rates).sort();
-  h += '<div class="ex-calc">';
-  h += '<div class="ex-row">';
-  h += `<input class="ex-amount" type="number" min="0" value="100" inputmode="decimal">`;
-  h += `<select class="ex-from">${allCodes.map(c => `<option value="${c}"${c === base ? ' selected' : ''}>${c}</option>`).join('')}</select>`;
-  h += '<span class="ex-arrow">→</span>';
-  h += `<select class="ex-to">${allCodes.map(c => `<option value="${c}"${c === popular[0] ? ' selected' : ''}>${c}</option>`).join('')}</select>`;
-  h += '</div>';
-  h += '<div class="ex-result"></div>';
-  h += '</div>';
+  h += `<div class="ex-calc">
+    <div class="ex-calc-row">
+      <input class="ex-amount" type="number" min="0" value="100" inputmode="decimal" aria-label="金额">
+      <select class="ex-from" aria-label="源币种">${allCodes.map(cd => `<option value="${cd}"${cd === base ? ' selected' : ''}>${cd}</option>`).join('')}</select>
+    </div>
+    <button class="ex-swap" type="button" title="交换币种" aria-label="交换币种">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v13"/><path d="M3.5 7.5 7 4l3.5 3.5"/><path d="M17 20V7"/><path d="M13.5 16.5 17 20l3.5-3.5"/></svg>
+    </button>
+    <div class="ex-calc-row">
+      <div class="ex-result">--</div>
+      <select class="ex-to" aria-label="目标币种">${allCodes.map(cd => `<option value="${cd}"${cd === popular[0] ? ' selected' : ''}>${cd}</option>`).join('')}</select>
+    </div>
+  </div>`;
 
-  if (d.updated) h += `<div class="meta" style="margin-top:6px;">更新于 ${esc(d.updated)}</div>`;
   c.innerHTML = h;
 
-  // 换算逻辑：amount * (toRate / fromRate)
   const amountEl = c.querySelector('.ex-amount');
   const fromEl = c.querySelector('.ex-from');
   const toEl = c.querySelector('.ex-to');
@@ -1665,9 +1675,15 @@ function rExchange(d, c) {
     const fr = rates[from], tr = rates[to];
     if (fr == null || tr == null) { resultEl.textContent = '无该币种汇率'; return; }
     const out = (amt * tr / fr).toLocaleString('zh-CN', { maximumFractionDigits: 4 });
-    resultEl.textContent = `${amt} ${from} = ${out} ${to}`;
+    resultEl.innerHTML = `<span class="ex-res-num">${out}</span><span class="ex-res-code">${esc(to)}</span>`;
   }
   amountEl.oninput = calc; fromEl.onchange = calc; toEl.onchange = calc;
+  c.querySelector('.ex-swap').onclick = () => {
+    const tmp = fromEl.value;
+    fromEl.value = toEl.value;
+    toEl.value = tmp;
+    calc();
+  };
   calc();
 }
 

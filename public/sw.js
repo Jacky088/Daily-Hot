@@ -1,6 +1,6 @@
 // Service Worker — Daily Hot
-// Cache-First for CSS/JS (immutable assets), Network-First for HTML
-const CACHE_NAME = 'daily-hot-v4';
+// Network-First for HTML/JS/CSS（保证每次部署后用户立即拿到新代码，离线才回退缓存），API 同样 Network-First
+const CACHE_NAME = 'daily-hot-v5';
 const STATIC_ASSETS = ['/style.css', '/app.js', '/manifest.json'];
 
 self.addEventListener('install', (e) => {
@@ -46,15 +46,15 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // 静态资源（CSS/JS/图片等）：Cache-First
+  // HTML 与静态资源（CSS/JS）：一律 Network-First，离线时回退缓存。
+  // 之前 JS/CSS 用永久 Cache-First，导致每次部署后老用户一直跑旧代码
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(res => {
+    fetch(e.request)
+      .then(res => {
         const clone = res.clone();
         caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
         return res;
-      });
-    })
+      })
+      .catch(() => caches.match(e.request))
   );
 });
