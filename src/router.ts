@@ -19,6 +19,7 @@ import { serviceExRate } from './modules/exchange-rate.module.ts'
 import { serviceFabing } from './modules/fabing/fabing.module.ts'
 import { serviceFanyi } from './modules/fanyi/fanyi.module.ts'
 import { serviceDailyEng } from './modules/daily-eng/daily-eng.module.ts'
+import { serviceSimkl } from './modules/simkl/simkl.module.ts'
 import { serviceGeng } from './modules/geng/geng.module.ts'
 import { serviceHash } from './modules/hash.module.ts'
 import { serviceHitokoto } from './modules/hitokoto/hitokoto.module.ts'
@@ -177,6 +178,7 @@ appRouter.all('/hash', serviceHash.handle())
 appRouter.all('/fanyi', serviceFanyi.handle())
 appRouter.all('/fanyi/langs', serviceFanyi.handleLangs())
 appRouter.get('/daily-eng', serviceDailyEng.handle())
+appRouter.get('/simkl-trending', serviceSimkl.handle())
 
 // === 以下为测试接口，beta 前缀，接口可能不稳定 ===
 appRouter.get('/beta/kuan', serviceKuan.handle())

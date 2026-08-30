@@ -86,6 +86,10 @@ const EPS = [
   { cat:'ent', id:'douban-show-global', name:'豆瓣全球综艺周榜', icon:'🎪', path:'/v2/douban/weekly/show_global', type:'douban', auto:1 },
   { cat:'ent', id:'douban-tv-cn', name:'豆瓣华语剧集周榜', icon:'📺', path:'/v2/douban/weekly/tv_chinese', type:'douban', auto:1 },
   { cat:'ent', id:'douban-tv-global', name:'豆瓣全球剧集周榜', icon:'🎞️', path:'/v2/douban/weekly/tv_global', type:'douban', auto:1 },
+  { cat:'ent', id:'simkl-tv', name:'流媒体热门剧集', icon:'📺', path:'/v2/simkl-trending', type:'simkl', auto:1,
+    inputs:[{ n:'network', sel:['', 'Netflix', 'HBO', 'HBO Max', 'Disney+', 'Prime Video', 'Apple TV', 'Hulu', 'Paramount+'], d:'' }], hint:'可选播出平台过滤，数据来自 SIMKL' },
+  { cat:'ent', id:'simkl-movies', name:'流媒体热门电影', icon:'🍿', path:'/v2/simkl-trending', type:'simkl', auto:1,
+    inputs:[{ n:'type', sel:['movies', 'anime'], d:'movies' }], hint:'下拉可切换为动画榜；数据来自 SIMKL' },
   { cat:'ent', id:'epic', name:'Epic免费游戏', icon:'🎮', path:'/v2/epic', type:'epic', auto:1 },
   { cat:'ent', id:'steam', name:'Steam免费游戏', icon:'🎮', path:'/v2/steam', type:'steam', auto:1 },
   { cat:'ent', id:'ncm', name:'网易云热歌榜', icon:'🎵', path:'/v2/ncm-rank/3778678', type:'ncm', auto:1 },
@@ -443,11 +447,23 @@ function makeCard(ep) {
       const row = document.createElement('div');
       row.className = 'input-row';
       ep.inputs.forEach(inp => {
-        const el = document.createElement('input');
-        el.type = 'text';
+        // sel 字段存在则生成下拉框，否则生成文本输入框
+        const el = document.createElement(inp.sel ? 'select' : 'input');
+        if (inp.sel) {
+          inp.sel.forEach(op => {
+            const o = document.createElement('option');
+            o.value = op;
+            o.textContent = op === '' ? '全部平台' : op;
+            el.appendChild(o);
+          });
+        } else {
+          el.type = 'text';
+          el.placeholder = inp.p;
+        }
         el.name = inp.n;
-        el.placeholder = inp.p;
         el.value = inp.d || '';
+        // 下拉切换即时生效，无需点查询
+        if (inp.sel) el.onchange = () => load(ep);
         row.appendChild(el);
       });
       const go = document.createElement('button');
@@ -611,7 +627,7 @@ function renderData(ep, d, c) {
     epic: rEpic, steam: rSteam, ncm: rNCM, maoyan: rMaoyan, moyu: rMoyu, whois: rWhois,
     js: rJS, exchange: rExchange, og: rOG, answer: rAnswer, quote: rQuote,
     kuan: rKuan, '36kr': r36Kr, reddit: rReddit, sspai: rSspai, huxiu: rHuxiu,
-    baike: rBaike, health: rHealth, geng: rGeng, 'daily-eng': rDailyEng,
+    baike: rBaike, health: rHealth, geng: rGeng, 'daily-eng': rDailyEng, simkl: rSimkl,
   }[ep.type] || rJSON;
   fn(d, c, ep);
 }
@@ -770,6 +786,33 @@ function rGeng(d, c) {
     <div class="geng-content">${esc(d.content || '')}</div>
     ${idx ? `<div class="geng-meta">第 ${idx} 个梗</div>` : ''}
   </div>`;
+}
+
+// SIMKL 流媒体热门榜：海报 + 评分 + 观看数 + 平台徽标
+function rSimkl(d, c) {
+  if (!Array.isArray(d) || d.length === 0) {
+    c.innerHTML = '<div class="placeholder">该平台暂无上榜内容</div>';
+    return;
+  }
+  let h = '';
+  d.forEach(it => {
+    const rank = it.rank || 0;
+    const cls = rank <= 3 ? `top${rank}` : '';
+    h += `<div class="simkl-item">`;
+    if (it.poster) h += `<img class="simkl-poster" src="${esc(it.poster)}" alt="" loading="lazy" referrerpolicy="no-referrer">`;
+    h += `<div class="simkl-body">`;
+    h += it.link
+      ? `<a href="${safeUrl(it.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</a>`
+      : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</span>`;
+    let meta = '';
+    if (it.rating) meta += `⭐ ${esc(String(it.rating))} `;
+    if (it.watched != null) meta += ` · ${esc(String(it.watched))} 人在看 `;
+    if (it.release_date) meta += ` · ${esc(it.release_date)}`;
+    if (meta) h += `<div class="meta">${meta}</div>`;
+    if (it.network) h += `<span class="simkl-badge">${esc(it.network)}</span>`;
+    h += `</div></div>`;
+  });
+  c.innerHTML = h;
 }
 
 // 每日一句英语：中英对照 + 朗读按钮（点击播放 iciba 提供的 TTS mp3）
