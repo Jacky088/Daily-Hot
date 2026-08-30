@@ -1188,13 +1188,20 @@ function rWeather(d, c) {
   if (w.weather_icon) h += `<img class="wx-icon" src="${esc(w.weather_icon)}" alt="" onerror="this.style.display='none'">`;
   h += `<div class="wx-temp">${esc(String(w.temperature ?? '--'))}°<div class="wx-cond">${esc(w.condition || '')}</div></div></div>`;
   const stats = [];
-  if (w.humidity != null) stats.push(['湿度', `${w.humidity}%`]);
-  if (w.wind_direction) stats.push(['风力', `${w.wind_direction} ${w.wind_power || ''}${w.wind_power ? '级' : ''}`]);
-  if (w.pressure != null) stats.push(['气压', `${w.pressure} hPa`]);
-  if (w.precipitation != null) stats.push(['降水量', `${w.precipitation} mm`]);
-  if (stats.length) h += `<div class="wx-grid">${stats.map(([k, v]) => `<div class="wx-stat"><span class="k">${esc(k)}</span><span>${esc(v)}</span></div>`).join('')}</div>`;
+  if (w.humidity != null) stats.push(['💧', '湿度', `${w.humidity}%`]);
+  if (w.wind_direction) stats.push(['🌬️', '风力', `${w.wind_direction} ${w.wind_power || ''}${w.wind_power ? '级' : ''}`]);
+  if (w.pressure != null) stats.push(['📊', '气压', `${w.pressure} hPa`]);
+  if (w.precipitation != null) stats.push(['🌧️', '降水', `${w.precipitation} mm`]);
+  if (stats.length) h += `<div class="wx-grid">${stats.map(([ic, k, v]) => `<div class="wx-stat"><span class="wx-stat-ic">${ic}</span><div class="wx-stat-tx"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div></div>`).join('')}</div>`;
   if (a.aqi != null) {
-    h += `<div class="wx-aqi"><span class="wx-aqi-badge" style="background:${aqiColors[a.level] || '#6b7280'}">${esc(a.quality || '')}</span><span>AQI ${esc(String(a.aqi))} · PM2.5 ${esc(String(a.pm25 ?? '-'))} · PM10 ${esc(String(a.pm10 ?? '-'))}${a.rank ? ` · 全国第 ${a.rank}/${a.total_cities} 位` : ''}</span></div>`;
+    h += `<div class="wx-aqi-panel">
+      <span class="wx-aqi-badge" style="background:${aqiColors[a.level] || '#6b7280'}">${esc(a.quality || '')}<b>${esc(String(a.aqi))}</b></span>
+      <div class="wx-aqi-vals">
+        <span>PM2.5 <b>${esc(String(a.pm25 ?? '-'))}</b></span>
+        <span>PM10 <b>${esc(String(a.pm10 ?? '-'))}</b></span>
+      </div>
+      ${a.rank ? `<span class="wx-aqi-rank">全国第 ${esc(String(a.rank))}<i>/${esc(String(a.total_cities))} 位</i></span>` : ''}
+    </div>`;
   }
   if (s.sunrise_desc) h += `<div class="wx-sun"><span>🌅 日出 ${esc(s.sunrise_desc)}</span><span>🌇 日落 ${esc(s.sunset_desc)}</span></div>`;
   if (life.length) {
