@@ -698,7 +698,7 @@ async function load(ep, forceUpdate = false) {
     const cached = cacheGet(ck);
     if (cached !== null) {
       if (ep.type === 'qr') {
-        c.innerHTML = `<div class="qr-wrap"><img src="${cached}" alt="QR"></div>`;
+        c.innerHTML = qrWrapHTML(cached);
       } else {
         renderData(ep, cached, c);
       }
@@ -748,6 +748,15 @@ async function gtranslateLoad(ep, params, url, ck, c, forceUpdate) {
   await fetchWithRetry(ep, url, ck, c, 2);
 }
 
+// 二维码卡：白色衬底相框（保证深色主题下扫码对比度）+ 下载按钮
+function qrWrapHTML(blobUrl) {
+  return `<div class="qr-wrap">
+    <div class="qr-frame"><img src="${blobUrl}" alt="QR"></div>
+    <div class="qr-tip">📱 扫码识别内容</div>
+    <a class="qr-download" href="${blobUrl}" download="qrcode.png">⬇ 下载 PNG</a>
+  </div>`;
+}
+
 // P1: 带重试的 fetch（处理速率限制 + 网络错误）
 async function fetchWithRetry(ep, url, ck, c, retriesLeft) {
   try {
@@ -767,7 +776,7 @@ async function fetchWithRetry(ep, url, ck, c, retriesLeft) {
       const blob = await res.blob();
       const blobUrl = URL.createObjectURL(blob);
       cacheSet(ck, blobUrl);
-      c.innerHTML = `<div class="qr-wrap"><img src="${blobUrl}" alt="QR"></div>`;
+      c.innerHTML = qrWrapHTML(blobUrl);
       return;
     }
     const json = await res.json();
