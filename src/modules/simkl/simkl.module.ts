@@ -33,7 +33,32 @@ class ServiceSimkl {
         items = items.filter((e) => String(e.network || '').toLowerCase().includes(kw))
       }
 
-      const list: SimklItem[] = items.slice(0, 30).map((e, idx) => ({
+      const sliced = items.slice(0, 30)
+      // anime trending 不带 title 和 url（只有 simkl_id），并发拉详情补齐；TV/电影自带字段零开销
+      const enriched = await Promise.all(
+        sliced.map(async (e) => {
+          if (e.title && e.url) return e
+          const id = e.ids?.simkl_id
+          if (!id) return e
+          try {
+            const res = await fetch(`${simklApi}/anime/${id}`, {
+              headers: { 'User-Agent': Common.chromeUA, Accept: 'application/json' },
+              signal: AbortSignal.timeout(6000),
+            })
+            if (!res.ok) return e
+            const d = (await res.json()) as SimklDetail
+            return {
+              ...e,
+              title: e.title || d.title || `#${id}`,
+              url: e.url || (d.ids?.slug ? `/anime/${id}/${d.ids.slug}` : e.url),
+            }
+          } catch {
+            return e
+          }
+        }),
+      )
+
+      const list: SimklItem[] = enriched.map((e, idx) => ({
         rank: idx + 1,
         title: e.title || '',
         rating: e.ratings?.simkl?.rating ?? null,
@@ -82,9 +107,16 @@ interface SimklTrendingItem {
   plan_to_watch?: number
   network?: string
   overview?: string
+  ids?: { simkl_id?: number }
   ratings?: {
     simkl?: { rating?: number; votes?: number }
   }
+}
+
+// 详情端点响应（仅取补齐标题/链接所需字段）
+interface SimklDetail {
+  title?: string
+  ids?: { slug?: string }
 }
 
 interface SimklItem {
