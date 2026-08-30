@@ -242,31 +242,144 @@ function init() {
   if (hash && CATS.some(c => c.id === hash)) curCat = hash;
 
   const nav = $('#catNav');
+  const catRow = document.createElement('div');
+  catRow.className = 'cat-row';
+  const catStrip = document.createElement('div');
+  catStrip.className = 'cat-strip';
+  const stripToggle = document.createElement('button');
+  stripToggle.className = 'cat-strip-toggle';
+  stripToggle.title = '展开/收起模块列表';
+  stripToggle.textContent = '▾';
+  stripToggle.onclick = () => nav.classList.toggle('sub-collapsed');
+  catStrip.appendChild(stripToggle);
+
+  // 生成某分类的子菜单项（模块名按钮，点击定位到对应卡片）
+  function buildSubItems(container, catId) {
+    EPS.filter(ep => ep.cat === catId).forEach(ep => {
+      const item = document.createElement('button');
+      item.className = 'cat-subitem';
+      item.type = 'button';
+      item.innerHTML = `<span class="ci">${ep.icon}</span>${esc(ep.name)}`;
+      item.title = `定位到「${ep.name}」`;
+      item.onclick = () => locateCard(ep);
+      container.appendChild(item);
+    });
+  }
+
+  // 刷新子菜单：桌面手风琴只展开当前分类；移动 chips 条填充当前分类模块
+  function refreshSubs() {
+    catRow.querySelectorAll('.cat-sub').forEach(el => {
+      el.classList.toggle('open', el.dataset.for === curCat);
+    });
+    catStrip.querySelectorAll('.cat-subitem').forEach(el => el.remove());
+    buildSubItems(catStrip, curCat);
+    catStrip.style.display = (curCat === 'all') ? 'none' : '';
+  }
+
+  // 定位模块卡片：清搜索过滤 → 必要时切分类 → 滚动到卡片并闪烁高亮
+  function locateCard(ep) {
+    const searchInput = $('#search');
+    if (searchInput && searchInput.value.trim()) searchInput.value = '';
+    if (curCat !== ep.cat) {
+      curCat = ep.cat;
+      location.hash = ep.cat;
+      $$('.cat-row > button').forEach(x => x.classList.remove('active'));
+      const btn = catRow.querySelector(`button[data-cat="${ep.cat}"]`);
+      if (btn) {
+        btn.classList.add('active');
+        // 窄屏：让选中的分类 pill 回到可视区
+        if (window.innerWidth <= 820) {
+          const btnRect = btn.getBoundingClientRect();
+          const rowRect = catRow.getBoundingClientRect();
+          catRow.scrollTo({
+            left: catRow.scrollLeft + (btnRect.left - rowRect.left) - (rowRect.width - btnRect.width) / 2,
+            behavior: 'smooth',
+          });
+        }
+      }
+    }
+    refreshSubs();
+    render();
+    // render() 同步重建 DOM，此时目标卡必然存在。
+    // 不用 scrollIntoView：它会被可滚动祖先截胡且受布局变化影响，
+    // 直接计算卡片绝对坐标用 window.scrollTo 定位最可靠。
+    const card = document.getElementById('card-' + ep.id);
+    if (card) {
+      const navEl = document.querySelector('.cat-nav');
+      const targetTop = () => (navEl ? navEl.getBoundingClientRect().bottom : 0) + 12;
+      const absY = () => card.getBoundingClientRect().top + window.scrollY - targetTop();
+      window.scrollTo({ top: absY(), behavior: 'smooth' });
+      // 卡片数据/图片异步加载会改变前方卡片高度，轮询校正：
+      // 每 400ms 瞬时对齐；仅当「连续 3 次检测文档高度无变化且已对齐」才提前退出，
+      // 8s 超时兜底；用户手动滚动立即让位
+      let aligned = 0, stableH = 0, lastH = 0, tries = 0;
+      const alignTimer = setInterval(() => {
+        tries++;
+        const h = document.documentElement.scrollHeight;
+        stableH = (h === lastH) ? stableH + 1 : 0;
+        lastH = h;
+        if (!card.isConnected || tries > 20 || (aligned >= 1 && stableH >= 3)) {
+          clearInterval(alignTimer); return;
+        }
+        if (Math.abs(card.getBoundingClientRect().top - targetTop()) < 40) {
+          aligned++;
+          return;
+        }
+        aligned = 0;
+        window.scrollTo(0, absY());
+      }, 400);
+      const abort = () => clearInterval(alignTimer);
+      window.addEventListener('wheel', abort, { once: true, passive: true });
+      window.addEventListener('touchmove', abort, { once: true, passive: true });
+      setTimeout(abort, 8300);
+      card.classList.add('locate-flash');
+      setTimeout(() => card.classList.remove('locate-flash'), 3000);
+    }
+  }
+
   CATS.forEach(c => {
     const b = document.createElement('button');
     b.textContent = c.name;
     b.dataset.cat = c.id;
     if (c.id === curCat) b.classList.add('active');
     b.onclick = () => {
+      // 点击已激活的分类：折叠/展开子菜单；否则切换分类
+      if (curCat === c.id) {
+        nav.classList.toggle('sub-collapsed');
+        return;
+      }
       curCat = c.id;
       location.hash = c.id;
-      $$('.cat-nav button').forEach(x => x.classList.remove('active'));
+      $$('.cat-row > button').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
       // 窄屏（分类栏为顶部横向滚动）：将选中的按钮在栏内水平居中，并回到内容顶部
-      // 用 nav.scrollTo 直接驱动容器水平滚动，避免 scrollIntoView 与 window.scrollTo 同时触发互相中断
+      // 用 scrollTo 直接驱动容器水平滚动，避免 scrollIntoView 与 window.scrollTo 同时触发互相中断
       if (window.innerWidth <= 820) {
         const btnRect = b.getBoundingClientRect();
-        const navRect = nav.getBoundingClientRect();
-        nav.scrollTo({
-          left: nav.scrollLeft + (btnRect.left - navRect.left) - (navRect.width - btnRect.width) / 2,
+        const navRect = catRow.getBoundingClientRect();
+        catRow.scrollTo({
+          left: catRow.scrollLeft + (btnRect.left - navRect.left) - (navRect.width - btnRect.width) / 2,
           behavior: 'smooth',
         });
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
+      refreshSubs();
       render();
     };
-    nav.appendChild(b);
+    catRow.appendChild(b);
+    // 桌面侧边栏手风琴：子菜单紧跟在所属分类按钮后（display:contents 让其参与纵向排列）
+    if (c.id !== 'all') {
+      const sub = document.createElement('div');
+      sub.className = 'cat-sub';
+      sub.dataset.for = c.id;
+      buildSubItems(sub, c.id);
+      catRow.appendChild(sub);
+    }
   });
+
+  nav.appendChild(catRow);
+  nav.appendChild(catStrip);
+  refreshSubs();
 
   $('#search').oninput = render;
 
@@ -805,7 +918,7 @@ function rObj(d, c, ep) {
 
 function rOG(d, c) {
   let h = '';
-  if (d.image) h += `<div class="img-wrap"><img src="${esc(d.image)}" alt="og"></div>`;
+  if (d.image) h += `<div class="img-wrap ratio-banner"><img src="${esc(d.image)}" alt="og" loading="lazy"></div>`;
   h += '<div class="kv">';
   if (d.title) h += `<div class="kv-row"><span class="k">标题</span><span class="v">${esc(d.title)}</span></div>`;
   if (d.description) h += `<div class="kv-row"><span class="k">描述</span><span class="v">${esc(d.description)}</span></div>`;
@@ -1286,7 +1399,7 @@ function rLunar(d, c) {
 
 function rBing(d, c) {
   let h = '';
-  if (d.cover) h += `<div class="img-wrap"><img src="${esc(d.cover)}" alt="bing"></div>`;
+  if (d.cover) h += `<div class="img-wrap ratio-banner"><img src="${esc(d.cover)}" alt="bing" loading="lazy"></div>`;
   h += '<div class="kv">';
   if (d.copyright) h += `<div class="kv-row"><span class="k">描述</span><span class="v">${esc(d.copyright)}</span></div>`;
   if (d.update_date) h += `<div class="kv-row"><span class="k">日期</span><span class="v">${esc(d.update_date)}</span></div>`;
@@ -1299,7 +1412,7 @@ function rEpic(d, c) {
   let h = '';
   d.forEach(g => {
     h += '<div class="game-card">';
-    if (g.cover) h += `<div class="img-wrap"><img src="${esc(g.cover)}" alt="${esc(g.title)}"></div>`;
+    if (g.cover) h += `<div class="img-wrap ratio-portrait"><img src="${esc(g.cover)}" alt="${esc(g.title)}" loading="lazy"></div>`;
     h += `<div class="game-title">🎮 ${esc(g.title)}</div>`;
     if (g.description) h += `<div class="desc">${esc(g.description.slice(0, 80))}…</div>`;
     if (g.is_free_now) h += '<span class="game-free">免费</span>';

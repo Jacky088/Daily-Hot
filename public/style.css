@@ -50,7 +50,7 @@
   --border-glass: rgba(255, 255, 255, 0.5);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html { scroll-behavior: smooth; scroll-padding-top: 120px; }
+html { scroll-behavior: smooth; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   background: var(--bg);
@@ -171,18 +171,45 @@ a:hover { text-decoration: underline; }
   -webkit-overflow-scrolling: touch;
 }
 .cat-nav::-webkit-scrollbar { display: none; }
+/* 子菜单结构：cat-row 桌面下 display:contents 让按钮/手风琴直接参与纵向排列；
+   移动端则成为横向滚动 pill 行（见末尾媒体查询） */
+.cat-row { display: contents; }
+.cat-strip { display: none; }
 .cat-nav button {
   padding: 9px 14px; background: transparent; border: 1px solid transparent;
   border-radius: 10px; color: var(--text-dim); font-size: 13px;
   text-align: left; cursor: pointer; white-space: nowrap;
   transition: all 0.2s; font-weight: 600;
 }
-.cat-nav button:hover { color: var(--text); background: var(--card); }
-.cat-nav button.active {
+.cat-row > button:hover { color: var(--text); background: var(--card); }
+.cat-row > button.active {
   background: linear-gradient(135deg, var(--accent), var(--accent-light));
   border-color: transparent; color: #fff;
   box-shadow: var(--accent-glow);
 }
+/* 分类按钮的折叠指示箭头（“全部”无子菜单不显示） */
+.cat-row > button[data-cat]:not([data-cat="all"])::after {
+  content: '▸'; margin-left: auto; font-size: 10px; opacity: 0.55;
+  transition: transform 0.2s;
+}
+.cat-row > button.active::after { transform: rotate(90deg); opacity: 0.9; }
+
+/* 桌面手风琴子菜单：仅当前分类展开，点击项定位到对应卡片 */
+.cat-sub {
+  display: none; flex-direction: column; gap: 1px;
+  margin: -3px 0 3px; padding: 2px 0 4px 9px;
+  border-left: 2px solid var(--border);
+}
+.cat-sub.open { display: flex; }
+.cat-nav.sub-collapsed .cat-sub { display: none; }
+.cat-subitem {
+  padding: 5px 10px; background: transparent; border: none; border-radius: 8px;
+  color: var(--text-dim); font-size: 12px; font-weight: 500; text-align: left;
+  cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: all 0.15s;
+}
+.cat-subitem .ci { margin-right: 5px; }
+.cat-subitem:hover { color: var(--text); background: var(--card); }
 
 /* ============ Main ============ */
 .main { flex: 1; min-width: 0; padding: 20px 24px 60px; }
@@ -215,8 +242,17 @@ a:hover { text-decoration: underline; }
   border: 1px solid var(--border-glass);
   border-radius: 12px; overflow: hidden; transition: all 0.2s;
   display: flex; flex-direction: column;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 460px;
+  /* 不用 content-visibility: auto：估算高度会让文档总高随滚动位置塌缩，
+     子菜单定位跳转的滚动坐标全部失准（移动端尤其明显） */
+  scroll-margin-top: 84px;
+}
+.card.locate-flash {
+  border-color: var(--accent); box-shadow: var(--accent-glow);
+  animation: locateFlash 1s ease 2;
+}
+@keyframes locateFlash {
+  0%, 100% { box-shadow: var(--accent-glow); }
+  50% { box-shadow: 0 0 0 8px var(--accent-bg); }
 }
 .card:hover { border-color: var(--border-light); box-shadow: var(--shadow); }
 .card-head {
@@ -404,6 +440,11 @@ a:hover { text-decoration: underline; }
 /* Image */
 .img-wrap { margin-bottom: 8px; }
 .img-wrap img { max-width: 100%; border-radius: 8px; border: 1px solid var(--border); }
+/* 图片加载前预留宽高比空间，避免加载完成把下方内容顶下去（子菜单定位依赖高度稳定） */
+.img-wrap.ratio-banner { aspect-ratio: 16 / 9; overflow: hidden; }
+.img-wrap.ratio-banner img { width: 100%; height: 100%; object-fit: cover; }
+.img-wrap.ratio-portrait { aspect-ratio: 3 / 4; overflow: hidden; }
+.img-wrap.ratio-portrait img { width: 100%; height: 100%; object-fit: cover; }
 
 /* Health report sections */
 .health-sec { margin-bottom: 10px; }
@@ -618,29 +659,65 @@ a:hover { text-decoration: underline; }
 
   /* 布局纵向：分类栏移到顶部、内容在下方 */
   .layout { flex-direction: column; padding: 0; }
+  /* 移动端分类导航：cat-nav 只是吸顶包装器，cat-row 才是横向滚动 pill 行 */
   .cat-nav {
-    flex-direction: row; flex-wrap: nowrap; width: 100%;
-    padding: 8px 12px; border-right: none; border-bottom: 1px solid var(--border);
-    overflow-x: auto; overflow-y: visible;
+    flex-direction: column; gap: 0; width: 100%;
+    padding: 0; border-right: none; border-bottom: 1px solid var(--border);
     /* 吸顶：紧贴顶栏下方，下滑时分类栏始终可见可切换；
        top 由 JS 按顶栏实际高度设置 --topbar-h，回退值 96px 适配两行 header */
     position: sticky; top: var(--topbar-h, 96px); z-index: 90;
     background: color-mix(in srgb, var(--bg) 88%, transparent);
     backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-    max-height: none; align-self: auto; margin: 0;
+    max-height: none; align-self: auto; margin: 0; overflow: visible;
   }
-  .cat-nav button {
+  .cat-row {
+    display: flex; flex-wrap: nowrap;
+    padding: 8px 12px;
+    overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+  }
+  .cat-row::-webkit-scrollbar { display: none; }
+  .cat-sub { display: none !important; }
+  /* 当前分类的模块 chips 条：点击定位到对应卡片；点已激活分类或左侧箭头可折叠 */
+  .cat-strip {
+    display: flex; align-items: center; gap: 6px;
+    padding: 0 10px 8px; overflow-x: auto; scrollbar-width: none;
+    border-top: 1px dashed var(--border);
+  }
+  .cat-strip::-webkit-scrollbar { display: none; }
+  .cat-nav.sub-collapsed .cat-strip { display: none; }
+  .cat-strip-toggle {
+    flex-shrink: 0; align-self: center; width: 28px; height: 28px; padding: 0;
+    border: 1px solid var(--border); border-radius: 9px; background: var(--card);
+    color: var(--text-dim); font-size: 12px; cursor: pointer; transition: transform 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cat-nav.sub-collapsed .cat-strip-toggle { transform: rotate(-90deg); }
+  .cat-strip .cat-subitem {
+    flex-shrink: 0; align-self: center; padding: 7px 13px; margin: 0;
+    border: 1px solid var(--border); border-radius: 15px; background: var(--card);
+    font-size: 12px; white-space: nowrap; overflow: visible; text-overflow: clip;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cat-strip .cat-subitem:active { background: var(--accent-bg); color: var(--accent); }
+  /* pill 上的折叠箭头：居中布局下改为内联小箭头 */
+  .cat-row > button[data-cat]:not([data-cat="all"])::after {
+    content: '▾'; margin-left: 4px; opacity: 0.6;
+  }
+  .cat-row > button.active::after { transform: rotate(180deg); opacity: 1; }
+  .cat-row > button {
     padding: 9px 15px; text-align: center; font-size: 13px;
     border-radius: 17px; white-space: nowrap; flex-shrink: 0;
     /* 屏蔽浏览器触屏默认高亮，改用 :active 状态贴合胶囊形状 */
     -webkit-tap-highlight-color: transparent;
   }
-  .cat-nav button:active { background: var(--card); }
-  .cat-nav button.active:active { background: var(--accent-light); }
-  .cat-nav button.active { background: var(--accent); box-shadow: none; }
+  .cat-row > button:active { background: var(--card); }
+  .cat-row > button.active:active { background: var(--accent-light); }
+  .cat-row > button.active { background: var(--accent); box-shadow: none; }
 
   .main { padding: 14px 14px 48px; }
   .grid { grid-template-columns: 1fr; gap: 12px; }
+  /* 子菜单定位跳转偏移：吸顶顶栏 + 分类 pill 行 + 模块 chips 条 */
+  .card { scroll-margin-top: calc(var(--topbar-h, 96px) + 112px); }
 
   /* 卡片内输入行/下拉：触屏适配——44px 触控目标 + 16px 字号防 iOS 聚焦缩放 */
   .input-row input, .input-row select {
@@ -664,7 +741,8 @@ a:hover { text-decoration: underline; }
   .header { padding: 8px 12px; gap: 8px; }
   .search-wrap input { padding: 8px 12px 8px 32px; font-size: 13px; }
   .cat-nav { padding: 8px 10px; }
-  .cat-nav button { padding: 9px 13px; font-size: 13px; }
+  .cat-row { padding: 8px 10px; }
+  .cat-row > button { padding: 9px 13px; font-size: 13px; }
   .main { padding: 12px 10px 48px; }
   /* 触控区域加大，防误触 */
   .card-actions button { width: 32px; height: 32px; }

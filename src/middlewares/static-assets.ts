@@ -67,6 +67,9 @@ export function staticAssets(): Middleware {
       const content = await readFile(filePath)
       const ext = filePath.slice(filePath.lastIndexOf('.'))
       ctx.response.headers.set('Content-Type', MIME[ext] || 'application/octet-stream')
+      // 开发服务器每次都回源：无缓存头时浏览器启发式缓存会拿到过期 JS/CSS，
+      // 表现为改了代码页面不更新。生产走 CF Workers assets（自带协商缓存）不受影响。
+      ctx.response.headers.set('Cache-Control', 'no-cache')
       ctx.response.body = content
     } catch {
       // 文件不存在，交给后续路由
