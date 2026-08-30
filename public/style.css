@@ -641,6 +641,18 @@ a:hover { text-decoration: underline; }
 
   .main { padding: 14px 14px 48px; }
   .grid { grid-template-columns: 1fr; gap: 12px; }
+
+  /* 卡片内输入行/下拉：触屏适配——44px 触控目标 + 16px 字号防 iOS 聚焦缩放 */
+  .input-row input, .input-row select {
+    font-size: 16px; padding: 10px 12px; min-height: 44px; border-radius: 8px;
+  }
+  .input-row select {
+    -webkit-appearance: none; appearance: none; padding-right: 34px;
+    /* 去掉原生外观后自绘下拉箭头（与 fanyi 语言下拉同款） */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a8094' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+  }
+  .input-row .go { min-height: 44px; padding: 10px 18px; font-size: 14px; }
   /* 卡片内部内容不滚动：合并进页面滚动，便于触屏连续阅读 */
   .card-body { max-height: none; overflow-y: visible; }
   .json-view { max-height: none; overflow: visible; }
