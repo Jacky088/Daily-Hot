@@ -18,6 +18,7 @@ import { serviceSteam } from './modules/steam.module.ts'
 import { serviceExRate } from './modules/exchange-rate.module.ts'
 import { serviceFabing } from './modules/fabing/fabing.module.ts'
 import { serviceFanyi } from './modules/fanyi/fanyi.module.ts'
+import { serviceGoogleTranslate } from './modules/google-translate.module.ts'
 import { serviceDailyEng } from './modules/daily-eng/daily-eng.module.ts'
 import { serviceSimkl } from './modules/simkl/simkl.module.ts'
 import { serviceGeng } from './modules/geng/geng.module.ts'
@@ -179,6 +180,7 @@ appRouter.all('/hash', serviceHash.handle())
 
 appRouter.all('/fanyi', serviceFanyi.handle())
 appRouter.all('/fanyi/langs', serviceFanyi.handleLangs())
+appRouter.all('/google-translate', serviceGoogleTranslate.handle())
 appRouter.get('/daily-eng', serviceDailyEng.handle())
 appRouter.get('/simkl-trending', serviceSimkl.handle())
 

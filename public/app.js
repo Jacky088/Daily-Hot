@@ -141,11 +141,20 @@ const EPS = [
   // 学习工具
   { cat:'trans', id:'daily-eng', name:'每日一句英语', icon:'📖', path:'/v2/daily-eng', type:'daily-eng', auto:1 },
   { cat:'trans', id:'fanyi', name:'有道翻译', icon:'🔤', path:'/v2/fanyi', type:'fanyi', auto:0, inputs:[{n:'text',p:'文本',d:'hello'},{n:'from',p:'源语言',d:'en'},{n:'to',p:'目标',d:'zh-CHS'}] },
+  { cat:'trans', id:'gtranslate', name:'Google 翻译', icon:'🈯', path:'/v2/google-translate', type:'fanyi', auto:0, inputs:[{n:'text',p:'文本',d:'hello'},{n:'from',p:'源语言',d:'en'},{n:'to',p:'目标',d:'zh-CN'}] },
 ];
 
 let curCat = 'all';
 let jsonMode = {};
 let fanyiLangs = null;
+
+// Google 翻译内置语言表（代码与 translate.googleapis.com 端点一致）
+const G_LANGS = [
+  ['auto', '自动检测'], ['zh-CN', '简体中文'], ['zh-TW', '繁体中文'], ['en', '英语'],
+  ['ja', '日语'], ['ko', '韩语'], ['fr', '法语'], ['de', '德语'],
+  ['es', '西班牙语'], ['ru', '俄语'], ['pt', '葡萄牙语'], ['it', '意大利语'],
+  ['ar', '阿拉伯语'], ['th', '泰语'], ['vi', '越南语'], ['id', '印尼语'],
+];
 
 // 加载有道翻译支持的语言列表（预加载，不依赖卡片渲染）
 async function loadFanyiLangs() {
@@ -393,8 +402,11 @@ function makeCard(ep) {
   body.id = 'body-' + ep.id;
 
   if (ep.inputs) {
-    if (ep.id === 'fanyi') {
-      // 翻译模块:专用布局
+    if (ep.id === 'fanyi' || ep.id === 'gtranslate') {
+      // 翻译模块:专用布局（有道用接口拉语言表，Google 用内置语言表，互不混用）
+      const isGt = ep.id === 'gtranslate';
+      const fromDefault = ep.inputs.find(i => i.n === 'from')?.d || 'en';
+      const toDefault = ep.inputs.find(i => i.n === 'to')?.d || (isGt ? 'zh-CN' : 'zh-CHS');
       const textInput = document.createElement('textarea');
       textInput.className = 'fanyi-textarea';
       textInput.name = 'text';
@@ -407,24 +419,33 @@ function makeCard(ep) {
       langRow.className = 'fanyi-lang-row';
       const fromSel = document.createElement('select');
       fromSel.name = 'from';
-      fromSel.dataset.role = 'fanyi-lang';
       const arrow = document.createElement('span');
       arrow.className = 'arrow';
       arrow.textContent = '⇄';
       arrow.title = '交换语言';
       const toSel = document.createElement('select');
       toSel.name = 'to';
-      toSel.dataset.role = 'fanyi-lang';
-      // 如果语言列表已缓存，直接填充；否则显示加载中
-      if (fanyiLangs) {
-        const opts = fanyiLangs.map(l => `<option value="${l.code}">${l.label}</option>`).join('');
+      if (isGt) {
+        // Google 翻译：内置常用语言表（代码与 Google 端点一致）
+        const opts = G_LANGS.map(([code, label]) => `<option value="${code}">${label}</option>`).join('');
         fromSel.innerHTML = opts;
         toSel.innerHTML = opts;
-        fromSel.value = ep.inputs.find(i => i.n === 'from')?.d || 'en';
-        toSel.value = ep.inputs.find(i => i.n === 'to')?.d || 'zh-CHS';
+        fromSel.value = fromDefault;
+        toSel.value = toDefault;
       } else {
-        fromSel.innerHTML = `<option value="en">加载中…</option>`;
-        toSel.innerHTML = `<option value="zh-CHS">加载中…</option>`;
+        fromSel.dataset.role = 'fanyi-lang';
+        toSel.dataset.role = 'fanyi-lang';
+        // 如果语言列表已缓存，直接填充；否则显示加载中
+        if (fanyiLangs) {
+          const opts = fanyiLangs.map(l => `<option value="${l.code}">${l.label}</option>`).join('');
+          fromSel.innerHTML = opts;
+          toSel.innerHTML = opts;
+          fromSel.value = fromDefault;
+          toSel.value = toDefault;
+        } else {
+          fromSel.innerHTML = `<option value="${fromDefault}">加载中…</option>`;
+          toSel.innerHTML = `<option value="${toDefault}">加载中…</option>`;
+        }
       }
       // 点击箭头交换语言
       arrow.onclick = () => {
@@ -444,8 +465,8 @@ function makeCard(ep) {
       go.onclick = () => load(ep);
       body.appendChild(go);
 
-      // 异步加载语言列表（如果尚未加载）
-      if (!fanyiLangs) loadFanyiLangs();
+      // 异步加载有道语言列表（如果尚未加载；Google 卡用内置表无需拉取）
+      if (!isGt && !fanyiLangs) loadFanyiLangs();
     } else {
       const row = document.createElement('div');
       row.className = 'input-row';
@@ -538,6 +559,45 @@ async function load(ep, forceUpdate = false) {
     }
   }
 
+  // Google 翻译：优先浏览器直连 Google 免费端点（用户 IP 不被风控），失败走自建后端
+  if (ep.id === 'gtranslate') return gtranslateLoad(ep, params, url, ck, c, forceUpdate);
+
+  await fetchWithRetry(ep, url, ck, c, 2);
+}
+
+// Google 翻译加载器：浏览器直连 clients5.google.com（允许任意 Origin 的 CORS）；
+// 直连失败（如大陆网络）再回退自建 /v2/google-translate（CF 出口被 Google 间歇拦截，尽力而为）
+async function gtranslateLoad(ep, params, url, ck, c, forceUpdate) {
+  const text = params.get('text');
+  const from = params.get('from') || 'auto';
+  const to = params.get('to') || 'zh-CN';
+  if (text) {
+    try {
+      const res = await fetch(
+        `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=${encodeURIComponent(from)}&tl=${encodeURIComponent(to)}&q=${encodeURIComponent(text)}`,
+        { signal: AbortSignal.timeout(8000) },
+      );
+      if (res.ok) {
+        const raw = await res.json();
+        if (Array.isArray(raw)) {
+          let detected = from;
+          const trans = raw
+            .map(el => {
+              if (Array.isArray(el)) {
+                if (typeof el[1] === 'string') detected = el[1];
+                return String(el[0] ?? '');
+              }
+              return String(el ?? '');
+            })
+            .join('');
+          const data = { source: { text, type: detected }, target: { text: trans, type: to } };
+          cacheSet(ck, data);
+          renderData(ep, data, c);
+          return;
+        }
+      }
+    } catch (e) { /* 直连失败，走后端兜底 */ }
+  }
   await fetchWithRetry(ep, url, ck, c, 2);
 }
 
