@@ -1690,7 +1690,8 @@ function rJSON(d, c) {
   function cellKey(cx, cy) { return cx + ',' + cy; }
 
   function initMesh() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // DPR 上限 1.5：更低的栅格化像素量，背景线条极淡看不出差别
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     meshW = window.innerWidth;
     meshH = window.innerHeight;
     cv.width = meshW * dpr;
@@ -1703,11 +1704,13 @@ function rJSON(d, c) {
     pts = [];
     const cols = Math.ceil(meshW / SPACING) + 2;
     const rows = Math.ceil(meshH / SPACING) + 2;
+    let id = 0;
     for (let i = 0; i < cols; i++) {
       for (let j = 0; j < rows; j++) {
         const ox = (i - 1) * SPACING;
         const oy = (j - 1) * SPACING;
         pts.push({
+          id: id++,
           ox, oy, x: ox, y: oy,
           // 每个点独立的浮动参数
           phase: Math.random() * Math.PI * 2,
@@ -1718,7 +1721,18 @@ function rJSON(d, c) {
     }
   }
 
+  // 30fps 上限：动画本身极缓慢，30fps 与 60fps 观感无差，GPU/CPU 减半
+  const MESH_FRAME_INTERVAL = 1000 / 30;
+  let lastMeshFrame = 0;
+
+  // 尊重系统“减少动态效果”偏好：只绘制静态网格，不启动动画循环
+  const meshReduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   function drawMesh(ts) {
+    if (!meshReduceMotion) rafId = requestAnimationFrame(drawMesh);
+    if (ts - lastMeshFrame < MESH_FRAME_INTERVAL) return;
+    lastMeshFrame = ts;
+
     cx.clearRect(0, 0, meshW, meshH);
     const colors = getMeshColors();
     const maxDist = SPACING * 1.6;
@@ -1737,6 +1751,7 @@ function rJSON(d, c) {
 
     // 画连线（空间分区：只检查相邻 cell）
     cx.lineWidth = 1;
+    cx.strokeStyle = colors.line;
     for (const p of pts) {
       const gx = Math.floor(p.x / SPACING);
       const gy = Math.floor(p.y / SPACING);
@@ -1746,8 +1761,8 @@ function rJSON(d, c) {
           if (!neighbors) continue;
           for (const q of neighbors) {
             if (q === p) continue;
-            // 避免重复：只画 id 较小的那对
-            if (pts.indexOf(p) >= pts.indexOf(q)) continue;
+            // 避免重复：只画 id 较小的那对（原来是 indexOf 线性扫描，O(n²) 每帧几十万次比较）
+            if (p.id >= q.id) continue;
             const ddx = p.x - q.x, ddy = p.y - q.y;
             const dist = Math.sqrt(ddx * ddx + ddy * ddy);
             if (dist < maxDist) {
@@ -1772,8 +1787,6 @@ function rJSON(d, c) {
       cx.arc(p.x, p.y, 1.8, 0, Math.PI * 2);
       cx.fill();
     }
-
-    rafId = requestAnimationFrame(drawMesh);
   }
 
   // 主题切换时刷新颜色（无需重建网格）

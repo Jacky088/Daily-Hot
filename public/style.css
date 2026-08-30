@@ -195,14 +195,14 @@ a:hover { text-decoration: underline; }
 /* 分类按钮的折叠指示箭头：圆角小徽标，明显且带旋转过渡（“全部”无子菜单不显示） */
 .cat-row > button[data-cat]:not([data-cat="all"])::after {
   content: '▸'; margin-left: auto; flex-shrink: 0;
-  width: 18px; height: 18px; line-height: 18px; text-align: center;
-  border-radius: 6px; background: var(--bg); font-size: 11px;
+  width: 22px; height: 22px; line-height: 22px; text-align: center;
+  border-radius: 7px; background: var(--bg); font-size: 14px; font-weight: 700;
   color: var(--text-dim); opacity: 1;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s, color 0.2s;
 }
 .cat-row > button[data-cat]:hover::after { color: var(--accent); background: var(--accent-bg); }
 .cat-row > button.active::after {
-  transform: rotate(90deg); background: rgba(255, 255, 255, 0.2); color: #fff; opacity: 1;
+  transform: rotate(90deg); background: rgba(255, 255, 255, 0.25); color: #fff; opacity: 1;
 }
 
 /* 桌面手风琴子菜单：grid-rows 0fr→1fr 平滑展开/收起，仅当前分类展开 */
@@ -262,7 +262,9 @@ a:hover { text-decoration: underline; }
   backdrop-filter: blur(12px) saturate(160%);
   -webkit-backdrop-filter: blur(12px) saturate(160%);
   border: 1px solid var(--border-glass);
-  border-radius: 12px; overflow: hidden; transition: all 0.2s;
+  border-radius: 12px; overflow: hidden;
+  /* 只过渡必要属性：transition:all 会让无关属性变化也触发样式计算 */
+  transition: border-color 0.2s, box-shadow 0.2s;
   display: flex; flex-direction: column;
   /* 不用 content-visibility: auto：估算高度会让文档总高随滚动位置塌缩，
      子菜单定位跳转的滚动坐标全部失准（移动端尤其明显） */
@@ -714,9 +716,9 @@ a:hover { text-decoration: underline; }
     padding-top: 0; padding-bottom: 0; border-top-color: transparent;
   }
   .cat-strip-toggle {
-    flex-shrink: 0; align-self: center; width: 28px; height: 28px; padding: 0;
+    flex-shrink: 0; align-self: center; width: 30px; height: 30px; padding: 0;
     border: 1px solid var(--border); border-radius: 9px; background: var(--card);
-    color: var(--text-dim); font-size: 13px; cursor: pointer;
+    color: var(--text-dim); font-size: 14px; font-weight: 700; cursor: pointer;
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s, border-color 0.2s;
     -webkit-tap-highlight-color: transparent;
   }
@@ -733,11 +735,11 @@ a:hover { text-decoration: underline; }
     background: var(--accent); border-color: transparent; color: #fff; font-weight: 600;
     box-shadow: var(--accent-glow);
   }
-  /* pill 上的折叠箭头：内联徽标式，激活时旋转 180° */
+  /* pill 上的折叠箭头：加大加粗，激活时旋转 180° */
   .cat-row > button[data-cat]:not([data-cat="all"])::after {
-    content: '▾'; margin-left: 4px; flex-shrink: 0;
+    content: '▾'; margin-left: 5px; flex-shrink: 0;
     display: inline-flex; align-items: center; justify-content: center;
-    font-size: 11px; color: var(--text-dimmer);
+    font-size: 14px; font-weight: 700; color: var(--text-dim);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s;
   }
   .cat-row > button:hover::after { color: var(--accent); }
@@ -757,6 +759,13 @@ a:hover { text-decoration: underline; }
   .grid { grid-template-columns: 1fr; gap: 12px; }
   /* 子菜单定位跳转偏移：吸顶顶栏 + 分类 pill 行 + 模块 chips 条 */
   .card { scroll-margin-top: calc(var(--topbar-h, 96px) + 112px); }
+  /* 移动端性能：backdrop-filter 逐帧模糊是最大的 GPU 消耗，
+     单列布局卡片通栏宽，模糊面积巨大——改用高不透明度纯色底，
+     视觉上仍保留轻微通透感，合成开销大幅下降 */
+  .card {
+    background: color-mix(in srgb, var(--card) 88%, transparent);
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+  }
 
   /* 卡片内输入行/下拉：触屏适配——44px 触控目标 + 16px 字号防 iOS 聚焦缩放 */
   .input-row input, .input-row select {
