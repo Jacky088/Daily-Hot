@@ -56,7 +56,7 @@ const EPS = [
   { cat:'news', id:'douyin', name:'抖音热点', icon:'🎵', path:'/v2/douyin', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
   { cat:'news', id:'toutiao', name:'今日头条', icon:'📰', path:'/v2/toutiao', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
   { cat:'news', id:'bdhot', name:'百度热搜', icon:'🔍', path:'/v2/baidu/hot', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'url', d:'desc'} },
-  { cat:'news', id:'bdrealtime', name:'百度实时热点', icon:'📡', path:'/v2/baidu/realtime', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'url', d:'desc'} },
+  // 已移除百度实时热点：实测 /baidu/realtime 与 /baidu/hot 返回同一份数据，重复
   { cat:'news', id:'bdtieba', name:'百度贴吧热议', icon:'💬', path:'/v2/baidu/tieba', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'link', d:'abstract'} },
   { cat:'news', id:'history', name:'历史上的今天', icon:'📜', path:'/v2/today-in-history', type:'hist', auto:1 },
   // 已隐藏小红书热榜：上游私有接口凭证（2023 年抓包）已被风控拉黑，
@@ -70,7 +70,7 @@ const EPS = [
   { cat:'tech', id:'v2ex', name:'V2EX热帖', icon:'💬', path:'/v2/v2ex', type:'list', auto:1, f:{t:'title',h:'replies',l:'link', d:'node'} },
   { cat:'tech', id:'let', name:'LowEndTalk', icon:'🖥️', path:'/v2/lowendtalk', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'description'} },
   { cat:'tech', id:'hn', name:'Hacker News', icon:'🟧', path:'/v2/hacker-news/top', type:'list', auto:1, f:{t:'title',h:'score',l:'link'} },
-  { cat:'tech', id:'hnnew', name:'HN 最新帖', icon:'⚡', path:'/v2/hacker-news/new', type:'list', auto:1, f:{t:'title',h:'score',l:'link'} },
+  // 已移除 HN 最新帖：实测 /hacker-news/new 与 /hacker-news/top 返回同一份数据，重复
   { cat:'tech', id:'itnews', name:'IT资讯', icon:'💻', path:'/v2/it-news', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'description'} },
   { cat:'tech', id:'kuan', name:'酷安热榜', icon:'📱', path:'/v2/kuan', type:'kuan', auto:1 },
   { cat:'tech', id:'36kr', name:'36氪热榜', icon:'📰', path:'/v2/36kr', type:'36kr', auto:1 },
