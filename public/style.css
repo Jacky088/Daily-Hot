@@ -210,6 +210,10 @@ a:hover { text-decoration: underline; }
 }
 .cat-subitem .ci { margin-right: 5px; }
 .cat-subitem:hover { color: var(--text); background: var(--card); }
+.cat-subitem.active {
+  color: var(--accent); background: var(--accent-bg); font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
 
 /* ============ Main ============ */
 .main { flex: 1; min-width: 0; padding: 20px 24px 60px; }
@@ -699,6 +703,10 @@ a:hover { text-decoration: underline; }
     -webkit-tap-highlight-color: transparent;
   }
   .cat-strip .cat-subitem:active { background: var(--accent-bg); color: var(--accent); }
+  .cat-strip .cat-subitem.active {
+    background: var(--accent); border-color: transparent; color: #fff; font-weight: 600;
+    box-shadow: var(--accent-glow);
+  }
   /* pill 上的折叠箭头：居中布局下改为内联小箭头 */
   .cat-row > button[data-cat]:not([data-cat="all"])::after {
     content: '▾'; margin-left: 4px; opacity: 0.6;

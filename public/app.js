@@ -1,7 +1,9 @@
 const API = location.origin;
 
 // ============ P0: API 响应缓存 ============
-const CACHE_TTL = 30 * 1000; // 30 秒
+// 缓存优先策略：30 分钟内切换分类/模块直接读缓存不重新请求，
+// 手动点卡片 ↻ 才强制刷新（forceUpdate 绕过缓存）
+const CACHE_TTL = 30 * 60 * 1000;
 
 function cacheGet(key) {
   try {
@@ -145,6 +147,7 @@ const EPS = [
 ];
 
 let curCat = 'all';
+let activeModuleId = null; // 当前高亮的子菜单模块（点击模块菜单后记录）
 let jsonMode = {};
 let fanyiLangs = null;
 
@@ -259,6 +262,7 @@ function init() {
       const item = document.createElement('button');
       item.className = 'cat-subitem';
       item.type = 'button';
+      item.dataset.ep = ep.id;
       item.innerHTML = `<span class="ci">${ep.icon}</span>${esc(ep.name)}`;
       item.title = `定位到「${ep.name}」`;
       item.onclick = () => locateCard(ep);
@@ -266,7 +270,19 @@ function init() {
     });
   }
 
-  // 刷新子菜单：桌面手风琴只展开当前分类；移动 chips 条填充当前分类模块
+  // 窄屏下把元素水平居中到其可滚动容器可视区（分类 pill / 模块 chip 通用）
+  function centerInContainer(container, el) {
+    if (window.innerWidth > 820) return;
+    const elRect = el.getBoundingClientRect();
+    const cRect = container.getBoundingClientRect();
+    container.scrollTo({
+      left: container.scrollLeft + (elRect.left - cRect.left) - (cRect.width - elRect.width) / 2,
+      behavior: 'smooth',
+    });
+  }
+
+  // 刷新子菜单：桌面手风琴只展开当前分类；移动 chips 条填充当前分类模块；
+  // 同时同步模块高亮态
   function refreshSubs() {
     catRow.querySelectorAll('.cat-sub').forEach(el => {
       el.classList.toggle('open', el.dataset.for === curCat);
@@ -274,13 +290,22 @@ function init() {
     catStrip.querySelectorAll('.cat-subitem').forEach(el => el.remove());
     buildSubItems(catStrip, curCat);
     catStrip.style.display = (curCat === 'all') ? 'none' : '';
+    // 高亮当前选中的模块菜单项（子菜单项与 chips 各有一份，按 data-ep 匹配）
+    catRow.querySelectorAll('.cat-subitem').forEach(el => {
+      el.classList.toggle('active', el.dataset.ep === activeModuleId);
+    });
+    catStrip.querySelectorAll('.cat-subitem').forEach(el => {
+      el.classList.toggle('active', el.dataset.ep === activeModuleId);
+    });
   }
 
   // 定位模块卡片：清搜索过滤 → 必要时切分类 → 滚动到卡片并闪烁高亮
   function locateCard(ep) {
     const searchInput = $('#search');
     if (searchInput && searchInput.value.trim()) searchInput.value = '';
+    let switched = false;
     if (curCat !== ep.cat) {
+      switched = true;
       curCat = ep.cat;
       location.hash = ep.cat;
       $$('.cat-row > button').forEach(x => x.classList.remove('active'));
@@ -288,17 +313,17 @@ function init() {
       if (btn) {
         btn.classList.add('active');
         // 窄屏：让选中的分类 pill 回到可视区
-        if (window.innerWidth <= 820) {
-          const btnRect = btn.getBoundingClientRect();
-          const rowRect = catRow.getBoundingClientRect();
-          catRow.scrollTo({
-            left: catRow.scrollLeft + (btnRect.left - rowRect.left) - (rowRect.width - btnRect.width) / 2,
-            behavior: 'smooth',
-          });
-        }
+        centerInContainer(catRow, btn);
       }
     }
+    activeModuleId = ep.id;
     refreshSubs();
+    // 窄屏：让选中的模块 chip 在 chips 条内居中（切分类时等 strip 重建后执行）
+    const centerChip = () => {
+      const chip = catStrip.querySelector(`.cat-subitem[data-ep="${ep.id}"]`);
+      if (chip) centerInContainer(catStrip, chip);
+    };
+    if (switched) setTimeout(centerChip, 80); else centerChip();
     render();
     // render() 同步重建 DOM，此时目标卡必然存在。
     // 不用 scrollIntoView：它会被可滚动祖先截胡且受布局变化影响，
@@ -349,18 +374,13 @@ function init() {
         return;
       }
       curCat = c.id;
+      activeModuleId = null; // 切换分类后之前的模块高亮不再适用
       location.hash = c.id;
       $$('.cat-row > button').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
       // 窄屏（分类栏为顶部横向滚动）：将选中的按钮在栏内水平居中，并回到内容顶部
-      // 用 scrollTo 直接驱动容器水平滚动，避免 scrollIntoView 与 window.scrollTo 同时触发互相中断
       if (window.innerWidth <= 820) {
-        const btnRect = b.getBoundingClientRect();
-        const navRect = catRow.getBoundingClientRect();
-        catRow.scrollTo({
-          left: catRow.scrollLeft + (btnRect.left - navRect.left) - (navRect.width - btnRect.width) / 2,
-          behavior: 'smooth',
-        });
+        centerInContainer(catRow, b);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
       refreshSubs();
@@ -380,6 +400,9 @@ function init() {
   nav.appendChild(catRow);
   nav.appendChild(catStrip);
   refreshSubs();
+  // 刷新/hash 恢复后：窄屏把当前激活的分类 pill 居中，避免落在屏幕外
+  const activeBtn = catRow.querySelector('button.active');
+  if (activeBtn) centerInContainer(catRow, activeBtn);
 
   $('#search').oninput = render;
 
@@ -656,18 +679,15 @@ async function load(ep, forceUpdate = false) {
 
   const ck = cacheKey(ep, url);
 
-  // 非强制刷新时检查缓存
+  // 非强制刷新时检查缓存：命中直接渲染，不再后台重复请求
   if (!forceUpdate) {
     const cached = cacheGet(ck);
     if (cached !== null) {
-      // 缓存命中，直接渲染
       if (ep.type === 'qr') {
         c.innerHTML = `<div class="qr-wrap"><img src="${cached}" alt="QR"></div>`;
       } else {
         renderData(ep, cached, c);
       }
-      // 后台静默更新 (stale-while-revalidate)
-      fetchAndUpdate(ep, url, ck, c);
       return;
     }
   }
@@ -762,23 +782,6 @@ async function fetchWithRetry(ep, url, ck, c, retriesLeft) {
 }
 
 // P0: 后台静默更新 (stale-while-revalidate)
-async function fetchAndUpdate(ep, url, ck, c) {
-  try {
-    const res = await fetch(url);
-    if (res.status === 429) return; // 速率限制，跳过本次静默更新
-    if (ep.type === 'qr') return; // 二维码跳过静默更新
-    const json = await res.json();
-    if (json.code === 200) {
-      cacheSet(ck, json.data);
-      // 如果当前仍在显示缓存内容（未被其他操作覆盖），刷新显示
-      const current = document.getElementById('content-' + ep.id);
-      if (current && current === c && !jsonMode[ep.id]) {
-        renderData(ep, json.data, c);
-      }
-    }
-  } catch {}
-}
-
 function toggleJson(ep) {
   const c = document.getElementById('content-' + ep.id);
   if (!c) return;
