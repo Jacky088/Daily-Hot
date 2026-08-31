@@ -786,7 +786,7 @@ async function load(ep, forceUpdate = false) {
       if (el && el.value) params.set(inp.n, el.value);
     });
   }
-  if (ep.type === 'qr') params.set('encoding', 'image');
+  if (ep.type === 'qr') params.set('encoding', 'json');
   const qs = params.toString();
   if (qs) url += '?' + qs;
 
@@ -877,10 +877,18 @@ async function fetchWithRetry(ep, url, ck, c, retriesLeft) {
     }
 
     if (ep.type === 'qr') {
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      cacheSet(ck, blobUrl);
-      c.innerHTML = qrWrapHTML(blobUrl);
+      const json = await res.json();
+      if (json.code !== 200) {
+        if (retriesLeft > 0) {
+          await new Promise(r => setTimeout(r, 1000));
+          return fetchWithRetry(ep, url, ck, c, retriesLeft - 1);
+        }
+        c.innerHTML = unavailableHTML(ep, json.message);
+        return;
+      }
+      const dataUri = json.data?.data_uri;
+      cacheSet(ck, dataUri);
+      c.innerHTML = qrWrapHTML(dataUri);
       return;
     }
     const json = await res.json();
