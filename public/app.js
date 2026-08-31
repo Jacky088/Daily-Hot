@@ -5,6 +5,10 @@ const API = location.origin;
 // 手动点卡片 ↻ 才强制刷新（forceUpdate 绕过缓存）
 const CACHE_TTL = 30 * 60 * 1000;
 
+// 发版时递增：让所有旧的 localStorage 缓存失效，
+// 否则用户在 TTL 内会继续看到上一版缓存下来的渲染结果
+const CACHE_VERSION = 'v8';
+
 function cacheGet(key) {
   try {
     const raw = localStorage.getItem(key);
@@ -19,7 +23,7 @@ function cacheSet(key, data) {
   try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch {}
 }
 
-function cacheKey(ep, url) { return `cache:${ep.id}:${url}`; }
+function cacheKey(ep, url) { return `cache:${CACHE_VERSION}:${ep.id}:${url}`; }
 
 // 清理过期缓存（每次 init 时调用）
 function cacheClean() {

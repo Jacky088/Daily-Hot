@@ -1,6 +1,6 @@
-# 注意：修改 name 后首次 wrangler deploy 会创建一个同名的新 Worker，
-# 原 "60s" Worker 需自行在 Cloudflare 控制台清理。
-name = "daily-hot"
+# Worker 名即线上脚本名：改名会导致「新建 Worker」而不是更新现有的。
+# 如需重命名，应先部署到新名称并切换路由/域名，确认无误后再手动删除旧 Worker。
+name = "60s"
 main = "cf-worker.ts"
 compatibility_date = "2025-11-05"
 compatibility_flags = [ "nodejs_compat" ]
