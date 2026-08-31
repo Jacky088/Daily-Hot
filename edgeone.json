@@ -1,0 +1,5 @@
+{
+  "installCommand": "npm install --no-audit --no-fund",
+  "buildCommand": "edgeone makers build --mode prod",
+  "outputDirectory": ".edgeone"
+}

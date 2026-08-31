@@ -2,11 +2,13 @@
 
 > 一站看完天下事 · 基于 [60s API](https://github.com/vikiboss/60s) 构建的一站式热榜聚合面板
 
+[![Version](https://img.shields.io/badge/version-1.4.0-blue) ](./package.json)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white) ](https://workers.cloudflare.com/)
+[![EdgeOne Pages](https://img.shields.io/badge/EdgeOne%20Pages-0052FF?style=flat) ](https://edgeone.ai/pages)
 [![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white) ](https://docker.com/)
 [![License](https://img.shields.io/badge/license-MIT-green) ](./license)
 
-聚合 60+ 个热门数据源，一个页面看遍全网热点。涵盖新闻资讯、科技资讯、影视娱乐、实用工具、生活信息、趣味内容和翻译，部署即用，支持 Cloudflare Workers 和 Docker。
+聚合 60+ 个热门数据源，一个页面看遍全网热点。涵盖新闻资讯、科技资讯、影视娱乐、实用工具、生活信息、趣味内容和翻译，部署即用，支持 Cloudflare Workers、Docker 与 EdgeOne Pages 等多种部署方式。
 
 ## 界面预览
 
@@ -49,6 +51,42 @@ npx wrangler deploy
 ```
 
 部署完成后访问 Worker 域名即可使用。
+
+### EdgeOne Pages（Makers 全栈部署）
+
+[EdgeOne Pages](https://edgeone.ai/pages)（Makers）支持「静态前端 + 云函数」一体化全栈部署，本项目已内置 `edgeone.json` 与 `cloud-functions/[[default]].ts`，可一键部署完整功能（前端面板 + `/v2/*` API + `/health`）。
+
+**方式一：CLI 直接部署（已验证）**
+
+```bash
+# 安装 EdgeOne CLI
+npm install -g edgeone
+
+# 登录（首次需在浏览器中授权）
+edgeone login
+
+# 安装依赖并构建，产出 .edgeone/ 构建包
+npm install --no-audit --no-fund
+npx edgeone makers build --mode prod
+
+# 部署已构建产物（直接上传模式，比上传源码更稳）
+npx edgeone makers deploy .edgeone -n daily-hot
+```
+
+部署成功后会返回形如 `https://daily-hot-xxxx.edgeone.cool?eo_token=...&eo_time=...` 的预览地址，带 `eo_token` 的链接即可正常访问全部页面与 API。
+
+> 说明：EdgeOne Pages「全球可用区」项目的生产 / 预览域名默认带 `eo_token` 预览鉴权（链接有时效、国内访问受限），但 API 与页面功能均正常。如需永久免 token 的公开访问，请在 EdgeOne 控制台为项目绑定自定义域名。
+
+**方式二：Git 仓库导入（控制台）**
+
+1. 在 EdgeOne Pages 控制台选择「导入 Git 仓库」，授权并选择 `Jacky088/Daily-Hot`。
+2. 构建配置由仓库根目录 `edgeone.json` 自动读取：
+   - 安装命令：`npm install --no-audit --no-fund`
+   - 构建命令：`edgeone makers build --mode prod`
+   - 输出目录：`.edgeone`
+3. 点击部署，完成后获得 `xxx.edgeone.cool` 域名。
+
+> 提示：若控制台导入后接口 404，请确认 `edgeone.json` 的 `buildCommand` 与 `outputDirectory` 如上配置，或改用方式一 CLI 部署。
 
 ### Docker
 
@@ -154,6 +192,7 @@ curl "https://your-domain/endpoints"
         │                                │
         ├─ Workers: [assets] 配置        ├─ Workers: cf-worker.ts
         └─ Docker: static-assets 中间件  ├─ Docker: node.ts
+                                         ├─ EdgeOne: cloud-functions/[[default]].ts
                                          ├─ Deno: deno.ts
                                          └─ Bun: bun.ts
 ```
@@ -163,7 +202,7 @@ curl "https://your-domain/endpoints"
 - **后端**：TypeScript + [Oak](https://oakserver.github.io/oak/) 框架
 - **前端**：纯 HTML/CSS/JS，无框架依赖
 - **数据源**：[vikiboss/60s](https://github.com/vikiboss/60s) + [60s-static-host](https://github.com/vikiboss/60s-static-host) + NodeSeek / V2EX / LowEndTalk RSS
-- **部署**：Cloudflare Workers / Docker / Node.js / Deno / Bun
+- **部署**：Cloudflare Workers / Docker / EdgeOne Pages / Node.js / Deno / Bun
 
 ## 📋 项目结构
 
@@ -195,6 +234,9 @@ curl "https://your-domain/endpoints"
 ├── node.ts                 # Node.js 入口
 ├── deno.ts                 # Deno 入口
 ├── bun.ts                  # Bun 入口
+├── cloud-functions/        # EdgeOne Pages 云函数
+│   └── [[default]].ts      # 全栈入口（Oak 服务，统一处理 /v2/* 与 /health）
+├── edgeone.json            # EdgeOne Pages 构建配置
 ├── wrangler.toml           # Cloudflare Workers 配置
 ├── Dockerfile              # Docker 构建文件
 └── package.json

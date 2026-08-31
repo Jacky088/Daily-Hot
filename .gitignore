@@ -1,7 +1,14 @@
 node_modules
+node_modules.broken
 .DS_Store
 .env
 .wrangler/
 
 test/*.json
 sk.json/
+
+# Tencent Cloud EdgeOne
+.env
+.edgeone/*
+.tef_dist/*
+  
