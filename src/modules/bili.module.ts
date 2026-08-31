@@ -62,7 +62,9 @@ class ServiceBili {
 
   // RSSHub 镜像，按序尝试。liumingye.cn 为实测 Cloudflare 出口可访问的镜像；
   // 镜像存活情况会变动，故保留多个以便自动切换。
-  #rssMirrors = ['https://rsshub.liumingye.cn', 'https://rsshub.app', 'https://rsshub.rssforever.com']
+  // liumingye.cn 为实测 Cloudflare 出口可访问且稳定返回 10 条的镜像；
+  // feded.xyz 为备用（同为该探针确认可达），其余镜像多已 403/503，故不列入。
+  #rssMirrors = ['https://rsshub.liumingye.cn', 'https://rsshub.feeded.xyz']
 
   async #saveCache(list: { title: string; link: string }[]) {
     try {
@@ -107,7 +109,7 @@ class ServiceBili {
     } catch {}
 
     // RSSHub 镜像兜底：B站对海外 IP 一律返回 412 风控 HTML，直连必然失败，此时只能走镜像。
-    // 镜像可用性会变动，故按序尝试多个（每个超时 10s），取第一个有数据的。
+    // 镜像可用性会变动，故按序尝试多个（每个超时 18s，兼容冷缓存回源），取第一个有数据的。
     for (const mirror of this.#rssMirrors) {
       try {
         const list = await this.#fetchRss(`${mirror}/bilibili/hot-search`)
@@ -126,11 +128,11 @@ class ServiceBili {
   }
 
   // 拉取并解析 RSS：<item> 内的 <title> / <link>，镜像返回 HTML 错误页时自然解析出 0 条
-  async #fetchRss(url: string) {
+  async #fetchRss(url: string, timeoutMs = 18_000) {
     const rss = await (
       await fetch(url, {
         headers: { 'User-Agent': Common.chromeUA },
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(timeoutMs),
       })
     ).text()
 
