@@ -54,39 +54,30 @@ npx wrangler deploy
 
 ### EdgeOne Pages（Makers 全栈部署）
 
-[EdgeOne Pages](https://edgeone.ai/pages)（Makers）支持「静态前端 + 云函数」一体化全栈部署，本项目已内置 `edgeone.json` 与 `cloud-functions/[[default]].ts`，可一键部署完整功能（前端面板 + `/v2/*` API + `/health`）。
+已内置 `edgeone.json` 与 `cloud-functions/[[default]].ts`，前端面板与 `/v2/*` API 一体部署，无需额外配置。
 
-**方式一：CLI 直接部署（已验证）**
+**方式一：CLI 部署**
 
 ```bash
-# 安装 EdgeOne CLI
 npm install -g edgeone
-
-# 登录（首次需在浏览器中授权）
 edgeone login
 
-# 安装依赖并构建，产出 .edgeone/ 构建包
 npm install --no-audit --no-fund
-npx edgeone makers build --mode prod
-
-# 部署已构建产物（直接上传模式，比上传源码更稳）
+npx edgeone makers build --mode prod    # 产出 .edgeone/（云函数 + 前端资源）
 npx edgeone makers deploy .edgeone -n daily-hot
 ```
 
-部署成功后会返回形如 `https://daily-hot-xxxx.edgeone.cool?eo_token=...&eo_time=...` 的预览地址，带 `eo_token` 的链接即可正常访问全部页面与 API。
+常用参数：`-e preview` 预览环境、`-a overseas` 海外可用区、`-t <token>` CI 免登录。
 
-> 说明：EdgeOne Pages「全球可用区」项目的生产 / 预览域名默认带 `eo_token` 预览鉴权（链接有时效、国内访问受限），但 API 与页面功能均正常。如需永久免 token 的公开访问，请在 EdgeOne 控制台为项目绑定自定义域名。
+> `deploy -n` 仅适用于「直接上传」类型的项目；若项目由 Git 导入创建，请改用方式二。
 
-**方式二：Git 仓库导入（控制台）**
+**方式二：Git 仓库导入**
 
-1. 在 EdgeOne Pages 控制台选择「导入 Git 仓库」，授权并选择 `Jacky088/Daily-Hot`。
-2. 构建配置由仓库根目录 `edgeone.json` 自动读取：
-   - 安装命令：`npm install --no-audit --no-fund`
-   - 构建命令：`node scripts/copy-assets.mjs`（将前端 `public/` 拷入构建包；**不要写成 `edgeone makers build` 自身**，否则会无限递归导致 OOM）
-   - 输出目录：`.edgeone`
-3. 点击部署，完成后获得 `xxx.edgeone.cool` 域名。
+1. 在 [EdgeOne Pages](https://edgeone.ai/pages) 控制台「导入 Git 仓库」，选择 `Jacky088/Daily-Hot`。
+2. 构建配置自动读取仓库根目录的 `edgeone.json`（安装 `npm install --no-audit --no-fund`、构建 `node scripts/copy-assets.mjs`、输出目录 `.edgeone`），保持默认即可。云函数由平台自动构建，构建命令**无需**再写 `edgeone makers build`。
+3. 之后每次 `git push` 会自动重新构建部署。
 
-> 说明：`edgeone makers build` 的静态资源拷贝存在 bug（会把输出目录 `.edgeone` 自身递归拷入 `.edgeone/assets`，导致页面 404），故用 `scripts/copy-assets.mjs` 显式拷贝 `public/`。若控制台导入后页面 404，请确认该脚本与 `cloud-functions/` 均被正确打包，或改用方式一 CLI 部署。
+**访问域名**：部署后控制台会给出默认域名（如 `https://daily-hot.edgeone.dev`）。「全球可用区」项目的域名带 `eo_token` 预览鉴权参数（有时效），绑定自定义域名后可免 token 长期公开访问。
 
 ### Docker
 
