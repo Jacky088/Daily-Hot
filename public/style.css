@@ -192,11 +192,12 @@ a:hover { text-decoration: underline; }
   border-color: transparent; color: #fff;
   box-shadow: var(--accent-glow);
 }
-/* 分类按钮的折叠指示箭头：圆角小徽标，明显且带旋转过渡（“全部”无子菜单不显示） */
+/* 分类按钮的折叠指示箭头：圆角小徽标，明显且带旋转过渡（“全部”无子菜单不显示）
+   方向约定与折叠状态绑定：▸=收起，rotate(90°)→▾=展开；手动折叠时回转回 ▸ */
 .cat-row > button[data-cat]:not([data-cat="all"])::after {
   content: '▸'; margin-left: auto; flex-shrink: 0;
-  width: 22px; height: 22px; line-height: 22px; text-align: center;
-  border-radius: 7px; background: var(--bg); font-size: 14px; font-weight: 700;
+  width: 28px; height: 28px; line-height: 28px; text-align: center;
+  border-radius: 9px; background: var(--bg); font-size: 18px; font-weight: 700;
   color: var(--text-dim); opacity: 1;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s, color 0.2s;
 }
@@ -204,6 +205,8 @@ a:hover { text-decoration: underline; }
 .cat-row > button.active::after {
   transform: rotate(90deg); background: rgba(255, 255, 255, 0.25); color: #fff; opacity: 1;
 }
+/* 子菜单被手动折叠（点已激活分类）时，激活分类的箭头必须回到收起朝向 ▸ */
+.cat-nav.sub-collapsed .cat-row > button.active::after { transform: rotate(0deg); }
 
 /* 桌面手风琴子菜单：grid-rows 0fr→1fr 平滑展开/收起，仅当前分类展开 */
 .cat-sub {
@@ -219,6 +222,9 @@ a:hover { text-decoration: underline; }
   margin: -2px 0 4px -4px; padding: 2px 0 4px 13px;
 }
 .cat-nav.sub-collapsed .cat-sub { grid-template-rows: 0fr; opacity: 0; }
+/* 折叠时同步清零 .open 残留的纵向 margin/padding（transition 已含二者），
+   子菜单完全收起不留空隙，与箭头回到 ▸ 的收起态保持一致 */
+.cat-nav.sub-collapsed .cat-sub.open { margin: 0 0 0 -4px; padding: 0 0 0 13px; }
 .cat-sub-inner { min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 1px; }
 .cat-subitem {
   padding: 5px 10px; margin: 0; background: transparent; border: none; border-radius: 8px;
@@ -1143,32 +1149,40 @@ a:hover { text-decoration: underline; }
   }
   .cat-row::-webkit-scrollbar { display: none; }
   .cat-sub { display: none !important; }
-  /* 模块 chips 条：点击定位到对应卡片；点已激活分类或左侧箭头可折叠（带高度过渡动画） */
+  /* 模块 chips 条：点击定位到对应卡片；点已激活分类或左侧三角可折叠。
+     行结构 = 三角按钮 + cat-chips 包装层：折叠动画只作用于 chips（高度 42px↔0），
+     三角按钮常驻可见，折叠后旋转为 ▸ 收起朝向、可再点击展开 */
   .cat-strip {
     display: flex; align-items: center; gap: 6px;
-    padding: 0 10px 8px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+    /* 上下内边距与分类 pill 行一致（8px），两行视觉高度相同 */
+    padding: 8px 12px;
     border-top: 1px dashed var(--border);
-    max-height: 64px;
-    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                opacity 0.25s ease, padding 0.3s, visibility 0.3s;
   }
-  .cat-strip::-webkit-scrollbar { display: none; }
-  .cat-nav.sub-collapsed .cat-strip {
+  .cat-chips {
+    display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0;
+    overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+    max-height: 42px; opacity: 1; visibility: visible;
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.25s ease, visibility 0.3s;
+  }
+  .cat-chips::-webkit-scrollbar { display: none; }
+  .cat-nav.sub-collapsed .cat-chips {
     max-height: 0; opacity: 0; visibility: hidden;
-    padding-top: 0; padding-bottom: 0; border-top-color: transparent;
   }
   .cat-strip-toggle {
-    flex-shrink: 0; align-self: center; width: 30px; height: 30px; padding: 0;
-    border: 1px solid var(--border); border-radius: 9px; background: var(--card);
-    color: var(--text-dim); font-size: 14px; font-weight: 700; cursor: pointer;
+    flex-shrink: 0; align-self: center; width: 38px; height: 38px; padding: 0;
+    border: 1px solid var(--border); border-radius: 12px; background: var(--card);
+    color: var(--text-dim); font-size: 18px; font-weight: 700; cursor: pointer;
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s, border-color 0.2s;
     -webkit-tap-highlight-color: transparent;
   }
   .cat-strip-toggle:hover { color: var(--accent); border-color: var(--accent); }
   .cat-nav.sub-collapsed .cat-strip-toggle { transform: rotate(-90deg); }
   .cat-strip .cat-subitem {
-    flex-shrink: 0; align-self: center; padding: 7px 13px; margin: 0;
-    border: 1px solid var(--border); border-radius: 15px; background: var(--card);
+    flex-shrink: 0; align-self: center; margin: 0;
+    /* 固定高度与分类 pill 完全一致，flex 居中消除字号差带来的高度波动 */
+    display: inline-flex; align-items: center; height: 42px; padding: 0 13px;
+    border: 1px solid var(--border); border-radius: 17px; background: var(--card);
     font-size: 12px; white-space: nowrap; overflow: visible; text-overflow: clip;
     -webkit-tap-highlight-color: transparent;
   }
@@ -1177,17 +1191,19 @@ a:hover { text-decoration: underline; }
     background: var(--accent); border-color: transparent; color: #fff; font-weight: 600;
     box-shadow: var(--accent-glow);
   }
-  /* pill 上的折叠箭头：加大加粗，激活时旋转 180° */
+  /* pill 上的折叠箭头：与桌面同一方向约定 ▸=收起、rotate(90°)→▾=展开；
+     手动折叠（sub-collapsed）时由全局规则回转 ▸，切换新分类时 JS 移除折叠态随之展开 */
   .cat-row > button[data-cat]:not([data-cat="all"])::after {
-    content: '▾'; margin-left: 5px; flex-shrink: 0;
+    content: '▸'; margin-left: 5px; flex-shrink: 0;
     display: inline-flex; align-items: center; justify-content: center;
-    font-size: 14px; font-weight: 700; color: var(--text-dim);
+    font-size: 18px; font-weight: 700; color: var(--text-dim);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s;
   }
   .cat-row > button:hover::after { color: var(--accent); }
-  .cat-row > button.active::after { transform: rotate(180deg); color: #fff; }
+  .cat-row > button.active::after { transform: rotate(90deg); color: #fff; }
   .cat-row > button {
-    padding: 9px 15px; text-align: center; font-size: 13px;
+    /* 固定高度（含上下 border），垂直方向由 flex 居中，与模块 chip 等高 */
+    height: 42px; padding: 0 15px; text-align: center; font-size: 13px;
     border-radius: 17px; white-space: nowrap; flex-shrink: 0;
     margin-bottom: 0;
     /* 屏蔽浏览器触屏默认高亮，改用 :active 状态贴合胶囊形状 */
@@ -1234,9 +1250,11 @@ a:hover { text-decoration: underline; }
 @media (max-width: 480px) {
   .header { padding: 8px 12px; gap: 8px; }
   .search-wrap input { padding: 8px 12px 8px 32px; font-size: 13px; }
-  .cat-nav { padding: 8px 10px; }
+  /* cat-nav 不加内边距：吸顶分类栏上缘必须与顶栏底边贴合，
+     行内留白由 cat-row / cat-strip 自身的 padding 提供 */
   .cat-row { padding: 8px 10px; }
-  .cat-row > button { padding: 9px 13px; font-size: 13px; }
+  .cat-strip { padding: 8px 10px; }
+  .cat-row > button { padding: 0 13px; font-size: 13px; }
   .main { padding: 12px 10px 48px; }
   /* 触控区域加大，防误触 */
   .card-actions button { width: 32px; height: 32px; }

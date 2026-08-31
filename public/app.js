@@ -254,7 +254,12 @@ function init() {
   stripToggle.title = '展开/收起模块列表';
   stripToggle.textContent = '▾';
   stripToggle.onclick = () => nav.classList.toggle('sub-collapsed');
+  // chips 包装层：折叠动画只作用于 chips 本身（高度 42px↔0），
+  // 三角按钮在折叠区之外——折叠后仍可见可点，箭头朝向跟随折叠状态
+  const catChips = document.createElement('div');
+  catChips.className = 'cat-chips';
   catStrip.appendChild(stripToggle);
+  catStrip.appendChild(catChips);
 
   // 生成某分类的子菜单项（模块名按钮，点击定位到对应卡片）
   function buildSubItems(container, catId) {
@@ -287,14 +292,14 @@ function init() {
     catRow.querySelectorAll('.cat-sub').forEach(el => {
       el.classList.toggle('open', el.dataset.for === curCat);
     });
-    catStrip.querySelectorAll('.cat-subitem').forEach(el => el.remove());
-    buildSubItems(catStrip, curCat);
+    catChips.querySelectorAll('.cat-subitem').forEach(el => el.remove());
+    buildSubItems(catChips, curCat);
     catStrip.style.display = (curCat === 'all') ? 'none' : '';
     // 高亮当前选中的模块菜单项（子菜单项与 chips 各有一份，按 data-ep 匹配）
     catRow.querySelectorAll('.cat-subitem').forEach(el => {
       el.classList.toggle('active', el.dataset.ep === activeModuleId);
     });
-    catStrip.querySelectorAll('.cat-subitem').forEach(el => {
+    catChips.querySelectorAll('.cat-subitem').forEach(el => {
       el.classList.toggle('active', el.dataset.ep === activeModuleId);
     });
   }
@@ -307,6 +312,8 @@ function init() {
     if (curCat !== ep.cat) {
       switched = true;
       curCat = ep.cat;
+      // 定位跳转切换分类同样要解除折叠态，保证箭头朝向与子菜单展开状态一致
+      nav.classList.remove('sub-collapsed');
       location.hash = ep.cat;
       $$('.cat-row > button').forEach(x => x.classList.remove('active'));
       const btn = catRow.querySelector(`button[data-cat="${ep.cat}"]`);
@@ -320,8 +327,8 @@ function init() {
     refreshSubs();
     // 窄屏：让选中的模块 chip 在 chips 条内居中（切分类时等 strip 重建后执行）
     const centerChip = () => {
-      const chip = catStrip.querySelector(`.cat-subitem[data-ep="${ep.id}"]`);
-      if (chip) centerInContainer(catStrip, chip);
+      const chip = catChips.querySelector(`.cat-subitem[data-ep="${ep.id}"]`);
+      if (chip) centerInContainer(catChips, chip);
     };
     if (switched) setTimeout(centerChip, 80); else centerChip();
     render();
@@ -385,6 +392,8 @@ function init() {
       }
       curCat = c.id;
       activeModuleId = null; // 切换分类后之前的模块高亮不再适用
+      // 切换到新分类必须解除折叠态：否则子菜单仍收起而箭头已转向"展开"，朝向与实际状态脱节
+      nav.classList.remove('sub-collapsed');
       location.hash = c.id;
       $$('.cat-row > button').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
@@ -443,9 +452,11 @@ function init() {
 
   // 测量顶栏实际高度，写入 --topbar-h 供移动端分类栏 sticky 吸顶使用。
   // 手机窄屏下 header 会换行成两行，高度不固定，不能用硬编码。
+  // 用 getBoundingClientRect 而非 offsetHeight：后者取整会让细边框在
+  // 高 DPI 下丢掉小数部分，吸顶分类栏与顶栏底边出现 1px 级错位
   const topbarEl = document.querySelector('.topbar');
   function syncTopbarH() {
-    if (topbarEl) document.documentElement.style.setProperty('--topbar-h', topbarEl.offsetHeight + 'px');
+    if (topbarEl) document.documentElement.style.setProperty('--topbar-h', topbarEl.getBoundingClientRect().height + 'px');
   }
   syncTopbarH();
   window.addEventListener('resize', syncTopbarH);
