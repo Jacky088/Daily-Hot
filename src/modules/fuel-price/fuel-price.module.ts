@@ -233,7 +233,7 @@ class ServiceFuelPrice {
         const tds = tr.match(/<td[^>]*>[\s\S]*?<\/td>/g) || []
         if (tds.length < 6) continue
 
-        const date = (tds[0].replace(/<[^>]+>/g, '').trim().match(/\d{4}-\d{2}-\d{2}/) || [])[0]
+        const date = (tds[0]?.replace(/<[^>]+>/g, '').trim().match(/\d{4}-\d{2}-\d{2}/) || [])[0]
         if (!date) continue
 
         const cells = tds.slice(1).map((td) => {

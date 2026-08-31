@@ -112,12 +112,17 @@ export class Common {
     if (!parseBody) return value
 
     try {
-      // body 只能读一次，解析结果按请求缓存，供同一请求内的后续 getParam 复用
+      // body 只能读一次，解析结果按请求缓存，供同一请求内的后续 getParam 复用。
+      // 显式标注为非可空类型：request.body.json() 返回 any，
+      // 把 any 赋给可空变量不会触发窄化，读取时仍会被判定为可能 undefined
+      let body: Record<string, any> = request._bodyJson ?? {}
+
       if (!request._bodyJson) {
-        request._bodyJson = await request.body.json()
+        body = await request.body.json()
+        request._bodyJson = body
       }
 
-      return request._bodyJson[name] ?? ''
+      return body[name] ?? ''
     } catch {
       // 无 body 或非法 JSON（如 GET 请求），回退到 query 值
       return value
