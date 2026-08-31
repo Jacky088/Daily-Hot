@@ -259,7 +259,13 @@ function getHoliday(year: number) {
     })
     .filter((e) => !e.is_work)
 
-  return Object.entries(Object.groupBy(list, (e) => e.name)).map(([name, items = []]) => {
+  // 注意：Object.groupBy 是 Node 21+ / ES2024 才有的方法。
+  // Makers 平台的 Node 运行时若低于 21（如 Node 20 LTS），会抛
+  // "Object.groupBy is not a function"，导致 /v2/lunar 整条路由 500。
+  // 这里用全版本兼容的手动分组替代，避免对高版本 Node 的依赖。
+  const grouped: Record<string, typeof list> = {}
+  for (const e of list) (grouped[e.name] ||= []).push(e)
+  return Object.entries(grouped).map(([name, items = []]) => {
     const targetDay = items.find((e) => e.offset === 0)
     return {
       name,
