@@ -82,11 +82,11 @@ npx edgeone makers deploy .edgeone -n daily-hot
 1. 在 EdgeOne Pages 控制台选择「导入 Git 仓库」，授权并选择 `Jacky088/Daily-Hot`。
 2. 构建配置由仓库根目录 `edgeone.json` 自动读取：
    - 安装命令：`npm install --no-audit --no-fund`
-   - 构建命令：`edgeone makers build --mode prod`
    - 输出目录：`.edgeone`
+   - 构建命令：**无需配置**。`edgeone.json` 中只需保留 `installCommand` 与 `outputDirectory`，构建由 Makers 自动执行 `edgeone makers build`。**切勿在 `buildCommand` 中填 `edgeone makers build` 自身**，否则会无限递归导致构建进程内存耗尽（OOM）失败。
 3. 点击部署，完成后获得 `xxx.edgeone.cool` 域名。
 
-> 提示：若控制台导入后接口 404，请确认 `edgeone.json` 的 `buildCommand` 与 `outputDirectory` 如上配置，或改用方式一 CLI 部署。
+> 提示：若控制台导入失败或接口 404，请确认 `edgeone.json` 未设置自引用的 `buildCommand`（构建由 Makers 自动完成），或改用方式一 CLI 部署。
 
 ### Docker
 
