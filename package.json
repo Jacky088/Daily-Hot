@@ -1,9 +1,9 @@
 {
   "name": "daily-hot",
   "type": "module",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "author": "木木",
-  "updateTime": "2026/08/31 10:16:14",
+  "updateTime": "2026/08/31 10:33:54",
   "packageManager": "pnpm@10.29.2",
   "prettier": {
     "printWidth": 120,

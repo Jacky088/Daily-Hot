@@ -1150,24 +1150,27 @@ a:hover { text-decoration: underline; }
   .cat-row::-webkit-scrollbar { display: none; }
   .cat-sub { display: none !important; }
   /* 模块 chips 条：点击定位到对应卡片；点已激活分类或左侧三角可折叠。
-     行结构 = 三角按钮 + cat-chips 包装层：折叠动画只作用于 chips（高度 42px↔0），
-     三角按钮常驻可见，折叠后旋转为 ▸ 收起朝向、可再点击展开 */
+     折叠动画作用于整行：三角按钮、上下 padding、分隔边框一并收起，
+     折叠后无任何残留区域；重新展开的入口是已激活分类 pill
+     （其 ▸/▾ 箭头跟随折叠状态旋转） */
   .cat-strip {
     display: flex; align-items: center; gap: 6px;
     /* 上下内边距与分类 pill 行一致（8px），两行视觉高度相同 */
     padding: 8px 12px;
     border-top: 1px dashed var(--border);
+    overflow: hidden;
+    max-height: 64px; opacity: 1; visibility: visible;
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.25s ease, padding 0.3s, visibility 0.3s, border-color 0.3s;
   }
   .cat-chips {
     display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0;
     overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
-    max-height: 42px; opacity: 1; visibility: visible;
-    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                opacity 0.25s ease, visibility 0.3s;
   }
   .cat-chips::-webkit-scrollbar { display: none; }
-  .cat-nav.sub-collapsed .cat-chips {
+  .cat-nav.sub-collapsed .cat-strip {
     max-height: 0; opacity: 0; visibility: hidden;
+    padding-top: 0; padding-bottom: 0; border-top-color: transparent;
   }
   .cat-strip-toggle {
     flex-shrink: 0; align-self: center; width: 38px; height: 38px; padding: 0;
