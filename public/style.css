@@ -1144,7 +1144,7 @@ a:hover { text-decoration: underline; }
   }
   .cat-row {
     display: flex; flex-wrap: nowrap;
-    padding: 8px 12px;
+    padding: 6px 12px;
     overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
   }
   .cat-row::-webkit-scrollbar { display: none; }
@@ -1155,8 +1155,8 @@ a:hover { text-decoration: underline; }
      （其 ▸/▾ 箭头跟随折叠状态旋转） */
   .cat-strip {
     display: flex; align-items: center; gap: 6px;
-    /* 上下内边距与分类 pill 行一致（8px），两行视觉高度相同 */
-    padding: 8px 12px;
+    /* 上下内边距与分类 pill 行一致（6px），两行视觉高度相同，间距收紧 */
+    padding: 6px 12px;
     border-top: 1px dashed var(--border);
     overflow: hidden;
     max-height: 64px; opacity: 1; visibility: visible;
@@ -1216,7 +1216,8 @@ a:hover { text-decoration: underline; }
   .cat-row > button.active:active { background: var(--accent-light); }
   .cat-row > button.active { background: var(--accent); box-shadow: none; }
 
-  .main { padding: 14px 14px 48px; }
+  /* 移动端首张卡片需紧贴吸顶分类栏：收紧上内边距（原 14px 在 sticky 导航下显空） */
+  .main { padding: 6px 14px 48px; }
   .grid { grid-template-columns: 1fr; gap: 12px; }
   /* 子菜单定位跳转偏移：吸顶顶栏 + 分类 pill 行 + 模块 chips 条 */
   .card { scroll-margin-top: calc(var(--topbar-h, 96px) + 112px); }
@@ -1255,10 +1256,10 @@ a:hover { text-decoration: underline; }
   .search-wrap input { padding: 8px 12px 8px 32px; font-size: 13px; }
   /* cat-nav 不加内边距：吸顶分类栏上缘必须与顶栏底边贴合，
      行内留白由 cat-row / cat-strip 自身的 padding 提供 */
-  .cat-row { padding: 8px 10px; }
-  .cat-strip { padding: 8px 10px; }
+  .cat-row { padding: 6px 10px; }
+  .cat-strip { padding: 6px 10px; }
   .cat-row > button { padding: 0 13px; font-size: 13px; }
-  .main { padding: 12px 10px 48px; }
+  .main { padding: 6px 10px 48px; }
   /* 触控区域加大，防误触 */
   .card-actions button { width: 32px; height: 32px; }
   .item { padding: 11px 0; }
