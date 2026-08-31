@@ -1,5 +1,6 @@
 import { config } from '../config.ts'
 import { Common } from '../common.ts'
+import { serviceIP } from '../modules/ip.module.ts'
 
 import type { Middleware } from '@oak/oak'
 
@@ -27,7 +28,9 @@ function getList(): string[] {
 
 export function blacklist(): Middleware {
   return async (ctx, next) => {
-    const ip = ctx.request.ip
+    // 必须与限流中间件一致：优先取 cf-connecting-ip（Cloudflare 平台设置，客户端无法伪造）。
+    // 仅用 ctx.request.ip 在 Workers 上恒为空（fetch 处理器没有真实 socket），会导致黑名单失效。
+    const ip = serviceIP.getClientIP(ctx.request.headers) || ctx.request.ip
     const ua = ctx.request.headers.get('User-Agent') || '-'
     const url = ctx.request.url
     const blocked = getList()

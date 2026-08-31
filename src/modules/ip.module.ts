@@ -1,6 +1,23 @@
 import { Common } from '../common.ts'
 import type { RouterMiddleware } from '@oak/oak'
 
+// 仅放行 IP 字面量：字符集收紧为 [0-9a-fA-F:.]，天然排除 / ? & # 等字符，
+// 从源头阻断路径穿越（../../）与查询参数注入（?a=1）——两者都会把本服务变成上游开放代理。
+function isValidIPLiteral(value: string): boolean {
+  if (!value || value.length > 45) return false // IPv6 完整形式最长 45 字符
+  if (!/^[0-9a-fA-F:.]+$/.test(value)) return false
+
+  // IPv4：必须是 4 段点分十进制，且每段 0-255
+  if (value.includes('.')) {
+    const parts = value.split('.')
+
+    if (parts.length !== 4) return false
+    return parts.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255)
+  }
+
+  return true // IPv6 形式，字符集已在上面收紧
+}
+
 class ServiceIP {
   getClientIP(requestHeaders: Headers): string {
     // Cloudflare Workers 环境下 cf-connecting-ip 由平台设置，无法被客户端伪造，优先使用
@@ -78,8 +95,14 @@ class ServiceIP {
       let ip = this.getClientIP(ctx.request.headers) || ctx.request.ip
       const inputIp = ctx.request.url.searchParams.get('ip') || ''
 
-      // 优先使用请求参数中的 IP
+      // 优先使用请求参数中的 IP。该值会被拼进上游 URL 的路径，必须先校验格式，
+      // 否则可被用作路径穿越/查询注入，把本服务变成上游接口（ipinfo.io 等）的开放代理。
       if (inputIp) {
+        if (!isValidIPLiteral(inputIp)) {
+          ctx.response.status = 400
+          ctx.response.body = Common.buildJson(null, 400, '参数 ip 不是合法的 IP 地址')
+          return
+        }
         ip = inputIp
       }
 

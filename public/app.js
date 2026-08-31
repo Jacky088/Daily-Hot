@@ -854,10 +854,11 @@ async function gtranslateLoad(ep, params, url, ck, c, forceUpdate) {
 
 // 二维码卡：白色衬底相框（保证深色主题下扫码对比度）+ 下载按钮
 function qrWrapHTML(blobUrl) {
+  // data URI 经 esc() 转义引号以防属性注入；不可用 safeUrl()——它会拒绝 data: 协议
   return `<div class="qr-wrap">
-    <div class="qr-frame"><img src="${blobUrl}" alt="QR"></div>
+    <div class="qr-frame"><img src="${esc(blobUrl)}" alt="QR"></div>
     <div class="qr-tip">📱 扫码识别内容</div>
-    <a class="qr-download" href="${blobUrl}" download="qrcode.png">⬇ 下载 PNG</a>
+    <a class="qr-download" href="${esc(blobUrl)}" download="qrcode.png">⬇ 下载 PNG</a>
   </div>`;
 }
 
