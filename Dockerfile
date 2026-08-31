@@ -47,4 +47,6 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget -q -O /dev/null http://127.0.0.1:4399/health || exit 1
 
 # 运行应用
-CMD ["node", "node.ts"]
+# 显式开启类型剥离：Node 22.6~22.17 必须带此 flag 才能直接运行 .ts 入口，
+# Node 22.18+/23.6+ 已默认启用，保留该 flag 无副作用，可兼容更低版本的基础镜像。
+CMD ["node", "--experimental-strip-types", "node.ts"]
