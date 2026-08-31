@@ -74,7 +74,7 @@ npx edgeone makers deploy .edgeone -n daily-hot
 **方式二：Git 仓库导入**
 
 1. 在 [EdgeOne Pages](https://edgeone.ai/pages) 控制台「导入 Git 仓库」，选择 `Jacky088/Daily-Hot`。
-2. 构建配置自动读取仓库根目录的 `edgeone.json`（安装 `npm install --no-audit --no-fund`、构建 `node scripts/copy-assets.mjs`、输出目录 `.edgeone`），保持默认即可。云函数由平台自动构建，构建命令**无需**再写 `edgeone makers build`。
+2. 构建配置自动读取仓库根目录的 `edgeone.json`，保持默认即可：安装 `npm install --no-audit --no-fund`、构建 `node scripts/copy-assets.mjs`、输出目录 `.edgeone`。其中**构建命令不可省略**——平台只自动构建云函数，前端 `public/` 需由该脚本拷入 `.edgeone/assets`，否则页面全部 404。
 3. 之后每次 `git push` 会自动重新构建部署。
 
 **访问域名**：部署后控制台会给出默认域名（如 `https://daily-hot.edgeone.dev`）。「全球可用区」项目的域名带 `eo_token` 预览鉴权参数（有时效），绑定自定义域名后可免 token 长期公开访问。
