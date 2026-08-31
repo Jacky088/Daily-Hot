@@ -36,7 +36,14 @@ class ServiceZhihuHot {
 
   async #fetch() {
     const api = 'https://api.zhihu.com/topstory/hot-lists/total?limit=30'
-    const response = await fetch(api)
+    // 必须带浏览器 UA 与 Referer：裸请求（无任何头）会被知乎风控拦截，
+    // 表现为间歇性拿不到数据，尤其在 Workers 这类数据中心出口 IP 上。
+    const response = await fetch(api, {
+      headers: {
+        'User-Agent': Common.chromeUA,
+        Referer: 'https://www.zhihu.com/hot',
+      },
+    })
     const { data = [] } = await response.json()
 
     return (data as Item[]).map((e) => ({

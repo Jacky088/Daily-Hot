@@ -60,6 +60,10 @@ class ServiceBili {
   // Workers Cache API 持久缓存（跨 isolate/请求存活；Node/Deno 环境自动跳过）
   #cacheKey = 'https://cache.60s.local/bili'
 
+  // RSSHub 镜像，按序尝试。liumingye.cn 为实测 Cloudflare 出口可访问的镜像；
+  // 镜像存活情况会变动，故保留多个以便自动切换。
+  #rssMirrors = ['https://rsshub.liumingye.cn', 'https://rsshub.app', 'https://rsshub.rssforever.com']
+
   async #saveCache(list: { title: string; link: string }[]) {
     try {
       if (typeof caches === 'undefined') return
@@ -102,22 +106,14 @@ class ServiceBili {
       if (list.length > 0) return list.map(toListItem)
     } catch {}
 
-    // RSSHub 镜像兜底（海外环境直连被拦时；镜像冷缓存回源较慢，超时放宽到 12s）
-    try {
-      const rss = await (
-        await fetch('https://rsshub.woodland.cafe/bilibili/hot-search', {
-          ...options,
-          signal: AbortSignal.timeout(12000),
-        })
-      ).text()
-      const list = [...rss.matchAll(/<item>([\s\S]*?)<\/item>/g)]
-        .map(([_, block]) => ({
-          title: this.#unescapeXml(block.match(/<title>([\s\S]*?)<\/title>/)?.[1] || ''),
-          link: this.#unescapeXml((block.match(/<link>([\s\S]*?)<\/link>/)?.[1] || '').trim()),
-        }))
-        .filter((e) => e.title)
-      if (list.length > 0) return list
-    } catch {}
+    // RSSHub 镜像兜底：B站对海外 IP 一律返回 412 风控 HTML，直连必然失败，此时只能走镜像。
+    // 镜像可用性会变动，故按序尝试多个（每个超时 10s），取第一个有数据的。
+    for (const mirror of this.#rssMirrors) {
+      try {
+        const list = await this.#fetchRss(`${mirror}/bilibili/hot-search`)
+        if (list.length > 0) return list
+      } catch {}
+    }
 
     // app 接口直连兜底
     try {
@@ -127,6 +123,23 @@ class ServiceBili {
     } catch {}
 
     return []
+  }
+
+  // 拉取并解析 RSS：<item> 内的 <title> / <link>，镜像返回 HTML 错误页时自然解析出 0 条
+  async #fetchRss(url: string) {
+    const rss = await (
+      await fetch(url, {
+        headers: { 'User-Agent': Common.chromeUA },
+        signal: AbortSignal.timeout(10_000),
+      })
+    ).text()
+
+    return [...rss.matchAll(/<item>([\s\S]*?)<\/item>/g)]
+      .map(([_, block]) => ({
+        title: this.#unescapeXml(block.match(/<title>([\s\S]*?)<\/title>/)?.[1] || ''),
+        link: this.#unescapeXml((block.match(/<link>([\s\S]*?)<\/link>/)?.[1] || '').trim()),
+      }))
+      .filter((e) => e.title)
   }
 
   #unescapeXml(str: string) {

@@ -120,7 +120,6 @@ const EPS = [
   { cat:'tools', id:'pwdchk', name:'密码强度检测', icon:'💪', path:'/v2/password/check', type:'pwdchk', auto:0, inputs:[{n:'password',p:'密码',d:'Test123456'}], hint:'评估密码强度与暴力破解耗时；出于安全考虑，请勿检测真实在用的密码' },
   { cat:'tools', id:'color', name:'随机颜色', icon:'🎨', path:'/v2/color/random', type:'color', auto:1, hint:'随机生成一个颜色，含 RGB/HSL/CMYK 多格式与配色建议' },
   { cat:'tools', id:'palette', name:'配色方案', icon:'🖌️', path:'/v2/color/palette', type:'palette', auto:0, inputs:[{n:'color',p:'hex',d:''}], hint:'输入 hex 颜色值（如 #6366F1）生成互补、类似、三角配色方案；留空则随机' },
-  { cat:'tools', id:'chem', name:'化学元素', icon:'⚗️', path:'/v2/chemical', type:'kv', auto:1, keys:[['name','名称'],['formula','分子式'],['mass','平均质量'],['monoisotopicMass','单同位素质量'],['image','结构式']], hint:'随机展示一个化合物；id 参数支持 PubChem CID 或化合物名称' },
 
   // 生活
   { cat:'life', id:'wnow', name:'实时天气', icon:'☀️', path:'/v2/weather/realtime', type:'weather', auto:1, inputs:[{n:'query',p:'城市',d:'北京'}] },
