@@ -11,4 +11,6 @@ sk.json/
 .env
 .edgeone/*
 .tef_dist/*
-  
+
+# build / deploy logs
+*.log
