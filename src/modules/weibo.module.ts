@@ -3,9 +3,16 @@ import { cached } from '../cache.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
+// 微博移动端接口的游客 Cookie 会不定期失效，失效后榜单为空或返回风控页。
+// 过期时可通过环境变量 WEIBO_COOKIE 注入新值热更新，无需改代码重新部署。
+const FALLBACK_COOKIE =
+  'WEIBOCN_FROM=1110006030; SUB=_2AkMe1h3tf8NxqwFRmvsXxG7ia4h2wwrEieKoiuw2JRM3HRl-yT9kqnc9tRB6NVYzAmxCM1izZSWe9-xcPQmmL_NGEnIl; SUBP=0033WrSXqPxfM72-Ws9jqgMF55529P9D9WhR9EPgz3BDPWy-YHwFuiIb; MLOGIN=0; _T_WM=38152265571; XSRF-TOKEN=86baeb; M_WEIBOCN_PARAMS=luicode%3D10000011%26lfid%3D102803%26launchid%3D10000360-page_H5%26fid%3D106003type%253D25%2526t%253D3%2526disable_hot%253D1%2526filter_type%253Drealtimehot%26uicode%3D10000011'
+
 class ServiceWeibo {
-  COOKIE =
-    'WEIBOCN_FROM=1110006030; SUB=_2AkMe1h3tf8NxqwFRmvsXxG7ia4h2wwrEieKoiuw2JRM3HRl-yT9kqnc9tRB6NVYzAmxCM1izZSWe9-xcPQmmL_NGEnIl; SUBP=0033WrSXqPxfM72-Ws9jqgMF55529P9D9WhR9EPgz3BDPWy-YHwFuiIb; MLOGIN=0; _T_WM=38152265571; XSRF-TOKEN=86baeb; M_WEIBOCN_PARAMS=luicode%3D10000011%26lfid%3D102803%26launchid%3D10000360-page_H5%26fid%3D106003type%253D25%2526t%253D3%2526disable_hot%253D1%2526filter_type%253Drealtimehot%26uicode%3D10000011'
+  // 每次读取而非构造时固化，保证运行时注入的环境变量能生效
+  get cookie(): string {
+    return process.env.WEIBO_COOKIE || FALLBACK_COOKIE
+  }
 
   handle(): RouterMiddleware<'/weibo'> {
     return async (ctx) => {
@@ -42,7 +49,7 @@ class ServiceWeibo {
       await fetch(api, {
         headers: {
           'User-Agent': Common.chromeUA,
-          Cookie: this.COOKIE,
+          Cookie: this.cookie,
         },
       })
     ).json()

@@ -1,8 +1,7 @@
 import regions from './regions.json' with { type: 'json' }
 import { load } from 'cheerio'
 import { Common } from '../../common.ts'
-import { serviceIP } from '../ip.module.ts'
-import { allowForceUpdate, forceUpdateKey } from '../../force-update-guard.ts'
+import { resolveForceUpdate } from '../../force-update-guard.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -102,10 +101,8 @@ class ServiceFuelPrice {
     return async (ctx) => {
       try {
         const queryRegion = ctx.request.url.searchParams.get('region') || '北京'
-        const forceUpdate = !!ctx.request.url.searchParams.get('force-update')
-        // 限流防护：同一调用方 60 秒内仅允许一次强制刷新，否则回退缓存
-        const ip = serviceIP.getClientIP(ctx.request.headers) || ctx.request.ip || 'unknown'
-        const allowedForce = forceUpdate && allowForceUpdate(forceUpdateKey(ctx.request.url.pathname, ip))
+        // 是否允许绕过缓存回源（guard 内置 60 秒最小间隔防护，防止高频打爆上游）
+        const allowedForce = resolveForceUpdate(ctx.request)
         const target = sortedRegion.find((e) => e.region.endsWith(queryRegion))
 
         if (!target) {

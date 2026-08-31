@@ -6,7 +6,8 @@ on:
       - 'v*'
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: vikiboss/60s
+  # 推送到仓库拥有者的 Docker Hub 命名空间下，需确保 DOCKERHUB_USERNAME 与该命名空间一致
+  IMAGE_NAME: ${{ github.repository_owner }}/daily-hot
 
 jobs:
   release:

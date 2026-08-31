@@ -106,19 +106,22 @@ export class Common {
   static async getParam(name: string, request: Request & { _bodyJson?: Record<string, any> }, parseBody = false) {
     const value = request.url.searchParams.get(name) ?? ''
 
-    if (!parseBody && value) return value
+    // query 优先：取到值就直接返回，不再解析 body
+    if (value) return value
+
+    if (!parseBody) return value
 
     try {
-      const json = request?._bodyJson
-
-      if (!json) {
+      // body 只能读一次，解析结果按请求缓存，供同一请求内的后续 getParam 复用
+      if (!request._bodyJson) {
         request._bodyJson = await request.body.json()
-      } else {
-        return json[name] ?? ''
       }
-    } catch {}
 
-    return value
+      return request._bodyJson[name] ?? ''
+    } catch {
+      // 无 body 或非法 JSON（如 GET 请求），回退到 query 值
+      return value
+    }
   }
 
   static transformEntities(str: string, mode: 'unicode2ascii' | 'ascii2unicode' = 'ascii2unicode') {
@@ -126,7 +129,7 @@ export class Common {
       return str.replace(/&#(\d+);/g, (_, $1) => String.fromCharCode(Number($1)))
     }
 
-    return str.replace(/./, (_) => `&#${_.charCodeAt(0)};`)
+    return str.replace(/./g, (_) => `&#${_.charCodeAt(0)};`)
   }
 
   static md5(text: string, encoding: 'buffer'): Buffer
@@ -174,9 +177,9 @@ export class Common {
 
   static getApiInfo() {
     return {
-      api_name: '60s-api',
+      api_name: 'daily-hot-api',
       api_version: pkg.version,
-      api_docs: 'https://docs.60s-api.viki.moe',
+      api_docs: config.github,
       author: config.author,
       user_group: config.group,
       github_repo: config.github,

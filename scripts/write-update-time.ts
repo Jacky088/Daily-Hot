@@ -4,4 +4,4 @@ import { Common } from '../src/common.ts'
 
 pkg.updateTime = Common.localeTime()
 
-fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2))
+fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n')

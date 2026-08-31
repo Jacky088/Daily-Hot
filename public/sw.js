@@ -20,19 +20,9 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
 
-  // API 请求：Network-First
-  if (url.pathname.startsWith('/v2/')) {
-    e.respondWith(
-      fetch(e.request)
-        .then(res => {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
-          return res;
-        })
-        .catch(() => caches.match(e.request))
-    );
-    return;
-  }
+  // API 请求：Network-Only，直接放行不拦截。
+  // 热榜数据离线重放没有意义，缓存只会让恢复网络后仍看到陈旧数据，且无淘汰策略会无限增长。
+  if (url.pathname.startsWith('/v2/')) return;
 
   // HTML 请求：Network-First（确保每次获取最新页面）
   if (url.pathname === '/' || url.pathname === '/index.html' || e.request.mode === 'navigate') {

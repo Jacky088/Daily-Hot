@@ -1,7 +1,6 @@
 import dayjs from 'dayjs'
 import { Common } from '../common.ts'
-import { serviceIP } from './ip.module.ts'
-import { allowForceUpdate, forceUpdateKey } from '../force-update-guard.ts'
+import { resolveForceUpdate } from '../force-update-guard.ts'
 import type { RouterMiddleware } from '@oak/oak'
 
 const HN_BASE_URL: string = 'https://hacker-news.firebaseio.com/v0'
@@ -26,13 +25,7 @@ class ServiceHackerNews {
       let limit = Number.parseInt(await Common.getParam('limit', ctx.request)) || DEFAULT_LIMIT_SIZE
       limit = Math.min(limit, DEFAULT_MAX_LIMIT_SIZE)
 
-      // 是否需要强制刷新缓存
-      const forceUpdate = !!(await Common.getParam('force-update', ctx.request))
-      // 限流防护：同一调用方 60 秒内仅允许一次强制刷新，否则回退缓存
-      const ip = serviceIP.getClientIP(ctx.request.headers) || ctx.request.ip || 'unknown'
-      const allowedForce = forceUpdate && allowForceUpdate(forceUpdateKey(ctx.request.url.pathname, ip))
-
-      const data = await this.#fetch(type, limit, allowedForce)
+      const data = await this.#fetch(type, limit, resolveForceUpdate(ctx.request))
 
       switch (ctx.state.encoding) {
         case 'text': {

@@ -702,7 +702,12 @@ async function load(ep, forceUpdate = false) {
   const qs = params.toString();
   if (qs) url += '?' + qs;
 
+  // 缓存键不含 force-update：它只是回源手段，计入 key 会让刷新结果写到另一个键，
+  // 之后普通加载仍命中旧缓存，等于白刷
   const ck = cacheKey(ep, url);
+
+  // 手动刷新时额外告知后端绕过其服务端缓存，否则 TTL 内点 ↻ 会拿回同一份数据
+  const requestUrl = forceUpdate ? `${url}${url.includes('?') ? '&' : '?'}force-update=1` : url;
 
   // 非强制刷新时检查缓存：命中直接渲染，不再后台重复请求
   if (!forceUpdate) {
@@ -718,9 +723,9 @@ async function load(ep, forceUpdate = false) {
   }
 
   // Google 翻译：优先浏览器直连 Google 免费端点（用户 IP 不被风控），失败走自建后端
-  if (ep.id === 'gtranslate') return gtranslateLoad(ep, params, url, ck, c, forceUpdate);
+  if (ep.id === 'gtranslate') return gtranslateLoad(ep, params, requestUrl, ck, c, forceUpdate);
 
-  await fetchWithRetry(ep, url, ck, c, 2);
+  await fetchWithRetry(ep, requestUrl, ck, c, 2);
 }
 
 // Google 翻译加载器：浏览器直连 clients5.google.com（允许任意 Origin 的 CORS）；

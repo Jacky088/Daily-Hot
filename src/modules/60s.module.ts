@@ -1,7 +1,6 @@
 import { Common, dayjs, TZ_SHANGHAI } from '../common.ts'
 import { SolarDay } from 'tyme4ts'
-import { serviceIP } from './ip.module.ts'
-import { allowForceUpdate, forceUpdateKey } from '../force-update-guard.ts'
+import { resolveForceUpdate } from '../force-update-guard.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 import { config } from '../config.ts'
@@ -18,11 +17,7 @@ class Service60s {
 
   handle(): RouterMiddleware<'/60s'> {
     return async (ctx) => {
-      const forceUpdate = ctx.request.url.searchParams.has('force-update')
-      // 限流防护：同一调用方 60 秒内仅允许一次强制刷新，否则回退缓存
-      const ip = serviceIP.getClientIP(ctx.request.headers) || ctx.request.ip || 'unknown'
-      const allowedForce = forceUpdate && allowForceUpdate(forceUpdateKey(ctx.request.url.pathname, ip))
-      const data = await this.#fetch(ctx.request.url.searchParams.get('date'), allowedForce)
+      const data = await this.#fetch(ctx.request.url.searchParams.get('date'), resolveForceUpdate(ctx.request))
 
       switch (ctx.state.encoding) {
         case 'text': {
@@ -110,17 +105,21 @@ class Service60s {
 
     if (!data?.news?.length) return null
 
-    const now = dayjs().tz(TZ_SHANGHAI)
+    // 农历必须按数据日期计算：请求历史日期（?date=2026-01-01）时不能返回当天的农历
+    const target = dayjs(data.date).tz(TZ_SHANGHAI)
+    const lunarDate = target.isValid()
+      ? SolarDay.fromYmd(target.year(), target.month() + 1, target.date())
+          .getLunarDay()
+          .toString()
+          .replace('农历', '')
+      : ''
 
     return {
       ...data,
       day_of_week: getDayOfWeek(data.date),
-      lunar_date: SolarDay.fromYmd(now.year(), now.month() + 1, now.date())
-        .getLunarDay()
-        .toString()
-        .replace('农历', ''),
-      api_updated: Common.localeTime(now.valueOf()),
-      api_updated_at: now.valueOf(),
+      lunar_date: lunarDate,
+      api_updated: Common.localeTime(),
+      api_updated_at: Date.now(),
     } satisfies DailyNewsItem
   }
 

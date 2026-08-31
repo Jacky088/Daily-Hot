@@ -33,9 +33,13 @@
     "wrangler": "^4.104.0"
   },
   "scripts": {
-    "dev:no-watch": "DEV=1 PORT=4398 node --disable-warning=ExperimentalWarning node.ts",
-    "dev": "DEV=1 PORT=4398 node --disable-warning=ExperimentalWarning --watch node.ts",
-    "start": "PORT=4398 node --disable-warning=ExperimentalWarning node.ts",
+    "dev": "node --watch --disable-warning=ExperimentalWarning node.ts",
+    "dev:no-watch": "node --disable-warning=ExperimentalWarning node.ts",
+    "start": "node --disable-warning=ExperimentalWarning node.ts",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "lint": "prettier --check .",
+    "verify:endpoints": "node --disable-warning=ExperimentalWarning scripts/verify-endpoints.ts",
     "prerelease": "node ./scripts/write-update-time.ts && git add . && git commit -m \"chore: update time in package.json\"",
     "release": "bumpp",
     "update-lockfile": "pnpm install && bun install && deno install --allow-scripts",

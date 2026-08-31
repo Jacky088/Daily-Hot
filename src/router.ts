@@ -71,6 +71,8 @@ const serviceGoldPrice = new GoldPriceService()
 
 export const rootRouter = new Router()
 
+// 兜底：正常情况下 / 由 wrangler [assets] 或 staticAssets 中间件返回 index.html，
+// 只有在 public 目录缺失时才会走到这里，返回接口清单便于排查。
 rootRouter.get('/', (ctx) => {
   ctx.response.headers.set('Content-Type', 'application/json; charset=utf-8')
   const endpoints = Array.from(appRouter.entries(), ([_, v]) => v.path)

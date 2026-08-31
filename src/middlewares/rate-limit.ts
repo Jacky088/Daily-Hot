@@ -3,10 +3,16 @@ import { Common } from '../common.ts'
 
 import type { Middleware } from '@oak/oak'
 
-// 令牌桶限流：允许短时突发（首页一次打开 30+ 并发请求），同时限制持续速率
-// - 容量 capacity：桶最多存 60 个令牌（首页并发请求可一次放行）
+// 令牌桶限流：允许短时突发，同时限制持续速率
+// - 容量 capacity：桶最多存 60 个令牌
 // - 补充速率 refillRate：每 500ms 补 1 个令牌（即每分钟 120 个的持续速率上限）
-// 这样首页打开正常，但脚本式高频刷会被拦截
+//
+// 作用域：仅统计 /v2 API。首页静态资源（html/js/css/sw）由浏览器与 CDN 缓存，
+// 若一并计入令牌，「打开一次页面」就会消耗掉大半突发额度，反而误伤正常用户。
+//
+// 局限：计数存放在实例内存中，仅对 Node / Bun / Deno / Docker 这类长驻单进程部署完全有效。
+// Cloudflare Workers 为多 isolate 分布式运行，各实例独立计数且随冷启动清零，
+// 只能起到单实例兜底作用，无法作为全局配额。需要强一致限流请改用 Durable Objects / KV。
 
 const CAPACITY = 60 // 突发上限
 const REFILL_INTERVAL_MS = 500 // 每 500ms 补 1 个令牌
@@ -32,6 +38,12 @@ let lastCleanup = Date.now()
 
 export function rateLimit(): Middleware {
   return async (ctx, next) => {
+    // 非 API 请求直接放行，不消耗令牌
+    if (!ctx.request.url.pathname.startsWith('/v2')) {
+      await next()
+      return
+    }
+
     const now = Date.now()
     if (now - lastCleanup > 60_000) {
       cleanupBuckets()

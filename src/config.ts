@@ -3,7 +3,7 @@ export const config = {
   port: process.env.PORT ? +process.env.PORT : 4399,
   group: '595941841',
   author: '木木',
-  github: 'https://github.com/vikiboss/60s',
+  github: 'https://github.com/Jacky088/Daily-Hot',
   debug: !!process.env.DEBUG,
   overseas_first: !!process.env.OVERSEAS_FIRST,
   encodingParamName: process.env.ENCODING_PARAM_NAME || 'encoding',

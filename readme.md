@@ -87,12 +87,20 @@ docker run -d \
 ```bash
 # Node.js (需要 v22.6+)
 pnpm install
-pnpm run dev          # 开发模式，端口 4398
-pnpm start            # 生产模式，端口 4398
+pnpm run dev          # 开发模式（--watch 热重载），端口 4399
+pnpm start            # 生产模式，端口 4399
 
 # 或直接部署到 Workers
 npx wrangler deploy
 ```
+
+| 命令 | 说明 |
+| ---- | ---- |
+| `pnpm run dev` | 开发模式，文件变更自动重启 |
+| `pnpm start` | 生产模式 |
+| `pnpm run typecheck` | TypeScript 类型检查（不产出文件） |
+| `pnpm run verify:endpoints` | 校验前端面板引用的接口是否都在后端注册 |
+| `pnpm run format` / `pnpm run lint` | Prettier 格式化 / 格式检查 |
 
 ## ⚙️ 配置
 
@@ -106,6 +114,8 @@ npx wrangler deploy
 | `OVERSEAS_FIRST` | `false` | CDN 优先级（`true` 海外优先） |
 | `ENCODING_PARAM_NAME` | `encoding` | 响应格式参数名 |
 | `BLACKLIST_IPS` | `[]` | IP 黑名单，JSON 字符串格式 |
+| `WEIBO_COOKIE` | 内置游客 Cookie | 微博热搜接口凭证，内置值失效时注入新值 |
+| `DEV` | 自动 | 开发模式，`pnpm run dev` 会自动置为 `1`，无需手动设置 |
 
 ## 📡 API 使用
 

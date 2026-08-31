@@ -3,12 +3,26 @@ import { Common } from '../common.ts'
 
 import type { Middleware } from '@oak/oak'
 
-// 解析黑名单环境变量，格式为 JSON 数组；非法时安全降级为空列表，避免崩溃
-let list: string[] = []
-try {
-  list = process.env.BLACKLIST_IPS ? JSON.parse(process.env.BLACKLIST_IPS) : []
-} catch (e) {
-  console.warn('[BLACKLIST] 环境变量 BLACKLIST_IPS 解析失败，已降级为空列表:', e)
+// 黑名单 IP 列表，环境变量格式为 JSON 数组字符串。
+// 惰性解析：Cloudflare Workers 的 process.env 由 nodejs_compat 在运行时注入，
+// 模块顶层求值可能早于注入时机，放到首次请求再解析才能确保读到值。
+// 解析非法时安全降级为空列表，避免整个服务崩溃。
+let list: string[] | null = null
+
+function getList(): string[] {
+  if (list) return list
+
+  let parsed: string[] = []
+
+  try {
+    parsed = process.env.BLACKLIST_IPS ? JSON.parse(process.env.BLACKLIST_IPS) : []
+  } catch (e) {
+    console.warn('[BLACKLIST] 环境变量 BLACKLIST_IPS 解析失败，已降级为空列表:', e)
+  }
+
+  list = parsed
+
+  return list
 }
 
 export function blacklist(): Middleware {
@@ -16,10 +30,11 @@ export function blacklist(): Middleware {
     const ip = ctx.request.ip
     const ua = ctx.request.headers.get('User-Agent') || '-'
     const url = ctx.request.url
+    const blocked = getList()
 
-    Common.debug(`[BLACKLIST] blacklist IP list: ${list.join(', ')}`)
+    Common.debug(`[BLACKLIST] blacklist IP list: ${blocked.join(', ')}`)
 
-    if (ip && list.includes(ip)) {
+    if (ip && blocked.includes(ip)) {
       ctx.response.status = 403
       ctx.response.body = Common.buildJson(
         null,

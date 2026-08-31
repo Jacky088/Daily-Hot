@@ -1,4 +1,6 @@
-name = "60s"
+# 注意：修改 name 后首次 wrangler deploy 会创建一个同名的新 Worker，
+# 原 "60s" Worker 需自行在 Cloudflare 控制台清理。
+name = "daily-hot"
 main = "cf-worker.ts"
 compatibility_date = "2025-11-05"
 compatibility_flags = [ "nodejs_compat" ]

@@ -2,7 +2,10 @@
 // - 命中且未过期：直接返回缓存，不打上游
 // - 未命中或已过期：请求上游，成功后写入缓存
 // - 请求失败：staleTtl 内回退旧数据兜底，避免直接报错
+// - force-update：跳过新鲜缓存直接回源，回源失败仍走 stale 兜底
 // - 容量上限：避免无限制增长导致内存耗尽（DoS 防护）
+
+import { isForceUpdate } from './force-update-guard.ts'
 
 const MAX_CACHE_SIZE = 500
 
@@ -17,7 +20,8 @@ export async function cached<T>(
   const hit = store.get(key)
   const now = Date.now()
 
-  if (hit && now - hit.ts < ttl) {
+  // 缓存新鲜且未要求强制刷新时直接命中
+  if (hit && now - hit.ts < ttl && !isForceUpdate()) {
     return hit.data as T
   }
 
