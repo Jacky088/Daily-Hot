@@ -2,38 +2,31 @@ import { Common } from '../common.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
+// 数据源由 ChemSpider 切换为 PubChem (NCBI PUG-REST)。
+// 原因：ChemSpider 对数据中心/云机房出口 IP 返回反爬挑战页，导致 Makers 等
+// 服务端部署下抓取不到 __NUXT_DATA__ 而 500。PubChem 专为程序化访问设计，
+// 对云 IP 友好，Worker 与 Makers 均可用。
 class ServiceChemical {
   handle(): RouterMiddleware<'/chemical'> {
     return async (ctx) => {
       const id = await Common.getParam('id', ctx.request)
 
-      const finalId = id || Common.randomInt(1, 60_000_000).toString()
-
-      const res = await fetch(`https://www.chemspider.com/Chemical-Structure.${finalId}.html`, {
-        headers: { 'User-Agent': Common.chromeUA, Referer: 'https://www.chemspider.com/' },
-      })
-      const html = await res.text()
-      const data = JSON.parse(/id="__NUXT_DATA__"[^>]*>([^<]*)</.exec(html)?.[1] || '[]')
-
-      // NUXT 序列化格式: 对象的值为数组的下标, 动态定位化合物字段索引表, 避免页面结构变化导致下标漂移
-      const compound = (data as any[]).find(
-        (item) =>
-          item && typeof item === 'object' && !Array.isArray(item) && 'ChemSpiderId' in item && 'MolecularFormula' in item,
-      ) as Record<string, number> | undefined
+      // id 可作为 PubChem CID (纯数字) 或化合物名称；缺省时随机展示一个化合物
+      const compound = id
+        ? await this.#fetchCompound(id)
+        : await this.#fetchRandomCompound()
 
       if (!compound) {
-        throw new Error(`未找到 ID 为 ${finalId} 的化合物数据`)
+        throw new Error(`未找到化合物: ${id || '随机'}`)
       }
 
-      const massMap = (data as any[])[compound.MolecularMass] as Record<string, number> | undefined
-
       const result = {
-        id: +finalId,
-        name: (data as any[])[compound.Title] || '',
-        mass: massMap?.AverageMass != null ? toFixedNumber((data as any[])[massMap.AverageMass], 3) : '',
-        formula: (data as any[])[compound.MolecularFormula] || '',
-        image: `https://legacy.chemspider.com/ImagesHandler.ashx?id=${finalId}`,
-        monoisotopicMass: massMap?.MonoisotopicMass != null ? toFixedNumber((data as any[])[massMap.MonoisotopicMass], 3) : '',
+        id: compound.cid,
+        name: compound.name,
+        mass: compound.mass,
+        formula: compound.formula,
+        image: `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${compound.cid}/PNG`,
+        monoisotopicMass: compound.monoisotopicMass,
       }
 
       switch (ctx.state.encoding) {
@@ -52,6 +45,58 @@ class ServiceChemical {
       }
     }
   }
+
+  async #fetchRandomCompound(): Promise<Compound | null> {
+    for (let i = 0; i < 5; i++) {
+      const compound = await this.#fetchCompound(Common.randomInt(1, 100_000_000).toString())
+      if (compound) return compound
+    }
+    return null
+  }
+
+  async #fetchCompound(query: string): Promise<Compound | null> {
+    const isCid = /^\d+$/.test(query)
+    const url = `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/${
+      isCid ? 'cid/' + query : 'name/' + encodeURIComponent(query)
+    }/property/MolecularFormula,MolecularWeight,MonoisotopicMass,IUPACName,Title/JSON`
+
+    let res: Response
+    try {
+      res = await fetch(url, { headers: { 'User-Agent': Common.chromeUA } })
+    } catch {
+      return null
+    }
+    if (!res.ok) return null
+
+    const json = (await res.json()) as { PropertyTable?: { Properties?: CompoundRaw[] } }
+    const props = json.PropertyTable?.Properties?.[0]
+    if (!props) return null
+
+    return {
+      cid: props.CID,
+      name: props.Title || props.IUPACName || '',
+      formula: props.MolecularFormula || '',
+      mass: props.MolecularWeight != null ? toFixedNumber(Number(props.MolecularWeight), 3) : '',
+      monoisotopicMass: props.MonoisotopicMass != null ? toFixedNumber(Number(props.MonoisotopicMass), 3) : '',
+    }
+  }
+}
+
+interface Compound {
+  cid: number
+  name: string
+  formula: string
+  mass: number | string
+  monoisotopicMass: number | string
+}
+
+interface CompoundRaw {
+  CID: number
+  Title?: string
+  IUPACName?: string
+  MolecularFormula?: string
+  MolecularWeight?: string | number
+  MonoisotopicMass?: string | number
 }
 
 export const serviceChemical = new ServiceChemical()
