@@ -290,6 +290,50 @@ function init() {
     });
   }
 
+  // 定位校正任务（模块级单例）：分类定位与模块定位共用一个计时器，
+  // 保证同一时刻只有一个任务在滚动页面
+  let alignTimer = null;
+  let alignToken = 0;
+
+  function stopAlign() {
+    if (alignTimer) {
+      clearInterval(alignTimer);
+      alignTimer = null;
+    }
+  }
+
+  // 启动一轮校正，返回本轮 token。
+  // 必须先取消上一轮：分类定位留下来的是每 100ms 把页面拉回「分类标题」的任务，
+  // 若新一轮卡片定位不先清掉它，两者会朝各自目标反复拉扯，表现就是精确定位失效
+  function startAlign(fn, interval) {
+    stopAlign();
+    alignTimer = setInterval(fn, interval);
+    return ++alignToken;
+  }
+
+  // 延时兜底专用：只有本轮仍是当前任务时才停止，
+  // 避免上一轮遗留的 setTimeout 到期后误清新一轮的计时器
+  function stopAlignIfCurrent(token) {
+    if (token === alignToken) stopAlign();
+  }
+
+  // 用户手动滚动立即让位。固定引用，便于 once 监听器去重
+  const abortAlign = () => stopAlign();
+
+  // 滚动停靠位：移动端吸顶的是整个分类导航（含模块 chips 条），
+  // 桌面端分类栏在侧边不遮挡内容、遮挡卡片的是吸顶顶栏——必须分端测量，
+  // 否则桌面端会算出负偏移导致根本不滚动。
+  // 注意移动端 nav 高度随 chips 条折叠状态变化（max-height 64px↔0，过渡 0.3s），
+  // 折叠动画期间这个值一直在动，定位必须等布局稳定后再取。
+  function scrollDockTop() {
+    if (window.innerWidth <= 820) {
+      const navEl = document.querySelector('.cat-nav');
+      return (navEl ? navEl.getBoundingClientRect().bottom : 0) + 12;
+    }
+    const topbar = document.querySelector('.topbar');
+    return (topbar ? topbar.getBoundingClientRect().bottom : 0) + 12;
+  }
+
   // 刷新子菜单：桌面手风琴只展开当前分类；移动 chips 条填充当前分类模块；
   // 同时同步模块高亮态
   function refreshSubs() {
@@ -341,17 +385,12 @@ function init() {
     // 直接计算卡片绝对坐标用 window.scrollTo 定位最可靠。
     const card = document.getElementById('card-' + ep.id);
     if (card) {
-      // 目标停靠位：移动端是吸顶分类导航的底边；桌面端分类栏在侧边不遮挡内容，
-      // 遮挡卡片的是吸顶顶栏——必须分端测量，否则桌面会算出负偏移导致根本不滚动
-      const targetTop = () => {
-        if (window.innerWidth <= 820) {
-          const navEl = document.querySelector('.cat-nav');
-          return (navEl ? navEl.getBoundingClientRect().bottom : 0) + 12;
-        }
-        const topbar = document.querySelector('.topbar');
-        return (topbar ? topbar.getBoundingClientRect().bottom : 0) + 12;
-      };
-      const absY = () => card.getBoundingClientRect().top + window.scrollY - targetTop();
+      // 先停掉上一轮校正（可能是分类定位留下的）：它会持续把页面拉回分类标题，
+      // 与本次卡片定位争抢滚动位置，是精确定位失效的直接原因
+      stopAlign();
+
+      // 停靠位与分类定位共用 scrollDockTop()（分端测量顶栏/分类导航底边）
+      const absY = () => card.getBoundingClientRect().top + window.scrollY - scrollDockTop();
       // 首跳用 instant：smooth 动画在后台/遮挡标签页会被暂停导致定位中断，
       // 精确性优先于过渡动画；随后的轮询校正同样是瞬时对齐
       window.scrollTo({ top: absY(), behavior: 'instant' });
@@ -359,28 +398,71 @@ function init() {
       // 每 400ms 瞬时对齐；仅当「连续 3 次检测文档高度无变化且已对齐」才提前退出，
       // 8s 超时兜底；用户手动滚动立即让位
       let aligned = 0, stableH = 0, lastH = 0, tries = 0;
-      const alignTimer = setInterval(() => {
+      const token = startAlign(() => {
         tries++;
         const h = document.documentElement.scrollHeight;
         stableH = (h === lastH) ? stableH + 1 : 0;
         lastH = h;
         if (!card.isConnected || tries > 20 || (aligned >= 1 && stableH >= 3)) {
-          clearInterval(alignTimer); return;
+          stopAlign(); return;
         }
-        if (Math.abs(card.getBoundingClientRect().top - targetTop()) < 40) {
+        if (Math.abs(card.getBoundingClientRect().top - scrollDockTop()) < 40) {
           aligned++;
           return;
         }
         aligned = 0;
         window.scrollTo(0, absY());
       }, 400);
-      const abort = () => clearInterval(alignTimer);
-      window.addEventListener('wheel', abort, { once: true, passive: true });
-      window.addEventListener('touchmove', abort, { once: true, passive: true });
-      setTimeout(abort, 8300);
+      window.addEventListener('wheel', abortAlign, { once: true, passive: true });
+      window.addEventListener('touchmove', abortAlign, { once: true, passive: true });
+      setTimeout(() => stopAlignIfCurrent(token), 8300);
       card.classList.add('locate-flash');
       setTimeout(() => card.classList.remove('locate-flash'), 3000);
     }
+  }
+
+  // 点分类后定位到该分类的标题行。
+  // 必须在 refreshSubs() + render() 之后调用，原因有两个：
+  // 1) render() 会重建 #main，在它之前算出的坐标指向的是即将被销毁的旧 DOM；
+  // 2) 切换分类时会移除 sub-collapsed，模块 chips 条从 0 展开到 64px（过渡 0.3s），
+  //    移动端它还是吸顶元素——nav 变高会同时改变「停靠位」和「标题的绝对坐标」。
+  //    所以无论之前 chips 条是展开还是折叠，都必须等布局稳定后重新测量才能对准。
+  function scrollToCatTitle(catId) {
+    // 取消上一轮校正（可能是模块定位留下的），避免两个计时器争抢滚动位置
+    stopAlign();
+
+    // 「全部」渲染的是所有分类的分组列表，本身就是从头看起，保持回到页面顶部
+    if (catId === 'all') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    const title = document.querySelector(`.cat-section[data-cat="${catId}"] .cat-title`);
+    if (!title) return;
+
+    const absY = () => Math.max(0, title.getBoundingClientRect().top + window.scrollY - scrollDockTop());
+
+    // 首跳 instant：smooth 会被随后的折叠过渡与布局变化打断，精确性优先
+    window.scrollTo({ top: absY(), behavior: 'instant' });
+
+    // 轮询校正：chips 条 0.3s 展开动画与卡片异步加载都会改变上方高度，
+    // 坐标一变就重新对齐；连续 2 次复测不变即认为布局已稳定。用户手动滚动立即让位
+    let stable = 0, lastY = Math.round(absY()), tries = 0;
+    const token = startAlign(() => {
+      if (++tries > 15) { stopAlign(); return; }
+      const y = Math.round(absY());
+      if (y === lastY) {
+        if (++stable >= 2) { stopAlign(); return; }
+      } else {
+        stable = 0;
+        window.scrollTo({ top: y, behavior: 'instant' });
+      }
+      lastY = y;
+    }, 100);
+
+    window.addEventListener('wheel', abortAlign, { once: true, passive: true });
+    window.addEventListener('touchmove', abortAlign, { once: true, passive: true });
+    setTimeout(() => stopAlignIfCurrent(token), 2000);
   }
 
   CATS.forEach(c => {
@@ -401,13 +483,13 @@ function init() {
       location.hash = c.id;
       $$('.cat-row > button').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
-      // 窄屏（分类栏为顶部横向滚动）：将选中的按钮在栏内水平居中，并回到内容顶部
-      if (window.innerWidth <= 820) {
-        centerInContainer(catRow, b);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+      // 窄屏分类栏是横向滚动的：把选中的 pill 水平居中（内部已按宽度判断，桌面端自动跳过）
+      centerInContainer(catRow, b);
+      // 先重建 DOM 再定位：render() 会重建 #main，chips 条从折叠展开的 0.3s 动画
+      // 又会改变上方高度，两者完成前算出的落点必然偏移
       refreshSubs();
       render();
+      scrollToCatTitle(c.id);
     };
     catRow.appendChild(b);
     // 桌面侧边栏手风琴：子菜单紧跟在所属分类按钮后（display:contents 让其参与纵向排列）；
@@ -488,6 +570,7 @@ function render() {
       if (eps.length === 0) return;
       const sec = document.createElement('div');
       sec.className = 'cat-section';
+      sec.dataset.cat = c.id; // 供分类导航点击后定位到该分类标题
       sec.innerHTML = `<div class="cat-title">${c.name}<span class="count">${eps.length}</span></div>`;
       const grid = document.createElement('div');
       grid.className = 'grid';
@@ -514,6 +597,7 @@ function render() {
       if (eps.length > 0) {
         const sec = document.createElement('div');
         sec.className = 'cat-section';
+        sec.dataset.cat = curCat; // 供分类导航点击后定位到该分类标题
         sec.innerHTML = `<div class="cat-title">${selCat.name}<span class="count">${eps.length}</span></div>`;
         const grid = document.createElement('div');
         grid.className = 'grid';
