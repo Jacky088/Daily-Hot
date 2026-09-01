@@ -8,7 +8,7 @@
 [![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white) ](https://docker.com/)
 [![License](https://img.shields.io/badge/license-MIT-green) ](./license)
 
-聚合 60+ 个热门数据源，一个页面看遍全网热点。涵盖新闻资讯、科技资讯、影视娱乐、实用工具、生活信息、趣味内容和翻译，部署即用，支持 Cloudflare Workers、Docker 与 EdgeOne Pages 等多种部署方式。
+聚合 60+ 个热门数据源，一个页面看遍全网热点。涵盖新闻资讯、科技资讯、影视娱乐、实用工具、生活信息、趣味内容和翻译，部署即用，支持 Cloudflare Workers、Docker 与 EdgeOne Makers 等多种部署方式。
 
 ## 界面预览
 
@@ -34,8 +34,8 @@
 
 - **🌙 日间 / 夜间模式** — 默认夜间，一键切换，自动记忆偏好
 - **🕸️ 流动网格背景** — Canvas 动态多边形网状结构，适配双主题
-- **📱 移动端适配** — 触屏友好控件，响应式布局，分类导航自动滚动居中
-- **🔗 链接可跳转** — 所有带原链接的数据均可点击跳转到来源页面
+- **📱 移动端适配** — 触屏友好控件，响应式布局，
+- **🔗 链接可跳转** — 可点击跳转到来源页面，
 - **⚡ 智能加载** — 无参数接口自动加载，有参数接口提供输入控件
 - **🏆 排行榜样式** — 前三名金银铜渐变色块，热度数值高亮
 
@@ -52,13 +52,13 @@ npx wrangler deploy
 
 部署完成后访问 Worker 域名即可使用。
 
-### EdgeOne Pages（Makers 全栈部署）
+### EdgeOne Makers
 
-已内置 `edgeone.json` 与 `cloud-functions/[[default]].ts`，前端面板与 `/v2/*` API 一体部署。
+已内置 `edgeone.json` 与 `cloud-functions/[[default]].ts`，前端面板与 API 一体部署。
 
 **方式一：控制台导入 Git 仓库（推荐）**
 
-在 [EdgeOne Pages](https://edgeone.ai/pages) 控制台「导入 Git 仓库」，选择 `Jacky088/Daily-Hot`。构建配置自动读取 `edgeone.json`，保持默认即可，之后每次 `git push` 自动重新部署。
+Fork本项目，在 [EdgeOne Makers](https://edgeone.ai/pages) 控制台「导入 Git 仓库」，选择本项目。构建配置自动读取 `edgeone.json`，保持默认即可，之后每次 `git push` 自动重新部署。
 
 **方式二：CLI 部署**
 
@@ -70,8 +70,8 @@ npx edgeone makers build --mode prod    # 产出 .edgeone/（云函数 + 前端�
 npx edgeone makers deploy .edgeone -n daily-hot
 ```
 
-> `deploy -n` 仅适用于「直接上传」项目，Git 导入的项目请使用方式一。
-> 「全球可用区」项目的默认域名带有时效性 `eo_token` 鉴权参数，绑定自定义域名后可长期公开访问。
+> `deploy -n` 仅适用于「直接上传」项目。
+> 绑定自定义域名后可长期公开访问。
 
 ### Docker
 
