@@ -22,13 +22,13 @@
 
 | 分类 | 包含接口 |
 | ---- | -------- |
-| 📰 新闻资讯 | 60 秒读懂世界、微博热搜、知乎热榜、B 站热门、抖音热点、今日头条、百度热搜/电视剧/贴吧、夸克每日资讯、汽车热榜、历史上的今天 |
+| 📰 新闻资讯 | 60 秒读懂世界、微博热搜、知乎热榜、B 站热门、抖音热点、今日头条、百度热搜/电视剧/贴吧、夸克每日资讯、汽车热榜、历史上的今天、Al Jazeera/BBC/CNN 头条 |
 | 💻 科技资讯 | NodeSeek 新帖、V2EX 热帖、LowEndTalk、Hacker News、IT 资讯、酷安热榜、36 氪热榜、Reddit 热帖、少数派热榜、虎嗅热榜 |
-| 🎬 影视娱乐 | 猫眼票房、百度电视剧榜、豆瓣电影周榜、Epic 免费游戏、Steam 免费游戏、网易云热歌榜/飙升榜/ACG 榜、Billboard Hot 100、歌词搜索、唱鸭 |
+| 🎬 影视娱乐 | 猫眼票房、百度电视剧榜、豆瓣电影/剧集/综艺周榜（华语/全球）、流媒体热门剧集/电影、Epic 免费游戏、Steam 免费游戏、网易云热歌榜/飙升榜/ACG 榜、Billboard Hot 100、歌词搜索、唱鸭 |
 | 🛠️ 实用工具 | 百度百科、健康计算器、二维码生成、哈希加密、网页 OG 信息、IP 查询、WHOIS 查询、密码生成/检测、随机颜色、配色方案 |
 | 🌤️ 生活信息 | 实时天气、天气预报、汇率、油价、金价、农历信息、摸鱼日历 |
 | 🎯 趣味内容 | 段子、冷笑话、一言、KFC 疯狂星期四、发病文案、答案之书、必应壁纸、JS 题目、梗百科 |
-| 🔤 翻译 | 有道翻译（支持 109 种语言下拉选择） |
+| 🔤 翻译 | 有道翻译（支持 114 种语言下拉选择）、Google 翻译、每日一句英语 |
 
 ### 🎨 体验设计
 
@@ -54,30 +54,24 @@ npx wrangler deploy
 
 ### EdgeOne Pages（Makers 全栈部署）
 
-已内置 `edgeone.json` 与 `cloud-functions/[[default]].ts`，前端面板与 `/v2/*` API 一体部署，无需额外配置。
+已内置 `edgeone.json` 与 `cloud-functions/[[default]].ts`，前端面板与 `/v2/*` API 一体部署。
 
-**方式一：CLI 部署**
+**方式一：控制台导入 Git 仓库（推荐）**
+
+在 [EdgeOne Pages](https://edgeone.ai/pages) 控制台「导入 Git 仓库」，选择 `Jacky088/Daily-Hot`。构建配置自动读取 `edgeone.json`，保持默认即可，之后每次 `git push` 自动重新部署。
+
+**方式二：CLI 部署**
 
 ```bash
 npm install -g edgeone
 edgeone login
-
 npm install --no-audit --no-fund
 npx edgeone makers build --mode prod    # 产出 .edgeone/（云函数 + 前端资源）
 npx edgeone makers deploy .edgeone -n daily-hot
 ```
 
-常用参数：`-e preview` 预览环境、`-a overseas` 海外可用区、`-t <token>` CI 免登录。
-
-> `deploy -n` 仅适用于「直接上传」类型的项目；若项目由 Git 导入创建，请改用方式二。
-
-**方式二：Git 仓库导入**
-
-1. 在 [EdgeOne Pages](https://edgeone.ai/pages) 控制台「导入 Git 仓库」，选择 `Jacky088/Daily-Hot`。
-2. 构建配置自动读取仓库根目录的 `edgeone.json`，保持默认即可：安装 `npm install --no-audit --no-fund`、构建 `node scripts/copy-assets.mjs`、输出目录 `.edgeone`。其中**构建命令不可省略**——平台只自动构建云函数，前端 `public/` 需由该脚本拷入 `.edgeone/assets`，否则页面全部 404。
-3. 之后每次 `git push` 会自动重新构建部署。
-
-**访问域名**：部署后控制台会给出默认域名（如 `https://daily-hot.edgeone.dev`）。「全球可用区」项目的域名带 `eo_token` 预览鉴权参数（有时效），绑定自定义域名后可免 token 长期公开访问。
+> `deploy -n` 仅适用于「直接上传」项目，Git 导入的项目请使用方式一。
+> 「全球可用区」项目的默认域名带有时效性 `eo_token` 鉴权参数，绑定自定义域名后可长期公开访问。
 
 ### Docker
 
