@@ -153,6 +153,7 @@ appRouter.get('/hacker-news/best', serviceHackerNews.handle('best'))
 
 appRouter.get('/baidu/hot', serviceBaidu.handleHotSearch())
 appRouter.get('/baidu/teleplay', serviceBaidu.handleTeleplay())
+appRouter.get('/baidu/movie', serviceBaidu.handleMovie())
 appRouter.get('/baidu/tieba', serviceBaidu.handleTieba())
 
 appRouter.get('/weather/realtime', serviceWeather.handle())

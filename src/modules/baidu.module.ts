@@ -36,31 +36,43 @@ class ServiceBaidu {
 
   handleTeleplay(): RouterMiddleware<'/baidu/teleplay'> {
     return async (ctx) => {
-      const data = await cached('baidu:teleplay', () => this.#fetchTeleplay())
+      const data = await cached('baidu:teleplay', () => this.#fetchBoard('teleplay'))
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `百度电视剧榜单\n\n${data
-            .slice(0, 20)
-            .map((e, i) => `${i + 1}. ${e.title} (${e.score_desc})`)
-            .join('\n')}`
-          break
+      this.#renderBoard(ctx, '百度电视剧榜单', data)
+    }
+  }
 
-        case 'markdown':
-          ctx.response.body = `# 百度电视剧榜单\n\n${data
-            .slice(0, 20)
-            .map(
-              (e, i) =>
-                `### ${i + 1}. [${e.title}](${e.url}) \`${e.score_desc}\`\n\n${e.desc ? `${e.desc}\n\n` : ''}${e.cover ? `![${e.title}](${e.cover})\n\n` : ''}---\n`,
-            )
-            .join('\n')}`
-          break
+  handleMovie(): RouterMiddleware<'/baidu/movie'> {
+    return async (ctx) => {
+      const data = await cached('baidu:movie', () => this.#fetchBoard('movie'))
 
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+      this.#renderBoard(ctx, '百度电影榜单', data)
+    }
+  }
+
+  #renderBoard(ctx: any, title: string, data: BoardItemDTO[]) {
+    switch (ctx.state.encoding) {
+      case 'text':
+        ctx.response.body = `${title}\n\n${data
+          .slice(0, 20)
+          .map((e, i) => `${i + 1}. ${e.title} (${e.score_desc})${e.genre ? ` [${e.genre}]` : ''}${e.actors ? ` 主演:${e.actors}` : ''}`)
+          .join('\n')}`
+        break
+
+      case 'markdown':
+        ctx.response.body = `# ${title}\n\n${data
+          .slice(0, 20)
+          .map(
+            (e, i) =>
+              `### ${i + 1}. [${e.title}](${e.url}) \`${e.score_desc}\`\n\n${e.genre ? `类型：${e.genre}\n\n` : ''}${e.actors ? `演员：${e.actors}\n\n` : ''}${e.desc ? `${e.desc}\n\n` : ''}${e.cover ? `![${e.title}](${e.cover})\n\n` : ''}---\n`,
+          )
+          .join('\n')}`
+        break
+
+      case 'json':
+      default:
+        ctx.response.body = Common.buildJson(data)
+        break
     }
   }
 
@@ -134,23 +146,37 @@ class ServiceBaidu {
       }))
   }
 
-  async #fetchTeleplay() {
+  /** 电视剧榜 / 电影榜共用：抓取百度热搜对应 tab，并把 show 标签拆为类型 / 演员等结构化字段 */
+  async #fetchBoard(tab: 'teleplay' | 'movie'): Promise<BoardItemDTO[]> {
     const options = { headers: { 'User-Agent': Common.chromeUA } }
-    const response = await fetch('https://top.baidu.com/board?tab=teleplay', options)
+    const response = await fetch(`https://top.baidu.com/board?tab=${tab}`, options)
     const rawHtml = await response.text()
     const matchResult = rawHtml.match(/<!--s-data:(.*?)-->/s)
-    const data: TeleplayItem[] =
+    const data: BoardItem[] =
       JSON.parse(this.#normalizeHtml(matchResult?.[1] || '{}'))?.data?.cards?.[0]?.content || []
 
-    return data.map((e) => ({
-      rank: e.index + 1,
-      title: e.word,
-      desc: e.desc,
-      score: e.hotScore,
-      score_desc: this.#formatScore(e.hotScore),
-      cover: e.img || null,
-      url: e.url.startsWith('http') ? e.url : `https://www.baidu.com${e.url}`,
-    }))
+    return data.map((e) => {
+      const show: Record<string, string> = {}
+      for (const item of e.show || []) {
+        const i = item.indexOf('：')
+        if (i > 0) show[item.slice(0, i).trim()] = item.slice(i + 1).trim()
+      }
+
+      return {
+        rank: e.index + 1,
+        title: e.word,
+        desc: e.desc,
+        score: e.hotScore,
+        score_desc: this.#formatScore(e.hotScore),
+        cover: e.img || null,
+        url: e.url.startsWith('http') ? e.url : `https://www.baidu.com${e.url}`,
+        genre: show['类型'] || '',
+        actors: show['演员'] || show['主演'] || '',
+        director: show['导演'] || '',
+        region: show['地区'] || show['国家'] || '',
+        show_raw: e.show || [],
+      }
+    })
   }
 
   async #fetchTieba() {
@@ -204,6 +230,25 @@ interface TeleplayItem {
   show: string[]
   url: string
   word: string
+}
+
+/** 电视剧榜 / 电影榜共用原始条目（结构同 TeleplayItem） */
+type BoardItem = TeleplayItem
+
+/** 面板卡片消费的榜单条目（show 标签已结构化） */
+interface BoardItemDTO {
+  rank: number
+  title: string
+  desc: string
+  score: string
+  score_desc: string
+  cover: string | null
+  url: string
+  genre: string
+  actors: string
+  director: string
+  region: string
+  show_raw: string[]
 }
 
 interface TiebaItem {

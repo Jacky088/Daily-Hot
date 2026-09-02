@@ -108,7 +108,8 @@ const EPS = [
   { cat:'ent', id:'maoyan', name:'猫眼历史票房', icon:'🍿', path:'/v2/maoyan/all/movie', type:'maoyan', auto:1 },
   { cat:'ent', id:'maoyan-showing', name:'猫眼在映电影', icon:'🎬', path:'/v2/maoyan/showing', type:'maoyan-movie', auto:1 },
   { cat:'ent', id:'maoyan-coming', name:'猫眼待映电影', icon:'🗓️', path:'/v2/maoyan/coming', type:'maoyan-movie', auto:1 },
-  { cat:'ent', id:'bdtv', name:'百度电视剧榜', icon:'🎭', path:'/v2/baidu/teleplay', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'link', p:'cover'} },
+  { cat:'ent', id:'bdtv', name:'百度电视剧榜', icon:'🎭', path:'/v2/baidu/teleplay', type:'baidu-show', auto:1 },
+  { cat:'ent', id:'bdmovie', name:'百度电影榜', icon:'🎥', path:'/v2/baidu/movie', type:'baidu-show', auto:1 },
   { cat:'ent', id:'douban', name:'豆瓣电影周榜', icon:'🎬', path:'/v2/douban/weekly/movie', type:'douban', auto:1 },
   { cat:'ent', id:'douban-show-cn', name:'豆瓣华语综艺周榜', icon:'🎤', path:'/v2/douban/weekly/show_chinese', type:'douban', auto:1 },
   { cat:'ent', id:'douban-show-global', name:'豆瓣全球综艺周榜', icon:'🎪', path:'/v2/douban/weekly/show_global', type:'douban', auto:1 },
@@ -1019,6 +1020,7 @@ function renderData(ep, d, c) {
     js: rJS, exchange: rExchange, og: rOG, answer: rAnswer, quote: rQuote,
     kuan: rKuan, '36kr': r36Kr, reddit: rReddit, sspai: rSspai, huxiu: rHuxiu,
     'maoyan-movie': rMaoyanMovie,
+    'baidu-show': rBaiduShow,
     baike: rBaike, health: rHealth, geng: rGeng, 'daily-eng': rDailyEng, simkl: rSimkl,
     ip: rIP, pwdchk: rPwdChk,
   }[ep.type] || rJSON;
@@ -2015,6 +2017,30 @@ function rMaoyanMovie(d, c) {
     else if (!isShowing && m.release_date) meta.push(`📅 ${esc(m.release_date)}`);
     if (meta.length) h += `<div class="meta">${meta.join(' · ')}</div>`;
     if (m.star) h += `<div class="desc">主演 ${esc(String(m.star).slice(0, 40))}${String(m.star).length > 40 ? '…' : ''}</div>`;
+    h += '</div></div>';
+  });
+  c.innerHTML = h;
+}
+
+// 百度电视剧 / 电影榜：海报行 + 类型/热度 + 主演（上游 show 标签已由后端结构化）
+function rBaiduShow(d, c) {
+  if (!Array.isArray(d) || !d.length) { c.innerHTML = '<div class="placeholder">暂无数据</div>'; return; }
+  let h = '';
+  d.forEach(it => {
+    const rank = it.rank || 0;
+    const cls = rank <= 3 ? `top${rank}` : '';
+    h += '<div class="item with-poster">';
+    if (it.cover) h += `<img class="poster" src="${esc(it.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+    h += '<div class="body-wrap">';
+    h += it.url
+      ? `<a href="${safeUrl(it.url)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</a>`
+      : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</span>`;
+    const meta = [];
+    if (it.genre) meta.push(`🏷️ ${esc(it.genre)}`);
+    if (it.score_desc) meta.push(`🔥 ${esc(it.score_desc)}`);
+    if (meta.length) h += `<div class="meta">${meta.join(' · ')}</div>`;
+    if (it.actors) h += `<div class="desc">主演 ${esc(it.actors)}</div>`;
+    if (it.desc) h += `<div class="desc">${esc(String(it.desc).slice(0, 60))}${String(it.desc).length > 60 ? '…' : ''}</div>`;
     h += '</div></div>';
   });
   c.innerHTML = h;
