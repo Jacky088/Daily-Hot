@@ -25,6 +25,23 @@ function cacheSet(key, data) {
 
 function cacheKey(ep, url) { return `cache:${CACHE_VERSION}:${ep.id}:${url}`; }
 
+// ============ 方案二：榜单 Top N 折叠 ============
+// 榜单类卡片（type:'list'）默认只渲染前 N 条，点击「展开全部」后本地重渲染全部条目，
+// 状态按卡片记忆（localStorage），刷新/切分类回来保持用户的展开偏好
+const LIST_COLLAPSE_N = 10;
+// 各榜单最近一次渲染的原始数据，供展开/收起切换时免请求重渲染
+const listData = {};
+
+function isListExpanded(id) {
+  try { return localStorage.getItem('list-full:' + id) === '1'; } catch { return false; }
+}
+function setListExpanded(id, v) {
+  try {
+    if (v) localStorage.setItem('list-full:' + id, '1');
+    else localStorage.removeItem('list-full:' + id);
+  } catch {}
+}
+
 // 清理过期缓存（每次 init 时调用）
 function cacheClean() {
   try {
@@ -55,7 +72,8 @@ const CATS = [
 // type: news|list|kv|obj|text|json|qr|color|palette|pwd|fanyi|lyric|hash|weather|weatherfc|fuel|gold|lunar|bing|epic|steam|ncm|maoyan|moyu|whois|js|exchange|hist|ainews|kuan|36kr|reddit
 const EPS = [
   // 新闻
-  { cat:'news', id:'60s', name:'60秒读懂世界', icon:'⏰', path:'/v2/60s', type:'news', auto:1 },
+  // span:2 锚点卡片，桌面端跨两列（移动端单列回退，见 style.css 媒体查询）
+  { cat:'news', id:'60s', name:'60秒读懂世界', icon:'⏰', path:'/v2/60s', type:'news', auto:1, span:2 },
   { cat:'news', id:'history', name:'历史上的今天', icon:'📜', path:'/v2/today-in-history', type:'hist', auto:1 },
   { cat:'news', id:'weibo', name:'微博热搜', icon:'🔥', path:'/v2/weibo', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
   { cat:'news', id:'zhihu', name:'知乎热榜', icon:'💡', path:'/v2/zhihu', type:'list', auto:1, f:{t:'title',h:'hot_value_desc',l:'link', d:'detail'} },
@@ -78,14 +96,13 @@ const EPS = [
   { cat:'tech', id:'nodeseek', name:'NodeSeek新帖', icon:'🌐', path:'/v2/nodeseek', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'description'} },
   { cat:'tech', id:'v2ex', name:'V2EX热帖', icon:'💬', path:'/v2/v2ex', type:'list', auto:1, f:{t:'title',h:'replies',l:'link', d:'node'} },
   { cat:'tech', id:'let', name:'LowEndTalk', icon:'🖥️', path:'/v2/lowendtalk', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'description'} },
-  { cat:'tech', id:'hn', name:'Hacker News', icon:'🟧', path:'/v2/hacker-news/top', type:'list', auto:1, f:{t:'title',h:'score',l:'link'} },
+  { cat:'tech', id:'hn', name:'Hacker News', icon:'🟧', path:'/v2/hacker-news/top', type:'list', auto:1, span:2, f:{t:'title',h:'score',l:'link'} },
   // 已移除 HN 最新帖：实测 /hacker-news/new 与 /hacker-news/top 返回同一份数据，重复
   { cat:'tech', id:'itnews', name:'IT资讯', icon:'💻', path:'/v2/it-news', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'description'} },
   { cat:'tech', id:'kuan', name:'酷安热榜', icon:'📱', path:'/v2/kuan', type:'kuan', auto:1 },
   { cat:'tech', id:'36kr', name:'36氪热榜', icon:'📰', path:'/v2/36kr', type:'36kr', auto:1 },
-  { cat:'tech', id:'reddit', name:'Reddit热帖', icon:'👽', path:'/v2/reddit', type:'reddit', auto:1 },
   { cat:'tech', id:'sspai', name:'少数派热榜', icon:'🎨', path:'/v2/sspai', type:'sspai', auto:1 },
-  { cat:'news', id:'huxiu', name:'虎嗅热榜', icon:'🐯', path:'/v2/huxiu', type:'huxiu', auto:1 },
+  { cat:'tech', id:'huxiu', name:'虎嗅热榜', icon:'🐯', path:'/v2/huxiu', type:'huxiu', auto:1 },
 
   // 娱乐
   { cat:'ent', id:'maoyan', name:'猫眼历史票房', icon:'🍿', path:'/v2/maoyan/all/movie', type:'maoyan', auto:1 },
@@ -635,6 +652,8 @@ function makeCard(ep) {
   const card = document.createElement('div');
   card.className = 'card';
   card.id = 'card-' + ep.id;
+  // 方案一：锚点卡片跨两列（60s 早报 / Hacker News），移动端由媒体查询回退单列
+  if (ep.span === 2) card.classList.add('span-2');
 
   const head = document.createElement('div');
   head.className = 'card-head';
@@ -971,8 +990,12 @@ function rList(d, c, ep) {
   if (!Array.isArray(d)) return rJSON(d, c);
   if (!d.length) { c.innerHTML = '<div class="placeholder">暂无数据</div>'; return; }
   const f = ep.f || {};
+  // Top N 折叠：默认只渲染前 N 条，展开状态按卡片记忆；记录原始数据供切换时免请求重渲染
+  const expanded = isListExpanded(ep.id);
+  const items = expanded ? d : d.slice(0, LIST_COLLAPSE_N);
+  listData[ep.id] = d;
   let h = '';
-  d.forEach((it, i) => {
+  items.forEach((it, i) => {
     const rank = it.rank || (i + 1);
     const cls = rank <= 3 ? `top${rank}` : '';
     const t = it[f.t] || it.title || '';
@@ -1001,8 +1024,29 @@ function rList(d, c, ep) {
       h += '</div></div>';
     }
   });
+  if (d.length > LIST_COLLAPSE_N) {
+    h += `<button class="list-toggle" type="button" data-list-toggle="${ep.id}">` +
+      (expanded ? `收起，仅看 Top ${LIST_COLLAPSE_N}` : `展开全部 ${d.length} 条`) +
+      `</button>`;
+  }
   c.innerHTML = h;
+  // 展开态同步到卡片 class：span-2 宽卡片收起时走双栏排布，展开时回退单列滚动
+  const card = document.getElementById('card-' + ep.id);
+  if (card) card.classList.toggle('expanded', expanded);
 }
+
+// 展开/收起切换：事件委托统一处理，用 listData 里已缓存的原始数据本地重渲染，不重新请求
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-list-toggle]');
+  if (!btn) return;
+  const id = btn.dataset.listToggle;
+  const ep = window['_ep_' + id];
+  const c = document.getElementById('content-' + id);
+  const d = listData[id];
+  if (!ep || !c || !d) return;
+  setListExpanded(id, !isListExpanded(id));
+  rList(d, c, ep);
+});
 
 function rDouban(d, c) {
   if (!Array.isArray(d)) return rJSON(d, c);

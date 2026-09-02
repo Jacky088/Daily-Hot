@@ -260,7 +260,22 @@ a:hover { text-decoration: underline; }
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 16px;
+  /* dense：span-2 锚点卡片跨列后，后续小卡片回填空位，避免网格空洞 */
+  grid-auto-flow: dense;
 }
+
+/* ============ 锚点卡片跨列（EPS 注册项带 span:2，如 60s 早报 / Hacker News） ============ */
+.card.span-2 { grid-column: span 2; }
+/* 收起态（默认 Top 10）：宽卡片内部双栏排布，充分利用横向空间；
+   必须解除 max-height 限高——多列容器若有固定高度，溢出内容会横向生成新列而非纵向滚动 */
+.card.span-2:not(.expanded) .card-body {
+  max-height: none; overflow: visible;
+  column-count: 2; column-gap: 28px;
+}
+.card.span-2 .item, .card.span-2 .news-item { break-inside: avoid; }
+.card.span-2 .news-header, .card.span-2 .news-tip { column-span: all; }
+/* 展开态：回退与其他卡片一致的单列 + 内部滚动 */
+.card.span-2.expanded .card-body { column-count: 1; }
 
 /* ============ Card ============ */
 .card {
@@ -397,6 +412,18 @@ a:hover { text-decoration: underline; }
   color: var(--error); font-size: 11px; cursor: pointer; transition: all 0.2s;
 }
 .retry-btn:hover { background: var(--error); color: #fff; }
+
+/* ============ 榜单展开/收起（Top N 折叠） ============ */
+.list-toggle {
+  display: block; width: 100%; margin-top: 8px; padding: 6px 0;
+  background: transparent; border: 1px dashed var(--border); border-radius: 8px;
+  color: var(--text-dim); font-size: 12px; cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.list-toggle:hover { color: var(--accent); border-color: var(--accent); }
+/* span-2 宽卡片收起态为多列布局，按钮必须横跨所有列 */
+.card.span-2:not(.expanded) .list-toggle { column-span: all; }
 
 /* ============ 数据源不可用的友好提示 ============ */
 .card-unavailable {
@@ -1282,6 +1309,11 @@ a:hover { text-decoration: underline; }
   /* 移动端首张卡片需紧贴吸顶分类栏：收紧上内边距（原 14px 在 sticky 导航下显空） */
   .main { padding: 6px 14px 48px; }
   .grid { grid-template-columns: 1fr; gap: 12px; }
+  /* 移动端单列：锚点卡片回退通栏，宽卡片内部双栏也回退单列 */
+  .card.span-2 { grid-column: span 1; }
+  .card.span-2:not(.expanded) .card-body { column-count: 1; column-gap: normal; }
+  /* 展开全部/收起按钮：44px 触控目标，与其余触屏控件一致 */
+  .list-toggle { min-height: 44px; padding: 10px 0; }
   /* 子菜单定位跳转偏移：吸顶顶栏 + 分类 pill 行 + 模块 chips 条 */
   .card { scroll-margin-top: calc(var(--topbar-h, 96px) + 112px); }
   /* 移动端性能：backdrop-filter 逐帧模糊是最大的 GPU 消耗，
