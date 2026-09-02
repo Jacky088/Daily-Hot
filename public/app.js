@@ -56,6 +56,7 @@ const CATS = [
 const EPS = [
   // 新闻
   { cat:'news', id:'60s', name:'60秒读懂世界', icon:'⏰', path:'/v2/60s', type:'news', auto:1 },
+  { cat:'news', id:'history', name:'历史上的今天', icon:'📜', path:'/v2/today-in-history', type:'hist', auto:1 },
   { cat:'news', id:'weibo', name:'微博热搜', icon:'🔥', path:'/v2/weibo', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
   { cat:'news', id:'zhihu', name:'知乎热榜', icon:'💡', path:'/v2/zhihu', type:'list', auto:1, f:{t:'title',h:'hot_value_desc',l:'link', d:'detail'} },
   { cat:'news', id:'bili', name:'B站热门', icon:'📺', path:'/v2/bili', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
@@ -67,7 +68,6 @@ const EPS = [
   { cat:'news', id:'bdhot', name:'百度热搜', icon:'🔍', path:'/v2/baidu/hot', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'url', d:'desc'} },
   // 已移除百度实时热点：实测 /baidu/realtime 与 /baidu/hot 返回同一份数据，重复
   { cat:'news', id:'bdtieba', name:'百度贴吧热议', icon:'💬', path:'/v2/baidu/tieba', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'link', d:'abstract'} },
-  { cat:'news', id:'history', name:'历史上的今天', icon:'📜', path:'/v2/today-in-history', type:'hist', auto:1 },
   // 已隐藏小红书热榜：上游私有接口凭证（2023 年抓包）已被风控拉黑，
   // 持续返回 300013「访问频繁」或空数据，后端 500。恢复需换新数据源。
   // { cat:'news', id:'rednote', name:'小红书热榜', icon:'📕', path:'/v2/rednote', type:'list', auto:1, f:{t:'title',h:'score',l:'link'} },
@@ -1047,12 +1047,35 @@ function rAINews(d, c) {
   c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
 }
 
+// 历史上的今天：时间轴布局，事件/出生/逝世 三类彩色标签 + 年份徽章 + 摘要
 function rHist(d, c) {
-  let h = `<div class="news-header"><span>📅 ${esc(d.month)}月${esc(d.day)}日</span></div>`;
-  (d.items || []).forEach(it => {
-    h += `<div class="news-item"><span class="num">${esc(it.year)}</span>`;
-    h += it.link ? `<a href="${safeUrl(it.link)}" target="_blank" rel="noopener">${esc(it.title)}</a>` : `<span class="nt">${esc(it.title)}</span>`;
-    h += '</div>';
+  const items = d.items || [];
+  const TYPE = { event: ['事件', ''], birth: ['出生', 'birth'], death: ['逝世', 'death'] };
+  // 公元前年份（负数）显示为「前N」
+  const yearText = y => {
+    const n = parseInt(y, 10);
+    return isNaN(n) ? String(y) : (n < 0 ? `前${-n}` : `${n}`);
+  };
+  const counts = { event: 0, birth: 0, death: 0 };
+  items.forEach(it => { const k = TYPE[it.event_type] ? it.event_type : 'event'; counts[k]++; });
+
+  let h = `<div class="hist-head">
+    <span class="hist-date">📅 ${esc(d.month)}月${esc(d.day)}日</span>
+    <span class="hist-legend"><b>${items.length}</b> 条大事记
+      ${counts.event ? ` · 事件 ${counts.event}` : ''}${counts.birth ? ` · 出生 ${counts.birth}` : ''}${counts.death ? ` · 逝世 ${counts.death}` : ''}
+    </span>
+  </div>`;
+  items.forEach(it => {
+    const [label, mod] = TYPE[it.event_type] || TYPE.event;
+    const year = yearText(it.year);
+    h += `<div class="hist-item">`;
+    h += `<span class="hist-year ${mod}">${esc(year)}</span>`;
+    h += `<div class="hist-body">`;
+    h += `<div class="hist-title"><span class="hist-tag ${mod}">${label}</span>`;
+    h += it.link ? `<a href="${safeUrl(it.link)}" target="_blank" rel="noopener">${esc(it.title)}</a>` : `<span class="t">${esc(it.title)}</span>`;
+    h += `</div>`;
+    if (it.description) h += `<div class="hist-desc">${esc(it.description)}</div>`;
+    h += `</div></div>`;
   });
   c.innerHTML = h;
 }
