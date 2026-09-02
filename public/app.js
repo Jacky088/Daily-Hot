@@ -106,6 +106,8 @@ const EPS = [
 
   // 娱乐
   { cat:'ent', id:'maoyan', name:'猫眼历史票房', icon:'🍿', path:'/v2/maoyan/all/movie', type:'maoyan', auto:1 },
+  { cat:'ent', id:'maoyan-showing', name:'猫眼在映电影', icon:'🎬', path:'/v2/maoyan/showing', type:'maoyan-movie', auto:1 },
+  { cat:'ent', id:'maoyan-coming', name:'猫眼待映电影', icon:'🗓️', path:'/v2/maoyan/coming', type:'maoyan-movie', auto:1 },
   { cat:'ent', id:'bdtv', name:'百度电视剧榜', icon:'🎭', path:'/v2/baidu/teleplay', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'link', p:'cover'} },
   { cat:'ent', id:'douban', name:'豆瓣电影周榜', icon:'🎬', path:'/v2/douban/weekly/movie', type:'douban', auto:1 },
   { cat:'ent', id:'douban-show-cn', name:'豆瓣华语综艺周榜', icon:'🎤', path:'/v2/douban/weekly/show_chinese', type:'douban', auto:1 },
@@ -1016,6 +1018,7 @@ function renderData(ep, d, c) {
     epic: rEpic, steam: rSteam, ncm: rNCM, maoyan: rMaoyan, moyu: rMoyu, whois: rWhois,
     js: rJS, exchange: rExchange, og: rOG, answer: rAnswer, quote: rQuote,
     kuan: rKuan, '36kr': r36Kr, reddit: rReddit, sspai: rSspai, huxiu: rHuxiu,
+    'maoyan-movie': rMaoyanMovie,
     baike: rBaike, health: rHealth, geng: rGeng, 'daily-eng': rDailyEng, simkl: rSimkl,
     ip: rIP, pwdchk: rPwdChk,
   }[ep.type] || rJSON;
@@ -1985,6 +1988,36 @@ function rMaoyan(d, c) {
     });
   }
   c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
+}
+
+// 猫眼在映 / 待映影片：复用带海报的榜单行（与豆瓣周榜、百度电视剧榜同一套样式）
+function rMaoyanMovie(d, c) {
+  const list = Array.isArray(d) ? d : (d && d.list) || [];
+  if (!list.length) { c.innerHTML = '<div class="placeholder">暂无影片信息</div>'; return; }
+  let h = '';
+  list.forEach(m => {
+    const rank = m.rank || 0;
+    const cls = rank <= 3 ? `top${rank}` : '';
+    h += '<div class="item with-poster">';
+    if (m.cover) h += `<img class="poster" src="${esc(m.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+    h += '<div class="body-wrap">';
+    h += m.link
+      ? `<a href="${safeUrl(m.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(m.movie_name)}</a>`
+      : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(m.movie_name)}</span>`;
+    const meta = [];
+    if (m.score) meta.push(`⭐ ${esc(m.score)}`);
+    if (m.wish_desc) meta.push(`❤️ ${esc(m.wish_desc)}人想看`);
+    // 在映条目 show_info 是排片信息（含「影院/场次」），与上映日期一并展示；
+    // 待映条目无排片，优先展示上映日期
+    const isShowing = !!m.show_info && /影院|场/.test(m.show_info);
+    if (isShowing) meta.push(esc(m.show_info));
+    if (m.coming_title) meta.push(`📅 ${esc(m.coming_title)}`);
+    else if (!isShowing && m.release_date) meta.push(`📅 ${esc(m.release_date)}`);
+    if (meta.length) h += `<div class="meta">${meta.join(' · ')}</div>`;
+    if (m.star) h += `<div class="desc">主演 ${esc(String(m.star).slice(0, 40))}${String(m.star).length > 40 ? '…' : ''}</div>`;
+    h += '</div></div>';
+  });
+  c.innerHTML = h;
 }
 
 // 摸鱼日历：日期+状态徽标 → 倒计时瓷片 → 下个假期 → 周/月/年进度条 → 摸鱼语录

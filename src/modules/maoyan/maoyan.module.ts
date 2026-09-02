@@ -150,6 +150,97 @@ class ServiceMaoyan {
     }
   }
 
+  /** 在映电影：猫眼 M 站 ajax，含海报、评分、想看数、排片信息 */
+  handleShowing(): RouterMiddleware<'/maoyan/showing'> {
+    return async (ctx) => {
+      const data = await cached('maoyan:showing', () => this.#fetchMovieList('showing'), { ttl: 60 * 60 * 1000 })
+
+      this.#renderMovieList(ctx, '正在热映电影（猫眼）', data)
+    }
+  }
+
+  /** 待映电影：同源于 M 站 comingList，按上映日期排序，支持 ?city= 切换城市 */
+  handleComing(): RouterMiddleware<'/maoyan/coming'> {
+    return async (ctx) => {
+      const city = ctx.request.url.searchParams.get('city') || ''
+      const data = await cached(`maoyan:coming:${city || 'default'}`, () => this.#fetchMovieList('coming', city), {
+        ttl: 60 * 60 * 1000,
+      })
+
+      this.#renderMovieList(ctx, '即将上映电影（猫眼）', data)
+    }
+  }
+
+  #renderMovieList(ctx: any, title: string, list: MovieListItemDTO[]) {
+    switch (ctx.state.encoding) {
+      case 'text':
+        ctx.response.body = `${title}\n\n${list
+          .slice(0, 20)
+          .map((e, i) => `${i + 1}. ${e.movie_name}（${e.release_date || e.coming_title}）${e.score ? ` - 评分 ${e.score}` : ''}`)
+          .join('\n')}`
+        break
+
+      case 'markdown':
+        ctx.response.body = `# ${title}\n\n${list
+          .slice(0, 20)
+          .map(
+            (e, i) =>
+              `### ${i + 1}. [${e.movie_name}](${e.link}) ${e.score ? `\`${e.score}\` ` : ''}${e.coming_title}\n\n${e.star ? `主演：${e.star}\n\n` : ''}${e.cover ? `![${e.movie_name}](${e.cover})\n\n` : ''}---\n`,
+          )
+          .join('\n')}`
+        break
+
+      case 'json':
+      default:
+        ctx.response.body = Common.buildJson({ list, total: list.length, update_time: Common.localeTime() })
+        break
+    }
+  }
+
+  /**
+   * 抓取猫眼 M 站影片列表（免鉴权 ajax，仅需浏览器 UA + Referer）。
+   * 注意：待映接口必须携带空的 token 参数，否则上游返回空对象。
+   */
+  async #fetchMovieList(type: 'showing' | 'coming', city = ''): Promise<MovieListItemDTO[]> {
+    const headers = {
+      referer: 'https://m.maoyan.com/',
+      'User-Agent':
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+    }
+
+    const url =
+      type === 'showing'
+        ? 'https://m.maoyan.com/ajax/movieOnInfoList'
+        : `https://m.maoyan.com/ajax/comingList?ci=${city || 1}&token=&limit=20`
+
+    const res = await fetch(url, { headers })
+    const json = (await res.json()) as any
+    const raw = type === 'showing' ? json?.movieList : json?.coming
+
+    if (!Array.isArray(raw) || !raw.length) throw new Error('猫眼 M 站返回数据异常')
+
+    return raw.map((e: any, idx: number) => {
+      const score = Number(e.sc) > 0 ? Number(e.sc).toFixed(1) : ''
+      const wish = Number(e.wish) || 0
+
+      return {
+        rank: idx + 1,
+        maoyan_id: e.id,
+        movie_name: e.nm || '',
+        cover: e.img || '',
+        score,
+        score_desc: score ? `${score} 分` : '暂无评分',
+        wish,
+        wish_desc: wish >= 10000 ? `${(wish / 10000).toFixed(1)} 万` : String(wish),
+        release_date: e.rt || '',
+        coming_title: e.comingTitle || '',
+        show_info: e.showInfo || '',
+        star: e.star || '',
+        link: `https://m.maoyan.com/movie/${e.id}`,
+      } satisfies MovieListItemDTO
+    })
+  }
+
   async fetchHTMLData() {
     const headers = {
       referer: 'https://piaofang.maoyan.com/',
@@ -179,6 +270,23 @@ interface MovieItem {
   movieName: string
   rawValue: number
   releaseTime: string
+}
+
+/** M 站在映 / 待映影片列表项（面板卡片直接消费） */
+interface MovieListItemDTO {
+  rank: number
+  maoyan_id: number
+  movie_name: string
+  cover: string
+  score: string
+  score_desc: string
+  wish: number
+  wish_desc: string
+  release_date: string
+  coming_title: string
+  show_info: string
+  star: string
+  link: string
 }
 
 function formatBoxOffice(boxOffice: number | string, decimals: number = 2): string {

@@ -141,6 +141,8 @@ appRouter.get('/password', servicePassword.handle())
 appRouter.get('/password/check', servicePassword.handleCheck())
 
 appRouter.get('/maoyan/all/movie', serviceMaoyan.handleAllMovie())
+appRouter.get('/maoyan/showing', serviceMaoyan.handleShowing())
+appRouter.get('/maoyan/coming', serviceMaoyan.handleComing())
 appRouter.get('/maoyan/realtime/movie', serviceMaoyan.handleRealtime('movie'))
 appRouter.get('/maoyan/realtime/tv', serviceMaoyan.handleRealtime('tv'))
 appRouter.get('/maoyan/realtime/web', serviceMaoyan.handleRealtime('web'))
