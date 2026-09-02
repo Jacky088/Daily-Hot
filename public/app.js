@@ -1764,17 +1764,21 @@ function rBing(d, c) {
   c.innerHTML = h;
 }
 
+// 免费游戏空态（Epic/Steam 共用）：居中图标 + 主文案 + 副说明，比单行灰字更明显
+const EMPTY_GAMES_HTML = `<div class="empty-state"><span class="es-icon">🎁</span><span class="es-text">暂无免费游戏</span><span class="es-sub">新活动上线后会显示在这里</span></div>`;
+
 function rEpic(d, c) {
   if (!Array.isArray(d)) return rJSON(d, c);
+  if (!d.length) { c.innerHTML = EMPTY_GAMES_HTML; return; }
   let h = '';
   d.forEach(g => {
     h += '<div class="game-card">';
-    if (g.cover) h += `<div class="img-wrap ratio-portrait"><img src="${esc(g.cover)}" alt="${esc(g.title)}" loading="lazy"></div>`;
+    if (g.cover) h += `<div class="img-wrap ratio-portrait"><img src="${esc(g.cover)}" alt="${esc(g.title)}" loading="lazy" onerror="this.style.display='none'"></div>`;
     h += `<div class="game-title">🎮 ${esc(g.title)}</div>`;
-    if (g.description) h += `<div class="desc">${esc(g.description.slice(0, 80))}…</div>`;
+    if (g.description) h += `<div class="desc">${esc(g.description.slice(0, 80))}${g.description.length > 80 ? '…' : ''}</div>`;
     if (g.is_free_now) h += '<span class="game-free">免费</span>';
-    if (g.free_end) h += ` <span style="font-size:10px;color:var(--warn);">截止 ${esc(g.free_end)}</span>`;
-    if (g.link) h += `<div style="margin-top:4px;"><a href="${safeUrl(g.link)}" target="_blank" rel="noopener" style="font-size:11px;">领取 →</a></div>`;
+    if (g.free_end) h += ` <span class="game-end">截止 ${esc(g.free_end)}</span>`;
+    if (g.link) h += `<div class="game-claim"><a href="${safeUrl(g.link)}" target="_blank" rel="noopener">领取 →</a></div>`;
     h += '</div>';
   });
   c.innerHTML = h;
@@ -1783,15 +1787,15 @@ function rEpic(d, c) {
 // Steam 免费游戏：复用 epic 的卡片样式
 function rSteam(d, c) {
   if (!Array.isArray(d)) return rJSON(d, c);
-  if (!d.length) { c.innerHTML = '<div class="placeholder">暂无免费游戏</div>'; return; }
+  if (!d.length) { c.innerHTML = EMPTY_GAMES_HTML; return; }
   let h = '';
   d.forEach(g => {
     h += '<div class="game-card">';
-    if (g.cover) h += `<div class="img-wrap"><img src="${esc(g.cover)}" alt="${esc(g.title)}" loading="lazy" onerror="this.style.display=\'none\'"></div>`;
+    if (g.cover) h += `<div class="img-wrap ratio-capsule"><img src="${esc(g.cover)}" alt="${esc(g.title)}" loading="lazy" onerror="this.style.display='none'"></div>`;
     h += `<div class="game-title">🎮 ${esc(g.title)}</div>`;
     if (g.is_free_now) h += '<span class="game-free">免费</span>';
-    if (g.original_price) h += ` <span style="font-size:10px;color:var(--text-dim);text-decoration:line-through;">${esc(g.original_price)}</span>`;
-    if (g.link) h += `<div style="margin-top:4px;"><a href="${safeUrl(g.link)}" target="_blank" rel="noopener" style="font-size:11px;">领取 →</a></div>`;
+    if (g.original_price) h += ` <span class="game-orig">${esc(g.original_price)}</span>`;
+    if (g.link) h += `<div class="game-claim"><a href="${safeUrl(g.link)}" target="_blank" rel="noopener">领取 →</a></div>`;
     h += '</div>';
   });
   c.innerHTML = h;

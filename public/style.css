@@ -576,7 +576,8 @@ a:hover { text-decoration: underline; }
 /* 图片加载前预留宽高比空间，避免加载完成把下方内容顶下去（子菜单定位依赖高度稳定） */
 .img-wrap.ratio-banner { aspect-ratio: 16 / 9; overflow: hidden; }
 .img-wrap.ratio-banner img { width: 100%; height: 100%; object-fit: cover; }
-.img-wrap.ratio-portrait { aspect-ratio: 3 / 4; overflow: hidden; }
+/* 竖版封面（Epic 喜加一）：限制最大宽度，避免整卡宽渲染把卡片撑到超高 */
+.img-wrap.ratio-portrait { aspect-ratio: 3 / 4; max-width: 160px; overflow: hidden; }
 .img-wrap.ratio-portrait img { width: 100%; height: 100%; object-fit: cover; }
 
 /* ============ 工具卡通用：数据瓦片（健康/IP/WHOIS/密码 共用） ============ */
@@ -1108,11 +1109,32 @@ a:hover { text-decoration: underline; }
 .foot { text-align: center; padding: 30px; color: var(--text-dimmer); font-size: 12px; }
 
 /* Game card */
-.game-card { margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+/* 免费游戏卡（Epic / Steam 共用）：字号字重与 .item 系统一，
+   描述/截止/原价/领取均用 class 管理而非内联样式（.desc 通用规则只作用于 .item 后代） */
+.game-card { margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent); font-size: 13px; }
 .game-card:last-child { border: none; }
 .game-card img { border-radius: 6px; }
-.game-title { font-weight: 600; font-size: 13px; margin-top: 6px; }
+.game-title { font-size: 13px; font-weight: 600; margin-top: 6px; line-height: 1.5; }
+.game-card .desc { font-size: 11.5px; color: var(--text-dim); margin-top: 3px; line-height: 1.5; }
 .game-free { display: inline-block; padding: 1px 7px; background: rgba(52,211,153,0.15); color: var(--success); border-radius: 4px; font-size: 10px; font-weight: 600; margin-top: 3px; }
+.game-end { font-size: 10px; color: var(--warn); }
+.game-orig { font-size: 10px; color: var(--text-dim); text-decoration: line-through; }
+.game-claim { margin-top: 6px; }
+.game-claim a { font-size: 11px; font-weight: 600; color: var(--accent); text-decoration: none; }
+.game-claim a:hover { color: var(--accent-light); }
+
+/* Steam 头图胶囊比例（header 460x215），约束高度避免原始尺寸撑爆卡片 */
+.img-wrap.ratio-capsule { aspect-ratio: 460 / 215; overflow: hidden; }
+.img-wrap.ratio-capsule img { width: 100%; height: 100%; object-fit: cover; }
+
+/* 卡片空态（免费游戏等）：居中图标 + 主文案 + 副说明 */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 26px 12px; text-align: center;
+}
+.empty-state .es-icon { font-size: 30px; line-height: 1; }
+.empty-state .es-text { color: var(--text-dim); font-size: 13px; font-weight: 600; }
+.empty-state .es-sub { color: var(--text-dimmer); font-size: 11px; }
 
 /* Weather */
 .wx-loc { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
