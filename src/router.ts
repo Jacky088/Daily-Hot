@@ -62,6 +62,7 @@ import { serviceWhois } from './modules/whois.module.ts'
 import { serviceV2ex } from './modules/v2ex.module.ts'
 import { olympicsService } from './modules/olympics/olympics.module.ts'
 import { serviceDoubanWeekly } from './modules/douban-weekly.module.ts'
+import { handleImgProxy } from './modules/img-proxy.module.ts'
 import { serviceITNews } from './modules/it-news.module.ts'
 
 // import { serviceSlackingCalendar } from './modules/slacking-calendar/slacking-calendar.module.ts'
@@ -69,6 +70,10 @@ import { serviceITNews } from './modules/it-news.module.ts'
 const serviceGoldPrice = new GoldPriceService()
 
 export const rootRouter = new Router()
+
+// 图片代理：豆瓣图片有 Referer 防盗链，浏览器无法伪造跨域 Referer，
+// 由服务端带豆瓣站内 Referer 拉图后同源透传（白名单仅豆瓣图片域）
+rootRouter.get('/img', (ctx) => handleImgProxy(ctx))
 
 // 兜底：正常情况下 / 由 wrangler [assets] 或 staticAssets 中间件返回 index.html，
 // 只有在 public 目录缺失时才会走到这里，返回接口清单便于排查。

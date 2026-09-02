@@ -93,8 +93,10 @@ function transformItem(raw: DoubanRawItem): DoubanWeeklyItem {
     card_subtitle: raw.card_subtitle ?? '',
     description: raw.description ?? '',
     cover: raw.cover_url,
-    // cover_proxy: raw.cover_url,
-    cover_proxy: raw.cover_url.replace(/https:\/\/img\w*\.doubanio\.com/, 'https://doubanio.viki.moe'),
+    // 豆瓣图片有 Referer 防盗链（无 Referer 418 / 第三方 Referer 403），
+    // 公共镜像不可靠（viki.moe 已 429 限流），统一走同源 /img 代理：
+    // 服务端带豆瓣站内 Referer 拉图透传，本地与 Cloudflare 部署通用
+    cover_proxy: `/img?url=${encodeURIComponent(raw.cover_url)}`,
     url: raw.url,
     tags: (raw.tags ?? []).map((t) => t.name).filter(Boolean),
   }
