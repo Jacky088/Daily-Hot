@@ -1821,14 +1821,27 @@ function rNCM(d, c) {
   d.slice(0, 20).forEach((r, i) => {
     const cls = i < 3 ? `top${i+1}` : '';
     const artistNames = (r.artist || []).map(a => a.name).join('、');
-    h += `<div class="item"><span class="rank ${cls}">${i+1}</span><div class="body">`;
-    h += r.link ? `<a href="${safeUrl(r.link)}" target="_blank" rel="noopener">${esc(r.title)}</a>` : `<span class="t">${esc(r.title)}</span>`;
+    // 专辑封面：升级 https 并请求 100x100 缩略图，网易云 CDN 无防盗链
+    const cover = r.album?.cover ? `https://${r.album.cover.replace(/^https?:\/\//, '')}?param=100y100` : '';
     let meta = '';
     if (artistNames) meta += esc(artistNames);
     if (r.album?.name) meta += ` · ${esc(r.album.name)}`;
     if (r.duration_desc) meta += ` · ${esc(r.duration_desc)}`;
-    if (meta) h += `<div class="meta">${meta}</div>`;
-    h += '</div></div>';
+    if (cover) {
+      // 封面模式：序号内联在标题行首（与流媒体榜 rSimkl 一致）
+      h += `<div class="item with-poster with-cover">`;
+      h += `<img class="poster cover-square" src="${esc(cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+      h += `<div class="body-wrap">`;
+      h += r.link ? `<a href="${safeUrl(r.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${i+1}</span> ${esc(r.title)}</a>` : `<span class="t"><span class="rank ${cls}">${i+1}</span> ${esc(r.title)}</span>`;
+      if (meta) h += `<div class="meta">${meta}</div>`;
+      h += '</div></div>';
+    } else {
+      // 无封面时回退原有布局
+      h += `<div class="item"><span class="rank ${cls}">${i+1}</span><div class="body">`;
+      h += r.link ? `<a href="${safeUrl(r.link)}" target="_blank" rel="noopener">${esc(r.title)}</a>` : `<span class="t">${esc(r.title)}</span>`;
+      if (meta) h += `<div class="meta">${meta}</div>`;
+      h += '</div></div>';
+    }
   });
   c.innerHTML = h;
 }

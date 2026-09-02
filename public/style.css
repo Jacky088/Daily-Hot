@@ -456,6 +456,9 @@ a:hover { text-decoration: underline; }
 .item.with-poster .body-wrap .hot { color: var(--warn); font-weight: 500; }
 .item.with-poster .body-wrap .desc { font-size: 11.5px; color: var(--text-dim); margin-top: 3px; line-height: 1.5; }
 
+/* 方形封面变体（音乐榜专辑封面，与竖版电影海报区分） */
+.item.with-poster.with-cover .poster.cover-square { width: 40px; height: 40px; }
+
 /* News (60s) */
 .news-item { padding: 7px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent); font-size: 13px; display: flex; gap: 8px; line-height: 1.6; }
 .news-item:last-child { border: none; }
