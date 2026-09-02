@@ -979,16 +979,27 @@ function rList(d, c, ep) {
     const l = it[f.l] || it.link || it.url || '';
     const hot = f.h ? it[f.h] : '';
     const desc = f.d ? it[f.d] : '';
-    const poster = it[f.p] || it.cover || it.poster || '';
+    // 仅显式配置 f.p 的榜单启用海报模式，避免数据里带 cover 的模块误显示缩略图
+    const poster = f.p ? (it[f.p] || '') : '';
     let meta = '';
     if (hot) meta += `<span class="hot">🔥 ${esc(String(hot))}</span>`;
-    h += `<div class="item${poster ? ' with-poster' : ''}">`;
-    if (poster) h += `<img class="poster" src="${esc(poster)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
-    h += `<div class="body-wrap">`;
-    h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(t)}</a>` : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(t)}</span>`;
-    if (meta) h += `<div class="meta">${meta}</div>`;
-    if (desc) h += `<div class="desc">${esc(String(desc).slice(0, 80))}${String(desc).length > 80 ? '…' : ''}</div>`;
-    h += '</div></div>';
+    if (poster) {
+      // 海报模式：序号内联在标题行首（与流媒体榜 rSimkl 一致）
+      h += `<div class="item with-poster">`;
+      h += `<img class="poster" src="${esc(poster)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+      h += `<div class="body-wrap">`;
+      h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(t)}</a>` : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(t)}</span>`;
+      if (meta) h += `<div class="meta">${meta}</div>`;
+      if (desc) h += `<div class="desc">${esc(String(desc).slice(0, 80))}${String(desc).length > 80 ? '…' : ''}</div>`;
+      h += '</div></div>';
+    } else {
+      // 无海报模式：保持原有布局，序号徽章独立在左与标题并排
+      h += `<div class="item"><span class="rank ${cls}">${rank}</span><div class="body">`;
+      h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener">${esc(t)}</a>` : `<span class="t">${esc(t)}</span>`;
+      if (meta) h += `<div class="meta">${meta}</div>`;
+      if (desc) h += `<div class="desc">${esc(String(desc).slice(0, 80))}${String(desc).length > 80 ? '…' : ''}</div>`;
+      h += '</div></div>';
+    }
   });
   c.innerHTML = h;
 }
@@ -1001,16 +1012,25 @@ function rDouban(d, c) {
     const cls = rank <= 3 ? `top${rank}` : '';
     const l = it.url || it.link || '';
     const poster = it.cover_proxy || it.cover || '';
-    h += `<div class="item${poster ? ' with-poster' : ''}">`;
-    if (poster) h += `<img class="poster" src="${esc(poster)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
-    h += `<div class="body-wrap">`;
-    h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</a>` : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</span>`;
     let meta = '';
     if (it.rating) meta += `⭐ ${esc(String(it.rating))} `;
     if (it.rating_count) meta += `(${esc(String(it.rating_count))}) `;
     if (it.card_subtitle) meta += ` · ${esc(it.card_subtitle)}`;
-    if (meta) h += `<div class="meta">${meta}</div>`;
-    h += `</div></div>`;
+    if (poster) {
+      // 海报模式：序号内联在标题行首（与流媒体榜 rSimkl 一致）
+      h += `<div class="item with-poster">`;
+      h += `<img class="poster" src="${esc(poster)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+      h += `<div class="body-wrap">`;
+      h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</a>` : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</span>`;
+      if (meta) h += `<div class="meta">${meta}</div>`;
+      h += '</div></div>';
+    } else {
+      // 无海报时回退原有布局，序号徽章独立在左与标题并排
+      h += `<div class="item"><span class="rank ${cls}">${rank}</span><div class="body">`;
+      h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener">${esc(it.title)}</a>` : `<span class="t">${esc(it.title)}</span>`;
+      if (meta) h += `<div class="meta">${meta}</div>`;
+      h += '</div></div>';
+    }
   });
   c.innerHTML = h;
 }
