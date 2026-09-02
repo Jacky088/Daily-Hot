@@ -106,10 +106,11 @@ const EPS = [
 
   // 娱乐
   // 分组卡片的显示位置由「组内首个成员在本列表中的位置」决定，
-  // 故按 目标卡片顺序 排列：猫眼票房 → 豆瓣周榜 → 百度周榜 → 流媒体 → 音乐 → 免费游戏
-  { cat:'ent', id:'maoyan', name:'猫眼历史票房', icon:'🍿', path:'/v2/maoyan/all/movie', type:'maoyan', auto:1 },
+  // 故按 目标卡片顺序 排列：猫眼电影榜 → 豆瓣影视周榜 → 百度影视周榜 → 流媒体 → 音乐 → 免费游戏
+  // 猫眼组：历史票房置后（标签页与折叠菜单顺序一致，故在映/待映排在历史票房之前）
   { cat:'ent', id:'maoyan-showing', name:'猫眼在映电影', icon:'🎬', path:'/v2/maoyan/showing', type:'maoyan-movie', auto:1 },
   { cat:'ent', id:'maoyan-coming', name:'猫眼待映电影', icon:'🗓️', path:'/v2/maoyan/coming', type:'maoyan-movie', auto:1 },
+  { cat:'ent', id:'maoyan', name:'猫眼历史票房', icon:'🍿', path:'/v2/maoyan/all/movie', type:'maoyan', auto:1 },
   { cat:'ent', id:'douban', name:'豆瓣电影周榜', icon:'🎬', path:'/v2/douban/weekly/movie', type:'douban', auto:1 },
   { cat:'ent', id:'douban-tv-cn', name:'豆瓣华语剧集周榜', icon:'📺', path:'/v2/douban/weekly/tv_chinese', type:'douban', auto:1 },
   { cat:'ent', id:'douban-tv-global', name:'豆瓣全球剧集周榜', icon:'🎞️', path:'/v2/douban/weekly/tv_global', type:'douban', auto:1 },
@@ -177,9 +178,9 @@ const EPS = [
 // 搜索命中组内任一标签时整组显示，且只渲染命中的标签页
 const CARD_GROUPS = [
   { id: 'maoyan-box', name: '猫眼电影榜', icon: '🍿', tabs: [
-    { ep: 'maoyan', label: '历史票房' },
     { ep: 'maoyan-showing', label: '在映' },
     { ep: 'maoyan-coming', label: '待映' },
+    { ep: 'maoyan', label: '历史票房' },
   ]},
   { id: 'douban-week', name: '豆瓣影视周榜', icon: '🎭', tabs: [
     { ep: 'douban', label: '电影' },
@@ -378,6 +379,9 @@ function init() {
   catChips.className = 'cat-chips';
   catStrip.appendChild(stripToggle);
   catStrip.appendChild(catChips);
+  // 鼠标拖拽横向滚动（窄屏分类栏 / 模块 chips 条；触摸端原生支持，不重复绑定）
+  enableDragScroll(catRow);
+  enableDragScroll(catChips);
 
   // 生成某分类的子菜单项（模块名按钮，点击定位到对应卡片）
   function buildSubItems(container, catId) {
@@ -402,6 +406,37 @@ function init() {
       left: container.scrollLeft + (elRect.left - cRect.left) - (cRect.width - elRect.width) / 2,
       behavior: 'smooth',
     });
+  }
+
+  // 鼠标拖拽横向滚动：触摸端原生支持滑动，这里仅补鼠标（mousedown/move/up），
+  // 不影响触摸手势。仅在「横向位移明显」时才抑制随后的点击，避免拖拽误触发
+  // 分类切换 / 模块定位；纵向移动（如桌面侧边栏）因 dx≈0 不滚动也不吞点击。
+  function enableDragScroll(container) {
+    if (!container) return;
+    let down = false, sx = 0, sl = 0, dx = 0;
+    container.addEventListener('mousedown', e => {
+      if (e.button !== 0) return; // 仅左键
+      down = true; dx = 0; sx = e.clientX; sl = container.scrollLeft;
+      container.classList.add('dragging');
+      document.body.style.cursor = 'grabbing';
+    });
+    window.addEventListener('mousemove', e => {
+      if (!down) return;
+      dx = e.clientX - sx;
+      container.scrollLeft = sl - dx;
+    });
+    const end = () => {
+      if (!down) return;
+      down = false;
+      container.classList.remove('dragging');
+      document.body.style.cursor = '';
+      // 发生过横向拖拽则本次点击视为拖拽结束，吞掉以免误触分类/模块
+      if (Math.abs(dx) > 6) {
+        const suppress = ev => { ev.stopPropagation(); ev.preventDefault(); };
+        container.addEventListener('click', suppress, { capture: true, once: true });
+      }
+    };
+    window.addEventListener('mouseup', end);
   }
 
   // 让某模块在分类导航中滚入可视区（定位跳转与分组标签页切换共用）：
@@ -1008,7 +1043,10 @@ async function load(ep, forceUpdate = false) {
   let url = API + ep.path;
   const params = new URLSearchParams();
   if (ep.inputs) {
-    const card = document.getElementById('card-' + ep.id);
+    // 分组卡片内数据源 id 与卡片 id 不一致（卡片 id 是分组 id），
+    // 故输入控件容器回退到 content 的最近 .card 祖先
+    const card = document.getElementById('card-' + ep.id) || c.closest('.card');
+    if (!card) return;
     ep.inputs.forEach(inp => {
       const sel = card.querySelector(`select[name="${inp.n}"]`);
       if (sel && sel.value) { params.set(inp.n, sel.value); return; }
@@ -1245,7 +1283,7 @@ function rList(d, c, ep) {
   }
   c.innerHTML = h;
   // 展开态同步到卡片 class：span-2 宽卡片收起时走双栏排布，展开时回退单列滚动
-  const card = document.getElementById('card-' + ep.id);
+  const card = document.getElementById('card-' + ep.id) || c.closest('.card');
   if (card) card.classList.toggle('expanded', expanded);
 }
 

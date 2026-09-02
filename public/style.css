@@ -1330,6 +1330,8 @@ a:hover { text-decoration: underline; }
   }
   .cat-row::-webkit-scrollbar { display: none; }
   .cat-sub { display: none !important; }
+  /* 鼠标拖拽横向滚动时禁用文本选择（触摸端原生支持，不受影响） */
+  .cat-row.dragging, .cat-chips.dragging { user-select: none; -webkit-user-select: none; }
   /* 模块 chips 条：点击定位到对应卡片；点已激活分类或左侧三角可折叠。
      折叠动画作用于整行：三角按钮、上下 padding、分隔边框一并收起，
      折叠后无任何残留区域；重新展开的入口是已激活分类 pill
