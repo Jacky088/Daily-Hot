@@ -212,6 +212,87 @@ const CARD_GROUPS = [
 const GROUP_OF = {};
 CARD_GROUPS.forEach(g => g.tabs.forEach(t => { GROUP_OF[t.ep] = g; }));
 
+// ============ 菜单目录数据与同步（分类=切换视图，模块=本页目录 TOC） ============
+let syncSpy = null; // init 内部赋值 setupScrollSpy：render 后按新卡片集合重建滚动监听
+
+// 某分类按渲染顺序列出的「卡片」条目：分组成员合并为一个分组条目，与 appendCards 出卡逻辑一致
+function catTocEntries(catId) {
+  const out = [];
+  const seen = new Set();
+  EPS.filter(ep => ep.cat === catId).forEach(ep => {
+    const g = GROUP_OF[ep.id];
+    if (g) {
+      if (seen.has(g.id)) return;
+      seen.add(g.id);
+      out.push({ key: g.id, type: 'group', icon: g.icon, name: g.name, epId: g.tabs[0].ep });
+      return;
+    }
+    out.push({ key: ep.id, type: 'ep', icon: ep.icon, name: ep.name, epId: ep.id });
+  });
+  return out;
+}
+
+// 目录高亮的唯一写入口：点击定位与 scroll-spy 共用（高亮单元是卡片，分组成员归到分组条目）
+function setTocActive(key) {
+  document.querySelectorAll('.cat-toc-item').forEach(el => {
+    el.classList.toggle('active', !!key && el.dataset.key === key);
+  });
+}
+
+// 分组条目上的「当前标签」徽章跟随卡片实际激活页；卡片未渲染时保留旧值，render 后会再同步
+function updateTocBadges() {
+  document.querySelectorAll('.cat-toc-item[data-type="group"]').forEach(el => {
+    const badge = el.querySelector('.tb');
+    if (!badge) return;
+    const card = document.getElementById('card-' + el.dataset.key);
+    const activeEp = card && card.dataset.activeEp;
+    const g = CARD_GROUPS.find(x => x.id === el.dataset.key);
+    const tab = g && activeEp ? g.tabs.find(t => t.ep === activeEp) : null;
+    badge.textContent = tab ? tab.label : '';
+    badge.style.display = tab ? '' : 'none';
+  });
+}
+
+// 桌面 scroll-spy：观察当前分类的卡片，视口上部波段内最靠前的卡片即「正在阅读」的条目
+let spyObserver = null;
+const spyVisible = new Set();
+function setupScrollSpy() {
+  if (spyObserver) { spyObserver.disconnect(); spyObserver = null; }
+  spyVisible.clear();
+  // 「全部」无目录；移动端目录是呼出面板，跟随滚动高亮没有意义
+  if (curCat === 'all' || window.innerWidth <= 820) return;
+  const keys = catTocEntries(curCat).map(e => e.key);
+  spyObserver = new IntersectionObserver(entries => {
+    for (const en of entries) {
+      const k = en.target.dataset.spyKey;
+      if (en.isIntersecting) spyVisible.add(k); else spyVisible.delete(k);
+    }
+    if (!spyVisible.size) return;
+    // 点击意图优先：点选的卡片仍有足量部分（≥140px）在视口内时，高亮不跟随滚动，
+    // 避免定位后的轻微滚动就让高亮跳走；卡片基本滚出视口后交还 scroll-spy
+    const activeKey = activeModuleId
+      ? (GROUP_OF[activeModuleId] ? GROUP_OF[activeModuleId].id : activeModuleId)
+      : null;
+    if (activeKey) {
+      const el = document.getElementById('card-' + activeKey);
+      const r = el && el.getBoundingClientRect();
+      const visible = r ? Math.min(window.innerHeight, r.bottom) - Math.max(0, r.top) : 0;
+      if (visible >= 140) { setTocActive(activeKey); return; }
+    }
+    // 网格同一行的卡片同时可见，取 TOC 顺序最前的作为「当前行」位置标记
+    const current = keys.find(k => spyVisible.has(k));
+    if (current) setTocActive(current);
+  }, { rootMargin: '-110px 0px -65% 0px', threshold: 0 });
+  keys.forEach(k => {
+    const el = document.getElementById('card-' + k);
+    if (!el) return;
+    el.dataset.spyKey = k;
+    spyObserver.observe(el);
+  });
+}
+// 跨越桌面/移动断点时重建监听（只有桌面需要 spy）
+window.matchMedia('(max-width: 820px)').addEventListener('change', () => setupScrollSpy());
+
 let curCat = 'all';
 let activeModuleId = null; // 当前高亮的子菜单模块（点击模块菜单后记录）
 let syncSubs = null; // init 内部 refreshSubs 的对外钩子：分组卡片切标签页时同步子菜单高亮
@@ -366,22 +447,12 @@ function init() {
   const nav = $('#catNav');
   const catRow = document.createElement('div');
   catRow.className = 'cat-row';
-  const catStrip = document.createElement('div');
-  catStrip.className = 'cat-strip';
-  const stripToggle = document.createElement('button');
-  stripToggle.className = 'cat-strip-toggle';
-  stripToggle.title = '展开/收起模块列表';
-  stripToggle.textContent = '▾';
-  stripToggle.onclick = () => nav.classList.toggle('sub-collapsed');
-  // chips 包装层：折叠动画只作用于 chips 本身（高度 42px↔0），
-  // 三角按钮在折叠区之外——折叠后仍可见可点，箭头朝向跟随折叠状态
-  const catChips = document.createElement('div');
-  catChips.className = 'cat-chips';
-  catStrip.appendChild(stripToggle);
-  catStrip.appendChild(catChips);
-  // 鼠标拖拽横向滚动（窄屏分类栏 / 模块 chips 条；触摸端原生支持，不重复绑定）
+  // 移动端模块面板：absolute 悬浮在吸顶分类行下方、不占文档流，
+  // 吸顶高度恒定，定位系统无需再感知面板开合带来的布局变化
+  const catPanel = document.createElement('div');
+  catPanel.className = 'cat-panel';
+  // 鼠标拖拽横向滚动（分类 pill 行；触摸端原生支持，不重复绑定）
   enableDragScroll(catRow);
-  enableDragScroll(catChips);
 
   // 生成某分类的子菜单项（模块名按钮，点击定位到对应卡片）
   function buildSubItems(container, catId) {
@@ -393,6 +464,34 @@ function init() {
       item.innerHTML = `<span class="ci">${ep.icon}</span>${esc(ep.name)}`;
       item.title = `定位到「${ep.name}」`;
       item.onclick = () => locateCard(ep);
+      container.appendChild(item);
+    });
+  }
+
+  // 桌面侧边栏「本页目录」：按渲染顺序列卡片，分组卡合并为单条目（徽章显示当前标签页）。
+  // 目录内容是静态的（分类下的卡片集合不变），动态的只有徽章与高亮，故预构建一次
+  function buildToc(container, catId) {
+    container.innerHTML = '';
+    catTocEntries(catId).forEach((e, i) => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'cat-toc-item';
+      item.dataset.key = e.key;
+      item.dataset.type = e.type;
+      item.title = `定位到「${e.name}」`;
+      item.innerHTML = `<span class="no">${String(i + 1).padStart(2, '0')}</span>` +
+        `<span class="ci">${e.icon}</span><span class="nm">${esc(e.name)}</span>` +
+        (e.type === 'group' ? '<span class="tb"></span>' : '');
+      item.onclick = () => {
+        // 分组条目定位到其当前激活的标签页（卡片未渲染时回退首个标签页）
+        let target = EPS.find(x => x.id === e.epId);
+        if (e.type === 'group') {
+          const card = document.getElementById('card-' + e.key);
+          const activeEp = card && card.dataset.activeEp;
+          if (activeEp) target = EPS.find(x => x.id === activeEp) || target;
+        }
+        if (target) locateCard(target);
+      };
       container.appendChild(item);
     });
   }
@@ -439,13 +538,18 @@ function init() {
     window.addEventListener('mouseup', end);
   }
 
-  // 让某模块在分类导航中滚入可视区（定位跳转与分组标签页切换共用）：
-  // 移动端 chips 条内水平居中；桌面端侧边栏子菜单滚动到可视即可（nearest 避免页面跳动）
+  // 让某模块在菜单中滚入可视区（定位跳转与分组标签页切换共用）：
+  // 桌面端目录条目滚动到可视即可；移动端仅在面板展开时把对应 chip 滚入面板可视区
   function focusSubChip(epId) {
-    const chip = catChips.querySelector(`.cat-subitem[data-ep="${epId}"]`);
-    if (chip && window.innerWidth <= 820) centerInContainer(catChips, chip);
-    const sub = catRow.querySelector(`.cat-subitem[data-ep="${epId}"]`);
-    if (sub && window.innerWidth > 820) sub.scrollIntoView({ block: 'nearest' });
+    const key = GROUP_OF[epId] ? GROUP_OF[epId].id : epId;
+    if (window.innerWidth > 820) {
+      const item = catRow.querySelector(`.cat-toc-item[data-key="${key}"]`);
+      if (item) item.scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    if (!nav.classList.contains('toc-open')) return;
+    const chip = catPanel.querySelector(`.cat-subitem[data-ep="${epId}"]`);
+    if (chip) chip.scrollIntoView({ block: 'nearest' });
   }
 
   // 定位校正任务（模块级单例）：分类定位与模块定位共用一个计时器，
@@ -478,11 +582,9 @@ function init() {
   // 用户手动滚动立即让位。固定引用，便于 once 监听器去重
   const abortAlign = () => stopAlign();
 
-  // 滚动停靠位：移动端吸顶的是整个分类导航（含模块 chips 条），
+  // 滚动停靠位：移动端吸顶的是分类导航（单行 pill；模块面板是悬浮层，不影响高度），
   // 桌面端分类栏在侧边不遮挡内容、遮挡卡片的是吸顶顶栏——必须分端测量，
   // 否则桌面端会算出负偏移导致根本不滚动。
-  // 注意移动端 nav 高度随 chips 条折叠状态变化（max-height 64px↔0，过渡 0.3s），
-  // 折叠动画期间这个值一直在动，定位必须等布局稳定后再取。
   function scrollDockTop() {
     if (window.innerWidth <= 820) {
       const navEl = document.querySelector('.cat-nav');
@@ -492,36 +594,39 @@ function init() {
     return (topbar ? topbar.getBoundingClientRect().bottom : 0) + 12;
   }
 
-  // 刷新子菜单：桌面手风琴只展开当前分类；移动 chips 条填充当前分类模块；
-  // 同时同步模块高亮态
+  // 刷新菜单与页面状态同步：桌面目录展开/高亮、移动面板 chips、分组卡标签徽章
   function refreshSubs() {
     catRow.querySelectorAll('.cat-sub').forEach(el => {
       el.classList.toggle('open', el.dataset.for === curCat);
     });
-    catChips.querySelectorAll('.cat-subitem').forEach(el => el.remove());
-    buildSubItems(catChips, curCat);
-    catStrip.style.display = (curCat === 'all') ? 'none' : '';
-    // 高亮当前选中的模块菜单项（子菜单项与 chips 各有一份，按 data-ep 匹配）
-    catRow.querySelectorAll('.cat-subitem').forEach(el => {
+    // 移动端面板：EPS 级 chips，分组成员可直达对应标签页
+    catPanel.innerHTML = '';
+    if (curCat !== 'all') buildSubItems(catPanel, curCat);
+    // 高亮单元是「卡片」：activeModuleId 属于分组成员时归到分组条目
+    const key = activeModuleId ? (GROUP_OF[activeModuleId] ? GROUP_OF[activeModuleId].id : activeModuleId) : null;
+    setTocActive(key);
+    catPanel.querySelectorAll('.cat-subitem').forEach(el => {
       el.classList.toggle('active', el.dataset.ep === activeModuleId);
     });
-    catChips.querySelectorAll('.cat-subitem').forEach(el => {
-      el.classList.toggle('active', el.dataset.ep === activeModuleId);
-    });
+    updateTocBadges();
   }
-  // 暴露给顶层函数（分组卡片切标签页时同步子菜单高亮 + chip 滚入可视区）
+  // 暴露给顶层函数（分组卡片切标签页时同步子菜单高亮 + chip 滚入可视区；
+  // render() 末尾也会调用以对齐重建后的 DOM）
   syncSubs = refreshSubs;
   centerSubChip = focusSubChip;
+  syncSpy = setupScrollSpy;
 
   // 定位模块卡片：清搜索过滤 → 必要时切分类 → 滚动到卡片并闪烁高亮
   function locateCard(ep) {
     const searchInput = $('#search');
     if (searchInput && searchInput.value.trim()) searchInput.value = '';
+    // 移动端模块面板是悬浮层：定位即收起，避免遮住落点卡片
+    nav.classList.remove('toc-open');
     let switched = false;
     if (curCat !== ep.cat) {
       switched = true;
       curCat = ep.cat;
-      // 定位跳转切换分类同样要解除折叠态，保证箭头朝向与子菜单展开状态一致
+      // 定位跳转切换分类同样要解除折叠态，保证箭头朝向与目录展开状态一致
       nav.classList.remove('sub-collapsed');
       location.hash = ep.cat;
       $$('.cat-row > button').forEach(x => x.classList.remove('active'));
@@ -585,11 +690,10 @@ function init() {
   }
 
   // 点分类后定位到该分类的标题行。
-  // 必须在 refreshSubs() + render() 之后调用，原因有两个：
-  // 1) render() 会重建 #main，在它之前算出的坐标指向的是即将被销毁的旧 DOM；
-  // 2) 切换分类时会移除 sub-collapsed，模块 chips 条从 0 展开到 64px（过渡 0.3s），
-  //    移动端它还是吸顶元素——nav 变高会同时改变「停靠位」和「标题的绝对坐标」。
-  //    所以无论之前 chips 条是展开还是折叠，都必须等布局稳定后重新测量才能对准。
+  // 必须在 refreshSubs() + render() 之后调用：render() 会重建 #main，
+  // 在它之前算出的坐标指向的是即将被销毁的旧 DOM。
+  // 移动端吸顶高度已恒定（模块面板是悬浮层不占文档流），但卡片图片异步加载
+  // 仍会改变上方高度，所以定位后的轮询校正保留。
   function scrollToCatTitle(catId) {
     // 取消上一轮校正（可能是模块定位留下的），避免两个计时器争抢滚动位置
     stopAlign();
@@ -608,8 +712,8 @@ function init() {
     // 首跳 instant：smooth 会被随后的折叠过渡与布局变化打断，精确性优先
     window.scrollTo({ top: absY(), behavior: 'instant' });
 
-    // 轮询校正：chips 条 0.3s 展开动画与卡片异步加载都会改变上方高度，
-    // 坐标一变就重新对齐；连续 2 次复测不变即认为布局已稳定。用户手动滚动立即让位
+    // 轮询校正：卡片异步加载（含图片）会改变上方高度，坐标一变就重新对齐；
+    // 连续 2 次复测不变即认为布局已稳定。用户手动滚动立即让位
     let stable = 0, lastY = Math.round(absY()), tries = 0;
     const token = startAlign(() => {
       if (++tries > 15) { stopAlign(); return; }
@@ -630,32 +734,38 @@ function init() {
 
   CATS.forEach(c => {
     const b = document.createElement('button');
-    b.textContent = c.name;
     b.dataset.cat = c.id;
     if (c.id === curCat) b.classList.add('active');
+    // 计数徽章：分类下的模块数（移动端由 CSS 隐藏，pill 空间优先给名称）
+    const cnt = document.createElement('span');
+    cnt.className = 'cnt';
+    cnt.textContent = c.id === 'all' ? EPS.length : EPS.filter(ep => ep.cat === c.id).length;
+    b.appendChild(document.createTextNode(c.name));
+    b.appendChild(cnt);
     b.onclick = () => {
-      // 点击已激活的分类：折叠/展开子菜单；否则切换分类
+      // 点击已激活分类：桌面折叠/展开目录手风琴；移动端开合模块面板（「全部」无目录）
       if (curCat === c.id) {
-        nav.classList.toggle('sub-collapsed');
+        if (c.id === 'all') return;
+        if (window.innerWidth <= 820) nav.classList.toggle('toc-open');
+        else nav.classList.toggle('sub-collapsed');
         return;
       }
       curCat = c.id;
       activeModuleId = null; // 切换分类后之前的模块高亮不再适用
-      // 切换到新分类必须解除折叠态：否则子菜单仍收起而箭头已转向"展开"，朝向与实际状态脱节
+      // 桌面：切换后必须展开新分类目录，否则箭头朝向与展开状态脱节；
+      // 移动端面板保持当前开合——开着就地换内容，关着不打扰
       nav.classList.remove('sub-collapsed');
       location.hash = c.id;
       $$('.cat-row > button').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
       // 窄屏分类栏是横向滚动的：把选中的 pill 水平居中（内部已按宽度判断，桌面端自动跳过）
       centerInContainer(catRow, b);
-      // 先重建 DOM 再定位：render() 会重建 #main，chips 条从折叠展开的 0.3s 动画
-      // 又会改变上方高度，两者完成前算出的落点必然偏移
       refreshSubs();
       render();
       scrollToCatTitle(c.id);
     };
     catRow.appendChild(b);
-    // 桌面侧边栏手风琴：子菜单紧跟在所属分类按钮后（display:contents 让其参与纵向排列）；
+    // 桌面侧边栏手风琴：卡片目录紧跟所属分类按钮后（display:contents 参与纵向排列）；
     // inner 包装层供 grid-template-rows 0fr→1fr 展开动画使用
     if (c.id !== 'all') {
       const sub = document.createElement('div');
@@ -663,15 +773,24 @@ function init() {
       sub.dataset.for = c.id;
       const inner = document.createElement('div');
       inner.className = 'cat-sub-inner';
-      buildSubItems(inner, c.id);
+      buildToc(inner, c.id);
       sub.appendChild(inner);
       catRow.appendChild(sub);
     }
   });
 
   nav.appendChild(catRow);
-  nav.appendChild(catStrip);
+  nav.appendChild(catPanel);
   refreshSubs();
+  // 移动端模块面板的常规退出路径：点击面板外任意处 / Esc（定位点击由 locateCard 自己收起）
+  document.addEventListener('click', e => {
+    if (window.innerWidth > 820) return;
+    if (!nav.classList.contains('toc-open')) return;
+    if (!nav.contains(e.target)) nav.classList.remove('toc-open');
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') nav.classList.remove('toc-open');
+  });
   // 刷新/hash 恢复后：窄屏把当前激活的分类 pill 居中，避免落在屏幕外
   const activeBtn = catRow.querySelector('button.active');
   if (activeBtn) centerInContainer(catRow, activeBtn);
@@ -788,6 +907,10 @@ function render() {
   autoEps.forEach((ep, i) => {
     setTimeout(() => load(ep).finally(() => splash.step()), i * 80);
   });
+
+  // 菜单同步：目录徽章/高亮对齐刚重建的 DOM，并按新卡片集合重建 scroll-spy 监听
+  if (syncSubs) syncSubs();
+  if (syncSpy) syncSpy();
 }
 
 function matchKw(ep, kw) {
@@ -1137,12 +1260,20 @@ async function fetchWithRetry(ep, url, ck, c, retriesLeft) {
 
     // 速率限制或服务器错误：等待后重试
     if (res.status === 429 || res.status >= 500) {
+      // 5xx 多为上游数据源不可达/超时（每次响应都要等满后端的上游超时），
+      // 只重试一次——三轮叠加会让加载动画转 30 秒以上才出现错误提示
+      if (res.status >= 500) {
+        if (retriesLeft >= 2) {
+          await new Promise(r => setTimeout(r, 1500));
+          return fetchWithRetry(ep, url, ck, c, 1);
+        }
+        c.innerHTML = unavailableHTML(ep, `HTTP ${res.status}`);
+        return;
+      }
       if (retriesLeft > 0) {
         await new Promise(r => setTimeout(r, 1500));
         return fetchWithRetry(ep, url, ck, c, retriesLeft - 1);
       }
-      c.innerHTML = unavailableHTML(ep, `HTTP ${res.status}`);
-      return;
     }
 
     if (ep.type === 'qr') {
@@ -1763,7 +1894,7 @@ function wxTempChart(days, W) {
   [0.35, 0.7].forEach(f => s += `<line x1="4" x2="${W - 4}" y1="${(H * f).toFixed(1)}" y2="${(H * f).toFixed(1)}" stroke="var(--border)" stroke-dasharray="3 5" stroke-width="0.5"/>`);
   s += `<path d="${area}" fill="url(#wxgrad)"/>`;
   s += `<path d="${minPath}" fill="none" stroke="var(--text-dimmer)" stroke-width="1.5" stroke-dasharray="4 3" stroke-linecap="round"/>`;
-  s += `<path d="${maxPath}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" style="filter:drop-shadow(0 1px 3px rgba(99,102,241,0.35))"/>`;
+  s += `<path d="${maxPath}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" style="filter:drop-shadow(0 1px 3px rgba(249,115,22,0.35))"/>`;
   maxPts.forEach((p, i) => {
     s += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="var(--accent)" stroke="var(--card)" stroke-width="1.5"/>`;
     s += `<text x="${p.x.toFixed(1)}" y="${(p.y - 8).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--text)">${esc(String(maxs[i]))}°</text>`;
@@ -2025,7 +2156,7 @@ function rEpic(d, c) {
   let h = '';
   d.forEach(g => {
     h += '<div class="game-card">';
-    if (g.cover) h += `<div class="img-wrap ratio-portrait"><img src="${esc(g.cover)}" alt="${esc(g.title)}" loading="lazy" onerror="this.style.display='none'"></div>`;
+    if (g.cover) h += `<div class="img-wrap ratio-banner"><img src="${esc(g.cover)}" alt="${esc(g.title)}" loading="lazy" onerror="this.style.display='none'"></div>`;
     h += `<div class="game-title">🎮 ${esc(g.title)}</div>`;
     if (g.description) h += `<div class="desc">${esc(g.description.slice(0, 80))}${g.description.length > 80 ? '…' : ''}</div>`;
     if (g.is_free_now) h += '<span class="game-free">免费</span>';
@@ -2479,12 +2610,13 @@ function rJSON(d, c) {
   let gridMap = new Map(); // 空间分区 map
 
   function getMeshColors() {
+    // 与 style.css 的 --mesh-* 变量保持同源：品牌火焰渐变玫瑰端（#fb7185）派生的玫红色系
     const dark = document.documentElement.dataset.theme === 'dark';
     return {
-      line: dark ? 'rgba(180,120,200,0.09)' : 'rgba(214,150,204,0.10)',
-      lineNear: dark ? 'rgba(200,130,220,0.16)' : 'rgba(186,136,196,0.18)',
-      dot: dark ? 'rgba(200,130,220,0.45)' : 'rgba(186,136,196,0.30)',
-      glow: dark ? 'rgba(180,120,210,0.04)' : 'rgba(208,146,214,0.05)',
+      line: dark ? 'rgba(225,125,155,0.09)' : 'rgba(238,140,160,0.10)',
+      lineNear: dark ? 'rgba(248,130,158,0.16)' : 'rgba(236,120,145,0.18)',
+      dot: dark ? 'rgba(251,113,133,0.42)' : 'rgba(251,113,133,0.28)',
+      glow: dark ? 'rgba(251,113,133,0.04)' : 'rgba(251,113,133,0.05)',
     };
   }
 
