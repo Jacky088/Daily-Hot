@@ -889,43 +889,44 @@ a:hover { text-decoration: underline; }
 }
 .ex-base b { font-weight: 800; }
 .ex-upd { font-size: 10px; color: var(--text-dimmer); }
-.ex-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+/* 瓷片 3 列自适应：10 个常用币种 4 行排完，整卡内容控制在限高内免滚动 */
+.ex-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 5px; margin-top: 6px; }
 .ex-tile {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 6px;
   background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
-  padding: 8px 10px;
+  padding: 6px 8px;
 }
 .ex-tile-tx { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; flex: 1; }
 .ex-code { color: var(--text-dim); font-size: 10px; letter-spacing: 0.5px; }
 .ex-val {
-  font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums;
+  font-weight: 700; font-size: 13px; font-variant-numeric: tabular-nums;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 /* 换算计算器：金额行 → 互换钮 → 结果行 */
 .ex-calc {
-  margin-top: 10px; padding: 12px;
+  margin-top: 8px; padding: 10px;
   background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
 }
 .ex-calc-row { display: flex; gap: 6px; align-items: stretch; }
 .ex-amount {
-  flex: 1; min-width: 0; padding: 10px 12px; background: var(--card); border: 1px solid var(--border);
-  border-radius: 8px; color: var(--text); font-size: 15px; outline: none; transition: border 0.2s;
+  flex: 1; min-width: 0; padding: 7px 10px; background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 14px; outline: none; transition: border 0.2s;
   font-variant-numeric: tabular-nums; font-weight: 600;
 }
 .ex-amount:focus { border-color: var(--accent); }
 .ex-from, .ex-to {
-  flex-shrink: 0; padding: 10px 8px; background: var(--card); border: 1px solid var(--border);
-  border-radius: 8px; color: var(--text); font-size: 13px; outline: none; cursor: pointer; transition: border 0.2s;
+  flex-shrink: 0; padding: 7px 8px; background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 12px; outline: none; cursor: pointer; transition: border 0.2s;
 }
 .ex-from:focus, .ex-to:focus { border-color: var(--accent); }
 .ex-sym {
-  flex-shrink: 0; width: 34px; height: 34px; line-height: 34px; text-align: center;
-  border-radius: 9px; background: var(--accent-bg); color: var(--accent);
-  font-size: 13px; font-weight: 700;
+  flex-shrink: 0; width: 28px; height: 28px; line-height: 28px; text-align: center;
+  border-radius: 8px; background: var(--accent-bg); color: var(--accent);
+  font-size: 12px; font-weight: 700;
 }
 .ex-swap {
   display: flex; align-items: center; justify-content: center;
-  margin: 6px auto; width: 34px; height: 34px;
+  margin: 5px auto; width: 30px; height: 30px;
   border: 1px solid var(--border); border-radius: 50%;
   background: var(--accent-bg); color: var(--accent);
   cursor: pointer; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s, color 0.2s;
@@ -936,10 +937,10 @@ a:hover { text-decoration: underline; }
 .ex-swap:active { transform: rotate(180deg) scale(0.92); }
 .ex-result {
   flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px;
-  padding: 10px 12px; background: var(--accent-bg); border-radius: 8px;
+  padding: 7px 10px; background: var(--accent-bg); border-radius: 8px;
   overflow: hidden;
 }
-.ex-res-num { font-size: 16px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ex-res-num { font-size: 15px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ex-res-code { font-size: 12px; font-weight: 600; color: var(--accent-light); }
 
 /* ============ 金价卡：主价格 + 区间条 + 趋势曲线 + 品种瓷片 ============ */
@@ -1064,16 +1065,18 @@ a:hover { text-decoration: underline; }
 }
 .jsq-exp-t { display: block; margin-bottom: 4px; font-weight: 700; color: var(--accent); }
 
-/* SIMKL 流媒体热门榜 */
-.simkl-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+/* SIMKL 流媒体热门榜（字号/字重/分隔线与 .item 系保持一致；
+   注意 .meta 必须在此显式声明——通用 .meta 规则只作用于 .item 后代） */
+.simkl-item { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent); font-size: 13px; }
 .simkl-item:last-child { border-bottom: none; }
 .simkl-poster {
   width: 40px; height: 58px; border-radius: 6px; object-fit: cover; flex-shrink: 0;
   background: var(--border); border: 1px solid var(--border);
 }
 .simkl-body { flex: 1; min-width: 0; }
-.simkl-body a, .simkl-body .t { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.45; word-break: break-word; }
+.simkl-body a, .simkl-body .t { color: var(--text); text-decoration: none; display: block; word-break: break-word; line-height: 1.5; }
 .simkl-body a:hover { color: var(--accent-light); }
+.simkl-body .meta { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
 .simkl-body .rank { display: inline-block; min-width: 20px; height: 20px; line-height: 20px; text-align: center; margin-right: 2px; font-size: 11px; border-radius: 6px; background: var(--card); color: var(--text-dim); }
 .simkl-body .rank.top1 { background: linear-gradient(135deg, #fb923c, #ea580c); color: #fff; }
 .simkl-body .rank.top2 { background: linear-gradient(135deg, #f97316, #fbbf24); color: #fff; }
