@@ -433,6 +433,21 @@ a:hover { text-decoration: underline; }
 .item .hot { color: var(--warn); font-weight: 500; }
 .item .desc { font-size: 11.5px; color: var(--text-dim); margin-top: 3px; line-height: 1.5; }
 
+/* 带海报的列表项（豆瓣周榜 / 百度电视剧榜等复用） */
+.item.with-poster .poster {
+  width: 40px; height: 58px; border-radius: 6px; object-fit: cover; flex-shrink: 0;
+  background: var(--bg); border: 1px solid var(--border);
+}
+.item.with-poster .body-wrap { flex: 1; min-width: 0; }
+.item.with-poster .body-wrap a,
+.item.with-poster .body-wrap .t {
+  color: var(--text); text-decoration: none; display: block; word-break: break-word; line-height: 1.5;
+}
+.item.with-poster .body-wrap a:hover { color: var(--accent-light); }
+.item.with-poster .body-wrap .meta { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+.item.with-poster .body-wrap .hot { color: var(--warn); font-weight: 500; }
+.item.with-poster .body-wrap .desc { font-size: 11.5px; color: var(--text-dim); margin-top: 3px; line-height: 1.5; }
+
 /* News (60s) */
 .news-item { padding: 7px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent); font-size: 13px; display: flex; gap: 8px; line-height: 1.6; }
 .news-item:last-child { border: none; }

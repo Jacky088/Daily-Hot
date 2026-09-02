@@ -89,7 +89,7 @@ const EPS = [
 
   // 娱乐
   { cat:'ent', id:'maoyan', name:'猫眼历史票房', icon:'🍿', path:'/v2/maoyan/all/movie', type:'maoyan', auto:1 },
-  { cat:'ent', id:'bdtv', name:'百度电视剧榜', icon:'🎭', path:'/v2/baidu/teleplay', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'link'} },
+  { cat:'ent', id:'bdtv', name:'百度电视剧榜', icon:'🎭', path:'/v2/baidu/teleplay', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'link', p:'cover'} },
   { cat:'ent', id:'douban', name:'豆瓣电影周榜', icon:'🎬', path:'/v2/douban/weekly/movie', type:'douban', auto:1 },
   { cat:'ent', id:'douban-show-cn', name:'豆瓣华语综艺周榜', icon:'🎤', path:'/v2/douban/weekly/show_chinese', type:'douban', auto:1 },
   { cat:'ent', id:'douban-show-global', name:'豆瓣全球综艺周榜', icon:'🎪', path:'/v2/douban/weekly/show_global', type:'douban', auto:1 },
@@ -979,9 +979,12 @@ function rList(d, c, ep) {
     const l = it[f.l] || it.link || it.url || '';
     const hot = f.h ? it[f.h] : '';
     const desc = f.d ? it[f.d] : '';
+    const poster = it[f.p] || it.cover || it.poster || '';
     let meta = '';
     if (hot) meta += `<span class="hot">🔥 ${esc(String(hot))}</span>`;
-    h += `<div class="item"><span class="rank ${cls}">${rank}</span><div class="body">`;
+    h += `<div class="item${poster ? ' with-poster' : ''}">`;
+    if (poster) h += `<img class="poster" src="${esc(poster)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+    h += `<div class="body-wrap"><span class="rank ${cls}">${rank}</span>`;
     h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener">${esc(t)}</a>` : `<span class="t">${esc(t)}</span>`;
     if (meta) h += `<div class="meta">${meta}</div>`;
     if (desc) h += `<div class="desc">${esc(String(desc).slice(0, 80))}${String(desc).length > 80 ? '…' : ''}</div>`;
@@ -997,14 +1000,18 @@ function rDouban(d, c) {
     const rank = it.rank || (i + 1);
     const cls = rank <= 3 ? `top${rank}` : '';
     const l = it.url || it.link || '';
-    h += `<div class="item"><span class="rank ${cls}">${rank}</span><div class="body">`;
+    const poster = it.cover_proxy || it.cover || '';
+    h += `<div class="item${poster ? ' with-poster' : ''}">`;
+    if (poster) h += `<img class="poster" src="${esc(poster)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+    h += `<div class="body-wrap">`;
+    h += `<span class="rank ${cls}">${rank}</span>`;
     h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener">${esc(it.title)}</a>` : `<span class="t">${esc(it.title)}</span>`;
     let meta = '';
     if (it.rating) meta += `⭐ ${esc(String(it.rating))} `;
     if (it.rating_count) meta += `(${esc(String(it.rating_count))}) `;
     if (it.card_subtitle) meta += ` · ${esc(it.card_subtitle)}`;
     if (meta) h += `<div class="meta">${meta}</div>`;
-    h += '</div></div>';
+    h += `</div></div>`;
   });
   c.innerHTML = h;
 }
