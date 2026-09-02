@@ -1119,9 +1119,24 @@ a:hover { text-decoration: underline; }
 .game-free { display: inline-block; padding: 1px 7px; background: rgba(52,211,153,0.15); color: var(--success); border-radius: 4px; font-size: 10px; font-weight: 600; margin-top: 3px; }
 .game-end { font-size: 10px; color: var(--warn); }
 .game-orig { font-size: 10px; color: var(--text-dim); text-decoration: line-through; }
-.game-claim { margin-top: 6px; }
-.game-claim a { font-size: 11px; font-weight: 600; color: var(--accent); text-decoration: none; }
-.game-claim a:hover { color: var(--accent-light); }
+/* 领取按钮：成功色渐变胶囊，与「免费」徽标同色系呼应，
+   和全站橙色主色形成对比，让领取入口一眼可见 */
+.game-claim { margin-top: 8px; }
+.game-claim a {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 16px; border-radius: 999px;
+  background: linear-gradient(135deg, var(--success), #10b981);
+  color: #fff; font-size: 12px; font-weight: 700; text-decoration: none;
+  box-shadow: 0 2px 8px rgba(52, 211, 153, 0.3);
+  transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.game-claim a:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 3px 12px rgba(52, 211, 153, 0.45);
+  transform: translateY(-1px);
+}
+.game-claim a:active { transform: translateY(0) scale(0.97); }
 
 /* Steam 头图胶囊比例（header 460x215），约束高度避免原始尺寸撑爆卡片 */
 .img-wrap.ratio-capsule { aspect-ratio: 460 / 215; overflow: hidden; }
