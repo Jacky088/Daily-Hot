@@ -171,6 +171,57 @@ let activeModuleId = null; // 当前高亮的子菜单模块（点击模块菜�
 let jsonMode = {};
 let fanyiLangs = null;
 
+// ============ Splash 开屏：首批自动加载全部完成后渐隐 ============
+// 最短展示 600ms：缓存全命中时避免一闪而过显得突兀；
+// 最长 3.5s 兜底：个别接口挂起时不让遮罩长时间挡住页面
+const splash = (() => {
+  const MIN_SHOW = 600;
+  const MAX_SHOW = 3500;
+  let pending = 0, hidden = false, startedAt = 0, failSafe = null;
+
+  function hideNow() {
+    if (hidden) return;
+    hidden = true;
+    clearTimeout(failSafe);
+    const el = document.getElementById('splash');
+    if (!el) return;
+
+    // 火焰「归位」动画：从屏幕中央飞向左上角 logo，缩小到 logo 尺寸后随遮罩淡出
+    const icon = el.querySelector('.splash-icon');
+    const logo = document.querySelector('.logo svg');
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (icon && logo && !reduced) {
+      const s = icon.getBoundingClientRect();
+      const d = logo.getBoundingClientRect();
+      const scale = d.width / s.width;
+      const dx = (d.left + d.width / 2) - (s.left + s.width / 2);
+      const dy = (d.top + d.height / 2) - (s.top + s.height / 2);
+      icon.style.animation = 'none';
+      icon.style.transition = 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+      // 强制回流，确保 transition 从当前脉冲帧生效而非直接跳到终点
+      void icon.getBoundingClientRect();
+      icon.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
+    }
+
+    el.classList.add('splash-hide');
+    setTimeout(() => el.remove(), 700); // 等淡出/归位过渡结束再移除节点
+  }
+  function hide() {
+    const wait = Math.max(0, MIN_SHOW - (Date.now() - startedAt));
+    if (wait) setTimeout(hideNow, wait); else hideNow();
+  }
+  return {
+    begin(n) {
+      startedAt = Date.now();
+      if (n <= 0) { hide(); return; }
+      pending = n;
+      failSafe = setTimeout(hide, MAX_SHOW);
+    },
+    step() { if (!hidden && --pending <= 0) hide(); },
+  };
+})();
+let firstRenderDone = false; // 仅首屏渲染触发开屏计数，切分类/搜索不再干预遮罩
+
 // Google 翻译内置语言表（代码与 translate.googleapis.com 端点一致）
 const G_LANGS = [
   ['auto', '自动检测'], ['zh-CN', '简体中文'], ['zh-TW', '繁体中文'], ['en', '英语'],
@@ -635,8 +686,13 @@ function render() {
 
   // Auto load — 错开请求，避免触发速率限制
   const autoEps = EPS.filter(ep => ep.auto && matchKw(ep, kw) && (curCat === 'all' || curCat === ep.cat));
+  // 首屏：开屏遮罩等这批自动加载全部完成（或 3.5s 兜底）后再渐隐
+  if (!firstRenderDone) {
+    firstRenderDone = true;
+    splash.begin(autoEps.length);
+  }
   autoEps.forEach((ep, i) => {
-    setTimeout(() => load(ep), i * 80);
+    setTimeout(() => load(ep).finally(() => splash.step()), i * 80);
   });
 }
 

@@ -11,11 +11,34 @@
 <meta property="og:description" content="聚合微博、知乎、B站、抖音、Hacker News 等 40+ 数据源的热榜聚合面板">
 <meta property="og:type" content="website">
 <link rel="manifest" href="/manifest.json">
+<noscript><style>#splash { display: none; }</style></noscript>
+<script>
+// 主题前置：开屏遮罩在 init() 之前渲染，必须提前设置 data-theme，否则主题变量未生效会闪裸色
+(function () {
+  var t = localStorage.getItem('theme');
+  if (!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.documentElement.dataset.theme = t;
+})();
+</script>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
 <div class="mesh-bg"><canvas id="meshCanvas"></canvas></div>
+
+<!-- 开屏：毛玻璃遮罩 + 居中火焰（尺寸随屏幕自适应），首批数据就绪后由 app.js 渐隐移除 -->
+<div class="splash" id="splash" aria-hidden="true">
+  <svg class="splash-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="flameSplash" x1="0%" y1="100%" x2="0%" y2="0%">
+        <stop offset="0%" stop-color="#f59e0b"/>
+        <stop offset="50%" stop-color="#f97316"/>
+        <stop offset="100%" stop-color="#fb7185"/>
+      </linearGradient>
+    </defs>
+    <path d="M12 2c0 0-1.5 2-3 4.5S6.5 11 8 13c-1-.5-2-1.5-2.5-3 0 0-1.5 2-1 4.5C5 17.5 7 20 12 22c5-2 7-4.5 7.5-7.5.5-2.5-1-4.5-1-4.5-.5 1.5-1.5 2.5-2.5 3 1.5-2 1-4.5-.5-7S13.5 4 12 2z" fill="url(#flameSplash)"/>
+  </svg>
+</div>
 
 <div class="topbar">
   <div class="header">
