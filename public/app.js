@@ -984,8 +984,8 @@ function rList(d, c, ep) {
     if (hot) meta += `<span class="hot">🔥 ${esc(String(hot))}</span>`;
     h += `<div class="item${poster ? ' with-poster' : ''}">`;
     if (poster) h += `<img class="poster" src="${esc(poster)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
-    h += `<div class="body-wrap"><span class="rank ${cls}">${rank}</span>`;
-    h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener">${esc(t)}</a>` : `<span class="t">${esc(t)}</span>`;
+    h += `<div class="body-wrap">`;
+    h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(t)}</a>` : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(t)}</span>`;
     if (meta) h += `<div class="meta">${meta}</div>`;
     if (desc) h += `<div class="desc">${esc(String(desc).slice(0, 80))}${String(desc).length > 80 ? '…' : ''}</div>`;
     h += '</div></div>';
@@ -1004,8 +1004,7 @@ function rDouban(d, c) {
     h += `<div class="item${poster ? ' with-poster' : ''}">`;
     if (poster) h += `<img class="poster" src="${esc(poster)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
     h += `<div class="body-wrap">`;
-    h += `<span class="rank ${cls}">${rank}</span>`;
-    h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener">${esc(it.title)}</a>` : `<span class="t">${esc(it.title)}</span>`;
+    h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</a>` : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</span>`;
     let meta = '';
     if (it.rating) meta += `⭐ ${esc(String(it.rating))} `;
     if (it.rating_count) meta += `(${esc(String(it.rating_count))}) `;
