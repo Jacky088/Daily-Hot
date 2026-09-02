@@ -105,26 +105,28 @@ const EPS = [
   { cat:'tech', id:'huxiu', name:'虎嗅热榜', icon:'🐯', path:'/v2/huxiu', type:'huxiu', auto:1 },
 
   // 娱乐
+  // 分组卡片的显示位置由「组内首个成员在本列表中的位置」决定，
+  // 故按 目标卡片顺序 排列：猫眼票房 → 豆瓣周榜 → 百度周榜 → 流媒体 → 音乐 → 免费游戏
   { cat:'ent', id:'maoyan', name:'猫眼历史票房', icon:'🍿', path:'/v2/maoyan/all/movie', type:'maoyan', auto:1 },
   { cat:'ent', id:'maoyan-showing', name:'猫眼在映电影', icon:'🎬', path:'/v2/maoyan/showing', type:'maoyan-movie', auto:1 },
   { cat:'ent', id:'maoyan-coming', name:'猫眼待映电影', icon:'🗓️', path:'/v2/maoyan/coming', type:'maoyan-movie', auto:1 },
-  { cat:'ent', id:'bdtv', name:'百度电视剧榜', icon:'🎭', path:'/v2/baidu/teleplay', type:'baidu-show', auto:1 },
-  { cat:'ent', id:'bdmovie', name:'百度电影榜', icon:'🎥', path:'/v2/baidu/movie', type:'baidu-show', auto:1 },
   { cat:'ent', id:'douban', name:'豆瓣电影周榜', icon:'🎬', path:'/v2/douban/weekly/movie', type:'douban', auto:1 },
-  { cat:'ent', id:'douban-show-cn', name:'豆瓣华语综艺周榜', icon:'🎤', path:'/v2/douban/weekly/show_chinese', type:'douban', auto:1 },
-  { cat:'ent', id:'douban-show-global', name:'豆瓣全球综艺周榜', icon:'🎪', path:'/v2/douban/weekly/show_global', type:'douban', auto:1 },
   { cat:'ent', id:'douban-tv-cn', name:'豆瓣华语剧集周榜', icon:'📺', path:'/v2/douban/weekly/tv_chinese', type:'douban', auto:1 },
   { cat:'ent', id:'douban-tv-global', name:'豆瓣全球剧集周榜', icon:'🎞️', path:'/v2/douban/weekly/tv_global', type:'douban', auto:1 },
+  { cat:'ent', id:'douban-show-cn', name:'豆瓣华语综艺周榜', icon:'🎤', path:'/v2/douban/weekly/show_chinese', type:'douban', auto:1 },
+  { cat:'ent', id:'douban-show-global', name:'豆瓣全球综艺周榜', icon:'🎪', path:'/v2/douban/weekly/show_global', type:'douban', auto:1 },
+  { cat:'ent', id:'bdtv', name:'百度电视剧榜', icon:'🎭', path:'/v2/baidu/teleplay', type:'baidu-show', auto:1 },
+  { cat:'ent', id:'bdmovie', name:'百度电影榜', icon:'🎥', path:'/v2/baidu/movie', type:'baidu-show', auto:1 },
   { cat:'ent', id:'simkl-tv', name:'流媒体热门剧集', icon:'📺', path:'/v2/simkl-trending', type:'simkl', auto:1,
     inputs:[{ n:'network', sel:['', 'Netflix', 'HBO', 'HBO Max', 'Disney+', 'Prime Video', 'Apple TV', 'Hulu', 'Paramount+'], d:'' }], hint:'可选播出平台过滤，数据来自 SIMKL' },
   { cat:'ent', id:'simkl-movies', name:'流媒体热门电影', icon:'🍿', path:'/v2/simkl-trending', type:'simkl', auto:1,
     inputs:[{ n:'type', sel:['movies', 'anime'], d:'movies' }], hint:'下拉可切换为动画榜；数据来自 SIMKL' },
-  { cat:'ent', id:'epic', name:'Epic免费游戏', icon:'🎮', path:'/v2/epic', type:'epic', auto:1 },
-  { cat:'ent', id:'steam', name:'Steam免费游戏', icon:'🎮', path:'/v2/steam', type:'steam', auto:1 },
   { cat:'ent', id:'ncm', name:'网易云热歌榜', icon:'🎵', path:'/v2/ncm-rank/3778678', type:'ncm', auto:1 },
   { cat:'ent', id:'ncm-soar', name:'网易云飙升榜', icon:'🚀', path:'/v2/ncm-rank/19723756', type:'ncm', auto:1 },
   { cat:'ent', id:'ncm-acg', name:'网易云ACG榜', icon:'🌸', path:'/v2/ncm-rank/71385702', type:'ncm', auto:1 },
   { cat:'ent', id:'billboard', name:'Billboard Hot 100', icon:'🇺🇸', path:'/v2/ncm-rank/60198', type:'ncm', auto:1 },
+  { cat:'ent', id:'epic', name:'Epic免费游戏', icon:'🎮', path:'/v2/epic', type:'epic', auto:1 },
+  { cat:'ent', id:'steam', name:'Steam免费游戏', icon:'🎮', path:'/v2/steam', type:'steam', auto:1 },
   { cat:'ent', id:'lyric', name:'歌词搜索', icon:'🎶', path:'/v2/lyric', type:'lyric', auto:0, inputs:[{n:'query',p:'歌名 歌手，如：稻香 周杰伦'}], hint:'精确搜索：使用「歌名 歌手」格式；避免只输入歌词片段' },
   { cat:'ent', id:'changya', name:'唱鸭', icon:'🎤', path:'/v2/changya', type:'changya', auto:1 },
 
@@ -169,8 +171,50 @@ const EPS = [
   { cat:'trans', id:'gtranslate', name:'Google 翻译', icon:'🈯', path:'/v2/google-translate', type:'fanyi', auto:0, inputs:[{n:'text',p:'文本',d:'hello'},{n:'from',p:'源语言',d:'en'},{n:'to',p:'目标',d:'zh-CN'}] },
 ];
 
+// ============ 卡片分组（标签页整合） ============
+// 分组内多个数据源共用一张卡片，标签页切换；tabs 顺序即标签页顺序。
+// 分组卡片在分类中的位置由组内首个成员在 EPS 中的位置决定；
+// 搜索命中组内任一标签时整组显示，且只渲染命中的标签页
+const CARD_GROUPS = [
+  { id: 'maoyan-box', name: '猫眼电影榜', icon: '🍿', tabs: [
+    { ep: 'maoyan', label: '历史票房' },
+    { ep: 'maoyan-showing', label: '在映' },
+    { ep: 'maoyan-coming', label: '待映' },
+  ]},
+  { id: 'douban-week', name: '豆瓣影视周榜', icon: '🎭', tabs: [
+    { ep: 'douban', label: '电影' },
+    { ep: 'douban-tv-cn', label: '华语剧集' },
+    { ep: 'douban-tv-global', label: '全球剧集' },
+    { ep: 'douban-show-cn', label: '华语综艺' },
+    { ep: 'douban-show-global', label: '全球综艺' },
+  ]},
+  { id: 'baidu-week', name: '百度影视周榜', icon: '📊', tabs: [
+    { ep: 'bdtv', label: '电视剧' },
+    { ep: 'bdmovie', label: '电影' },
+  ]},
+  { id: 'simkl-hot', name: '国外流媒体影视榜', icon: '📺', tabs: [
+    { ep: 'simkl-tv', label: '剧集' },
+    { ep: 'simkl-movies', label: '电影' },
+  ]},
+  { id: 'music-rank', name: '网易云音乐榜', icon: '🎵', tabs: [
+    { ep: 'ncm', label: '热歌' },
+    { ep: 'ncm-soar', label: '飙升' },
+    { ep: 'ncm-acg', label: 'ACG' },
+    { ep: 'billboard', label: 'Billboard' },
+  ]},
+  { id: 'free-games', name: '免费游戏', icon: '🎮', tabs: [
+    { ep: 'epic', label: 'Epic' },
+    { ep: 'steam', label: 'Steam' },
+  ]},
+];
+// ep.id → 所属分组 的反查表（定位跳转用）
+const GROUP_OF = {};
+CARD_GROUPS.forEach(g => g.tabs.forEach(t => { GROUP_OF[t.ep] = g; }));
+
 let curCat = 'all';
 let activeModuleId = null; // 当前高亮的子菜单模块（点击模块菜单后记录）
+let syncSubs = null; // init 内部 refreshSubs 的对外钩子：分组卡片切标签页时同步子菜单高亮
+let centerSubChip = null; // init 内部 focusSubChip 的对外钩子：切标签页时让对应模块 chip 滚入可视区
 let jsonMode = {};
 let fanyiLangs = null;
 
@@ -360,6 +404,15 @@ function init() {
     });
   }
 
+  // 让某模块在分类导航中滚入可视区（定位跳转与分组标签页切换共用）：
+  // 移动端 chips 条内水平居中；桌面端侧边栏子菜单滚动到可视即可（nearest 避免页面跳动）
+  function focusSubChip(epId) {
+    const chip = catChips.querySelector(`.cat-subitem[data-ep="${epId}"]`);
+    if (chip && window.innerWidth <= 820) centerInContainer(catChips, chip);
+    const sub = catRow.querySelector(`.cat-subitem[data-ep="${epId}"]`);
+    if (sub && window.innerWidth > 820) sub.scrollIntoView({ block: 'nearest' });
+  }
+
   // 定位校正任务（模块级单例）：分类定位与模块定位共用一个计时器，
   // 保证同一时刻只有一个任务在滚动页面
   let alignTimer = null;
@@ -421,6 +474,9 @@ function init() {
       el.classList.toggle('active', el.dataset.ep === activeModuleId);
     });
   }
+  // 暴露给顶层函数（分组卡片切标签页时同步子菜单高亮 + chip 滚入可视区）
+  syncSubs = refreshSubs;
+  centerSubChip = focusSubChip;
 
   // 定位模块卡片：清搜索过滤 → 必要时切分类 → 滚动到卡片并闪烁高亮
   function locateCard(ep) {
@@ -444,16 +500,18 @@ function init() {
     activeModuleId = ep.id;
     refreshSubs();
     // 窄屏：让选中的模块 chip 在 chips 条内居中（切分类时等 strip 重建后执行）
-    const centerChip = () => {
-      const chip = catChips.querySelector(`.cat-subitem[data-ep="${ep.id}"]`);
-      if (chip) centerInContainer(catChips, chip);
-    };
-    if (switched) setTimeout(centerChip, 80); else centerChip();
+    if (switched) setTimeout(() => focusSubChip(ep.id), 80); else focusSubChip(ep.id);
     render();
     // render() 同步重建 DOM，此时目标卡必然存在。
     // 不用 scrollIntoView：它会被可滚动祖先截胡且受布局变化影响，
     // 直接计算卡片绝对坐标用 window.scrollTo 定位最可靠。
-    const card = document.getElementById('card-' + ep.id);
+    // 分组成员：定位目标是所属分组卡片，并激活 ep 对应的标签页
+    // （activate 内部懒加载该标签页数据；activeModuleId 已在上方设置，无需重复）
+    const group = GROUP_OF[ep.id];
+    const card = group
+      ? document.getElementById('card-' + group.id)
+      : document.getElementById('card-' + ep.id);
+    if (card && group && typeof card._activateTab === 'function') card._activateTab(ep.id);
     if (card) {
       // 先停掉上一轮校正（可能是分类定位留下的）：它会持续把页面拉回分类标题，
       // 与本次卡片定位争抢滚动位置，是精确定位失效的直接原因
@@ -644,11 +702,7 @@ function render() {
       sec.innerHTML = `<div class="cat-title">${c.name}<span class="count">${eps.length}</span></div>`;
       const grid = document.createElement('div');
       grid.className = 'grid';
-      eps.forEach(ep => {
-        const card = makeCard(ep);
-        card.style.animationDelay = (eps.indexOf(ep) * 0.03) + 's';
-        grid.appendChild(card);
-      });
+      appendCards(grid, eps);
       sec.appendChild(grid);
       main.appendChild(sec);
     });
@@ -657,7 +711,7 @@ function render() {
     if (eps.length === 0) { main.innerHTML = '<div class="placeholder" style="text-align:center;padding:40px;">无匹配接口</div>'; return; }
     const grid = document.createElement('div');
     grid.className = 'grid';
-    eps.forEach(ep => grid.appendChild(makeCard(ep)));
+    appendCards(grid, eps);
     main.appendChild(grid);
   } else {
     // 只渲染选中的分类
@@ -671,11 +725,7 @@ function render() {
         sec.innerHTML = `<div class="cat-title">${selCat.name}<span class="count">${eps.length}</span></div>`;
         const grid = document.createElement('div');
         grid.className = 'grid';
-        eps.forEach(ep => {
-          const card = makeCard(ep);
-          card.style.animationDelay = (eps.indexOf(ep) * 0.03) + 's';
-          grid.appendChild(card);
-        });
+        appendCards(grid, eps);
         sec.appendChild(grid);
         main.appendChild(sec);
       }
@@ -688,7 +738,13 @@ function render() {
   }
 
   // Auto load — 错开请求，避免触发速率限制
-  const autoEps = EPS.filter(ep => ep.auto && matchKw(ep, kw) && (curCat === 'all' || curCat === ep.cat));
+  // 分组成员不出现在独立自动加载队列：分组卡片只加载当前激活的标签页，
+  // 其余标签页由 activate() 在首次点开时懒加载
+  const autoEps = EPS.filter(ep => ep.auto && matchKw(ep, kw) && (curCat === 'all' || curCat === ep.cat) && !GROUP_OF[ep.id]);
+  document.querySelectorAll('.group-card').forEach(card => {
+    const ep = EPS.find(e => e.id === card.dataset.activeEp);
+    if (ep && ep.auto && matchKw(ep, kw)) autoEps.push(ep);
+  });
   // 首屏：开屏遮罩等这批自动加载全部完成（或 3.5s 兜底）后再渐隐
   if (!firstRenderDone) {
     firstRenderDone = true;
@@ -843,6 +899,103 @@ function makeCard(ep) {
   card.querySelector('.btn-json').onclick = () => toggleJson(ep);
 
   return card;
+}
+
+// ============ 分组卡片（标签页整合） ============
+// 多个数据源共用一张卡片，卡片头部的 { }/↻ 作用于当前激活标签页。
+// 各标签页保留独立的 content-<id> 容器（隐藏≠销毁），因此 load()/30min 缓存/
+// JSON 视图/重试按钮等既有机制按 ep.id 工作无需任何改造。
+// 非激活标签页首次点开时才加载数据（懒加载），已加载过的直接复用 DOM。
+function makeGroupCard(group, eps) {
+  const card = document.createElement('div');
+  card.className = 'card group-card';
+  card.id = 'card-' + group.id;
+
+  const head = document.createElement('div');
+  head.className = 'card-head';
+  head.innerHTML = `<div class="card-title"><span class="icon">${group.icon}</span>${group.name}</div>
+    <div class="card-actions">
+      <button class="btn-json" title="JSON">{ }</button>
+      <button class="btn-refresh" title="刷新">↻</button>
+    </div>`;
+  card.appendChild(head);
+
+  const activeEp = () => EPS.find(e => e.id === card.dataset.activeEp);
+  head.querySelector('.btn-refresh').onclick = () => { const ep = activeEp(); if (ep) load(ep, true); };
+  head.querySelector('.btn-json').onclick = () => { const ep = activeEp(); if (ep) toggleJson(ep); };
+
+  const tabBar = document.createElement('div');
+  tabBar.className = 'card-tabs';
+  const panes = [];
+
+  eps.forEach((ep, i) => {
+    const tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = 'card-tab';
+    tab.textContent = (group.tabs.find(t => t.ep === ep.id) || {}).label || ep.name;
+    tab.onclick = () => {
+      card._activateTab(ep.id);
+      // 手动切标签页时同步子菜单高亮（定位跳转路径由 locateCard 自己维护）
+      activeModuleId = ep.id;
+      if (syncSubs) syncSubs();
+      // 双向同步：让对应模块 chip / 侧边栏子项滚入可视区
+      if (centerSubChip) centerSubChip(ep.id);
+    };
+    tabBar.appendChild(tab);
+
+    // 复用 makeCard 的 body 构建（输入控件 / hint / content 容器），外壳弃用
+    const sub = makeCard(ep);
+    const body = sub.querySelector('.card-body');
+    const pane = document.createElement('div');
+    pane.className = 'card-pane';
+    pane.dataset.ep = ep.id;
+    while (body.firstChild) pane.appendChild(body.firstChild);
+    if (i > 0) pane.hidden = true;
+    panes.push({ ep, pane });
+  });
+
+  card.appendChild(tabBar);
+  panes.forEach(p => card.appendChild(p.pane));
+
+  const loaded = new Set();
+  function activate(epId, opts = {}) {
+    const idx = panes.findIndex(p => p.ep.id === epId);
+    if (idx < 0) return;
+    card.dataset.activeEp = panes[idx].ep.id;
+    tabBar.querySelectorAll('.card-tab').forEach((b, j) => b.classList.toggle('active', j === idx));
+    panes.forEach((p, j) => { p.pane.hidden = j !== idx; });
+    // 懒加载：首次激活该标签页且数据源为自动加载类型时才请求
+    if (opts.load !== false && panes[idx].ep.auto && !loaded.has(panes[idx].ep.id)) {
+      loaded.add(panes[idx].ep.id);
+      load(panes[idx].ep);
+    }
+  }
+  // 初始激活第一个标签页；数据加载由 render() 的自动加载队列统一调度
+  activate(eps[0].id, { load: false });
+
+  // 供 locateCard 按 ep 激活对应标签页
+  card._activateTab = (epId) => activate(epId);
+
+  return card;
+}
+
+// 网格填充：分组成员不单独出卡，命中组内任一成员时整组出卡（仅渲染命中的标签页）
+function appendCards(grid, eps) {
+  const emitted = new Set();
+  eps.forEach((ep, i) => {
+    const group = GROUP_OF[ep.id];
+    if (group) {
+      if (emitted.has(group.id)) return;
+      emitted.add(group.id);
+      const members = group.tabs.map(t => eps.find(e => e.id === t.ep)).filter(Boolean);
+      if (!members.length) return;
+      grid.appendChild(makeGroupCard(group, members));
+      return;
+    }
+    const card = makeCard(ep);
+    card.style.animationDelay = (i * 0.03) + 's';
+    grid.appendChild(card);
+  });
 }
 
 // P0 + P1: load() with cache, skeleton, retry

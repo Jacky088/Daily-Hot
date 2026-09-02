@@ -348,16 +348,35 @@ a:hover { text-decoration: underline; }
 }
 .card-actions button:hover { border-color: var(--accent); color: var(--accent); }
 
-.card-body {
+/* .card-pane 与 .card-body 共用内容区规则（分组卡片的标签页面板） */
+.card-body, .card-pane {
   padding: 12px 16px; flex: 1; overflow-y: auto; max-height: 460px;
   scrollbar-width: thin; scrollbar-color: var(--border-light) transparent;
 }
-.card-body::-webkit-scrollbar { width: 6px; }
-.card-body::-webkit-scrollbar-track { background: transparent; margin: 4px 0; }
-.card-body::-webkit-scrollbar-thumb {
+.card-body::-webkit-scrollbar, .card-pane::-webkit-scrollbar { width: 6px; }
+.card-body::-webkit-scrollbar-track, .card-pane::-webkit-scrollbar-track { background: transparent; margin: 4px 0; }
+.card-body::-webkit-scrollbar-thumb, .card-pane::-webkit-scrollbar-thumb {
   background: var(--border); border-radius: 3px; border: 2px solid transparent; background-clip: padding-box;
 }
-.card-body::-webkit-scrollbar-thumb:hover { background: var(--border-light); background-clip: padding-box; }
+.card-body::-webkit-scrollbar-thumb:hover, .card-pane::-webkit-scrollbar-thumb:hover { background: var(--border-light); background-clip: padding-box; }
+
+/* ============ 分组卡片标签页 ============ */
+.card-tabs {
+  display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px 0;
+  border-bottom: 1px solid var(--border-glass);
+}
+.card-tab {
+  padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-dim); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: color 0.15s, border-color 0.15s, background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.card-tab:hover { color: var(--accent); border-color: var(--accent); }
+.card-tab.active {
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  border-color: transparent; color: #fff;
+}
+.card-pane[hidden] { display: none; }
 
 /* Input row */
 .input-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -1412,7 +1431,10 @@ a:hover { text-decoration: underline; }
   }
   .input-row .go { min-height: 44px; padding: 10px 18px; font-size: 14px; }
   /* 卡片内部内容不滚动：合并进页面滚动，便于触屏连续阅读 */
-  .card-body { max-height: none; overflow-y: visible; }
+  .card-body, .card-pane { max-height: none; overflow-y: visible; }
+  .card-tabs { padding: 10px 14px 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .card-tabs::-webkit-scrollbar { display: none; }
+  .card-tab { flex-shrink: 0; min-height: 32px; }
   .json-view { max-height: none; overflow: visible; }
   .foot { padding: 22px 14px; }
 }
@@ -1432,7 +1454,7 @@ a:hover { text-decoration: underline; }
   .item { padding: 11px 0; }
   .item .rank { min-width: 26px; height: 26px; font-size: 12px; }
   .card-head { padding: 12px 14px; }
-  .card-body { padding: 10px 14px; }
+  .card-body, .card-pane { padding: 10px 14px; }
   /* 文字卡片留白收紧 */
   .quote-card { padding: 14px 12px 10px; }
   .quote-text { font-size: 13px; letter-spacing: 0; line-height: 1.9; }
