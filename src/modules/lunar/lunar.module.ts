@@ -1,4 +1,4 @@
-import { SolarTime, LegalHoliday, Zodiac, Week, Phase, Constellation } from 'tyme4ts'
+import { SolarTime, SolarMonth, LegalHoliday, Zodiac, Week, Phase, Constellation } from 'tyme4ts'
 import { Common, dayjs, TZ_SHANGHAI } from '../../common.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -236,6 +236,118 @@ class ServiceLunar {
         case 'json':
         default:
           ctx.response.body = Common.buildJson(data)
+          break
+      }
+    }
+  }
+
+  // 万年历：返回整月日历网格（含农历/节气/节日/法定假休班标记），供前端万年历卡片渲染
+  handleCalendar(): RouterMiddleware<'/lunar/calendar'> {
+    return (ctx) => {
+      const today = dayjs().tz(TZ_SHANGHAI)
+      const year = +(ctx.request.url.searchParams.get('year') || today.year())
+      const month = +(ctx.request.url.searchParams.get('month') || today.month() + 1)
+
+      if (!Number.isInteger(year) || year < 1901 || year > 2100) {
+        ctx.response.status = 400
+        ctx.response.body = 'year 参数无效（支持 1901-2100）'
+        return
+      }
+      if (!Number.isInteger(month) || month < 1 || month > 12) {
+        ctx.response.status = 400
+        ctx.response.body = 'month 参数无效（1-12）'
+        return
+      }
+
+      const todayStr = today.format('YYYY-MM-DD')
+      const days = SolarMonth.fromYm(year, month).getDays()
+
+      const cells = days.map((day) => {
+        const lunarDay = day.getLunarDay()
+        const dateStr = dayjs(`${day.getYear()}-${String(day.getMonth()).padStart(2, '0')}-${String(day.getDay()).padStart(2, '0')}`).format('YYYY-MM-DD')
+        const weekIdx = day.getWeek().getIndex()
+
+        // 展示文本优先级：节日 > 节气 > 农历日（初一显示农历月名）
+        const festivalNames = [day.getFestival()?.getName(), lunarDay.getFestival()?.getName()].filter(Boolean) as string[]
+        const isTerm = day.getTermDay().getDayIndex() === 0
+        const termName = isTerm ? day.getTermDay().getName() : null
+        const festival = festivalNames.length > 0 ? festivalNames.join('、') : null
+
+        let label: string
+        let labelIsSpecial = false
+        if (festival) {
+          label = festival
+          labelIsSpecial = true
+        } else if (termName) {
+          label = termName
+          labelIsSpecial = true
+        } else if (lunarDay.getDay() === 1) {
+          label = lunarDay.getLunarMonth().getName()
+        } else {
+          label = lunarDay.getName()
+        }
+
+        const holiday = day.getLegalHoliday()
+
+        return {
+          date: dateStr,
+          day: day.getDay(),
+          label,
+          label_is_special: labelIsSpecial,
+          is_today: dateStr === todayStr,
+          is_weekend: weekIdx === 0 || weekIdx === 6,
+          holiday: holiday ? { name: holiday.getName(), is_work: holiday.isWork() } : null,
+        }
+      })
+
+      // 周一开头的 7 列网格：月首前置空位 + 月尾补空位，按 7 天切行
+      const lead = (days[0].getWeek().getIndex() + 6) % 7
+      const padded: (typeof cells[number] | null)[] = [...Array(lead).fill(null), ...cells]
+      while (padded.length % 7 !== 0) padded.push(null)
+      const weeks: (typeof cells[number] | null)[][] = []
+      for (let i = 0; i < padded.length; i += 7) weeks.push(padded.slice(i, i + 7))
+
+      const payload = {
+        year,
+        month,
+        today: todayStr,
+        count: cells.length,
+        weeks,
+      }
+
+      switch (ctx.state.encoding) {
+        case 'text': {
+          ctx.response.body = `${year}年${month}月（共 ${cells.length} 天）\n\n${weeks
+            .map((week) =>
+              week
+                .map((c) => (c ? `${String(c.day).padStart(2, ' ')} ${c.label}${c.holiday ? (c.holiday.is_work ? ' 班' : ' 休') : ''}` : ' · '))
+                .join(' | '),
+            )
+            .join('\n')}`
+          break
+        }
+
+        case 'markdown': {
+          const rows = weeks
+            .map((week) => {
+              const cellsMd = week
+                .map((c) => {
+                  if (!c) return ' '
+                  const label = c.label !== String(c.day) ? '<br>' + c.label : ''
+                  const mark = c.holiday && !c.holiday.is_work ? ' 休' : ''
+                  return String(c.day) + label + mark
+                })
+                .join(' | ')
+              return '| ' + cellsMd + ' |'
+            })
+            .join('\n')
+          ctx.response.body = `# 📅 ${year}年${month}月万年历\n\n| 一 | 二 | 三 | 四 | 五 | 六 | 日 |\n|---|---|---|---|---|---|---|\n${rows}\n\n*今日：${todayStr}*`
+          break
+        }
+
+        case 'json':
+        default:
+          ctx.response.body = Common.buildJson(payload)
           break
       }
     }

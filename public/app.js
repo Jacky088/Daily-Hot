@@ -69,27 +69,27 @@ const CATS = [
   { id: 'trans', name: '📚 学习工具' },
 ];
 
-// type: news|list|kv|obj|text|json|qr|color|palette|pwd|fanyi|lyric|hash|weather|weatherfc|fuel|gold|lunar|bing|epic|steam|ncm|maoyan|moyu|whois|js|exchange|hist|ainews|kuan|36kr|reddit
+// type: news|list|kv|obj|text|json|qr|color|palette|pwd|fanyi|lyric|hash|weather|weatherfc|fuel|gold|lunar|calendar|bing|epic|steam|ncm|maoyan|moyu|whois|js|exchange|hist|ainews|kuan|36kr|reddit|game2048
 const EPS = [
   // 新闻
   // span:2 锚点卡片，桌面端跨两列（移动端单列回退，见 style.css 媒体查询）
   { cat:'news', id:'60s', name:'60秒读懂世界', icon:'⏰', path:'/v2/60s', type:'news', auto:1, span:2 },
   { cat:'news', id:'history', name:'历史上的今天', icon:'📜', path:'/v2/today-in-history', type:'hist', auto:1 },
   { cat:'news', id:'weibo', name:'微博热搜', icon:'🔥', path:'/v2/weibo', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
-  { cat:'news', id:'zhihu', name:'知乎热榜', icon:'💡', path:'/v2/zhihu', type:'list', auto:1, f:{t:'title',h:'hot_value_desc',l:'link', d:'detail'} },
+  { cat:'news', id:'zhihu', name:'知乎热榜', icon:'💡', path:'/v2/zhihu', type:'list', auto:1, f:{t:'title',h:'hot_value_desc',l:'link', d:'detail', p:'cover', ps:1} },
   { cat:'news', id:'bili', name:'B站热门', icon:'📺', path:'/v2/bili', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
-  { cat:'news', id:'douyin', name:'抖音热点', icon:'🎵', path:'/v2/douyin', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
-  { cat:'news', id:'toutiao', name:'今日头条', icon:'📰', path:'/v2/toutiao', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
+  { cat:'news', id:'douyin', name:'抖音热点', icon:'🎵', path:'/v2/douyin', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link', p:'cover', ps:1} },
+  { cat:'news', id:'toutiao', name:'今日头条', icon:'📰', path:'/v2/toutiao', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link', p:'cover', ps:1} },
   { cat:'news', id:'aljazeera', name:'Al Jazeera 头条', icon:'🌍', path:'/v2/world-news?source=aljazeera', type:'list', auto:1, f:{t:'title',h:null,l:'link'} },
   { cat:'news', id:'bbcnews', name:'BBC News 头条', icon:'🇬🇧', path:'/v2/world-news?source=bbc', type:'list', auto:1, f:{t:'title',h:null,l:'link'} },
   { cat:'news', id:'cnnnews', name:'CNN News 头条', icon:'📡', path:'/v2/world-news?source=cnn', type:'list', auto:1, f:{t:'title',h:null,l:'link'} },
-  { cat:'news', id:'bdhot', name:'百度热搜', icon:'🔍', path:'/v2/baidu/hot', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'url', d:'desc'} },
+  { cat:'news', id:'bdhot', name:'百度热搜', icon:'🔍', path:'/v2/baidu/hot', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'url', d:'desc', p:'cover', ps:1} },
   // 已移除百度实时热点：实测 /baidu/realtime 与 /baidu/hot 返回同一份数据，重复
-  { cat:'news', id:'bdtieba', name:'百度贴吧热议', icon:'💬', path:'/v2/baidu/tieba', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'link', d:'abstract'} },
+  { cat:'news', id:'bdtieba', name:'百度贴吧热议', icon:'💬', path:'/v2/baidu/tieba', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'link', d:'abstract', p:'avatar', ps:1} },
   // 已隐藏小红书热榜：上游私有接口凭证（2023 年抓包）已被风控拉黑，
   // 持续返回 300013「访问频繁」或空数据，后端 500。恢复需换新数据源。
   // { cat:'news', id:'rednote', name:'小红书热榜', icon:'📕', path:'/v2/rednote', type:'list', auto:1, f:{t:'title',h:'score',l:'link'} },
-  { cat:'news', id:'quark', name:'夸克每日资讯', icon:'☁️', path:'/v2/quark', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'summary'} },
+  { cat:'news', id:'quark', name:'夸克每日资讯', icon:'☁️', path:'/v2/quark', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'summary', p:'cover', ps:1} },
   { cat:'news', id:'dongchedi', name:'汽车热榜', icon:'🚗', path:'/v2/dongchedi', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'url'} },
 
   // 科技
@@ -150,6 +150,7 @@ const EPS = [
   { cat:'life', id:'exrate', name:'汇率', icon:'💱', path:'/v2/exchange-rate', type:'exchange', auto:1 },
   { cat:'life', id:'fuel', name:'油价', icon:'⛽', path:'/v2/fuel-price', type:'fuel', auto:1, inputs:[{n:'region', p:'输入城市名，如：上海 / 广东 / 成都', d:'北京'}] },
   { cat:'life', id:'gold', name:'金价', icon:'🥇', path:'/v2/gold-price', type:'gold', auto:1 },
+  { cat:'life', id:'calendar', name:'万年历', icon:'📅', path:'/v2/lunar/calendar', type:'calendar', auto:1 },
   { cat:'life', id:'lunar', name:'农历信息', icon:'🌙', path:'/v2/lunar', type:'lunar', auto:1 },
   { cat:'life', id:'moyu', name:'摸鱼日历', icon:'🐟', path:'/v2/moyu', type:'moyu', auto:1 },
 
@@ -163,6 +164,7 @@ const EPS = [
   // { cat:'fun', id:'luck', name:'今日运势', icon:'🍀', path:'/v2/luck', type:'kv', auto:1, keys:[['luck_desc','综合运势'],['luck_rank','运势指数'],['luck_tip','今日提示']] },
   { cat:'fun', id:'geng', name:'梗百科', icon:'🎭', path:'/v2/geng', type:'geng', auto:1 },
   { cat:'fun', id:'answer', name:'答案之书', icon:'📖', path:'/v2/answer', type:'answer', auto:1, hint:'心中默念你的问题，点击 ↻ 揭晓答案' },
+  { cat:'fun', id:'g2048', name:'2048', icon:'🎮', path:'', type:'game2048', auto:1, noapi:1, hint:'滑动 / 拖拽 / 方向键移动合并' },
   { cat:'fun', id:'bing', name:'必应壁纸', icon:'🖼️', path:'/v2/bing', type:'bing', auto:1 },
   { cat:'fun', id:'awjs', name:'JS题目', icon:'🧩', path:'/v2/awesome-js', type:'js', auto:1 },
 
@@ -932,7 +934,7 @@ function makeCard(ep) {
   head.className = 'card-head';
   head.innerHTML = `<div class="card-title"><span class="icon">${ep.icon}</span>${ep.name}</div>
     <div class="card-actions">
-      <button class="btn-json" title="JSON">{ }</button>
+      ${ep.noapi ? '' : '<button class="btn-json" title="JSON">{ }</button>'}
       <button class="btn-refresh" title="刷新">↻</button>
     </div>`;
   card.appendChild(head);
@@ -1054,7 +1056,8 @@ function makeCard(ep) {
 
   card.appendChild(body);
   card.querySelector('.btn-refresh').onclick = () => load(ep, true);
-  card.querySelector('.btn-json').onclick = () => toggleJson(ep);
+  const jsonBtn = card.querySelector('.btn-json');
+  if (jsonBtn) jsonBtn.onclick = () => toggleJson(ep);
 
   return card;
 }
@@ -1160,6 +1163,8 @@ function appendCards(grid, eps) {
 async function load(ep, forceUpdate = false) {
   const c = document.getElementById('content-' + ep.id);
   if (!c) return;
+  // 纯前端卡片（noapi:1）：不发请求、不走缓存，直接渲染（↻ 刷新即重置状态）
+  if (ep.noapi) { jsonMode[ep.id] = false; renderData(ep, null, c); return; }
   c.innerHTML = SKELETON_HTML;
   jsonMode[ep.id] = false;
 
@@ -1344,7 +1349,7 @@ function renderData(ep, d, c) {
     'maoyan-movie': rMaoyanMovie,
     'baidu-show': rBaiduShow,
     baike: rBaike, health: rHealth, geng: rGeng, 'daily-eng': rDailyEng, simkl: rSimkl,
-    ip: rIP, pwdchk: rPwdChk,
+    ip: rIP, pwdchk: rPwdChk, calendar: rCalendar, game2048: rGame2048,
   }[ep.type] || rJSON;
   fn(d, c, ep);
 }
@@ -1385,14 +1390,16 @@ function rList(d, c, ep) {
     const l = it[f.l] || it.link || it.url || '';
     const hot = f.h ? it[f.h] : '';
     const desc = f.d ? it[f.d] : '';
-    // 仅显式配置 f.p 的榜单启用海报模式，避免数据里带 cover 的模块误显示缩略图
+    // 仅显式配置 f.p 的榜单启用海报模式，避免数据里带 cover 的模块误显示缩略图；
+    // f.ps 为方形缩略图变体（新闻/科技封面多为横图，方形裁切更合适）
     const poster = f.p ? (it[f.p] || '') : '';
+    const sqCls = f.ps ? ' with-cover' : '';
     let meta = '';
     if (hot) meta += `<span class="hot">🔥 ${esc(String(hot))}</span>`;
     if (poster) {
       // 海报模式：序号内联在标题行首（与流媒体榜 rSimkl 一致）
-      h += `<div class="item with-poster">`;
-      h += `<img class="poster" src="${esc(poster)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+      h += `<div class="item with-poster${sqCls}">`;
+      h += `<img class="poster${f.ps ? ' cover-square' : ''}" src="${esc(poster)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
       h += `<div class="body-wrap">`;
       h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(t)}</a>` : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(t)}</span>`;
       if (meta) h += `<div class="meta">${meta}</div>`;
@@ -1429,6 +1436,231 @@ document.addEventListener('click', e => {
   if (!ep || !c || !d) return;
   setListExpanded(id, !isListExpanded(id));
   rList(d, c, ep);
+});
+
+// ============ 万年历（calendar） ============
+// 各卡当前浏览的年月（切换月份的本地状态）
+const calState = {};
+
+function rCalendar(d, c, ep) {
+  if (!d || !Array.isArray(d.weeks)) return rJSON(d, c);
+  calState[ep.id] = { y: d.year, m: d.month, todayStr: d.today };
+  const isCurrentMonth = `${d.year}-${String(d.month).padStart(2, '0')}` === d.today.slice(0, 7);
+
+  let h = '<div class="cal">';
+  h += '<div class="cal-head">' +
+    `<button class="cal-nav" type="button" data-cal-id="${ep.id}" data-cal-nav="-1" title="上个月">‹</button>` +
+    `<span class="cal-title">${d.year} 年 ${d.month} 月</span>` +
+    `<button class="cal-nav" type="button" data-cal-id="${ep.id}" data-cal-nav="1" title="下个月">›</button>` +
+    (isCurrentMonth ? '' : `<button class="cal-today" type="button" data-cal-today data-cal-id="${ep.id}" title="回到本月">今天</button>`) +
+    '</div>';
+  h += '<div class="cal-weeks">' +
+    ['一', '二', '三', '四', '五', '六', '日'].map((w, i) => `<span${i > 4 ? ' class="wk"' : ''}>${w}</span>`).join('') +
+    '</div>';
+  h += '<div class="cal-grid">';
+  d.weeks.forEach(week => week.forEach(cell => {
+    if (!cell) { h += '<div class="cal-cell blank"></div>'; return; }
+    const cls = ['cal-cell'];
+    if (cell.is_weekend) cls.push('wk');
+    if (cell.is_today) cls.push('today');
+    const mark = cell.holiday ? (cell.holiday.is_work ? '<i class="cal-mark work">班</i>' : '<i class="cal-mark rest">休</i>') : '';
+    h += `<div class="${cls.join(' ')}" title="${esc(cell.date)}">` +
+      `<div class="cal-d">${mark}${cell.day}</div>` +
+      `<div class="cal-l${cell.label_is_special ? ' sp' : ''}">${esc(cell.label)}</div>` +
+      '</div>';
+  }));
+  h += '</div>';
+  h += '<div class="cal-tip">节气与节日以强调色标注 · 休 / 班为法定节假日安排</div>';
+  h += '</div>';
+  c.innerHTML = h;
+}
+
+// 月份切换 / 回到本月：带查询参数重新请求，正常走缓存管线
+async function calLoad(id) {
+  const ep = window['_ep_' + id];
+  const c = document.getElementById('content-' + id);
+  const st = calState[id];
+  if (!ep || !c || !st) return;
+  const url = `${API}${ep.path}?year=${st.y}&month=${st.m}`;
+  const ck = cacheKey(ep, url);
+  const cached = cacheGet(ck);
+  if (cached !== null) { renderData(ep, cached, c); return; }
+  c.innerHTML = SKELETON_HTML;
+  try {
+    const res = await fetch(url);
+    const json = await res.json();
+    if (json.code !== 200) { c.innerHTML = unavailableHTML(ep, json.message); return; }
+    cacheSet(ck, json.data);
+    renderData(ep, json.data, c);
+  } catch (e) {
+    c.innerHTML = unavailableHTML(ep, e.message);
+  }
+}
+
+document.addEventListener('click', e => {
+  const nav = e.target.closest('[data-cal-nav]');
+  if (nav) {
+    const id = nav.dataset.calId;
+    const st = calState[id];
+    if (!st) return;
+    st.m += +nav.dataset.calNav;
+    if (st.m > 12) { st.m = 1; st.y++; }
+    if (st.m < 1) { st.m = 12; st.y--; }
+    calLoad(id);
+    return;
+  }
+  const todayBtn = e.target.closest('[data-cal-today]');
+  if (todayBtn) {
+    const id = todayBtn.dataset.calId;
+    const todayStr = calState[id] && calState[id].todayStr;
+    if (todayStr) {
+      calState[id] = { y: +todayStr.slice(0, 4), m: +todayStr.slice(5, 7), todayStr };
+      calLoad(id);
+    }
+  }
+});
+
+// ============ 2048 小游戏（纯前端，noapi） ============
+// 棋局状态按卡片 id 存内存，最高分 localStorage 持久化；
+// 操控统一走 Pointer Events（鼠标拖拽 = 触屏滑动），另支持键盘方向键/WASD
+const g2048 = {};
+
+function g2048New(id) {
+  const st = g2048[id] = { grid: Array(16).fill(0), score: 0, over: false, wonShown: false };
+  g2048Spawn(st);
+  g2048Spawn(st);
+  return st;
+}
+
+function g2048Spawn(st) {
+  const empty = st.grid.map((v, i) => v === 0 ? i : -1).filter(i => i >= 0);
+  if (!empty.length) return;
+  st.grid[empty[Math.random() * empty.length | 0]] = Math.random() < 0.9 ? 2 : 4;
+}
+
+function g2048Best() {
+  try { return +localStorage.getItem('g2048-best') || 0; } catch { return 0; }
+}
+
+function g2048CanMove(st) {
+  if (st.grid.includes(0)) return true;
+  for (let r = 0; r < 4; r++) for (let cIdx = 0; cIdx < 4; cIdx++) {
+    const v = st.grid[r * 4 + cIdx];
+    if (cIdx < 3 && v === st.grid[r * 4 + cIdx + 1]) return true;
+    if (r < 3 && v === st.grid[(r + 1) * 4 + cIdx]) return true;
+  }
+  return false;
+}
+
+function g2048Move(id, dir) {
+  const st = g2048[id];
+  if (!st || st.over) return;
+  const reverse = dir === 'right' || dir === 'down';
+  const vertical = dir === 'up' || dir === 'down';
+  let moved = false;
+
+  for (let i = 0; i < 4; i++) {
+    const coords = [...Array(4)].map((_, j) => vertical ? [j, i] : [i, j]);
+    let vals = coords.map(([r, cIdx]) => st.grid[r * 4 + cIdx]).filter(v => v);
+    if (reverse) vals.reverse();
+    for (let j = 0; j < vals.length - 1; j++) {
+      if (vals[j] === vals[j + 1]) {
+        vals[j] *= 2;
+        st.score += vals[j];
+        vals.splice(j + 1, 1);
+      }
+    }
+    while (vals.length < 4) vals.push(0);
+    if (reverse) vals.reverse();
+    coords.forEach(([r, cIdx], j) => {
+      if (st.grid[r * 4 + cIdx] !== vals[j]) moved = true;
+      st.grid[r * 4 + cIdx] = vals[j];
+    });
+  }
+
+  if (!moved) return;
+  g2048Spawn(st);
+  if (st.score > st.best) {
+    st.best = st.score;
+    try { localStorage.setItem('g2048-best', String(st.best)); } catch {}
+  }
+  if (!g2048CanMove(st)) st.over = true;
+  g2048Paint(id);
+}
+
+function rGame2048(_, c, ep) {
+  const id = ep.id;
+  const st = g2048New(id);
+  st.best = g2048Best();
+
+  c.innerHTML = `<div class="g2048" data-g2048="${id}">
+    <div class="g2048-top">
+      <div class="g2048-scorebox">分数<br><b class="g-sv">0</b></div>
+      <div class="g2048-scorebox">最高<br><b class="g-bv">${st.best}</b></div>
+      <button class="g2048-new" type="button" data-g2048-new="${id}">↻ 重开</button>
+    </div>
+    <div class="g2048-wrap">
+      <div class="g2048-board" tabindex="0" aria-label="2048 棋盘，方向键或滑动操作">${'<div class="g-tile empty"></div>'.repeat(16)}</div>
+      <div class="g2048-over" hidden><div class="go-title">游戏结束</div><div class="go-score">得分 <b class="go-sv">0</b></div><button class="go-btn" type="button" data-g2048-new="${id}">再来一局</button></div>
+    </div>
+    <div class="g2048-tip">🖱️ 拖拽 / 📱 滑动 / ⌨️ 方向键或 WASD 移动合并，凑出 2048</div>
+  </div>`;
+  g2048Paint(id);
+  g2048Bind(id);
+}
+
+function g2048Paint(id) {
+  const st = g2048[id];
+  const wrap = document.querySelector(`[data-g2048="${id}"]`);
+  if (!st || !wrap) return;
+  const board = wrap.querySelector('.g2048-board');
+  board.innerHTML = st.grid.map(v =>
+    v ? `<div class="g-tile t${v <= 2048 ? v : 'x'}">${v}</div>` : '<div class="g-tile empty"></div>'
+  ).join('');
+  wrap.querySelector('.g-sv').textContent = st.score;
+  wrap.querySelector('.g-bv').textContent = st.best;
+  const over = wrap.querySelector('.g2048-over');
+  if (st.over) {
+    over.querySelector('.go-sv').textContent = st.score;
+    over.hidden = false;
+  } else {
+    over.hidden = true;
+  }
+}
+
+function g2048Bind(id) {
+  const wrap = document.querySelector(`[data-g2048="${id}"]`);
+  if (!wrap) return;
+  let sx = 0, sy = 0, tracking = false, fired = false;
+  wrap.addEventListener('pointerdown', e => {
+    tracking = true; fired = false; sx = e.clientX; sy = e.clientY;
+    try { wrap.setPointerCapture(e.pointerId); } catch {}
+    wrap.querySelector('.g2048-board').focus({ preventScroll: true });
+  });
+  wrap.addEventListener('pointermove', e => {
+    if (!tracking || fired) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (Math.abs(dx) < 24 && Math.abs(dy) < 24) return;
+    fired = true;
+    g2048Move(id, Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+  });
+  const end = () => { tracking = false; };
+  wrap.addEventListener('pointerup', end);
+  wrap.addEventListener('pointercancel', end);
+  wrap.querySelector('.g2048-board').addEventListener('keydown', e => {
+    const map = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', a: 'left', d: 'right', w: 'up', s: 'down' };
+    const dir = map[e.key];
+    if (dir) { e.preventDefault(); g2048Move(id, dir); }
+  });
+}
+
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-g2048-new]');
+  if (!btn) return;
+  const id = btn.dataset.g2048New;
+  const st = g2048New(id);
+  st.best = g2048Best();
+  g2048Paint(id);
 });
 
 function rDouban(d, c) {
@@ -2189,15 +2421,27 @@ function rKuan(d, c) {
   if (!d || !d.topics) return rJSON(d, c);
   let h = '';
   d.topics.forEach((t, i) => {
-    h += `<div class="item"><span class="rank ${i < 3 ? 'top'+(i+1) : ''}">${i+1}</span><div class="body">`;
-    h += `<a href="${safeUrl(t.url)}" target="_blank" rel="noopener">${esc(t.title)}</a>`;
+    const cls = i < 3 ? 'top'+(i+1) : '';
+    // 话题封面优先，缺失时回退方形 logo 图标
+    const icon = t.logo || t.cover || '';
     let meta = '';
     if (t.hotness) meta += `<span class="hot">🔥 ${esc(String(t.hotness))}</span>`;
     if (t.followers) meta += ` · 👥 ${esc(String(t.followers))}`;
     if (t.comments) meta += ` · 💬 ${esc(String(t.comments))}`;
     if (t.rating && t.rating.score) meta += ` · ⭐ ${esc(String(t.rating.score))}`;
-    if (meta) h += `<div class="meta">${meta}</div>`;
-    h += '</div></div>';
+    if (icon) {
+      h += `<div class="item with-poster with-cover">`;
+      h += `<img class="poster cover-square" src="${esc(icon)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+      h += `<div class="body-wrap">`;
+      h += `<a href="${safeUrl(t.url)}" target="_blank" rel="noopener"><span class="rank ${cls}">${i+1}</span> ${esc(t.title)}</a>`;
+      if (meta) h += `<div class="meta">${meta}</div>`;
+      h += '</div></div>';
+    } else {
+      h += `<div class="item"><span class="rank ${cls}">${i+1}</span><div class="body">`;
+      h += `<a href="${safeUrl(t.url)}" target="_blank" rel="noopener">${esc(t.title)}</a>`;
+      if (meta) h += `<div class="meta">${meta}</div>`;
+      h += '</div></div>';
+    }
   });
   c.innerHTML = h;
 }
@@ -2207,14 +2451,25 @@ function r36Kr(d, c) {
   if (!Array.isArray(d)) return rJSON(d, c);
   let h = '';
   d.forEach((e, i) => {
-    h += `<div class="item"><span class="rank ${i < 3 ? 'top'+(i+1) : ''}">${e.rank || i+1}</span><div class="body">`;
-    h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`;
+    const cls = i < 3 ? 'top'+(i+1) : '';
+    const cover = e.cover || '';
     let meta = '';
     if (e.hot) meta += `<span class="hot">🔥 ${esc(e.hot_desc || String(e.hot))}</span>`;
     if (e.author) meta += ` · ${esc(e.author)}`;
     if (e.praise) meta += ` · 👍 ${esc(String(e.praise))}`;
-    if (meta) h += `<div class="meta">${meta}</div>`;
-    h += '</div></div>';
+    if (cover) {
+      h += `<div class="item with-poster with-cover">`;
+      h += `<img class="poster cover-square" src="${esc(cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+      h += `<div class="body-wrap">`;
+      h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${e.rank || i+1}</span> ${esc(e.title)}</a>`;
+      if (meta) h += `<div class="meta">${meta}</div>`;
+      h += '</div></div>';
+    } else {
+      h += `<div class="item"><span class="rank ${cls}">${e.rank || i+1}</span><div class="body">`;
+      h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`;
+      if (meta) h += `<div class="meta">${meta}</div>`;
+      h += '</div></div>';
+    }
   });
   c.innerHTML = h;
 }
@@ -2240,14 +2495,25 @@ function rSspai(d, c) {
   if (!Array.isArray(d)) return rJSON(d, c);
   let h = '';
   d.forEach((e, i) => {
-    h += `<div class="item"><span class="rank ${i < 3 ? 'top'+(i+1) : ''}">${e.rank || i+1}</span><div class="body">`;
-    h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`;
+    const cls = i < 3 ? 'top'+(i+1) : '';
+    const cover = e.cover || '';
     let meta = '';
     if (e.hot) meta += `<span class="hot">👍 ${esc(String(e.hot))}</span>`;
     if (e.author) meta += ` · ${esc(e.author)}`;
     if (e.comments) meta += ` · 💬 ${esc(String(e.comments))}`;
-    if (meta) h += `<div class="meta">${meta}</div>`;
-    h += '</div></div>';
+    if (cover) {
+      h += `<div class="item with-poster with-cover">`;
+      h += `<img class="poster cover-square" src="${esc(cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+      h += `<div class="body-wrap">`;
+      h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${e.rank || i+1}</span> ${esc(e.title)}</a>`;
+      if (meta) h += `<div class="meta">${meta}</div>`;
+      h += '</div></div>';
+    } else {
+      h += `<div class="item"><span class="rank ${cls}">${e.rank || i+1}</span><div class="body">`;
+      h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`;
+      if (meta) h += `<div class="meta">${meta}</div>`;
+      h += '</div></div>';
+    }
   });
   c.innerHTML = h;
 }
@@ -2257,14 +2523,25 @@ function rHuxiu(d, c) {
   if (!Array.isArray(d)) return rJSON(d, c);
   let h = '';
   d.forEach((e, i) => {
-    h += `<div class="item"><span class="rank ${i < 3 ? 'top'+(i+1) : ''}">${e.rank || i+1}</span><div class="body">`;
-    h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`;
+    const cls = i < 3 ? 'top'+(i+1) : '';
+    const cover = e.cover || '';
     let meta = '';
     if (e.hot) meta += `<span class="hot">🔥 ${esc(String(e.hot))}</span>`;
     if (e.author) meta += ` · ${esc(e.author)}`;
     if (e.comments) meta += ` · 💬 ${esc(String(e.comments))}`;
-    if (meta) h += `<div class="meta">${meta}</div>`;
-    h += '</div></div>';
+    if (cover) {
+      h += `<div class="item with-poster with-cover">`;
+      h += `<img class="poster cover-square" src="${esc(cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+      h += `<div class="body-wrap">`;
+      h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${e.rank || i+1}</span> ${esc(e.title)}</a>`;
+      if (meta) h += `<div class="meta">${meta}</div>`;
+      h += '</div></div>';
+    } else {
+      h += `<div class="item"><span class="rank ${cls}">${e.rank || i+1}</span><div class="body">`;
+      h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`;
+      if (meta) h += `<div class="meta">${meta}</div>`;
+      h += '</div></div>';
+    }
   });
   c.innerHTML = h;
 }
@@ -2322,12 +2599,6 @@ function rMaoyanMovie(d, c) {
   list.forEach(m => {
     const rank = m.rank || 0;
     const cls = rank <= 3 ? `top${rank}` : '';
-    h += '<div class="item with-poster">';
-    if (m.cover) h += `<img class="poster" src="${esc(m.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
-    h += '<div class="body-wrap">';
-    h += m.link
-      ? `<a href="${safeUrl(m.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(m.movie_name)}</a>`
-      : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(m.movie_name)}</span>`;
     const meta = [];
     if (m.score) meta.push(`⭐ ${esc(m.score)}`);
     if (m.wish_desc) meta.push(`❤️ ${esc(m.wish_desc)}人想看`);
@@ -2337,9 +2608,19 @@ function rMaoyanMovie(d, c) {
     if (isShowing) meta.push(esc(m.show_info));
     if (m.coming_title) meta.push(`📅 ${esc(m.coming_title)}`);
     else if (!isShowing && m.release_date) meta.push(`📅 ${esc(m.release_date)}`);
-    if (meta.length) h += `<div class="meta">${meta.join(' · ')}</div>`;
-    if (m.star) h += `<div class="desc">主演 ${esc(String(m.star).slice(0, 40))}${String(m.star).length > 40 ? '…' : ''}</div>`;
-    h += '</div></div>';
+    const titleHtml = m.link
+      ? `<a href="${safeUrl(m.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(m.movie_name)}</a>`
+      : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(m.movie_name)}</span>`;
+    const bodyInner = titleHtml +
+      (meta.length ? `<div class="meta">${meta.join(' · ')}</div>` : '') +
+      (m.star ? `<div class="desc">主演 ${esc(String(m.star).slice(0, 40))}${String(m.star).length > 40 ? '…' : ''}</div>` : '');
+    // 单条无海报则走无图布局
+    if (m.cover) {
+      h += `<div class="item with-poster"><img class="poster" src="${esc(m.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">` +
+        `<div class="body-wrap">${bodyInner}</div></div>`;
+    } else {
+      h += `<div class="item"><span class="rank ${cls}">${rank}</span><div class="body">${bodyInner}</div></div>`;
+    }
   });
   c.innerHTML = h;
 }
@@ -2351,19 +2632,23 @@ function rBaiduShow(d, c) {
   d.forEach(it => {
     const rank = it.rank || 0;
     const cls = rank <= 3 ? `top${rank}` : '';
-    h += '<div class="item with-poster">';
-    if (it.cover) h += `<img class="poster" src="${esc(it.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
-    h += '<div class="body-wrap">';
-    h += it.url
-      ? `<a href="${safeUrl(it.url)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</a>`
-      : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</span>`;
     const meta = [];
     if (it.genre) meta.push(`🏷️ ${esc(it.genre)}`);
     if (it.score_desc) meta.push(`🔥 ${esc(it.score_desc)}`);
-    if (meta.length) h += `<div class="meta">${meta.join(' · ')}</div>`;
-    if (it.actors) h += `<div class="desc">主演 ${esc(it.actors)}</div>`;
-    if (it.desc) h += `<div class="desc">${esc(String(it.desc).slice(0, 60))}${String(it.desc).length > 60 ? '…' : ''}</div>`;
-    h += '</div></div>';
+    const titleHtml = it.url
+      ? `<a href="${safeUrl(it.url)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</a>`
+      : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</span>`;
+    const bodyInner = titleHtml +
+      (meta.length ? `<div class="meta">${meta.join(' · ')}</div>` : '') +
+      (it.actors ? `<div class="desc">主演 ${esc(it.actors)}</div>` : '') +
+      (it.desc ? `<div class="desc">${esc(String(it.desc).slice(0, 60))}${String(it.desc).length > 60 ? '…' : ''}</div>` : '');
+    // 单条无海报则走无图布局
+    if (it.cover) {
+      h += `<div class="item with-poster"><img class="poster" src="${esc(it.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">` +
+        `<div class="body-wrap">${bodyInner}</div></div>`;
+    } else {
+      h += `<div class="item"><span class="rank ${cls}">${rank}</span><div class="body">${bodyInner}</div></div>`;
+    }
   });
   c.innerHTML = h;
 }

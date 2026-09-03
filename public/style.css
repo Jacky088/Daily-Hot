@@ -1218,6 +1218,12 @@ a:hover { text-decoration: underline; }
 
 /* Foot */
 .foot { text-align: center; padding: 30px; color: var(--text-dimmer); font-size: 12px; }
+.foot-links { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+.foot-label { color: var(--text-dimmer); letter-spacing: 1px; }
+.foot-links a { color: var(--text-dim); text-decoration: none; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); transition: color 0.15s, border-color 0.15s; }
+.foot-links a:hover { color: var(--accent); border-color: var(--accent); }
+.foot-meta a { color: inherit; text-decoration: none; }
+.foot-meta a:hover { color: var(--accent); }
 
 /* Game card */
 /* 免费游戏卡（Epic / Steam 共用）：字号字重与 .item 系统一，
@@ -1519,3 +1525,97 @@ a:hover { text-decoration: underline; }
 @media (max-width: 360px) {
   .clock-date { display: none; }
 }
+
+/* ============ 万年历（生活信息 / calendar） ============ */
+.cal-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.cal-title { flex: 1; text-align: center; font-size: 14px; font-weight: 600; color: var(--text); }
+.cal-nav {
+  width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--card); color: var(--text); font-size: 16px; line-height: 1;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.cal-nav:hover { border-color: var(--accent); color: var(--accent-light); }
+.cal-today {
+  padding: 5px 10px; border-radius: 8px; border: none; background: var(--accent);
+  color: #fff; font-size: 11.5px; cursor: pointer;
+}
+.cal-today:hover { filter: brightness(1.1); }
+.cal-weeks { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 4px; }
+.cal-weeks span { text-align: center; font-size: 11px; color: var(--text-dim); padding: 2px 0; }
+.cal-weeks span.wk { color: var(--warn); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-cell {
+  position: relative; aspect-ratio: 0.9; min-width: 0; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  padding: 3px 2px; border-radius: 8px;
+  background: color-mix(in srgb, var(--card) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+.cal-cell.blank { background: transparent; border: none; }
+.cal-cell.wk { background: color-mix(in srgb, var(--warn) 7%, transparent); }
+.cal-cell.today { background: var(--accent-bg); border-color: var(--accent); }
+.cal-d { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.2; }
+.cal-cell.wk .cal-d { color: var(--warn); }
+.cal-cell.today .cal-d { color: var(--accent-text); }
+.cal-mark {
+  position: absolute; top: 2px; right: 3px; font-style: normal;
+  font-size: 9px; font-weight: 700; line-height: 1.4; padding: 0 3px; border-radius: 4px;
+}
+.cal-mark.rest { background: var(--warn); color: #fff; }
+.cal-mark.work { background: var(--text-dim); color: var(--bg); }
+.cal-l { font-size: 10px; color: var(--text-dim); line-height: 1.2; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-l.sp { color: var(--accent-light); font-weight: 600; }
+.cal-cell.today .cal-l.sp { color: var(--accent-text); }
+.cal-tip { margin-top: 10px; font-size: 11px; color: var(--text-dim); }
+
+/* ============ 2048 小游戏（趣味内容 / game2048） ============ */
+.g2048 { user-select: none; -webkit-user-select: none; }
+.g2048-top { display: flex; align-items: stretch; gap: 8px; margin-bottom: 10px; width: min(100%, 320px); margin-left: auto; margin-right: auto; }
+.g2048-scorebox {
+  flex: 1; padding: 5px 10px; border-radius: 8px; background: var(--accent-bg);
+  font-size: 10.5px; color: var(--text-dim); line-height: 1.4;
+}
+.g2048-scorebox b { font-size: 15px; color: var(--text); }
+.g2048-new {
+  padding: 0 12px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--card); color: var(--text); font-size: 12.5px; cursor: pointer;
+}
+.g2048-new:hover { border-color: var(--accent); color: var(--accent-light); }
+/* touch-action:none：让滑动手势只作用于棋盘，不被页面滚动劫持；
+   棋盘宽度封顶：桌面端 .card-body 限高 460px，宽度驱动的方形棋盘
+   必须压在 (460 - 顶栏/提示/间距) 以内，否则卡片内容溢出出滚动条 */
+.g2048-wrap { position: relative; touch-action: none; width: min(100%, 320px); margin: 0 auto; }
+.g2048-board {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+  aspect-ratio: 1; padding: 6px; border-radius: 10px;
+  background: var(--bg); border: 1px solid var(--border); outline: none;
+}
+.g2048-board:focus-visible { border-color: var(--accent); }
+.g-tile {
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px; font-weight: 700; font-size: clamp(14px, 5vw, 22px);
+  background: color-mix(in srgb, var(--card) 80%, transparent); color: var(--text-dim);
+}
+.g-tile.t2 { background: #eee4da; color: #776e65; }
+.g-tile.t4 { background: #ede0c8; color: #776e65; }
+.g-tile.t8 { background: #f2b179; color: #fff; }
+.g-tile.t16 { background: #f59563; color: #fff; }
+.g-tile.t32 { background: #f67c5f; color: #fff; }
+.g-tile.t64 { background: #f65e3b; color: #fff; }
+.g-tile.t128 { background: #edcf72; color: #fff; }
+.g-tile.t256 { background: #edcc61; color: #fff; }
+.g-tile.t512 { background: #edc850; color: #fff; }
+.g-tile.t1024 { background: #edc53f; color: #fff; }
+.g-tile.t2048 { background: #edc22e; color: #fff; box-shadow: 0 0 12px rgba(237, 194, 46, 0.5); }
+.g-tile.tx { background: #3c3a32; color: #fff; }
+.g2048-over {
+  position: absolute; inset: 0; border-radius: 10px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  background: color-mix(in srgb, var(--bg) 75%, transparent); backdrop-filter: blur(2px);
+}
+.g2048-over[hidden] { display: none; }
+.go-title { font-size: 20px; font-weight: 700; color: var(--text); }
+.go-score { font-size: 13px; color: var(--text-dim); }
+.go-btn { padding: 8px 16px; border-radius: 8px; border: none; background: var(--accent); color: #fff; font-size: 13px; cursor: pointer; }
+.go-btn:hover { filter: brightness(1.1); }
+.g2048-tip { margin: 10px auto 0; width: min(100%, 320px); font-size: 11px; color: var(--text-dim); }

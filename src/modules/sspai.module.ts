@@ -59,7 +59,7 @@ class ServiceSspai {
       rank: idx + 1,
       title: v.title,
       desc: v.summary,
-      cover: v.banner,
+      cover: v.banner ? `https://cdn.sspai.com/${v.banner.replace(/^\//, '')}` : '',
       author: v.author?.nickname || '',
       hot: v.like_count,
       comments: v.comment_count ?? 0,
