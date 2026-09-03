@@ -1317,10 +1317,10 @@ a:hover { text-decoration: underline; }
 .wx-hour-c { font-size: 10px; color: var(--text-dimmer); white-space: nowrap; }
 
 /* ===== 油价模块 ===== */
-.fuel-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
-.fuel-region { font-size: 15px; font-weight: 700; color: var(--text); }
+.fuel-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.fuel-region { font-size: 14px; font-weight: 700; color: var(--text); }
 .fuel-updated { font-size: 11px; color: var(--text-dimmer); }
-.fuel-trend { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; border-radius: 10px; margin-bottom: 12px; font-size: 12px; border: 1px solid; }
+.fuel-trend { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 5px 10px; border-radius: 10px; margin-bottom: 8px; font-size: 11.5px; border: 1px solid; }
 .fuel-trend .dir { font-weight: 700; }
 .fuel-trend .desc { color: var(--text-dim); }
 .fuel-trend .date { margin-left: auto; color: var(--text-dimmer); font-size: 11px; }
@@ -1330,25 +1330,29 @@ a:hover { text-decoration: underline; }
 .fuel-trend.down .dir { color: #10b981; }
 .fuel-trend.flat { background: var(--accent-bg); border-color: var(--border); }
 .fuel-trend.flat .dir { color: var(--text-dim); }
-.fuel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 14px; }
-.fuel-card { position: relative; padding: 12px 10px 10px 14px; border-radius: 12px; background: var(--card-hover); border: 1px solid var(--border); overflow: hidden; }
+.fuel-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px; }
+.fuel-card { position: relative; padding: 7px 8px 6px 11px; border-radius: 10px; background: var(--card-hover); border: 1px solid var(--border); overflow: hidden; }
 .fuel-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--c); border-radius: 3px; }
-.fuel-card .name { display: block; font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
-.fuel-card .price { font-size: 20px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; }
-.fuel-card .price small { font-size: 10px; font-weight: 400; color: var(--text-dimmer); margin-left: 3px; }
-.fuel-chart { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--card-hover); }
-.fuel-chart-title { font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 8px; }
+.fuel-card .name { display: block; font-size: 10.5px; color: var(--text-dim); margin-bottom: 1px; }
+.fuel-card .price { font-size: 16px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; }
+.fuel-card .price small { font-size: 9px; font-weight: 400; color: var(--text-dimmer); margin-left: 2px; }
+.fuel-chart { border: 1px solid var(--border); border-radius: 12px; padding: 10px; background: var(--card-hover); }
+.fuel-chart-title { font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 6px; }
 .fuel-chart-svg { width: 100%; height: auto; display: block; }
 .fl-grid { stroke: var(--border); stroke-width: 0.5; stroke-dasharray: 2 3; }
 .fl-ylabel { font-size: 8.5px; fill: var(--text-dimmer); }
 .fl-xlabel { font-size: 8.5px; fill: var(--text-dimmer); }
 .fl-last { font-size: 9px; font-weight: 700; fill: #f59e0b; }
-.fuel-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; font-size: 10.5px; color: var(--text-dim); }
+.fuel-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 5px; font-size: 10.5px; color: var(--text-dim); }
 .fuel-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .fuel-legend i { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
-.fuel-link { margin-top: 10px; font-size: 11px; text-align: right; }
+.fuel-link { margin-top: 6px; font-size: 11px; text-align: right; }
 .fuel-link a { color: var(--text-dim); text-decoration: none; }
 .fuel-link a:hover { color: var(--accent); }
+@media (max-width: 560px) {
+  /* 窄屏：价格格 4 列太挤，改为 2x2 */
+  .fuel-grid { grid-template-columns: repeat(2, 1fr); }
+}
 
 /* ============ P3: Card fade-in + keyboard focus ============ */
 @keyframes fadeIn {

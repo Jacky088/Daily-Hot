@@ -1977,7 +1977,7 @@ function rFuelChart(rows, regionName) {
     { key: 'p98', name: '98#汽油', color: '#ec4899' },
     { key: 'p0', name: '0#柴油', color: '#10b981' },
   ];
-  const W = 560, H = 200, PADL = 34, PADR = 14, PADT = 16, PADB = 24;
+  const W = 560, H = 170, PADL = 34, PADR = 14, PADT = 14, PADB = 22;
   const iw = W - PADL - PADR, ih = H - PADT - PADB;
   const n = rows.length;
   let min = Infinity, max = -Infinity;
