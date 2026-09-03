@@ -479,8 +479,8 @@ function init() {
       item.dataset.key = e.key;
       item.dataset.type = e.type;
       item.title = `定位到「${e.name}」`;
-      item.innerHTML = `<span class="no">${String(i + 1).padStart(2, '0')}</span>` +
-        `<span class="ci">${e.icon}</span><span class="nm">${esc(e.name)}</span>` +
+      item.innerHTML = `<span class="mm"><span class="no">${String(i + 1).padStart(2, '0')}</span>` +
+        `<span class="ci">${e.icon}</span><span class="nm">${esc(e.name)}</span></span>` +
         (e.type === 'group' ? '<span class="tb"></span>' : '');
       item.onclick = () => {
         // 分组条目定位到其当前激活的标签页（卡片未渲染时回退首个标签页）
