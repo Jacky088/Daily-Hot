@@ -2,7 +2,7 @@
 
 > 一站看完天下事 · 基于 [60s API](https://github.com/vikiboss/60s) 构建的一站式热榜聚合面板
 
-[![Version](https://img.shields.io/badge/version-1.4.5-blue) ](./package.json)
+[![Version](https://img.shields.io/badge/version-1.5.0-blue) ](./package.json)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white) ](https://workers.cloudflare.com/)
 [![EdgeOne Pages](https://img.shields.io/badge/EdgeOne%20Pages-0052FF?style=flat) ](https://edgeone.ai/pages)
 [![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white) ](https://docker.com/)
@@ -26,8 +26,8 @@
 | 💻 科技资讯 | NodeSeek 新帖、V2EX 热帖、LowEndTalk、Hacker News、IT 资讯、酷安热榜、36 氪热榜、Reddit 热帖、少数派热榜、虎嗅热榜 |
 | 🎬 影视娱乐 | 猫眼票房、百度电视剧榜、豆瓣电影/剧集/综艺周榜（华语/全球）、流媒体热门剧集/电影、Epic 免费游戏、Steam 免费游戏、网易云热歌榜/飙升榜/ACG 榜、Billboard Hot 100、歌词搜索、唱鸭 |
 | 🛠️ 实用工具 | 百度百科、健康计算器、二维码生成、哈希加密、网页 OG 信息、IP 查询、WHOIS 查询、密码生成/检测、随机颜色、配色方案 |
-| 🌤️ 生活信息 | 实时天气、天气预报、汇率、油价、金价、农历信息、摸鱼日历 |
-| 🎯 趣味内容 | 段子、冷笑话、一言、KFC 疯狂星期四、发病文案、答案之书、必应壁纸、JS 题目、梗百科 |
+| 🌤️ 生活信息 | 实时天气、天气预报、汇率、油价、金价、万年历、农历信息、摸鱼日历 |
+| 🎯 趣味内容 | 段子、冷笑话、一言、KFC 疯狂星期四、发病文案、答案之书、2048 小游戏、必应壁纸、JS 题目、梗百科 |
 | 🔤 翻译 | 有道翻译（支持 114 种语言下拉选择）、Google 翻译、每日一句英语 |
 
 ### 🎨 体验设计
@@ -38,6 +38,10 @@
 - **🔗 链接可跳转** — 可点击跳转到来源页面，
 - **⚡ 智能加载** — 无参数接口自动加载，有参数接口提供输入控件
 - **🏆 排行榜样式** — 前三名金银铜渐变色块，热度数值高亮
+- **🖼️ 榜单缩略图** — 知乎/头条/百度/36氪/少数派/虎嗅等带图数据源逐条展示封面，单条无图自动回退纯文本布局
+- **🎮 2048 小游戏** — 鼠标拖拽 / 触屏滑动 / 键盘方向键三合一操控，最高分本地记忆
+- **📅 万年历** — 公历/农历对照，节气、节日与法定节假日「休/班」标注，支持任意月份翻阅
+- **🔗 友情链接** — 页脚友链入口，样式随主题自适应
 
 ## 🚀 部署
 
@@ -156,6 +160,9 @@ curl "https://your-domain/v2/weibo"
 
 # 实时天气（query 为城市参数，默认北京）
 curl "https://your-domain/v2/weather/realtime?query=北京"
+
+# 万年历（默认当月，支持 year/month 参数）
+curl "https://your-domain/v2/lunar/calendar?year=2026&month=10"
 
 # 查看全部接口列表
 curl "https://your-domain/endpoints"
