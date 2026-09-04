@@ -77,7 +77,9 @@ class ServiceFanyi {
   }
 
   handleLangs(): RouterMiddleware<'/fanyi/langs'> {
-    return (ctx) => {
+    return async (ctx) => {
+      // 冷启动时 initLangs（异步）可能尚未完成，等待语言表就绪，避免向客户端返回空列表
+      if (this.langMap.size <= 0) await this.initLangs()
       ctx.response.body = Common.buildJson(
         [...this.langMap.values()].toSorted((a, b) => a.alphabet.localeCompare(b.alphabet)),
       )

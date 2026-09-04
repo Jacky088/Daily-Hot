@@ -363,11 +363,12 @@ const G_LANGS = [
 
 // 加载有道翻译支持的语言列表（预加载，不依赖卡片渲染）
 async function loadFanyiLangs() {
-  if (fanyiLangs) { fillFanyiSelects(); return; }
+  if (fanyiLangs && fanyiLangs.length) { fillFanyiSelects(); return; }
   try {
     const r = await fetch(API + '/v2/fanyi/langs');
     const j = await r.json();
-    if (j.code === 200 && Array.isArray(j.data)) {
+    // 空列表视为无效（后端冷启动语言表未就绪），不缓存，保留"加载中"等待重试
+    if (j.code === 200 && Array.isArray(j.data) && j.data.length > 0) {
       fanyiLangs = j.data.sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'));
       fillFanyiSelects();
     }
@@ -375,7 +376,7 @@ async function loadFanyiLangs() {
 }
 
 function fillFanyiSelects() {
-  if (!fanyiLangs) return;
+  if (!fanyiLangs || !fanyiLangs.length) return;
   const opts = fanyiLangs.map(l => `<option value="${l.code}">${l.label}</option>`).join('');
   document.querySelectorAll('select[data-role="fanyi-lang"]').forEach(sel => {
     const cur = sel.value;
@@ -978,7 +979,7 @@ function makeCard(ep) {
         fromSel.dataset.role = 'fanyi-lang';
         toSel.dataset.role = 'fanyi-lang';
         // 如果语言列表已缓存，直接填充；否则显示加载中
-        if (fanyiLangs) {
+        if (fanyiLangs && fanyiLangs.length) {
           const opts = fanyiLangs.map(l => `<option value="${l.code}">${l.label}</option>`).join('');
           fromSel.innerHTML = opts;
           toSel.innerHTML = opts;
@@ -1008,7 +1009,7 @@ function makeCard(ep) {
       body.appendChild(go);
 
       // 异步加载有道语言列表（如果尚未加载；Google 卡用内置表无需拉取）
-      if (!isGt && !fanyiLangs) loadFanyiLangs();
+      if (!isGt && !(fanyiLangs && fanyiLangs.length)) loadFanyiLangs();
     } else {
       const row = document.createElement('div');
       row.className = 'input-row';
