@@ -2048,7 +2048,8 @@ function rHealth(d, c) {
     gauge = `<div class="ht-gauge"><div class="ht-gauge-track"><i style="left:${pos}%"></i></div><div class="ht-gauge-scale"><span>偏瘦</span><span>正常</span><span>超重</span><span>肥胖</span></div></div>`;
   }
 
-  let h = `<div class="ht-bmi"><div class="ht-bmi-num"><b>${esc(String(bmi.value ?? '--'))}</b><span>BMI</span></div><div class="ht-bmi-info"><span class="ht-chip">${esc(bmi.category || '')}</span><p>${esc(bmi.evaluation || '')}</p><p class="dim">${esc(bmi.risk || '')}</p></div></div>${gauge}`;
+  const bmiChip = bmi.category ? `<span class="ht-chip">${esc(bmi.category)}</span>` : '';
+  let h = `<div class="ht-bmi"><div class="ht-bmi-num"><b>${esc(String(bmi.value ?? '--'))}</b><span>BMI</span></div><div class="ht-bmi-info"><p>${esc(bmi.evaluation || '')}</p><p class="dim">${esc(bmi.risk || '')}</p></div>${bmiChip}</div>${gauge}`;
 
   const bigs = [
     ['⚖️', '标准体重', wa.standard_weight],
@@ -2879,9 +2880,9 @@ function rPwdChk(d, c) {
   let h = `<div class="pwchk-hero">
     <div class="pwchk-score" style="color:${color}"><b>${score}</b><span>/100</span></div>
     <div class="pwchk-side">
-      <span class="pwchk-strength" style="background:${color}">${esc(d.strength || '未知')}</span>
       <span class="pwchk-crack">🔓 破解耗时 <b>${esc(d.time_to_crack || '-')}</b></span>
     </div>
+    <span class="pwchk-strength" style="background:${color}">${esc(d.strength || '未知')}</span>
   </div>
   <div class="pwchk-bar"><i style="width:${score}%;background:${color}"></i></div>
   <div class="ht-tiles">${htTile('密码长度', d.length)}${htTile('熵值', d.entropy != null ? `${d.entropy} bits` : null)}${htTile('字符多样度', ca.character_variety != null ? `${ca.character_variety}%` : null)}${htTile('被测密码', d.password)}</div>
