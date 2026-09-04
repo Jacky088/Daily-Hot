@@ -1051,7 +1051,11 @@ function makeCard(ep) {
   const content = document.createElement('div');
   content.id = 'content-' + ep.id;
   // P1: 使用骨架屏替代简单文字
-  content.innerHTML = ep.auto ? SKELETON_HTML : '<div class="placeholder">点击查询获取数据</div>';
+  // Google 翻译卡：查询需能正常访问 Google，加粗提示置于 placeholder 前
+  const placeholder = ep.id === 'gtranslate'
+    ? '<div class="placeholder"><b>需正常访问 Google 网络</b>，点击查询获取数据</div>'
+    : '<div class="placeholder">点击查询获取数据</div>';
+  content.innerHTML = ep.auto ? SKELETON_HTML : placeholder;
   body.appendChild(content);
 
   card.appendChild(body);
