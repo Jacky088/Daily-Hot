@@ -63,9 +63,6 @@ body {
   -webkit-font-smoothing: antialiased;
   transition: background 0.3s, color 0.3s;
   min-height: 100vh;
-  /* sticky footer：内容不足一屏时 .layout 撑满剩余高度，页脚永远贴视口底部——
-     无论分类内容多少，滚动到底后页脚与窗口底部的距离恒定一致 */
-  display: flex; flex-direction: column;
 }
 a { color: var(--accent-text); text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -198,7 +195,6 @@ a:hover { text-decoration: underline; }
 /* ============ Layout（侧边栏 + 内容区） ============ */
 .layout {
   display: flex; align-items: flex-start; gap: 0;
-  flex: 1 0 auto;
   max-width: 1600px; margin: 0 auto; padding: 0 12px;
 }
 
@@ -1251,10 +1247,7 @@ a:hover { text-decoration: underline; }
    且能在壁纸上承载文字（不用 backdrop-filter，避免任何命中检测隐患） */
 .foot {
   text-align: center;
-  /* max-width 约束：窄窗口下页脚居中后左缘也不越过侧边栏（12+240+8=260px），
-     推导：左缘 = (100% - (100% - 520px)) / 2 = 260px，520 = 侧边栏区 260*2 */
-  max-width: min(760px, calc(100% - 520px));
-  margin: 24px auto 20px; padding: 14px 18px;
+  max-width: 760px; margin: 24px auto 32px; padding: 14px 18px;
   background: var(--card-glass);
   border: 1px solid var(--border-glass); border-radius: 12px;
   color: var(--text-dimmer); font-size: 12px;
@@ -1532,7 +1525,7 @@ a:hover { text-decoration: underline; }
   .card-tabs::-webkit-scrollbar { display: none; }
   .card-tab { flex-shrink: 0; min-height: 32px; }
   .json-view { max-height: none; overflow: visible; }
-  .foot { max-width: none; margin: 14px 12px 20px; padding: 12px 14px; }
+  .foot { margin: 14px 12px 20px; padding: 12px 14px; }
 }
 
 /* 手机小屏：进一步收紧触控与留白 */
