@@ -339,7 +339,13 @@ a:hover { text-decoration: underline; }
 }
 
 /* ============ Main ============ */
-.main { flex: 1; min-width: 0; padding: 20px 24px 60px; }
+/* min-height：内容不足一屏时也撑到接近视口高度，保证始终出现滚动条。
+   两点收益：① 各分类滚动条占用宽度一致，网格列数不会因分类切换而跳变；
+   ② 页脚到底部的距离在任何分类下都一致。只改高度，不影响宽度与列数 */
+.main {
+  flex: 1; min-width: 0; padding: 20px 24px 60px;
+  min-height: calc(100vh - var(--topbar-h, 76px) - 100px);
+}
 .cat-section { margin-bottom: 32px; }
 .cat-title {
   font-size: 14px; font-weight: 800; margin-bottom: 14px;
