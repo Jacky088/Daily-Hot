@@ -1,4 +1,6 @@
 import { Common } from '../common.ts'
+// 本地补充的 2025-2026 年疯四文案：与远程 v50 库合并去重，远程不可用时兜底
+import kfcExtra from './kfc/kfc-extra.json' with { type: 'json' }
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -46,16 +48,16 @@ class ServiceKfc {
       alternatives: [`https://v50.deno.dev/list`],
     })
 
-    if (!response) return []
+    // 远程库更新滞后，合并本地补充文案并去重；远程不可用时仅用本地库兜底
+    const remote = response ? ((await response.json()) as string[]) : []
+    const merged = [...new Set([...(remote || []), ...kfcExtra])]
 
-    const data = (await response.json()) as string[]
-
-    if (data?.length > 0) {
-      this.cache = data
+    if (merged.length > 0) {
+      this.cache = merged
       this.lastFetchTime = Date.now()
     }
 
-    return data || []
+    return merged
   }
 }
 

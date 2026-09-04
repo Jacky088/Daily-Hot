@@ -59,7 +59,7 @@ function cacheClean() {
 }
 
 const CATS = [
-  { id: 'all', name: '全部' },
+  { id: 'all', name: '🌐 全部' },
   { id: 'news', name: '📰 新闻资讯' },
   { id: 'tech', name: '🚀 科技资讯' },
   { id: 'ent', name: '🎬 影视娱乐' },
@@ -417,6 +417,55 @@ function unavailableHTML(ep, detail) {
   </div>`;
 }
 
+// ============ 必应每日壁纸背景 ============
+// 取 /v2/bing 当日壁纸：横屏用 1920x1080、竖屏（含移动端）用必应 th 服务实时派生的 1080x1920 竖版，
+// 按天写 localStorage 避免重复请求；图片 onload 后才淡入，加载失败静默回退原背景
+async function loadWallpaperBg() {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const key = 'bing-wallpaper';
+    let cover = null, coverPortrait = null;
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) {}
+    if (cached && cached.date === today && cached.cover) {
+      cover = cached.cover;
+      coverPortrait = cached.coverPortrait;
+    } else {
+      const r = await fetch(API + '/v2/bing');
+      const j = await r.json();
+      const d = j && j.data;
+      if (j.code === 200 && d && d.cover) {
+        cover = d.cover;
+        // 由横版 URL 派生竖版裁切（必应 th 服务支持任意宽高参数，源图为 UHD 足够清晰）
+        coverPortrait = cover.replace('_1920x1080.jpg', '_1080x1920.jpg');
+        try { localStorage.setItem(key, JSON.stringify({ date: today, cover, coverPortrait })); } catch (e) {}
+      }
+    }
+    if (!cover) return;
+
+    const pick = () => (window.innerHeight >= window.innerWidth ? (coverPortrait || cover) : cover);
+    const img = new Image();
+    img.onload = () => {
+      const el = document.getElementById('wallpaperBg');
+      if (!el) return;
+      el.style.backgroundImage = `url("${pick()}")`;
+      el.hidden = false;
+      requestAnimationFrame(() => el.classList.add('show'));
+    };
+    img.src = pick();
+
+    // 旋转屏幕/跨越断点时按当前方向切换横竖版裁切
+    let lastPortrait = window.innerHeight >= window.innerWidth;
+    window.addEventListener('resize', () => {
+      const el = document.getElementById('wallpaperBg');
+      const portrait = window.innerHeight >= window.innerWidth;
+      if (!el || portrait === lastPortrait) return;
+      lastPortrait = portrait;
+      el.style.backgroundImage = `url("${pick()}")`;
+    });
+  } catch (e) { /* 壁纸加载失败不影响主功能 */ }
+}
+
 function init() {
   // P0: 清理过期缓存
   cacheClean();
@@ -446,6 +495,9 @@ function init() {
   // 从 URL hash 恢复分类状态（刷新不丢失）
   const hash = location.hash.replace('#', '');
   if (hash && CATS.some(c => c.id === hash)) curCat = hash;
+
+  // 必应每日壁纸背景：异步加载不阻塞首屏
+  loadWallpaperBg();
 
   const nav = $('#catNav');
   const catRow = document.createElement('div');
@@ -1052,10 +1104,12 @@ function makeCard(ep) {
   const content = document.createElement('div');
   content.id = 'content-' + ep.id;
   // P1: 使用骨架屏替代简单文字
-  // Google 翻译卡：查询需能正常访问 Google，加粗提示置于 placeholder 前
+  // 翻译卡：placeholder 用"点击翻译获取结果"；Google 卡额外加粗网络提示
   const placeholder = ep.id === 'gtranslate'
-    ? '<div class="placeholder"><b>需正常访问 Google 网络</b>，点击查询获取数据</div>'
-    : '<div class="placeholder">点击查询获取数据</div>';
+    ? '<div class="placeholder"><b>需正常访问 Google 网络</b>，点击翻译获取结果</div>'
+    : (ep.id === 'fanyi'
+        ? '<div class="placeholder">点击翻译获取结果</div>'
+        : '<div class="placeholder">点击查询获取数据</div>');
   content.innerHTML = ep.auto ? SKELETON_HTML : placeholder;
   body.appendChild(content);
 
@@ -2516,12 +2570,43 @@ function rLunar(d, c) {
 
 function rBing(d, c) {
   let h = '';
-  if (d.cover) h += `<div class="img-wrap ratio-banner"><img src="${esc(d.cover)}" alt="bing" loading="lazy"></div>`;
+  if (d.cover) {
+    h += `<div class="img-wrap ratio-banner"><img src="${esc(d.cover)}" alt="bing" loading="lazy"></div>`;
+    // 双尺寸下载按钮：cover 为 1920x1080，cover_4k 为 UHD 原图
+    const cover4k = d.cover_4k || d.cover.replace('_1920x1080.jpg', '_UHD.jpg');
+    h += `<div class="bing-dl">
+      <button class="bing-dl-btn" data-url="${esc(d.cover)}">⬇ 1080P 高清</button>
+      <button class="bing-dl-btn" data-url="${esc(cover4k)}">⬇ 4K 原图</button>
+    </div>`;
+  }
   h += '<div class="kv">';
   if (d.copyright) h += `<div class="kv-row"><span class="k">描述</span><span class="v">${esc(d.copyright)}</span></div>`;
   if (d.update_date) h += `<div class="kv-row"><span class="k">日期</span><span class="v">${esc(d.update_date)}</span></div>`;
   h += '</div>';
   c.innerHTML = h;
+  // 下载：bing 图跨域，download 属性不生效，优先 fetch blob 触发保存，失败回退新窗口打开
+  c.querySelectorAll('.bing-dl-btn').forEach(btn => {
+    btn.onclick = async () => {
+      const url = btn.dataset.url;
+      const label = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '下载中…';
+      try {
+        const blob = await (await fetch(url)).blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'bing-wallpaper-' + Date.now() + (url.includes('_UHD') ? '-4k' : '-1080p') + '.jpg';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+      } catch (e) {
+        window.open(url, '_blank');
+      }
+      btn.disabled = false;
+      btn.textContent = label;
+    };
+  });
 }
 
 // 免费游戏空态（Epic/Steam 共用）：居中图标 + 主文案 + 副说明，比单行灰字更明显
@@ -3030,155 +3115,6 @@ function rJSON(d, c) {
   c.innerHTML = `<div class="json-view">${esc(JSON.stringify(d, null, 2))}</div>`;
 }
 
-// ============ P2: Canvas 网格动画（空间分区优化） ============
-  const cv = document.getElementById('meshCanvas');
-  const cx = cv.getContext('2d');
-  let pts = [];
-  let meshW = 0, meshH = 0;
-  const SPACING = 130; // 网格间距
-  let rafId = null;
-  let gridMap = new Map(); // 空间分区 map
-
-  function getMeshColors() {
-    // 与 style.css 的 --mesh-* 变量保持同源：品牌火焰渐变玫瑰端（#fb7185）派生的玫红色系
-    const dark = document.documentElement.dataset.theme === 'dark';
-    return {
-      line: dark ? 'rgba(225,125,155,0.09)' : 'rgba(238,140,160,0.10)',
-      lineNear: dark ? 'rgba(248,130,158,0.16)' : 'rgba(236,120,145,0.18)',
-      dot: dark ? 'rgba(251,113,133,0.42)' : 'rgba(251,113,133,0.28)',
-      glow: dark ? 'rgba(251,113,133,0.04)' : 'rgba(251,113,133,0.05)',
-    };
-  }
-
-  function cellKey(cx, cy) { return cx + ',' + cy; }
-
-  function initMesh() {
-    // DPR 上限 1.5：更低的栅格化像素量，背景线条极淡看不出差别
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-    meshW = window.innerWidth;
-    meshH = window.innerHeight;
-    cv.width = meshW * dpr;
-    cv.height = meshH * dpr;
-    cv.style.width = meshW + 'px';
-    cv.style.height = meshH + 'px';
-    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    // 生成网格点，每个点有原始位置和偏移
-    pts = [];
-    const cols = Math.ceil(meshW / SPACING) + 2;
-    const rows = Math.ceil(meshH / SPACING) + 2;
-    let id = 0;
-    for (let i = 0; i < cols; i++) {
-      for (let j = 0; j < rows; j++) {
-        const ox = (i - 1) * SPACING;
-        const oy = (j - 1) * SPACING;
-        pts.push({
-          id: id++,
-          ox, oy, x: ox, y: oy,
-          // 每个点独立的浮动参数
-          phase: Math.random() * Math.PI * 2,
-          speed: 0.0003 + Math.random() * 0.0005,
-          amp: 15 + Math.random() * 25,
-        });
-      }
-    }
-  }
-
-  // 30fps 上限：动画本身极缓慢，30fps 与 60fps 观感无差，GPU/CPU 减半
-  const MESH_FRAME_INTERVAL = 1000 / 30;
-  let lastMeshFrame = 0;
-
-  // 尊重系统“减少动态效果”偏好：只绘制静态网格，不启动动画循环
-  const meshReduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  function drawMesh(ts) {
-    if (!meshReduceMotion) rafId = requestAnimationFrame(drawMesh);
-    if (ts - lastMeshFrame < MESH_FRAME_INTERVAL) return;
-    lastMeshFrame = ts;
-
-    cx.clearRect(0, 0, meshW, meshH);
-    const colors = getMeshColors();
-    const maxDist = SPACING * 1.6;
-
-    // 更新点位置并重建空间分区
-    gridMap.clear();
-    for (const p of pts) {
-      p.x = p.ox + Math.cos(ts * p.speed + p.phase) * p.amp;
-      p.y = p.oy + Math.sin(ts * p.speed * 1.3 + p.phase) * p.amp;
-      const gx = Math.floor(p.x / SPACING);
-      const gy = Math.floor(p.y / SPACING);
-      const key = cellKey(gx, gy);
-      if (!gridMap.has(key)) gridMap.set(key, []);
-      gridMap.get(key).push(p);
-    }
-
-    // 画连线（空间分区：只检查相邻 cell）
-    cx.lineWidth = 1;
-    cx.strokeStyle = colors.line;
-    for (const p of pts) {
-      const gx = Math.floor(p.x / SPACING);
-      const gy = Math.floor(p.y / SPACING);
-      for (let dx = -1; dx <= 1; dx++) {
-        for (let dy = -1; dy <= 1; dy++) {
-          const neighbors = gridMap.get(cellKey(gx + dx, gy + dy));
-          if (!neighbors) continue;
-          for (const q of neighbors) {
-            if (q === p) continue;
-            // 避免重复：只画 id 较小的那对（原来是 indexOf 线性扫描，O(n²) 每帧几十万次比较）
-            if (p.id >= q.id) continue;
-            const ddx = p.x - q.x, ddy = p.y - q.y;
-            const dist = Math.sqrt(ddx * ddx + ddy * ddy);
-            if (dist < maxDist) {
-              const alpha = 1 - dist / maxDist;
-              cx.strokeStyle = colors.line;
-              cx.globalAlpha = alpha;
-              cx.beginPath();
-              cx.moveTo(p.x, p.y);
-              cx.lineTo(q.x, q.y);
-              cx.stroke();
-            }
-          }
-        }
-      }
-    }
-
-    // 画节点
-    cx.globalAlpha = 1;
-    for (const p of pts) {
-      cx.fillStyle = colors.dot;
-      cx.beginPath();
-      cx.arc(p.x, p.y, 1.8, 0, Math.PI * 2);
-      cx.fill();
-    }
-  }
-
-  // 主题切换时刷新颜色（无需重建网格）
-  const observer = new MutationObserver(() => { /* 颜色在 drawMesh 内实时读取，自动适配 */ });
-  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-
-  initMesh();
-  rafId = requestAnimationFrame(drawMesh);
-
-  // 窗口缩放时重建
-  let resizeTimer;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => {
-      cancelAnimationFrame(rafId);
-      initMesh();
-      rafId = requestAnimationFrame(drawMesh);
-    }, 200);
-  });
-
-  // 页面不可见时暂停动画，节省资源
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      cancelAnimationFrame(rafId);
-      rafId = null;
-    } else if (!rafId) {
-      rafId = requestAnimationFrame(drawMesh);
-    }
-  });
 
 // ============ P3: 键盘快捷键 ============
 let kbCardIndex = -1;

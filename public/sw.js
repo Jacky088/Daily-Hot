@@ -2,7 +2,7 @@
 // Network-First for HTML/JS/CSS（保证每次部署后用户立即拿到新代码，离线才回退缓存），API 同样 Network-First
 // 发版时递增：缓存名变化才会触发 activate 清理旧缓存，
 // 否则用户浏览器会一直沿用上一版的 JS/CSS
-const CACHE_NAME = 'daily-hot-v10';
+const CACHE_NAME = 'daily-hot-v11';
 const STATIC_ASSETS = ['/style.css', '/app.js', '/manifest.json'];
 
 self.addEventListener('install', (e) => {
@@ -25,6 +25,9 @@ self.addEventListener('fetch', (e) => {
   // API 请求：Network-Only，直接放行不拦截。
   // 热榜数据离线重放没有意义，缓存只会让恢复网络后仍看到陈旧数据，且无淘汰策略会无限增长。
   if (url.pathname.startsWith('/v2/')) return;
+
+  // 跨域资源（如必应壁纸图）：直接放行，不写缓存（opaque 响应无法 put，且无缓存价值）
+  if (url.origin !== location.origin) return;
 
   // HTML 请求：Network-First（确保每次获取最新页面）
   if (url.pathname === '/' || url.pathname === '/index.html' || e.request.mode === 'navigate') {
