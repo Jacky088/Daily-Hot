@@ -2,7 +2,7 @@
 
 > 一站看完天下事 · 基于 [60s API](https://github.com/vikiboss/60s) 构建的一站式热榜聚合面板
 
-[![Version](https://img.shields.io/badge/version-1.5.0-blue) ](./package.json)
+[![Version](https://img.shields.io/badge/version-1.6.0-blue) ](./package.json)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white) ](https://workers.cloudflare.com/)
 [![EdgeOne Pages](https://img.shields.io/badge/EdgeOne%20Pages-0052FF?style=flat) ](https://edgeone.ai/pages)
 [![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white) ](https://docker.com/)
@@ -28,12 +28,13 @@
 | 🛠️ 实用工具 | 百度百科、健康计算器、二维码生成、哈希加密、网页 OG 信息、IP 查询、WHOIS 查询、密码生成/检测、随机颜色、配色方案 |
 | 🌤️ 生活信息 | 实时天气、天气预报、汇率、油价、金价、万年历、农历信息、摸鱼日历 |
 | 🎯 趣味内容 | 段子、冷笑话、一言、KFC 疯狂星期四、发病文案、答案之书、2048 小游戏、必应壁纸、JS 题目、梗百科 |
-| 🔤 翻译 | 有道翻译（支持 114 种语言下拉选择）、Google 翻译、每日一句英语 |
+| 🔤 翻译 | 有道翻译（支持 110+ 种语言下拉选择）、Google 翻译、每日一句英语 |
 
 ### 🎨 体验设计
 
 - **🌙 日间 / 夜间模式** — 默认夜间，一键切换，自动记忆偏好
-- **🕸️ 流动网格背景** — Canvas 动态多边形网状结构，适配双主题
+- **🖼️ 必应壁纸背景** — 页面背景每日自动获取必应壁纸，桌面/移动端按屏幕方向自适应清晰度，当日缓存不重复请求
+- **📥 壁纸一键下载** — 必应壁纸卡片内置 1080P / 4K 双尺寸下载按钮
 - **📱 移动端适配** — 触屏友好控件，响应式布局，
 - **🔗 链接可跳转** — 可点击跳转到来源页面，
 - **⚡ 智能加载** — 无参数接口自动加载，有参数接口提供输入控件
@@ -176,7 +177,7 @@ curl "https://your-domain/endpoints"
 前端面板                          后端 API
 ┌──────────────────┐            ┌──────────────────────┐
 │  单页 HTML/CSS/JS │            │  Oak Framework (TS)   │
-│  ├ Canvas 网格背景 │            │  ├ 60+ 模块化接口     │
+│  ├ 必应壁纸背景   │            │  ├ 60+ 模块化接口     │
 │  ├ 响应式布局     │  ── API ──→│  ├ 中间件链           │
 │  ├ 日夜间主题     │            │  ├ 静态资源服务       │
 │  └ 无框架依赖     │            │  └ 多运行时入口       │
@@ -218,6 +219,7 @@ curl "https://your-domain/endpoints"
 │       ├── duanzi/          # 随机段子
 │       ├── hitokoto/        # 一言
 │       ├── fabing/          # 发病文案
+│       ├── kfc/             # 疯狂星期四文案本地补充库
 │       ├── nodeseek.module.ts   # NodeSeek 新帖
 │       ├── v2ex.module.ts       # V2EX 热帖
 │       ├── lowendtalk.module.ts # LowEndTalk
