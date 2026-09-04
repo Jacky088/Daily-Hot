@@ -1963,10 +1963,13 @@ function rQuote(d, c, ep) {
 
 function rGeng(d, c) {
   const idx = d.index != null ? Number(d.index) + 1 : null;
+  const meta = [];
+  if (d.year) meta.push(`${d.year} 年热梗`);
+  if (idx) meta.push(`第 ${idx} 个梗`);
   c.innerHTML = `<div class="geng-card">
     <div class="geng-title">${esc(d.title || '')}</div>
     <div class="geng-content">${esc(d.content || '')}</div>
-    ${idx ? `<div class="geng-meta">第 ${idx} 个梗</div>` : ''}
+    ${meta.length ? `<div class="geng-meta">${meta.join(' · ')}</div>` : ''}
   </div>`;
 }
 
