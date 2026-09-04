@@ -701,14 +701,14 @@ a:hover { text-decoration: underline; }
 .ht-tile .v { font-weight: 600; font-size: 12px; word-break: break-word; font-variant-numeric: tabular-nums; }
 
 /* ============ 健康计算器 ============ */
-.ht-bmi { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+.ht-bmi { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 10px; }
 .ht-bmi-num { display: flex; flex-direction: column; align-items: center; line-height: 1; }
 .ht-bmi-num b { font-size: 40px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
 .ht-bmi-num span { font-size: 11px; color: var(--text-dim); margin-top: 2px; letter-spacing: 1px; }
 .ht-bmi-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .ht-bmi-info p { font-size: 12px; color: var(--text); line-height: 1.5; }
 .ht-bmi-info p.dim { color: var(--text-dim); font-size: 11px; }
-.ht-chip { display: inline-block; margin-left: auto; flex-shrink: 0; align-self: center; padding: 2px 10px; border-radius: 10px; background: var(--accent-bg); color: var(--accent-text); font-size: 11px; font-weight: 700; }
+.ht-chip { display: inline-block; margin-left: auto; flex-shrink: 0; align-self: center; white-space: nowrap; padding: 4px 14px; border-radius: 12px; background: var(--accent-bg); color: var(--accent-text); font-size: 13px; font-weight: 700; }
 .ht-gauge { margin-bottom: 12px; }
 .ht-gauge-track {
   position: relative; height: 10px; border-radius: 5px;
