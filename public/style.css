@@ -1569,53 +1569,115 @@ a:hover { text-decoration: underline; }
 .cal-tip { margin-top: 10px; font-size: 11px; color: var(--text-dim); }
 
 /* ============ 2048 小游戏（趣味内容 / game2048） ============ */
-.g2048 { user-select: none; -webkit-user-select: none; }
-.g2048-top { display: flex; align-items: stretch; gap: 8px; margin-bottom: 10px; width: min(100%, 320px); margin-left: auto; margin-right: auto; }
+/* 结构：board（背景/容器） > cells（16 个静态底格）+ layer（持久 tile 元素层）；
+   tile 外层只管定位（--r/--c 驱动 transform 滑动），内层 .ti 管视觉与弹出动画 */
+.g2048 { user-select: none; -webkit-user-select: none; --ggap: 8px; --g-pad: 8px; }
+/* 侧栏 + 棋盘左右布局：卡片网格最窄 340px（内宽约 308），侧栏压到 84px 保棋盘尺寸；
+   margin-top 与卡片顶部 hint 提示条隔开，避免两个 accent-bg 色块视觉粘连 */
+.g2048-main { display: flex; align-items: stretch; gap: 8px; width: min(100%, 460px); margin: 10px auto 0; }
+.g2048-side { display: flex; flex-direction: column; gap: 8px; width: 84px; flex-shrink: 0; }
+.g2048-side [data-g2048-undo] { margin-top: auto; } /* 分数在上、按钮贴底 */
 .g2048-scorebox {
-  flex: 1; padding: 5px 10px; border-radius: 8px; background: var(--accent-bg);
-  font-size: 10.5px; color: var(--text-dim); line-height: 1.4;
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 8px 4px; border-radius: 8px; background: var(--accent-bg);
+  font-size: 11px; color: var(--text-dim); line-height: 1.3; white-space: nowrap; overflow: visible;
 }
-.g2048-scorebox b { font-size: 15px; color: var(--text); }
-.g2048-new {
-  padding: 0 12px; border-radius: 8px; border: 1px solid var(--border);
-  background: var(--card); color: var(--text); font-size: 12.5px; cursor: pointer;
+.g2048-scorebox b { font-size: 16px; color: var(--text); }
+.g-add {
+  position: absolute; left: 50%; top: -4px; transform: translate(-50%, 0);
+  font-size: 13px; font-weight: 700; color: var(--accent-light); pointer-events: none;
+  animation: g-float .7s ease-out forwards;
 }
-.g2048-new:hover { border-color: var(--accent); color: var(--accent-light); }
+/* 上浮收在 14px 内：穿过 10px 间距 + hint 底部 padding 区即淡出，不扫到提示文字 */
+@keyframes g-float {
+  from { transform: translate(-50%, 0); opacity: 1; }
+  to { transform: translate(-50%, -14px); opacity: 0; }
+}
+.g2048-btn {
+  padding: 7px 4px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--card); color: var(--text); font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.g2048-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-light); }
+.g2048-btn:disabled { opacity: .45; cursor: default; }
 /* touch-action:none：让滑动手势只作用于棋盘，不被页面滚动劫持；
-   棋盘宽度封顶：桌面端 .card-body 限高 460px，宽度驱动的方形棋盘
-   必须压在 (460 - 顶栏/提示/间距) 以内，否则卡片内容溢出出滚动条 */
-.g2048-wrap { position: relative; touch-action: none; width: min(100%, 320px); margin: 0 auto; }
+   棋盘占据侧栏以外的剩余宽度（封顶 ~368px），操作提示在卡片顶部 hint，无底部提示行 */
+.g2048-wrap { position: relative; touch-action: none; flex: 1; min-width: 0; }
 .g2048-board {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
-  aspect-ratio: 1; padding: 6px; border-radius: 10px;
-  background: var(--bg); border: 1px solid var(--border); outline: none;
+  position: relative; width: 100%; aspect-ratio: 1; padding: var(--g-pad);
+  border-radius: 12px; background: var(--bg); border: 1px solid var(--border);
+  outline: none; container-type: inline-size;
 }
 .g2048-board:focus-visible { border-color: var(--accent); }
+.g2048-cells { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--ggap); width: 100%; height: 100%; }
+.g-cell { border-radius: 8px; background: color-mix(in srgb, var(--card) 80%, transparent); }
+.g2048-layer { position: absolute; inset: var(--g-pad); }
 .g-tile {
+  position: absolute; left: 0; top: 0; z-index: 2;
+  width: calc((100% - 3 * var(--ggap)) / 4);
+  height: calc((100% - 3 * var(--ggap)) / 4);
+  transform: translate(calc(var(--c) * (100% + var(--ggap))), calc(var(--r) * (100% + var(--ggap))));
+  transition: transform 130ms ease-in-out;
+}
+.g-tile.ghost { z-index: 1; }   /* 被合并的块垫底滑行 */
+.g-tile.merged { z-index: 3; }  /* 合并产物浮在上层弹出 */
+.g-tile .ti {
   display: flex; align-items: center; justify-content: center;
-  border-radius: 6px; font-weight: 700; font-size: clamp(14px, 5vw, 22px);
+  width: 100%; height: 100%; border-radius: 8px;
+  font-weight: 700; line-height: 1;
   background: color-mix(in srgb, var(--card) 80%, transparent); color: var(--text-dim);
 }
-.g-tile.t2 { background: #eee4da; color: #776e65; }
-.g-tile.t4 { background: #ede0c8; color: #776e65; }
-.g-tile.t8 { background: #f2b179; color: #fff; }
-.g-tile.t16 { background: #f59563; color: #fff; }
-.g-tile.t32 { background: #f67c5f; color: #fff; }
-.g-tile.t64 { background: #f65e3b; color: #fff; }
-.g-tile.t128 { background: #edcf72; color: #fff; }
-.g-tile.t256 { background: #edcc61; color: #fff; }
-.g-tile.t512 { background: #edc850; color: #fff; }
-.g-tile.t1024 { background: #edc53f; color: #fff; }
-.g-tile.t2048 { background: #edc22e; color: #fff; box-shadow: 0 0 12px rgba(237, 194, 46, 0.5); }
-.g-tile.tx { background: #3c3a32; color: #fff; }
+/* 字号按位数分档，cqw 随棋盘（容器）宽度缩放，小屏大屏都不溢出 */
+.g-tile.d1 .ti { font-size: 11cqw; }
+.g-tile.d2 .ti { font-size: 9.5cqw; }
+.g-tile.d3 .ti { font-size: 8cqw; }
+.g-tile.d4 .ti { font-size: 6.6cqw; }
+/* 新块延迟淡入（等滑行动画近尾声），合并块弹跳 */
+.g-tile.new .ti { animation: g-spawn 160ms 80ms ease-out backwards; }
+.g-tile.merged .ti { animation: g-pop 190ms ease; }
+@keyframes g-spawn { from { opacity: 0; transform: scale(.3); } to { opacity: 1; transform: scale(1); } }
+@keyframes g-pop { 0% { transform: scale(1); } 45% { transform: scale(1.2); } 100% { transform: scale(1); } }
+/* 亮色主题：原版 2048 暖色系（基础规则） */
+.g-tile.t2 .ti { background: #eee4da; color: #776e65; }
+.g-tile.t4 .ti { background: #ede0c8; color: #776e65; }
+.g-tile.t8 .ti { background: #f2b179; color: #fff; }
+.g-tile.t16 .ti { background: #f59563; color: #fff; }
+.g-tile.t32 .ti { background: #f67c5f; color: #fff; }
+.g-tile.t64 .ti { background: #f65e3b; color: #fff; }
+.g-tile.t128 .ti { background: #edcf72; color: #fff; }
+.g-tile.t256 .ti { background: #edcc61; color: #fff; }
+.g-tile.t512 .ti { background: #edc850; color: #fff; }
+.g-tile.t1024 .ti { background: #edc53f; color: #fff; }
+.g-tile.t2048 .ti { background: #edc22e; color: #fff; box-shadow: 0 0 12px rgba(237, 194, 46, 0.5); }
+.g-tile.tx .ti { background: #3c3a32; color: #fff; box-shadow: 0 0 10px rgba(60, 58, 50, 0.35); }
+/* 暗色主题：同色相压暗的专属配色，避免亮米色块在暗背景下突兀 */
+:root[data-theme="dark"] .g-tile.t2 .ti { background: #3e3a33; color: #d8cec2; }
+:root[data-theme="dark"] .g-tile.t4 .ti { background: #4a4339; color: #e8dcc8; }
+:root[data-theme="dark"] .g-tile.t8 .ti { background: #8a6540; color: #fff; }
+:root[data-theme="dark"] .g-tile.t16 .ti { background: #9c5e30; color: #fff; }
+:root[data-theme="dark"] .g-tile.t32 .ti { background: #ad4c25; color: #fff; }
+:root[data-theme="dark"] .g-tile.t64 .ti { background: #bd3b19; color: #fff; }
+:root[data-theme="dark"] .g-tile.t128 .ti { background: #9a8b2c; color: #fff; }
+:root[data-theme="dark"] .g-tile.t256 .ti { background: #a69524; color: #fff; }
+:root[data-theme="dark"] .g-tile.t512 .ti { background: #b2a21c; color: #fff; }
+:root[data-theme="dark"] .g-tile.t1024 .ti { background: #bfb00f; color: #fff; }
+:root[data-theme="dark"] .g-tile.t2048 .ti { background: #d4c404; color: #fff; box-shadow: 0 0 14px rgba(212, 196, 4, 0.45); }
+:root[data-theme="dark"] .g-tile.tx .ti { background: #3d6b8f; color: #fff; box-shadow: 0 0 12px rgba(61, 107, 143, 0.5); }
 .g2048-over {
-  position: absolute; inset: 0; border-radius: 10px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-  background: color-mix(in srgb, var(--bg) 75%, transparent); backdrop-filter: blur(2px);
+  position: absolute; inset: 0; z-index: 5; border-radius: 12px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: color-mix(in srgb, var(--bg) 78%, transparent); backdrop-filter: blur(3px);
 }
 .g2048-over[hidden] { display: none; }
 .go-title { font-size: 20px; font-weight: 700; color: var(--text); }
 .go-score { font-size: 13px; color: var(--text-dim); }
+.go-score b { color: var(--text); }
+.go-row { display: flex; gap: 8px; }
 .go-btn { padding: 8px 16px; border-radius: 8px; border: none; background: var(--accent); color: #fff; font-size: 13px; cursor: pointer; }
 .go-btn:hover { filter: brightness(1.1); }
-.g2048-tip { margin: 10px auto 0; width: min(100%, 320px); font-size: 11px; color: var(--text-dim); }
+.go-btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+/* 窄屏（手机）：侧栏再收窄，把宽度让给棋盘 */
+@media (max-width: 480px) {
+  .g2048-side { width: 68px; gap: 6px; }
+  .g2048-main { gap: 6px; }
+  .g2048-scorebox b { font-size: 14px; }
+}

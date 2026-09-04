@@ -164,7 +164,7 @@ const EPS = [
   // { cat:'fun', id:'luck', name:'今日运势', icon:'🍀', path:'/v2/luck', type:'kv', auto:1, keys:[['luck_desc','综合运势'],['luck_rank','运势指数'],['luck_tip','今日提示']] },
   { cat:'fun', id:'geng', name:'梗百科', icon:'🎭', path:'/v2/geng', type:'geng', auto:1 },
   { cat:'fun', id:'answer', name:'答案之书', icon:'📖', path:'/v2/answer', type:'answer', auto:1, hint:'心中默念你的问题，点击 ↻ 揭晓答案' },
-  { cat:'fun', id:'g2048', name:'2048', icon:'🎮', path:'', type:'game2048', auto:1, noapi:1, hint:'滑动 / 拖拽 / 方向键移动合并' },
+  { cat:'fun', id:'g2048', name:'2048', icon:'🎮', path:'', type:'game2048', auto:1, noapi:1, hint:'拖拽 / 滑动 / 方向键或 WASD 移动合并，凑出 2048' },
   { cat:'fun', id:'bing', name:'必应壁纸', icon:'🖼️', path:'/v2/bing', type:'bing', auto:1 },
   { cat:'fun', id:'awjs', name:'JS题目', icon:'🧩', path:'/v2/awesome-js', type:'js', auto:1 },
 
@@ -1524,18 +1524,28 @@ document.addEventListener('click', e => {
 // 棋局状态按卡片 id 存内存，最高分 localStorage 持久化；
 // 操控统一走 Pointer Events（鼠标拖拽 = 触屏滑动），另支持键盘方向键/WASD
 const g2048 = {};
+let g2048Seq = 0;
 
 function g2048New(id) {
-  const st = g2048[id] = { grid: Array(16).fill(0), score: 0, over: false, wonShown: false };
+  const st = g2048[id] = {
+    tiles: [],            // { id, v, r, c, isNew, merged } 持久方块，动画靠 DOM 复用
+    score: 0, best: g2048Best(), over: false,
+    won: false, wonAck: false,  // 2048 达成一次提示，wonAck = 用户点了“继续”
+    hist: null,           // 单步撤销快照
+    ghosts: [], cleanT: 0
+  };
   g2048Spawn(st);
   g2048Spawn(st);
   return st;
 }
 
 function g2048Spawn(st) {
-  const empty = st.grid.map((v, i) => v === 0 ? i : -1).filter(i => i >= 0);
+  const occ = new Set(st.tiles.map(t => t.r * 4 + t.c));
+  const empty = [];
+  for (let i = 0; i < 16; i++) if (!occ.has(i)) empty.push(i);
   if (!empty.length) return;
-  st.grid[empty[Math.random() * empty.length | 0]] = Math.random() < 0.9 ? 2 : 4;
+  const i = empty[Math.random() * empty.length | 0];
+  st.tiles.push({ id: ++g2048Seq, v: Math.random() < 0.9 ? 2 : 4, r: i / 4 | 0, c: i % 4, isNew: true });
 }
 
 function g2048Best() {
@@ -1543,85 +1553,196 @@ function g2048Best() {
 }
 
 function g2048CanMove(st) {
-  if (st.grid.includes(0)) return true;
-  for (let r = 0; r < 4; r++) for (let cIdx = 0; cIdx < 4; cIdx++) {
-    const v = st.grid[r * 4 + cIdx];
-    if (cIdx < 3 && v === st.grid[r * 4 + cIdx + 1]) return true;
-    if (r < 3 && v === st.grid[(r + 1) * 4 + cIdx]) return true;
+  if (st.tiles.length < 16) return true;
+  const g = Array(16).fill(0);
+  for (const t of st.tiles) g[t.r * 4 + t.c] = t.v;
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
+    const v = g[r * 4 + c];
+    if (c < 3 && v === g[r * 4 + c + 1]) return true;
+    if (r < 3 && v === g[(r + 1) * 4 + c]) return true;
   }
   return false;
 }
 
 function g2048Move(id, dir) {
   const st = g2048[id];
-  if (!st || st.over) return;
-  const reverse = dir === 'right' || dir === 'down';
+  if (!st || st.over || (st.won && !st.wonAck)) return;
   const vertical = dir === 'up' || dir === 'down';
-  let moved = false;
+  const rev = dir === 'right' || dir === 'down';
+  // 落子前快照（撤销用）；无效移动时还原，避免空耗一步撤销机会
+  const prevHist = st.hist;
+  st.hist = {
+    tiles: st.tiles.map(t => ({ id: t.id, v: t.v, r: t.r, c: t.c })),
+    score: st.score, won: st.won, wonAck: st.wonAck
+  };
+  st.tiles.forEach(t => { t.merged = false; t.isNew = false; });
 
+  const ghosts = []; // 被合并掉的方块：滑到目标位做动画，之后由 paint 延迟清理
+  let moved = false, gained = 0;
   for (let i = 0; i < 4; i++) {
-    const coords = [...Array(4)].map((_, j) => vertical ? [j, i] : [i, j]);
-    let vals = coords.map(([r, cIdx]) => st.grid[r * 4 + cIdx]).filter(v => v);
-    if (reverse) vals.reverse();
-    for (let j = 0; j < vals.length - 1; j++) {
-      if (vals[j] === vals[j + 1]) {
-        vals[j] *= 2;
-        st.score += vals[j];
-        vals.splice(j + 1, 1);
+    const line = st.tiles
+      .filter(t => vertical ? t.c === i : t.r === i)
+      .sort((a, b) => vertical ? a.r - b.r : a.c - b.c);
+    if (rev) line.reverse();
+    const out = [];
+    for (const t of line) {
+      const last = out[out.length - 1];
+      // last.merged 防止 [2,2,4] 连环并成 8（正确结果是 [4,4]）
+      if (last && last.v === t.v && !last.merged) {
+        last.v *= 2; last.merged = true; gained += last.v;
+        if (last.v >= 2048 && !st.won) st.won = true;
+        ghosts.push({ ...t, target: last });
+      } else {
+        out.push(t);
       }
     }
-    while (vals.length < 4) vals.push(0);
-    if (reverse) vals.reverse();
-    coords.forEach(([r, cIdx], j) => {
-      if (st.grid[r * 4 + cIdx] !== vals[j]) moved = true;
-      st.grid[r * 4 + cIdx] = vals[j];
+    out.forEach((t, j) => {
+      const pos = rev ? 3 - j : j;
+      const nr = vertical ? pos : i, nc = vertical ? i : pos;
+      if (t.r !== nr || t.c !== nc) moved = true;
+      t.r = nr; t.c = nc;
     });
   }
+  if (ghosts.length) moved = true; // 合并发生即有效（存活块可能原地不动）
+  if (!moved) { st.hist = prevHist; return; }
 
-  if (!moved) return;
-  g2048Spawn(st);
+  st.tiles = st.tiles.filter(t => !ghosts.some(g => g.id === t.id));
+  for (const g of ghosts) { g.r = g.target.r; g.c = g.target.c; } // 幽灵滑向合并目标
+  st.ghosts = ghosts;
+  st.score += gained;
   if (st.score > st.best) {
     st.best = st.score;
     try { localStorage.setItem('g2048-best', String(st.best)); } catch {}
   }
+  g2048Spawn(st);
   if (!g2048CanMove(st)) st.over = true;
   g2048Paint(id);
+  if (gained) g2048Float(id, gained);
+}
+
+function g2048Undo(id) {
+  const st = g2048[id];
+  if (!st || !st.hist) return;
+  const h = st.hist;
+  st.tiles = h.tiles.map(t => ({ ...t }));
+  st.score = h.score;
+  st.won = h.won;
+  st.wonAck = h.wonAck;
+  st.over = false; // 游戏结束也可撤销自救
+  st.hist = null;
+  st.ghosts = [];
+  g2048Paint(id);
+}
+
+function g2048Float(id, n) {
+  const wrap = document.querySelector(`[data-g2048="${id}"]`);
+  const box = wrap && wrap.querySelector('.g2048-scorebox');
+  if (!box) return;
+  const s = document.createElement('span');
+  s.className = 'g-add';
+  s.textContent = '+' + n;
+  box.appendChild(s);
+  s.addEventListener('animationend', () => s.remove());
 }
 
 function rGame2048(_, c, ep) {
   const id = ep.id;
   const st = g2048New(id);
-  st.best = g2048Best();
 
   c.innerHTML = `<div class="g2048" data-g2048="${id}">
-    <div class="g2048-top">
-      <div class="g2048-scorebox">分数<br><b class="g-sv">0</b></div>
-      <div class="g2048-scorebox">最高<br><b class="g-bv">${st.best}</b></div>
-      <button class="g2048-new" type="button" data-g2048-new="${id}">↻ 重开</button>
+    <div class="g2048-main">
+      <div class="g2048-side">
+        <div class="g2048-scorebox"><span>分数</span><b class="g-sv">0</b></div>
+        <div class="g2048-scorebox"><span>最高</span><b class="g-bv">${st.best}</b></div>
+        <button class="g2048-btn" type="button" data-g2048-undo="${id}">↶ 撤销</button>
+        <button class="g2048-btn" type="button" data-g2048-new="${id}">↻ 重开</button>
+      </div>
+      <div class="g2048-wrap">
+        <div class="g2048-board" tabindex="0" aria-label="2048 棋盘，方向键或滑动操作">
+          <div class="g2048-cells">${'<div class="g-cell"></div>'.repeat(16)}</div>
+          <div class="g2048-layer"></div>
+        </div>
+        <div class="g2048-over" hidden></div>
+      </div>
     </div>
-    <div class="g2048-wrap">
-      <div class="g2048-board" tabindex="0" aria-label="2048 棋盘，方向键或滑动操作">${'<div class="g-tile empty"></div>'.repeat(16)}</div>
-      <div class="g2048-over" hidden><div class="go-title">游戏结束</div><div class="go-score">得分 <b class="go-sv">0</b></div><button class="go-btn" type="button" data-g2048-new="${id}">再来一局</button></div>
-    </div>
-    <div class="g2048-tip">🖱️ 拖拽 / 📱 滑动 / ⌨️ 方向键或 WASD 移动合并，凑出 2048</div>
   </div>`;
   g2048Paint(id);
   g2048Bind(id);
+  // 打开即聚焦：方向键无需先点一下棋盘
+  const b = wrap2048Board(id);
+  if (b) b.focus({ preventScroll: true });
+}
+
+function wrap2048Board(id) {
+  const wrap = document.querySelector(`[data-g2048="${id}"]`);
+  return wrap ? wrap.querySelector('.g2048-board') : null;
 }
 
 function g2048Paint(id) {
   const st = g2048[id];
   const wrap = document.querySelector(`[data-g2048="${id}"]`);
   if (!st || !wrap) return;
-  const board = wrap.querySelector('.g2048-board');
-  board.innerHTML = st.grid.map(v =>
-    v ? `<div class="g-tile t${v <= 2048 ? v : 'x'}">${v}</div>` : '<div class="g-tile empty"></div>'
-  ).join('');
+  const layer = wrap.querySelector('.g2048-layer');
+
+  // 立即清掉不属于当前棋局的遗留元素（重开 / 撤销 / 上一手未清完的幽灵）
+  const keep = new Set([...st.tiles.map(t => t.id), ...st.ghosts.map(g => g.id)]);
+  layer.querySelectorAll('.g-tile[data-id]').forEach(el => {
+    if (!keep.has(+el.dataset.id)) el.remove();
+  });
+
+  // 存活方块：按 id 复用元素，只改坐标（--r/--c）与数值，滑动交给 CSS transition
+  for (const t of st.tiles) {
+    let el = layer.querySelector(`[data-id="${t.id}"]`);
+    if (!el) {
+      el = document.createElement('div');
+      el.dataset.id = t.id;
+      const ti = document.createElement('div');
+      ti.className = 'ti'; // .ti 内层负责视觉/弹出动画，漏掉则无色块、不居中
+      el.appendChild(ti);
+      layer.appendChild(el);
+    }
+    el.className = `g-tile t${t.v <= 2048 ? t.v : 'x'} d${String(t.v).length}` +
+      (t.isNew ? ' new' : '') + (t.merged ? ' merged' : '');
+    el.style.setProperty('--r', t.r);
+    el.style.setProperty('--c', t.c);
+    el.firstChild.textContent = t.v;
+    t.isNew = false;
+    t.merged = false;
+  }
+  // 幽灵方块：定位到合并目标位滑行，220ms 后由下方清理移除
+  for (const g of st.ghosts) {
+    const el = layer.querySelector(`[data-id="${g.id}"]`);
+    if (el) {
+      el.className = `g-tile ghost t${g.v <= 2048 ? g.v : 'x'} d${String(g.v).length}`;
+      el.style.setProperty('--r', g.r);
+      el.style.setProperty('--c', g.c);
+    }
+  }
+  st.ghosts = [];
+  clearTimeout(st.cleanT);
+  st.cleanT = setTimeout(() => {
+    const cur = g2048[id], w = document.querySelector(`[data-g2048="${id}"]`);
+    if (!cur || !w) return;
+    const live = new Set(cur.tiles.map(t => t.id));
+    w.querySelectorAll('.g-tile[data-id]').forEach(el => {
+      if (!live.has(+el.dataset.id)) el.remove();
+    });
+  }, 220);
+
   wrap.querySelector('.g-sv').textContent = st.score;
   wrap.querySelector('.g-bv').textContent = st.best;
+  wrap.querySelector('[data-g2048-undo]').disabled = !st.hist;
+
   const over = wrap.querySelector('.g2048-over');
   if (st.over) {
-    over.querySelector('.go-sv').textContent = st.score;
+    over.innerHTML = `<div class="go-title">游戏结束</div><div class="go-score">得分 <b>${st.score}</b></div>
+      <div class="go-row"><button class="go-btn" type="button" data-g2048-new="${id}">再来一局</button>
+      <button class="go-btn ghost" type="button" data-g2048-undo="${id}">↶ 撤销一步</button></div>`;
+    over.hidden = false;
+  } else if (st.won && !st.wonAck) {
+    over.innerHTML = `<div class="go-title">🎉 2048 达成</div><div class="go-score">得分 <b>${st.score}</b>，可继续挑战更高分</div>
+      <div class="go-row"><button class="go-btn" type="button" data-g2048-continue="${id}">继续游戏</button>
+      <button class="go-btn ghost" type="button" data-g2048-new="${id}">重开</button></div>`;
     over.hidden = false;
   } else {
     over.hidden = true;
@@ -1631,36 +1752,51 @@ function g2048Paint(id) {
 function g2048Bind(id) {
   const wrap = document.querySelector(`[data-g2048="${id}"]`);
   if (!wrap) return;
+  const board = wrap.querySelector('.g2048-board');
   let sx = 0, sy = 0, tracking = false, fired = false;
   wrap.addEventListener('pointerdown', e => {
     tracking = true; fired = false; sx = e.clientX; sy = e.clientY;
     try { wrap.setPointerCapture(e.pointerId); } catch {}
-    wrap.querySelector('.g2048-board').focus({ preventScroll: true });
+    board.focus({ preventScroll: true });
   });
   wrap.addEventListener('pointermove', e => {
     if (!tracking || fired) return;
     const dx = e.clientX - sx, dy = e.clientY - sy;
-    if (Math.abs(dx) < 24 && Math.abs(dy) < 24) return;
+    // 阈值随棋盘宽度缩放（约 8%），小屏不迟钝、大屏不误触
+    const th = Math.max(18, board.clientWidth * 0.08);
+    if (Math.abs(dx) < th && Math.abs(dy) < th) return;
     fired = true;
     g2048Move(id, Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
   });
   const end = () => { tracking = false; };
   wrap.addEventListener('pointerup', end);
   wrap.addEventListener('pointercancel', end);
-  wrap.querySelector('.g2048-board').addEventListener('keydown', e => {
-    const map = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', a: 'left', d: 'right', w: 'up', s: 'down' };
-    const dir = map[e.key];
+  board.addEventListener('keydown', e => {
+    // toLowerCase：兼容 CapsLock / Shift 下的大写 WASD
+    const map = { arrowleft: 'left', arrowright: 'right', arrowup: 'up', arrowdown: 'down', a: 'left', d: 'right', w: 'up', s: 'down' };
+    const dir = map[e.key.toLowerCase()];
     if (dir) { e.preventDefault(); g2048Move(id, dir); }
   });
 }
 
 document.addEventListener('click', e => {
-  const btn = e.target.closest('[data-g2048-new]');
-  if (!btn) return;
-  const id = btn.dataset.g2048New;
-  const st = g2048New(id);
-  st.best = g2048Best();
-  g2048Paint(id);
+  const newBtn = e.target.closest('[data-g2048-new]');
+  if (newBtn) {
+    const id = newBtn.dataset.g2048New;
+    g2048New(id);
+    g2048Paint(id);
+    const b = wrap2048Board(id);
+    if (b) b.focus({ preventScroll: true });
+    return;
+  }
+  const undoBtn = e.target.closest('[data-g2048-undo]');
+  if (undoBtn) { g2048Undo(undoBtn.dataset.g2048Undo); return; }
+  const contBtn = e.target.closest('[data-g2048-continue]');
+  if (contBtn) {
+    const id = contBtn.dataset.g2048Continue;
+    const st = g2048[id];
+    if (st) { st.wonAck = true; g2048Paint(id); }
+  }
 });
 
 function rDouban(d, c) {
