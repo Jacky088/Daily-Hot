@@ -408,6 +408,9 @@ function safeUrl(u) {
 // P1: 骨架屏 HTML
 const SKELETON_HTML = '<div class="skeleton"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line skeleton-line-short"></div></div>';
 
+// 搜索无结果空态：复用免费游戏空态的视觉语言（图标+主文案+副说明），比一行灰字友好
+const SEARCH_EMPTY_HTML = '<div class="empty-state search-empty"><span class="es-icon">🔍</span><span class="es-text">无匹配接口</span><span class="es-sub">换个关键词试试，支持名称 / 路径搜索</span></div>';
+
 // 数据源不可用时的友好提示：不暴露错误码/堆栈，保留重试入口
 function unavailableHTML(ep, detail) {
   return `<div class="placeholder card-unavailable">
@@ -418,52 +421,102 @@ function unavailableHTML(ep, detail) {
 }
 
 // ============ 必应每日壁纸背景 ============
-// 取 /v2/bing 当日壁纸：横屏用 1920x1080、竖屏（含移动端）用必应 th 服务实时派生的 1080x1920 竖版，
-// 按天写 localStorage 避免重复请求；图片 onload 后才淡入，加载失败静默回退原背景
+// 取 /v2/bing 当日壁纸：横屏优先 4K（UHD）原图、加载失败逐级回退 1920x1080；
+// 竖屏（含移动端）用必应 th 服务实时派生的 1080x1920 竖版（源图即 UHD，足够清晰）。
+// 缓存日期必须用上海时区：toISOString() 是 UTC 日期，东八区每天 0-8 点仍是「昨天」，
+// 旧缓存会被误判为当日有效，背景比壁纸卡片晚换 8 小时——不跟随每日更换的根因就在这
 async function loadWallpaperBg() {
   try {
-    const today = new Date().toISOString().slice(0, 10);
+    // en-CA 输出 YYYY-MM-DD；与后端 localeDate 的 Asia/Shanghai 日界保持一致
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(new Date());
     const key = 'bing-wallpaper';
-    let cover = null, coverPortrait = null;
+    let cover = null, cover4k = null, coverPortrait = null;
     let cached = null;
     try { cached = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) {}
+    const fromCache = (c) => {
+      cover = c.cover;
+      cover4k = c.cover4k || cover.replace('_1920x1080.jpg', '_UHD.jpg');
+      coverPortrait = c.coverPortrait || cover.replace('_1920x1080.jpg', '_1080x1920.jpg');
+    };
     if (cached && cached.date === today && cached.cover) {
-      cover = cached.cover;
-      coverPortrait = cached.coverPortrait;
+      fromCache(cached);
     } else {
-      const r = await fetch(API + '/v2/bing');
-      const j = await r.json();
-      const d = j && j.data;
-      if (j.code === 200 && d && d.cover) {
-        cover = d.cover;
-        // 由横版 URL 派生竖版裁切（必应 th 服务支持任意宽高参数，源图为 UHD 足够清晰）
-        coverPortrait = cover.replace('_1920x1080.jpg', '_1080x1920.jpg');
-        try { localStorage.setItem(key, JSON.stringify({ date: today, cover, coverPortrait })); } catch (e) {}
-      }
+      try {
+        const r = await fetch(API + '/v2/bing');
+        const j = await r.json();
+        const d = j && j.data;
+        if (j.code === 200 && d && d.cover) {
+          cover = d.cover;
+          // cover_4k 为 UHD 原图；后端缺该字段时按同一 id 规则派生
+          cover4k = d.cover_4k || cover.replace('_1920x1080.jpg', '_UHD.jpg');
+          // 由横版 URL 派生竖版裁切（必应 th 服务支持任意宽高参数，源图为 UHD 足够清晰）
+          coverPortrait = cover.replace('_1920x1080.jpg', '_1080x1920.jpg');
+          try { localStorage.setItem(key, JSON.stringify({ date: today, cover, cover4k, coverPortrait })); } catch (e) {}
+        }
+      } catch (e) { /* 当日拉取失败：下方退回过期缓存，有壁纸总比没有好 */ }
+      if (!cover && cached && cached.cover) fromCache(cached);
     }
     if (!cover) return;
 
-    const pick = () => (window.innerHeight >= window.innerWidth ? (coverPortrait || cover) : cover);
-    const img = new Image();
-    img.onload = () => {
-      const el = document.getElementById('wallpaperBg');
-      if (!el) return;
-      el.style.backgroundImage = `url("${pick()}")`;
-      el.hidden = false;
-      requestAnimationFrame(() => el.classList.add('show'));
+    // 各方向候选链：横屏首选 4K、失败回退 1080P；省流模式直接 1080P 打头；
+    // 竖屏只有派生竖版一档。
+    // failed 记录本次会话加载失败的 URL：回退成功后 pick 不再包含死链，
+    // 否则 onload 里的「首选已变」判断会让 1080P 与 4K 互相踢皮球死循环
+    const failed = new Set();
+    const chain = (portrait) => {
+      if (portrait) return [coverPortrait || cover];
+      if (prefersSaveData()) return [cover]; // 省流：跳过 UHD（体积约 3 倍）
+      return (cover4k && cover4k !== cover ? [cover4k, cover] : [cover]);
     };
-    img.src = pick();
+    const pick = () => chain(window.innerHeight >= window.innerWidth).filter(u => !failed.has(u));
 
-    // 旋转屏幕/跨越断点时按当前方向切换横竖版裁切
-    let lastPortrait = window.innerHeight >= window.innerWidth;
-    window.addEventListener('resize', () => {
+    // 统一走「目标图 onload 后才写入 background-image」：背景图未下载完成时该层
+    // 什么都不画（旧图已被替换掉），等下载完才突然弹出——缩放窗口跨越横竖临界
+    // （宽=高，典型窗口高度下紧邻移动端断点）时整页背景闪一下就是这个原因。
+    // 候选链逐级回退：4K 失败静默换 1080P，全部失败保持当前画面不动，宁缺不闪
+    function swapWallpaper(candidates, reveal) {
       const el = document.getElementById('wallpaperBg');
+      const url = candidates[0];
+      if (!el || !url) return;
+      const im = new Image();
+      im.onload = () => {
+        if (pick()[0] !== url) { swapWallpaper(pick(), reveal); return; }
+        el.style.backgroundImage = `url("${url}")`;
+        if (reveal) {
+          el.hidden = false;
+          // rAF 保证首帧绘制后再淡入；但后台/冻结标签页 rAF 永不触发，
+          // 壁纸会加载成功却永远不显示——setTimeout 兜底（类幂等，重复加无害）
+          requestAnimationFrame(() => el.classList.add('show'));
+          setTimeout(() => el.classList.add('show'), 200);
+        }
+      };
+      im.onerror = () => { failed.add(url); swapWallpaper(pick(), reveal); };
+      im.src = url;
+    }
+
+    let lastPortrait = window.innerHeight >= window.innerWidth;
+    swapWallpaper(pick(), true);
+    // 预载另一方向的首选图：首次跨越横竖临界时切换直接命中缓存，零等待
+    const otherHead = chain(!lastPortrait).find(u => !failed.has(u));
+    if (otherHead) new Image().src = otherHead;
+
+    // 旋转屏幕/缩放窗口跨越横竖临界时按当前方向切换横竖版裁切
+    window.addEventListener('resize', () => {
       const portrait = window.innerHeight >= window.innerWidth;
-      if (!el || portrait === lastPortrait) return;
+      if (portrait === lastPortrait) return;
       lastPortrait = portrait;
-      el.style.backgroundImage = `url("${pick()}")`;
+      swapWallpaper(pick(), false);
     });
   } catch (e) { /* 壁纸加载失败不影响主功能 */ }
+}
+
+// 弱网/省流场景：用户开启浏览器「省流量」时跳过 4K 原图直接用 1080p（体积约 1/3），
+// 与 4K 优先策略兼容——链表首位换成 1080p，失败回退路径不变
+function prefersSaveData() {
+  try {
+    const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    return !!(c && c.saveData);
+  } catch { return false; }
 }
 
 function init() {
@@ -478,19 +531,45 @@ function init() {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     document.documentElement.dataset.theme = prefersDark ? 'dark' : 'light';
   }
+  // 主题色跟随：手机浏览器地址栏颜色随主题切换（meta theme-color 静态橙色在夜间刺眼）
+  const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+  function syncThemeColor() {
+    if (!themeColorMeta) return;
+    themeColorMeta.content = document.documentElement.dataset.theme === 'dark' ? '#14101a' : '#f97316';
+  }
+  syncThemeColor();
   $('#themeToggle').onclick = () => {
     const cur = document.documentElement.dataset.theme;
     const next = cur === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
     localStorage.setItem('theme', next);
+    syncThemeColor();
   };
 
   // 系统主题变化时，若用户未手动设置过主题则自动跟随
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
     if (!localStorage.getItem('theme')) {
       document.documentElement.dataset.theme = e.matches ? 'dark' : 'light';
+      syncThemeColor();
     }
   });
+
+  // 搜索清除按钮：有输入时出现，一键清空并回到当前分类完整列表
+  const searchInput = $('#search');
+  const searchWrap = searchInput && searchInput.closest('.search-wrap');
+  const searchClear = $('#searchClear');
+  function syncSearchClear() {
+    if (searchWrap) searchWrap.classList.toggle('has-value', !!searchInput.value);
+  }
+  if (searchInput && searchClear) {
+    searchInput.addEventListener('input', syncSearchClear);
+    searchClear.onclick = () => {
+      searchInput.value = '';
+      syncSearchClear();
+      render();
+      searchInput.focus();
+    };
+  }
 
   // 从 URL hash 恢复分类状态（刷新不丢失）
   const hash = location.hash.replace('#', '');
@@ -508,6 +587,23 @@ function init() {
   catPanel.className = 'cat-panel';
   // 鼠标拖拽横向滚动（分类 pill 行；触摸端原生支持，不重复绑定）
   enableDragScroll(catRow);
+
+  // 面板 fixed 挂在 body 下（见 init 末尾的 appendChild）：不能做 .cat-nav 的子元素——
+  // 吸顶栏自身带 backdrop-filter，会形成 backdrop root，其后代的毛玻璃只能采样
+  // root 内部已绘制的内容；面板悬浮在栏体之外的壁纸上，采样到的是空，模糊整体
+  // 失效、退化成纯半透明。挂到 body 后 backdrop root 回到根元素才能磨砂壁纸。
+  // top 跟随吸顶栏实测底边（吸顶后高度恒定，打开与窗口变化时校准即可）
+  function placeCatPanel() {
+    if (window.innerWidth > 820) return;
+    catPanel.style.top = nav.getBoundingClientRect().bottom + 'px';
+  }
+  // 开合状态同步打在 nav（沿用 toc-open 语义）与面板本体（CSS 显示开关）上
+  function setCatPanelOpen(open) {
+    nav.classList.toggle('toc-open', open);
+    catPanel.classList.toggle('open', open);
+    if (open) placeCatPanel();
+  }
+  window.addEventListener('resize', placeCatPanel);
 
   // 生成某分类的子菜单项（模块名按钮，点击定位到对应卡片）
   function buildSubItems(container, catId) {
@@ -676,7 +772,7 @@ function init() {
     const searchInput = $('#search');
     if (searchInput && searchInput.value.trim()) searchInput.value = '';
     // 移动端模块面板是悬浮层：定位即收起，避免遮住落点卡片
-    nav.classList.remove('toc-open');
+    setCatPanelOpen(false);
     let switched = false;
     if (curCat !== ep.cat) {
       switched = true;
@@ -791,6 +887,8 @@ function init() {
     const b = document.createElement('button');
     b.dataset.cat = c.id;
     if (c.id === curCat) b.classList.add('active');
+    // aria-expanded：已激活分类的按钮兼有「展开/收起目录」语义（桌面手风琴/移动面板）
+    b.setAttribute('aria-expanded', c.id === curCat && c.id !== 'all' ? 'true' : 'false');
     // 计数徽章：分类下的模块数（移动端由 CSS 隐藏，pill 空间优先给名称）
     const cnt = document.createElement('span');
     cnt.className = 'cnt';
@@ -801,8 +899,9 @@ function init() {
       // 点击已激活分类：桌面折叠/展开目录手风琴；移动端开合模块面板（「全部」无目录）
       if (curCat === c.id) {
         if (c.id === 'all') return;
-        if (window.innerWidth <= 820) nav.classList.toggle('toc-open');
+        if (window.innerWidth <= 820) setCatPanelOpen(!nav.classList.contains('toc-open'));
         else nav.classList.toggle('sub-collapsed');
+        b.setAttribute('aria-expanded', nav.classList.contains('sub-collapsed') ? 'false' : 'true');
         return;
       }
       curCat = c.id;
@@ -811,8 +910,12 @@ function init() {
       // 移动端面板保持当前开合——开着就地换内容，关着不打扰
       nav.classList.remove('sub-collapsed');
       location.hash = c.id;
-      $$('.cat-row > button').forEach(x => x.classList.remove('active'));
+      $$('.cat-row > button').forEach(x => {
+        x.classList.remove('active');
+        x.setAttribute('aria-expanded', 'false');
+      });
       b.classList.add('active');
+      b.setAttribute('aria-expanded', c.id !== 'all' ? 'true' : 'false');
       // 窄屏分类栏是横向滚动的：把选中的 pill 水平居中（内部已按宽度判断，桌面端自动跳过）
       centerInContainer(catRow, b);
       refreshSubs();
@@ -835,22 +938,25 @@ function init() {
   });
 
   nav.appendChild(catRow);
-  nav.appendChild(catPanel);
+  // 面板挂 body 下而非 nav 内：nav 自身的 backdrop-filter 会成为 backdrop root，
+  // 其后代的毛玻璃只能采样 root 内部内容，悬浮在壁纸上时采样为空、模糊失效
+  // （退化成纯半透明）。挂 body 下让面板与 nav 平级，各自独立磨砂壁纸
+  document.body.appendChild(catPanel);
   refreshSubs();
   // 移动端模块面板的常规退出路径：点击面板外任意处 / Esc（定位点击由 locateCard 自己收起）
   document.addEventListener('click', e => {
     if (window.innerWidth > 820) return;
     if (!nav.classList.contains('toc-open')) return;
-    if (!nav.contains(e.target)) nav.classList.remove('toc-open');
+    if (!nav.contains(e.target) && !catPanel.contains(e.target)) setCatPanelOpen(false);
   });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') nav.classList.remove('toc-open');
+    if (e.key === 'Escape') setCatPanelOpen(false);
   });
   // 刷新/hash 恢复后：窄屏把当前激活的分类 pill 居中，避免落在屏幕外
   const activeBtn = catRow.querySelector('button.active');
   if (activeBtn) centerInContainer(catRow, activeBtn);
 
-  $('#search').oninput = render;
+  $('#search').oninput = () => { syncSearchClear(); render(); };
 
   // 实时时钟（精确到秒）
   // 桌面 / 移动（>360px）：“今天是 2026年8月28日周五 14:23:45”
@@ -882,8 +988,8 @@ function init() {
     if (topbarEl) document.documentElement.style.setProperty('--topbar-h', topbarEl.getBoundingClientRect().height + 'px');
   }
   syncTopbarH();
-  window.addEventListener('resize', syncTopbarH);
-  window.addEventListener('load', syncTopbarH);
+  window.addEventListener('resize', () => { syncTopbarH(); placeCatPanel(); });
+  window.addEventListener('load', () => { syncTopbarH(); placeCatPanel(); });
 
   render();
 
@@ -917,7 +1023,10 @@ function render() {
     });
   } else if (curCat === 'all' && kw) {
     const eps = EPS.filter(ep => matchKw(ep, kw));
-    if (eps.length === 0) { main.innerHTML = '<div class="placeholder" style="text-align:center;padding:40px;">无匹配接口</div>'; return; }
+    if (eps.length === 0) {
+      main.innerHTML = SEARCH_EMPTY_HTML;
+      return;
+    }
     const grid = document.createElement('div');
     grid.className = 'grid';
     appendCards(grid, eps);
@@ -942,7 +1051,7 @@ function render() {
   }
 
   if (main.children.length === 0) {
-    main.innerHTML = '<div class="placeholder" style="text-align:center;padding:40px;">无匹配接口</div>';
+    main.innerHTML = SEARCH_EMPTY_HTML;
     return;
   }
 
@@ -987,8 +1096,8 @@ function makeCard(ep) {
   head.className = 'card-head';
   head.innerHTML = `<div class="card-title"><span class="icon">${ep.icon}</span>${ep.name}</div>
     <div class="card-actions">
-      ${ep.noapi ? '' : '<button class="btn-json" title="JSON">{ }</button>'}
-      <button class="btn-refresh" title="刷新">↻</button>
+      ${ep.noapi ? '' : '<button class="btn-json" title="查看 JSON" aria-label="查看 JSON">{ }</button>'}
+      <button class="btn-refresh" title="刷新" aria-label="刷新数据">↻</button>
     </div>`;
   card.appendChild(head);
 
@@ -1135,8 +1244,8 @@ function makeGroupCard(group, eps) {
   head.className = 'card-head';
   head.innerHTML = `<div class="card-title"><span class="icon">${group.icon}</span>${group.name}</div>
     <div class="card-actions">
-      <button class="btn-json" title="JSON">{ }</button>
-      <button class="btn-refresh" title="刷新">↻</button>
+      <button class="btn-json" title="查看 JSON" aria-label="查看 JSON">{ }</button>
+      <button class="btn-refresh" title="刷新" aria-label="刷新数据">↻</button>
     </div>`;
   card.appendChild(head);
 
@@ -1146,6 +1255,9 @@ function makeGroupCard(group, eps) {
 
   const tabBar = document.createElement('div');
   tabBar.className = 'card-tabs';
+  // 标签页语义：tablist/tab/tabpanel 让读屏器识别「N 选一」结构
+  tabBar.setAttribute('role', 'tablist');
+  tabBar.setAttribute('aria-label', group.name + ' 标签页');
   const panes = [];
 
   eps.forEach((ep, i) => {
@@ -1153,6 +1265,8 @@ function makeGroupCard(group, eps) {
     tab.type = 'button';
     tab.className = 'card-tab';
     tab.textContent = (group.tabs.find(t => t.ep === ep.id) || {}).label || ep.name;
+    tab.setAttribute('role', 'tab');
+    tab.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
     tab.onclick = () => {
       card._activateTab(ep.id);
       // 手动切标签页时同步子菜单高亮（定位跳转路径由 locateCard 自己维护）
@@ -1169,6 +1283,8 @@ function makeGroupCard(group, eps) {
     const pane = document.createElement('div');
     pane.className = 'card-pane';
     pane.dataset.ep = ep.id;
+    pane.setAttribute('role', 'tabpanel');
+    pane.setAttribute('aria-label', tab.textContent);
     while (body.firstChild) pane.appendChild(body.firstChild);
     if (i > 0) pane.hidden = true;
     panes.push({ ep, pane });
@@ -1182,7 +1298,10 @@ function makeGroupCard(group, eps) {
     const idx = panes.findIndex(p => p.ep.id === epId);
     if (idx < 0) return;
     card.dataset.activeEp = panes[idx].ep.id;
-    tabBar.querySelectorAll('.card-tab').forEach((b, j) => b.classList.toggle('active', j === idx));
+    tabBar.querySelectorAll('.card-tab').forEach((b, j) => {
+      b.classList.toggle('active', j === idx);
+      b.setAttribute('aria-selected', j === idx ? 'true' : 'false');
+    });
     panes.forEach((p, j) => { p.pane.hidden = j !== idx; });
     // 懒加载：首次激活该标签页且数据源为自动加载类型时才请求
     if (opts.load !== false && panes[idx].ep.auto && !loaded.has(panes[idx].ep.id)) {
@@ -1458,7 +1577,7 @@ function rList(d, c, ep) {
     if (poster) {
       // 海报模式：序号内联在标题行首（与流媒体榜 rSimkl 一致）
       h += `<div class="item with-poster${sqCls}">`;
-      h += `<img class="poster${f.ps ? ' cover-square' : ''}" src="${esc(poster)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+      h += `<img class="poster${f.ps ? ' cover-square' : ''}" src="${esc(poster)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
       h += `<div class="body-wrap">`;
       h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(t)}</a>` : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(t)}</span>`;
       if (meta) h += `<div class="meta">${meta}</div>`;
@@ -1873,7 +1992,7 @@ function rDouban(d, c) {
     if (poster) {
       // 海报模式：序号内联在标题行首（与流媒体榜 rSimkl 一致）
       h += `<div class="item with-poster">`;
-      h += `<img class="poster" src="${esc(poster)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+      h += `<img class="poster" src="${esc(poster)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
       h += `<div class="body-wrap">`;
       h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</a>` : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</span>`;
       if (meta) h += `<div class="meta">${meta}</div>`;
@@ -1940,7 +2059,7 @@ function rKV(d, c, ep) {
   entries.forEach(([k, v, label]) => {
     if (v == null || v === '') return;
     if (k === 'image' && typeof v === 'string' && /^https?:\/\//.test(v)) {
-      h += `<div class="kv-row"><span class="k">${esc(label || k)}</span><span class="v"><img style="max-width:100%;height:auto;display:block;margin-top:4px;border-radius:8px" src="${esc(v)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.remove()"></span></div>`;
+      h += `<div class="kv-row"><span class="k">${esc(label || k)}</span><span class="v"><img style="max-width:100%;height:auto;display:block;margin-top:4px;border-radius:8px" src="${esc(v)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.remove()"></span></div>`;
       return;
     }
     let disp = typeof v === 'object' ? JSON.stringify(v) : Array.isArray(v) ? v.join(', ') : v;
@@ -1970,7 +2089,7 @@ function rOG(d, c) {
   let host = '';
   try { host = u ? new URL(u.startsWith('http') ? u : 'https://' + u).hostname : ''; } catch {}
   let h = `<div class="og-card">`;
-  if (d.image) h += `<div class="og-img"><img src="${esc(d.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.remove()"></div>`;
+  if (d.image) h += `<div class="og-img"><img src="${esc(d.image)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.remove()"></div>`;
   h += `<div class="og-body">`;
   if (d.title) h += `<div class="og-title">${esc(d.title)}</div>`;
   if (d.description) h += `<div class="og-desc">${esc(d.description)}</div>`;
@@ -2039,7 +2158,7 @@ function rSimkl(d, c) {
     const rank = it.rank || 0;
     const cls = rank <= 3 ? `top${rank}` : '';
     h += `<div class="simkl-item">`;
-    if (it.poster) h += `<img class="simkl-poster" src="${esc(it.poster)}" alt="" loading="lazy" referrerpolicy="no-referrer">`;
+    if (it.poster) h += `<img class="simkl-poster" src="${esc(it.poster)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
     h += `<div class="simkl-body">`;
     h += it.link
       ? `<a href="${safeUrl(it.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</a>`
@@ -2571,7 +2690,7 @@ function rLunar(d, c) {
 function rBing(d, c) {
   let h = '';
   if (d.cover) {
-    h += `<div class="img-wrap ratio-banner"><img src="${esc(d.cover)}" alt="bing" loading="lazy"></div>`;
+    h += `<div class="img-wrap ratio-banner"><img src="${esc(d.cover)}" alt="bing" loading="lazy" decoding="async"></div>`;
     // 双尺寸下载按钮：cover 为 1920x1080，cover_4k 为 UHD 原图
     const cover4k = d.cover_4k || d.cover.replace('_1920x1080.jpg', '_UHD.jpg');
     h += `<div class="bing-dl">
@@ -2618,7 +2737,7 @@ function rEpic(d, c) {
   let h = '';
   d.forEach(g => {
     h += '<div class="game-card">';
-    if (g.cover) h += `<div class="img-wrap ratio-banner"><img src="${esc(g.cover)}" alt="${esc(g.title)}" loading="lazy" onerror="this.style.display='none'"></div>`;
+    if (g.cover) h += `<div class="img-wrap ratio-banner"><img src="${esc(g.cover)}" alt="${esc(g.title)}" loading="lazy" decoding="async" onerror="this.style.display='none'"></div>`;
     h += `<div class="game-title">🎮 ${esc(g.title)}</div>`;
     if (g.description) h += `<div class="desc">${esc(g.description.slice(0, 80))}${g.description.length > 80 ? '…' : ''}</div>`;
     if (g.is_free_now) h += '<span class="game-free">免费</span>';
@@ -2636,7 +2755,7 @@ function rSteam(d, c) {
   let h = '';
   d.forEach(g => {
     h += '<div class="game-card">';
-    if (g.cover) h += `<div class="img-wrap ratio-capsule"><img src="${esc(g.cover)}" alt="${esc(g.title)}" loading="lazy" onerror="this.style.display='none'"></div>`;
+    if (g.cover) h += `<div class="img-wrap ratio-capsule"><img src="${esc(g.cover)}" alt="${esc(g.title)}" loading="lazy" decoding="async" onerror="this.style.display='none'"></div>`;
     h += `<div class="game-title">🎮 ${esc(g.title)}</div>`;
     if (g.is_free_now) h += '<span class="game-free">免费</span>';
     if (g.original_price) h += ` <span class="game-orig">${esc(g.original_price)}</span>`;
@@ -2661,7 +2780,7 @@ function rKuan(d, c) {
     if (t.rating && t.rating.score) meta += ` · ⭐ ${esc(String(t.rating.score))}`;
     if (icon) {
       h += `<div class="item with-poster with-cover">`;
-      h += `<img class="poster cover-square" src="${esc(icon)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+      h += `<img class="poster cover-square" src="${esc(icon)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
       h += `<div class="body-wrap">`;
       h += `<a href="${safeUrl(t.url)}" target="_blank" rel="noopener"><span class="rank ${cls}">${i+1}</span> ${esc(t.title)}</a>`;
       if (meta) h += `<div class="meta">${meta}</div>`;
@@ -2689,7 +2808,7 @@ function r36Kr(d, c) {
     if (e.praise) meta += ` · 👍 ${esc(String(e.praise))}`;
     if (cover) {
       h += `<div class="item with-poster with-cover">`;
-      h += `<img class="poster cover-square" src="${esc(cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+      h += `<img class="poster cover-square" src="${esc(cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
       h += `<div class="body-wrap">`;
       h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${e.rank || i+1}</span> ${esc(e.title)}</a>`;
       if (meta) h += `<div class="meta">${meta}</div>`;
@@ -2733,7 +2852,7 @@ function rSspai(d, c) {
     if (e.comments) meta += ` · 💬 ${esc(String(e.comments))}`;
     if (cover) {
       h += `<div class="item with-poster with-cover">`;
-      h += `<img class="poster cover-square" src="${esc(cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+      h += `<img class="poster cover-square" src="${esc(cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
       h += `<div class="body-wrap">`;
       h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${e.rank || i+1}</span> ${esc(e.title)}</a>`;
       if (meta) h += `<div class="meta">${meta}</div>`;
@@ -2761,7 +2880,7 @@ function rHuxiu(d, c) {
     if (e.comments) meta += ` · 💬 ${esc(String(e.comments))}`;
     if (cover) {
       h += `<div class="item with-poster with-cover">`;
-      h += `<img class="poster cover-square" src="${esc(cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+      h += `<img class="poster cover-square" src="${esc(cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
       h += `<div class="body-wrap">`;
       h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${e.rank || i+1}</span> ${esc(e.title)}</a>`;
       if (meta) h += `<div class="meta">${meta}</div>`;
@@ -2791,7 +2910,7 @@ function rNCM(d, c) {
     if (cover) {
       // 封面模式：序号内联在标题行首（与流媒体榜 rSimkl 一致）
       h += `<div class="item with-poster with-cover">`;
-      h += `<img class="poster cover-square" src="${esc(cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+      h += `<img class="poster cover-square" src="${esc(cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
       h += `<div class="body-wrap">`;
       h += r.link ? `<a href="${safeUrl(r.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${i+1}</span> ${esc(r.title)}</a>` : `<span class="t"><span class="rank ${cls}">${i+1}</span> ${esc(r.title)}</span>`;
       if (meta) h += `<div class="meta">${meta}</div>`;
@@ -2846,7 +2965,7 @@ function rMaoyanMovie(d, c) {
       (m.star ? `<div class="desc">主演 ${esc(String(m.star).slice(0, 40))}${String(m.star).length > 40 ? '…' : ''}</div>` : '');
     // 单条无海报则走无图布局
     if (m.cover) {
-      h += `<div class="item with-poster"><img class="poster" src="${esc(m.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">` +
+      h += `<div class="item with-poster"><img class="poster" src="${esc(m.cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">` +
         `<div class="body-wrap">${bodyInner}</div></div>`;
     } else {
       h += `<div class="item"><span class="rank ${cls}">${rank}</span><div class="body">${bodyInner}</div></div>`;
@@ -2874,7 +2993,7 @@ function rBaiduShow(d, c) {
       (it.desc ? `<div class="desc">${esc(String(it.desc).slice(0, 60))}${String(it.desc).length > 60 ? '…' : ''}</div>` : '');
     // 单条无海报则走无图布局
     if (it.cover) {
-      h += `<div class="item with-poster"><img class="poster" src="${esc(it.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">` +
+      h += `<div class="item with-poster"><img class="poster" src="${esc(it.cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">` +
         `<div class="body-wrap">${bodyInner}</div></div>`;
     } else {
       h += `<div class="item"><span class="rank ${cls}">${rank}</span><div class="body">${bodyInner}</div></div>`;
