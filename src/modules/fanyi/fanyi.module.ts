@@ -6,11 +6,16 @@ import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceFanyi {
   langMap = new Map<string, { label: string; code: string; alphabet: string }>()
+  // 语言表初始化 promise：handle 与 handleLangs 共用，保证只初始化一次且都能等到就绪
+  #langsReady: Promise<void> | null = null
 
   handle(): RouterMiddleware<'/fanyi'> {
-    this.initLangs()
+    // 冷启动时语言表尚未加载，必须等待就绪再校验——
+    // 否则 langMap 为空，isLangValid 恒 false，默认 en→zh-CHS 也会 400
+    this.#ensureLangs()
 
     return async (ctx) => {
+      await this.#ensureLangs()
       const text = await Common.getParam('text', ctx.request, true)
 
       if (!text) {
@@ -78,8 +83,8 @@ class ServiceFanyi {
 
   handleLangs(): RouterMiddleware<'/fanyi/langs'> {
     return async (ctx) => {
-      // 冷启动时 initLangs（异步）可能尚未完成，等待语言表就绪，避免向客户端返回空列表
-      if (this.langMap.size <= 0) await this.initLangs()
+      // 等待语言表就绪，避免向客户端返回空列表
+      await this.#ensureLangs()
       ctx.response.body = Common.buildJson(
         [...this.langMap.values()].toSorted((a, b) => a.alphabet.localeCompare(b.alphabet)),
       )
@@ -88,6 +93,12 @@ class ServiceFanyi {
 
   isLangValid(from: string, to: string) {
     return (from === 'auto' || this.langMap.has(from)) && (to === 'auto' || this.langMap.has(to))
+  }
+
+  // 语言表只初始化一次；并发请求共享同一个 promise，全部等到就绪为止
+  #ensureLangs(): Promise<void> {
+    this.#langsReady ??= this.initLangs()
+    return this.#langsReady
   }
 
   async initLangs() {

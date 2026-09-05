@@ -381,7 +381,19 @@ function fillFanyiSelects() {
   document.querySelectorAll('select[data-role="fanyi-lang"]').forEach(sel => {
     const cur = sel.value;
     sel.innerHTML = opts;
-    if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+    // 当前值不在新列表里时不能留着赋值失败的第一个 option（会静默提交错误语言），
+    // 回退到卡片默认值；默认值也没有就插一个保底 option
+    if ([...sel.options].some(o => o.value === cur)) {
+      sel.value = cur;
+    } else {
+      const def = sel.name === 'from' ? 'en' : 'zh-CHS';
+      if ([...sel.options].some(o => o.value === def)) {
+        sel.value = def;
+      } else {
+        sel.insertAdjacentHTML('afterbegin', `<option value="${def}">英语</option>`);
+        sel.value = def;
+      }
+    }
   });
 }
 
@@ -1480,6 +1492,11 @@ async function fetchWithRetry(ep, url, ck, c, retriesLeft) {
       if ((json.code === 429 || json.code === 428) && retriesLeft > 0) {
         await new Promise(r => setTimeout(r, 1500));
         return fetchWithRetry(ep, url, ck, c, retriesLeft - 1);
+      }
+      // 400 参数错误重试也不会变：立即展示原因，不再空转两轮
+      if (json.code === 400) {
+        c.innerHTML = unavailableHTML(ep, json.message);
+        return;
       }
       if (retriesLeft > 0) {
         await new Promise(r => setTimeout(r, 1000));
