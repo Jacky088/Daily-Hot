@@ -1357,6 +1357,12 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .foot-meta { color: rgba(255, 255, 255, 0.75); }
 .foot-meta a { color: rgba(255, 255, 255, 0.75); }
 .foot-meta a:hover { color: var(--accent-light); }
+/* 窄屏放不下时 Powered by Cloudflare Workers 整体换行，避免半截截断 */
+.foot-cf-sep, .foot-cf { display: inline; }
+@media (max-width: 480px) {
+  .foot-cf-sep { display: none; }
+  .foot-cf { display: block; margin-top: 4px; }
+}
 
 /* Game card */
 /* 免费游戏卡（Epic / Steam 共用）：字号字重与 .item 系统一，
