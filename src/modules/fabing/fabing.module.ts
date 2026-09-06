@@ -8,13 +8,18 @@ class ServiceFabing {
     return async (ctx) => {
       const name = (await Common.getParam('name', ctx.request)) || '主人'
       const id = await Common.getParam('id', ctx.request)
-      
+
       let result: string
-      
+
       if (id) {
         // 获取指定ID的发病文学
-        const index = parseInt(id)
-        if (index >= 0 && index < fabingData.length) {
+        const index = Common.parseId(id)
+        if (index == null) {
+          ctx.response.status = 400
+          ctx.response.body = Common.buildJson(null, 400, '参数 id 必须是非负整数')
+          return
+        }
+        if (index < fabingData.length) {
           result = fabingData[index].replaceAll('[name]', name)
         } else {
           ctx.response.status = 404
@@ -38,7 +43,7 @@ class ServiceFabing {
         case 'json':
         default:
           ctx.response.body = Common.buildJson({
-            index: fabingData.findIndex(item => item.replaceAll('[name]', name) === result),
+            index: fabingData.findIndex((item) => item.replaceAll('[name]', name) === result),
             saying: result,
           })
           break

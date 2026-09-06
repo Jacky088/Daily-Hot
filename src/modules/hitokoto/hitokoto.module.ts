@@ -7,13 +7,18 @@ class ServiceHitokoto {
   handle(): RouterMiddleware<'/hitokoto'> {
     return async (ctx) => {
       const id = await Common.getParam('id', ctx.request)
-      
+
       let result: string
-      
+
       if (id) {
         // 获取指定ID的句子
-        const index = parseInt(id)
-        if (index >= 0 && index < hitokotoData.length) {
+        const index = Common.parseId(id)
+        if (index == null) {
+          ctx.response.status = 400
+          ctx.response.body = Common.buildJson(null, 400, '参数 id 必须是非负整数')
+          return
+        }
+        if (index < hitokotoData.length) {
           result = hitokotoData[index]
         } else {
           ctx.response.status = 404

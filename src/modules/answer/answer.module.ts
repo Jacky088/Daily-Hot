@@ -11,13 +11,18 @@ class ServiceAnswer {
       let result: any
 
       if (id) {
-        // 获取指定ID的答案
-        const index = parseInt(id)
-        if (index >= 0 && index < answerData.length) {
-          result = answerData[index]
-        } else {
+        // 按数据自身的编号（id 字段）查找，与卡片印章 № 保持同一语义；
+        // 严格校验正整数，避免 parseInt 把 "abc" 解析成 NaN、"5abc" 宽松解析成 5
+        const trimmed = id.trim()
+        if (!/^\d+$/.test(trimmed)) {
+          ctx.response.status = 400
+          ctx.response.body = Common.buildJson(null, 400, '参数 id 必须是正整数')
+          return
+        }
+        result = answerData.find((item) => item.id === trimmed)
+        if (!result) {
           ctx.response.status = 404
-          ctx.response.body = Common.buildJson(null, 404, `未找到ID为 ${index} 的答案`)
+          ctx.response.body = Common.buildJson(null, 404, `未找到ID为 ${trimmed} 的答案`)
           return
         }
       } else {
@@ -31,7 +36,7 @@ class ServiceAnswer {
           break
 
         case 'markdown':
-          ctx.response.body = `# 答案之书\n\n## ${result.answer}\n\n---\n\n*第 ${answerData.findIndex((item) => item === result) + 1} 条答案*`
+          ctx.response.body = `# 答案之书\n\n## ${result.answer}\n\n---\n\n*第 ${result.id} 条答案*`
           break
 
         case 'json':

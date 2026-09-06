@@ -16,8 +16,14 @@ class ServiceGeng {
       let result: GengItem
 
       if (id) {
-        index = parseInt(id)
-        if (index >= 0 && index < data.length) {
+        const parsed = Common.parseId(id)
+        if (parsed == null) {
+          ctx.response.status = 400
+          ctx.response.body = Common.buildJson(null, 400, '参数 id 必须是非负整数')
+          return
+        }
+        index = parsed
+        if (index < data.length) {
           result = data[index]
         } else {
           ctx.response.status = 404
@@ -27,9 +33,7 @@ class ServiceGeng {
       } else {
         // 随机抽梗：优先返回最新年份的热梗（80% 概率命中最新年份池），其余在全量库中抽取
         const latestYear = Math.max(...data.map((g) => g.year ?? 0))
-        const modern = latestYear
-          ? data.map((g, i) => ({ g, i })).filter((x) => x.g.year === latestYear)
-          : []
+        const modern = latestYear ? data.map((g, i) => ({ g, i })).filter((x) => x.g.year === latestYear) : []
         if (modern.length && Math.random() < 0.8) {
           index = modern[Common.randomInt(0, modern.length - 1)].i
         } else {

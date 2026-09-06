@@ -262,7 +262,9 @@ class ServiceWeather {
     return async (ctx) => {
       try {
         const location = (await Common.getParam('query', ctx.request)) || '北京'
-        const days = Number.parseInt((await Common.getParam('days', ctx.request)) || '7')
+        // days 归一化：非法/越界值钳制到 1-15，避免 NaN 让 slice(0, NaN) 返回空数组
+        const daysRaw = Number.parseInt((await Common.getParam('days', ctx.request)) || '7')
+        const days = Number.isNaN(daysRaw) ? 7 : Math.min(Math.max(daysRaw, 1), 15)
 
         const city = (await Common.getParam('city', ctx.request)) || ''
         const province = (await Common.getParam('province', ctx.request)) || ''

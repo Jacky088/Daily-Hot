@@ -7,13 +7,18 @@ class ServiceLuck {
   handle(): RouterMiddleware<'/luck'> {
     return async (ctx) => {
       const id = await Common.getParam('id', ctx.request)
-      
+
       let result: any
-      
+
       if (id) {
         // 获取指定ID的运势
-        const index = parseInt(id)
-        if (index >= 0 && index < luckData.length) {
+        const index = Common.parseId(id)
+        if (index == null) {
+          ctx.response.status = 400
+          ctx.response.body = Common.buildJson(null, 400, '参数 id 必须是非负整数')
+          return
+        }
+        if (index < luckData.length) {
           const luck = luckData[index]
           const tip = Common.randomItem(luck.content)
           const tip_index = luck.content.indexOf(tip)

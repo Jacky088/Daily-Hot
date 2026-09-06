@@ -756,6 +756,14 @@ class ServiceWhois {
         return Common.requireArguments('domain', ctx.response)
       }
 
+      // 域名格式校验：domain 会被原样写入 WHOIS 协议查询（TCP 明文），
+      // 空白/控制字符可注入额外的协议命令；长度上限对齐域名 253 字符规范
+      if (/[\s\x00-\x1f\x7f]/.test(domain) || domain.length > 253) {
+        ctx.response.status = 400
+        ctx.response.body = Common.buildJson(null, 400, '无效的域名格式')
+        return
+      }
+
       try {
         const data = await this.fetchWhois(domain)
         this.formatResponse(ctx, data)

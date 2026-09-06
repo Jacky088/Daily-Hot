@@ -21,7 +21,12 @@ class ServiceAwesomeJs {
       let result: JavaScriptQuestion
 
       if (id) {
-        const questionId = Number.parseInt(id)
+        const questionId = Common.parseId(id)
+        if (questionId == null) {
+          ctx.response.status = 400
+          ctx.response.body = Common.buildJson(null, 400, '参数 id 必须是非负整数')
+          return
+        }
         const question = questionsData.find((q) => q.id === questionId)
 
         if (!question) {

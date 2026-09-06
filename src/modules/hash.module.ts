@@ -14,6 +14,13 @@ class ServiceHash {
         return Common.requireArguments('content', ctx.response)
       }
 
+      // 长度上限：哈希卡面向短文本（口令/短串），过大输入纯属 CPU 滥用
+      if (content.length > 10000) {
+        ctx.response.status = 400
+        ctx.response.body = Common.buildJson(null, 400, '内容长度不能超过 10000 个字符')
+        return
+      }
+
       const data = {
         source: content,
         md5: Common.md5(content, 'hex'),

@@ -7,7 +7,7 @@ const CACHE_TTL = 30 * 60 * 1000;
 
 // 发版时递增：让所有旧的 localStorage 缓存失效，
 // 否则用户在 TTL 内会继续看到上一版缓存下来的渲染结果
-const CACHE_VERSION = 'v8';
+const CACHE_VERSION = 'v9';
 
 function cacheGet(key) {
   try {
@@ -133,7 +133,7 @@ const EPS = [
 
   // 工具
   { cat:'tools', id:'baike', name:'百度百科', icon:'📖', path:'/v2/baike', type:'baike', auto:0, inputs:[{n:'word',p:'关键词',d:'人工智能'}], hint:'查询百度百科词条摘要；输入任意关键词，返回定义、摘要与封面图' },
-  { cat:'tools', id:'health', name:'健康计算器', icon:'🧮', path:'/v2/health', type:'health', auto:0, inputs:[{n:'height',p:'身高 50-300cm',d:'175'},{n:'weight',p:'体重 10-300kg',d:'70'},{n:'gender',p:'性别 male 或 female',d:'male'},{n:'age',p:'年龄 1-150岁',d:'30'}], hint:'输入身高(cm)、体重(kg)、性别(male/female)、年龄，计算 BMI、体脂率、基础代谢率等健康指标' },
+  { cat:'tools', id:'health', name:'健康计算器', icon:'🧮', path:'/v2/health', type:'health', auto:0, inputs:[{n:'height',p:'身高 50-300cm',d:'175'},{n:'weight',p:'体重 10-300kg',d:'70'},{n:'gender',sel:[['male','男性'],['female','女性']],d:'male'},{n:'age',p:'年龄 1-150岁',d:'30'}], hint:'输入身高(cm)、体重(kg)，选择性别，输入年龄，计算 BMI、体脂率、基础代谢率等健康指标' },
   { cat:'tools', id:'qr', name:'二维码生成', icon:'📱', path:'/v2/qrcode', type:'qr', auto:0, inputs:[{n:'text',p:'内容',d:'https://github.com/vikiboss/60s'},{n:'size',p:'尺寸',d:'256'}], hint:'内容支持任意文本或链接；尺寸为图片边长像素，默认 256' },
   { cat:'tools', id:'hash', name:'哈希加密', icon:'#️⃣', path:'/v2/hash', type:'hash', auto:0, inputs:[{n:'content',p:'文本',d:'hello'}], hint:'一次性输出 MD5、SHA1/256/512、Base64、URL 编码等常用编解码结果' },
   { cat:'tools', id:'og', name:'网页OG信息', icon:'🌐', path:'/v2/og', type:'og', auto:0, inputs:[{n:'url',p:'URL',d:'github.com'}], hint:'提取网页标题、描述、图标等 OG 元信息；输入域名即可，无需带协议' },
@@ -361,6 +361,12 @@ const G_LANGS = [
   ['ar', '阿拉伯语'], ['th', '泰语'], ['vi', '越南语'], ['id', '印尼语'],
 ];
 
+// 语言代码 → 中文名（查不到时回退显示代码本身，避免结果区出现空占位）
+function gtLangLabel(code) {
+  const hit = G_LANGS.find(l => l[0] === code);
+  return hit ? hit[1] : code;
+}
+
 // 加载有道翻译支持的语言列表（预加载，不依赖卡片渲染）
 async function loadFanyiLangs() {
   if (fanyiLangs && fanyiLangs.length) { fillFanyiSelects(); return; }
@@ -407,11 +413,13 @@ function esc(s) {
 }
 
 // 安全 URL 校验：仅放行 http/https/mailto，其余（javascript:、data: 等）替换为 #
+// 返回值还会进 href/src 等属性，引号 percent-encode 防止属性逃逸（引号本就不是合法 URL 字符）
 function safeUrl(u) {
   if (!u) return '#';
   try {
     const url = new URL(u, location.origin);
-    return ['http:', 'https:', 'mailto:'].includes(url.protocol) ? u : '#';
+    if (!['http:', 'https:', 'mailto:'].includes(url.protocol)) return '#';
+    return String(u).replace(/"/g, '%22').replace(/'/g, '%27');
   } catch {
     return '#';
   }
@@ -1192,8 +1200,10 @@ function makeCard(ep) {
         if (inp.sel) {
           inp.sel.forEach(op => {
             const o = document.createElement('option');
-            o.value = op;
-            o.textContent = op === '' ? '全部平台' : op;
+            // 支持 ['值', '显示名'] 对：显示中文、提交英文值（如性别 男性→male）
+            const pair = Array.isArray(op);
+            o.value = pair ? op[0] : op;
+            o.textContent = pair ? op[1] : (op === '' ? '全部平台' : op);
             el.appendChild(o);
           });
         } else {
@@ -1383,8 +1393,12 @@ async function load(ep, forceUpdate = false) {
   // 手动刷新时额外告知后端绕过其服务端缓存，否则 TTL 内点 ↻ 会拿回同一份数据
   const requestUrl = forceUpdate ? `${url}${url.includes('?') ? '&' : '?'}force-update=1` : url;
 
+  // 密码生成/检测不读缓存：同参数再次查询必须重新生成/重算，
+  // 否则 30 分钟 TTL 内点「查询」会拿回旧密码与旧耗时
+  const noCacheTool = ep.type === 'pwd' || ep.type === 'pwdchk';
+
   // 非强制刷新时检查缓存：命中直接渲染，不再后台重复请求
-  if (!forceUpdate) {
+  if (!forceUpdate && !noCacheTool) {
     const cached = cacheGet(ck);
     if (cached !== null) {
       if (ep.type === 'qr') {
@@ -1427,7 +1441,10 @@ async function gtranslateLoad(ep, params, url, ck, c, forceUpdate) {
               return String(el ?? '');
             })
             .join('');
-          const data = { source: { text, type: detected }, target: { text: trans, type: to } };
+          const data = {
+            source: { text, type: detected, type_desc: gtLangLabel(detected) },
+            target: { text: trans, type: to, type_desc: gtLangLabel(to) },
+          };
           cacheSet(ck, data);
           renderData(ep, data, c);
           return;
@@ -1505,7 +1522,8 @@ async function fetchWithRetry(ep, url, ck, c, retriesLeft) {
       c.innerHTML = unavailableHTML(ep, json.message);
       return;
     }
-    cacheSet(ck, json.data);
+    // 密码生成/检测不写缓存（同 load 侧的 noCacheTool）：同参数再次查询必须重新生成/重算
+    if (ep.type !== 'pwd' && ep.type !== 'pwdchk') cacheSet(ck, json.data);
     renderData(ep, json.data, c);
   } catch(e) {
     if (retriesLeft > 0) {
@@ -2124,7 +2142,8 @@ function rText(d, c, ep) {
 function rAnswer(d, c) {
   const zh = d.answer || '';
   const en = d.answer_en || '';
-  const idx = d.index != null ? Number(d.index) + 1 : null;
+  // 印章编号用数据自身 id（与接口 ?id= 同一语义），旧数据无 id 时回退 index+1
+  const idx = d.id != null ? Number(d.id) : d.index != null ? Number(d.index) + 1 : null;
   // 短答案（≤6 字符）竖排更有神谕感；逐字 span 渐显，重渲染自动重播
   const chars = [...zh];
   const vertical = chars.length <= 6 && chars.every(ch => /[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/.test(ch));
@@ -2155,7 +2174,7 @@ function rQuote(d, c, ep) {
 function rGeng(d, c) {
   const idx = d.index != null ? Number(d.index) + 1 : null;
   const meta = [];
-  if (d.year) meta.push(`${d.year} 年热梗`);
+  if (d.year) meta.push(`${esc(d.year)} 年热梗`);
   if (idx) meta.push(`第 ${idx} 个梗`);
   c.innerHTML = `<div class="geng-card">
     <div class="geng-title">${esc(d.title || '')}</div>
@@ -2327,7 +2346,7 @@ function rChangya(d, c) {
   }
   h += '<div class="kv" style="margin-top:8px;">';
   if (a.duration) { const sec = Math.round(a.duration / 1000); h += `<div class="kv-row"><span class="k">时长</span><span class="v">${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}</span></div>`; }
-  if (a.like_count != null) h += `<div class="kv-row"><span class="k">点赞</span><span class="v">${a.like_count}</span></div>`;
+  if (a.like_count != null) h += `<div class="kv-row"><span class="k">点赞</span><span class="v">${esc(a.like_count)}</span></div>`;
   if (a.publish) h += `<div class="kv-row"><span class="k">发布时间</span><span class="v">${esc(a.publish)}</span></div>`;
   if (a.link) h += `<div class="kv-row"><span class="k">作品链接</span><span class="v"><a href="${safeUrl(a.link)}" target="_blank" rel="noopener">在线收听</a></span></div>`;
   h += '</div>';
@@ -2338,17 +2357,23 @@ function rChangya(d, c) {
 function rPwd(d, c) {
   const setLabels = { lowercase: '小写', uppercase: '大写', numbers: '数字', symbols: '符号' };
   const sets = d.character_sets || {};
-  const used = Object.keys(setLabels).filter(k => sets[k]);
+  const used = Object.keys(setLabels).filter(k => sets[k]).map(k => setLabels[k]);
   const gi = d.generation_info || {};
   const pwd = esc(d.password);
-  const strengthMap = { 弱: ['25%', 'var(--error)'], 中: ['55%', '#f59e0b'], 强: ['85%', 'var(--success)'], 很强: ['100%', 'var(--success)'] };
-  const [barW, barColor] = strengthMap[gi.strength] || ['50%', '#f59e0b'];
+  const strengthMap = {
+    极弱: ['15%', 'var(--error)'],
+    弱: ['35%', 'var(--error)'],
+    中等: ['55%', '#f59e0b'],
+    强: ['78%', 'var(--success)'],
+    极强: ['100%', 'var(--success)'],
+  };
+  const [barW, barColor] = strengthMap[gi.strength] || ['55%', '#f59e0b'];
 
   c.innerHTML = `<div class="pwd-hero">
     <span class="pwd-text" data-pwd="${pwd}">${pwd}</span>
     <button class="pwd-copy" type="button">复制</button>
   </div>
-  <div class="pwd-strength"><div class="pwd-strength-bar"><i style="width:${barW};background:${barColor}"></i></div><span style="color:${barColor}">${esc(gi.strength || '')}</span></div>
+  <div class="pwd-strength"><div class="pwd-strength-bar"><i style="width:${barW};background:${barColor}"></i></div><span class="pwd-strength-badge" style="background:${barColor}">${esc(gi.strength || '未知')}</span></div>
   <div class="ht-tiles">${htTile('长度', d.length)}${htTile('预估破解耗时', gi.time_to_crack)}${htTile('包含字符', used.join('、') || '-')}</div>`;
   const copyBtn = c.querySelector('.pwd-copy');
   const textEl = c.querySelector('.pwd-text');
@@ -2362,9 +2387,16 @@ function rPwd(d, c) {
 }
 
 function rFanyi(d, c) {
+  // 语言名/发音缺失时不渲染括号占位，避免出现空的 []
+  const srcDesc = d.source?.type_desc
+    ? ` <span style="color:var(--text-dim);font-size:10px;">[${esc(d.source.type_desc)}]</span>`
+    : '';
+  const tgtDesc = [d.target?.type_desc ? `[${esc(d.target.type_desc)}]` : '', d.target?.pronounce ? esc(d.target.pronounce) : '']
+    .filter(Boolean)
+    .join(' · ');
   let h = '';
-  if (d.source) h += `<div class="kv-row"><span class="k">原文</span><span class="v">${esc(d.source.text)} <span style="color:var(--text-dim);font-size:10px;">[${esc(d.source.type_desc)}]</span></span></div>`;
-  if (d.target) h += `<div style="padding:8px 10px;background:var(--accent-bg);border-left:2px solid var(--accent);border-radius:4px;margin:6px 0;"><div style="font-size:13px;">${esc(d.target.text)}</div><div style="font-size:10px;color:var(--text-dim);margin-top:2px;">[${esc(d.target.type_desc)}]${d.target.pronounce?' · '+esc(d.target.pronounce):''}</div></div>`;
+  if (d.source) h += `<div class="kv-row"><span class="k">原文</span><span class="v">${esc(d.source.text)}${srcDesc}</span></div>`;
+  if (d.target) h += `<div style="padding:8px 10px;background:var(--accent-bg);border-left:2px solid var(--accent);border-radius:4px;margin:6px 0;"><div style="font-size:13px;">${esc(d.target.text)}</div>${tgtDesc ? `<div style="font-size:10px;color:var(--text-dim);margin-top:2px;">${tgtDesc}</div>` : ''}</div>`;
   c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
 }
 

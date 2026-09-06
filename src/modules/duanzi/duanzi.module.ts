@@ -12,8 +12,13 @@ class ServiceDuanzi {
 
       if (id) {
         // 获取指定ID的段子
-        const index = parseInt(id)
-        if (index >= 0 && index < duanziData.length) {
+        const index = Common.parseId(id)
+        if (index == null) {
+          ctx.response.status = 400
+          ctx.response.body = Common.buildJson(null, 400, '参数 id 必须是非负整数')
+          return
+        }
+        if (index < duanziData.length) {
           result = duanziData[index]
         } else {
           ctx.response.status = 404

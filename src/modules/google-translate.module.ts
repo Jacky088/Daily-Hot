@@ -8,9 +8,43 @@ const apiUrl = 'https://clients5.google.com/translate_a/t'
 
 // 支持的语言代码白名单（与前端下拉一致）
 const langs = new Set([
-  'auto', 'zh-CN', 'zh-TW', 'en', 'ja', 'ko', 'fr', 'de', 'es', 'ru',
-  'pt', 'it', 'ar', 'th', 'vi', 'id',
+  'auto',
+  'zh-CN',
+  'zh-TW',
+  'en',
+  'ja',
+  'ko',
+  'fr',
+  'de',
+  'es',
+  'ru',
+  'pt',
+  'it',
+  'ar',
+  'th',
+  'vi',
+  'id',
 ])
+
+// 语言代码 → 中文名（与前端内置语言表一致），渲染“原文/译文”时展示
+const langLabels: Record<string, string> = {
+  auto: '自动检测',
+  'zh-CN': '简体中文',
+  'zh-TW': '繁体中文',
+  en: '英语',
+  ja: '日语',
+  ko: '韩语',
+  fr: '法语',
+  de: '德语',
+  es: '西班牙语',
+  ru: '俄语',
+  pt: '葡萄牙语',
+  it: '意大利语',
+  ar: '阿拉伯语',
+  th: '泰语',
+  vi: '越南语',
+  id: '印尼语',
+}
 
 class ServiceGoogleTranslate {
   handle(): RouterMiddleware<'/google-translate'> {
@@ -36,13 +70,10 @@ class ServiceGoogleTranslate {
       let response: Response | null = null
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const res = await fetch(
-            `${apiUrl}?${Common.qs({ client: 'dict-chrome-ex', sl: from, tl: to, q: text })}`,
-            {
-              headers: { 'User-Agent': Common.chromeUA, Accept: 'application/json' },
-              signal: AbortSignal.timeout(8000),
-            },
-          )
+          const res = await fetch(`${apiUrl}?${Common.qs({ client: 'dict-chrome-ex', sl: from, tl: to, q: text })}`, {
+            headers: { 'User-Agent': Common.chromeUA, Accept: 'application/json' },
+            signal: AbortSignal.timeout(8000),
+          })
           if (res.ok) {
             response = res
             break
@@ -86,8 +117,8 @@ class ServiceGoogleTranslate {
         case 'json':
         default:
           ctx.response.body = Common.buildJson({
-            source: { text, type: detected },
-            target: { text: trans, type: to },
+            source: { text, type: detected, type_desc: langLabels[detected] ?? detected },
+            target: { text: trans, type: to, type_desc: langLabels[to] ?? to },
           })
           break
       }

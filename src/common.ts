@@ -103,6 +103,15 @@ export class Common {
     return arr[Math.floor(Math.random() * arr.length)]
   }
 
+  /**
+   * 严格解析非负整数 id：非法返回 null。
+   * 避免 parseInt 的两个坑："abc" → NaN（进入错误提示不专业）、"5abc" → 5（宽松放行）
+   */
+  static parseId(raw: string): number | null {
+    const trimmed = raw.trim()
+    return /^\d+$/.test(trimmed) ? Number(trimmed) : null
+  }
+
   static async getParam(name: string, request: Request & { _bodyJson?: Record<string, any> }, parseBody = false) {
     const value = request.url.searchParams.get(name) ?? ''
 

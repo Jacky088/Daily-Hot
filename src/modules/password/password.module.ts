@@ -58,6 +58,32 @@ interface PasswordStrengthResult {
   security_tips: string[]
 }
 
+// 时长数值：≥10 取整，<10 保留 1 位小数
+function formatAmount(value: number): string {
+  if (value >= 10) return String(Math.round(value))
+  return String(Math.round(value * 10) / 10)
+}
+
+const SUPERSCRIPT_DIGITS: Record<string, string> = {
+  '0': '⁰',
+  '1': '¹',
+  '2': '²',
+  '3': '³',
+  '4': '⁴',
+  '5': '⁵',
+  '6': '⁶',
+  '7': '⁷',
+  '8': '⁸',
+  '9': '⁹',
+}
+
+function toSuperscript(num: number): string {
+  return String(num)
+    .split('')
+    .map((ch) => SUPERSCRIPT_DIGITS[ch] ?? ch)
+    .join('')
+}
+
 class ServicePassword {
   private readonly LOWERCASE = 'abcdefghijklmnopqrstuvwxyz'
   private readonly UPPERCASE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -273,6 +299,7 @@ class ServicePassword {
     if (hasSymbols) characterVariety += 32
 
     const entropy = this.calculateEntropy(password, characterVariety)
+    const isCommon = this.isCommonPassword(password)
     let score = this.calculatePasswordScore({
       hasLowercase,
       hasUppercase,
@@ -285,12 +312,20 @@ class ServicePassword {
 
     if (hasRepeated) score -= 10
     if (hasSequential) score -= 15
-    if (this.isCommonPassword(password)) score -= 20
+    if (isCommon) score -= 20
 
     score = Math.max(0, Math.min(100, score))
 
+    // 破解耗时按有效熵估算：常见密码会被字典攻击秒级命中，连续/重复字符也会被规则字典大幅提前尝试，
+    // 直接用字符集熵会严重高估人类设置的密码的破解时间（生成接口的密码是真随机，不做此项折减）
+    let effectiveEntropy = entropy
+    if (hasSequential) effectiveEntropy -= 10
+    if (hasRepeated) effectiveEntropy -= 6
+    if (isCommon) effectiveEntropy -= 40
+    effectiveEntropy = Math.max(effectiveEntropy, 1)
+
     const strength = this.getStrengthFromScore(score)
-    const timeToCrack = this.getTimeToCrack(entropy)
+    const timeToCrack = this.getTimeToCrack(effectiveEntropy)
     const recommendations = this.getPasswordRecommendations(password, {
       hasLowercase,
       hasUppercase,
@@ -307,7 +342,7 @@ class ServicePassword {
       length,
       score,
       strength: strength.level,
-      entropy,
+      entropy: effectiveEntropy,
       time_to_crack: timeToCrack.time,
       character_analysis: {
         has_lowercase: hasLowercase,
@@ -360,26 +395,43 @@ class ServicePassword {
     }
   }
 
-  private getTimeToCrack(entropy: number) {
-    const combinations = Math.pow(2, entropy)
-    const attemptsPerSecond = 1000000000 // 10亿次/秒的暴力破解速度
-    const secondsToCrack = combinations / (2 * attemptsPerSecond) // 平均破解时间
+  // 离线快速哈希场景的通用假设（同 zxcvbn 等强度工具）：现代 GPU 集群每秒可尝试 10^10 次
+  private static readonly CRACK_ATTEMPTS_PER_SECOND = 1e10
 
-    if (secondsToCrack < 1) {
-      return { time: '< 1秒', description: '暴力破解所需时间（估算）' }
-    } else if (secondsToCrack < 60) {
-      return { time: `${Math.round(secondsToCrack)}秒`, description: '暴力破解所需时间（估算）' }
-    } else if (secondsToCrack < 3600) {
-      return { time: `${Math.round(secondsToCrack / 60)}分钟`, description: '暴力破解所需时间（估算）' }
-    } else if (secondsToCrack < 86400) {
-      return { time: `${Math.round(secondsToCrack / 3600)}小时`, description: '暴力破解所需时间（估算）' }
-    } else if (secondsToCrack < 31536000) {
-      return { time: `${Math.round(secondsToCrack / 86400)}天`, description: '暴力破解所需时间（估算）' }
-    } else if (secondsToCrack < 31536000000) {
-      return { time: `${Math.round(secondsToCrack / 31536000)}年`, description: '暴力破解所需时间（估算）' }
-    } else {
-      return { time: '数百万年', description: '暴力破解所需时间（估算）' }
+  private getTimeToCrack(entropy: number) {
+    // 平均只需尝试一半组合空间；全程用对数运算，避免大熵值下 2^E 溢出为 Infinity
+    const log10Seconds =
+      (Math.max(entropy, 0) - 1) * Math.log10(2) - Math.log10(ServicePassword.CRACK_ATTEMPTS_PER_SECOND)
+    return {
+      time: this.formatCrackDuration(log10Seconds),
+      description: '暴力破解所需时间（按离线 10¹⁰ 次/秒、平均尝试一半组合空间估算）',
     }
+  }
+
+  private formatCrackDuration(log10Seconds: number): string {
+    if (log10Seconds < 0) return '< 1秒'
+    const log10Year = Math.log10(31536000)
+    const units: Array<[number, string]> = [
+      [Math.log10(60), '秒'],
+      [Math.log10(3600), '分钟'],
+      [Math.log10(86400), '小时'],
+      [log10Year, '天'],
+      [log10Year + 4, '年'],
+      [log10Year + 8, '万年'],
+      [log10Year + 12, '亿年'],
+      [log10Year + 16, '万亿年'],
+    ]
+    let lower = 0
+    for (const [upper, unit] of units) {
+      if (log10Seconds < upper) {
+        return `${formatAmount(Math.pow(10, log10Seconds - lower))}${unit}`
+      }
+      lower = upper
+    }
+    // 超出万亿年的天文数字用科学计数法表示
+    const exp = Math.floor(log10Seconds)
+    const mantissa = Math.pow(10, log10Seconds - exp)
+    return `${formatAmount(mantissa)}×10${toSuperscript(exp)} 年`
   }
 
   private hasRepeatedChars(password: string): boolean {
@@ -675,7 +727,10 @@ ${result.generation_info.time_to_crack}
         ? result.recommendations.map((r) => `- ${r}`).join('\n')
         : '- 密码强度已经很好！'
 
-    const tips = result.security_tips.slice(0, 5).map((t) => `- ${t}`).join('\n')
+    const tips = result.security_tips
+      .slice(0, 5)
+      .map((t) => `- ${t}`)
+      .join('\n')
 
     return `# 🛡️ 密码强度检测
 

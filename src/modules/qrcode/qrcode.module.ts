@@ -13,14 +13,43 @@ class ServiceQRCode {
         return Common.requireArguments('text', ctx.response)
       }
 
+      // text 长度上限：二维码单码有容量上限（约 2953 字节 @ L 级），
+      // 超长文本还会让 yaqrcode 从 typeNumber 1 一路重试到 40，白白消耗 CPU
+      if (text.length > 1024) {
+        ctx.response.status = 400
+        ctx.response.body = Common.buildJson(null, 400, '内容长度不能超过 1024 个字符')
+        return
+      }
+
       const size = await Common.getParam('size', ctx.request)
       const level = await Common.getParam('level', ctx.request)
       const type = await Common.getParam('type', ctx.request)
 
+      // size 钳制到 64-1024：生成器按 size² 逐像素绘制并分配 GIF 缓冲，
+      // 未钳制的超大值（如 100000）会让单个请求耗尽内存/CPU（DoS）
+      let sizeNum = size ? Number.parseInt(size) : 256
+      if (Number.isNaN(sizeNum)) sizeNum = 256
+      sizeNum = Math.min(Math.max(sizeNum, 64), 1024)
+
+      // 纠错级别白名单，避免任意字符串透传给生成器
+      const levelUpper = (level || 'M').toUpperCase() as 'L' | 'M' | 'Q' | 'H'
+      if (!['L', 'M', 'Q', 'H'].includes(levelUpper)) {
+        ctx.response.status = 400
+        ctx.response.body = Common.buildJson(null, 400, '参数 level 必须是 L / M / Q / H 之一')
+        return
+      }
+
+      // typeNumber 有效范围 1-40，非法值忽略走自动升档
+      const typeNumRaw = type ? Number.parseInt(type) : NaN
+      const typeNumber =
+        Number.isInteger(typeNumRaw) && typeNumRaw >= 1 && typeNumRaw <= 40
+          ? (typeNumRaw as Params['typeNumber'])
+          : undefined
+
       const dataURI = qrcode(text, {
-        size: size ? Number.parseInt(size) : 256,
-        errorCorrectLevel: (level || 'M').toUpperCase() as 'L' | 'M' | 'Q' | 'H',
-        typeNumber: type ? (Number.parseInt(type) as Params['typeNumber']) : undefined,
+        size: sizeNum,
+        errorCorrectLevel: levelUpper,
+        typeNumber,
       })
 
       const rawBase64 = dataURI.split(',')[1] || ''
@@ -32,7 +61,7 @@ class ServiceQRCode {
         }
 
         case 'markdown': {
-          ctx.response.body = `# 📱 二维码生成\n\n**内容**: ${text}\n\n**尺寸**: ${size || 256}px\n\n**纠错级别**: ${(level || 'M').toUpperCase()}\n\n![QR Code](${dataURI})`
+          ctx.response.body = `# 📱 二维码生成\n\n**内容**: ${text}\n\n**尺寸**: ${sizeNum}px\n\n**纠错级别**: ${levelUpper}\n\n![QR Code](${dataURI})`
           break
         }
 
