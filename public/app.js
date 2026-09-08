@@ -1118,8 +1118,9 @@ function makeCard(ep) {
   head.innerHTML = `<div class="card-title"><span class="icon">${ep.icon}</span>${ep.name}</div>
     <div class="card-actions">
       ${ep.noapi ? '' : '<button class="btn-json" title="查看 JSON" aria-label="查看 JSON">{ }</button>'}
-      ${ep.fs /* fs:1 卡片恒显示全屏按钮，无 Fullscreen API 时由 cardFsToggle 回退伪全屏 */
-        ? '<button class="btn-fs" type="button" title="全屏" aria-label="全屏">⛶</button><button class="btn-fs-exit" type="button" title="退出全屏" aria-label="退出全屏">✕</button>'
+      ${ep.fs /* fs:1 卡片恒显示全屏按钮，无 Fullscreen API 时由 cardFsToggle 回退伪全屏；
+                   ⟳ 旋转按钮仅伪全屏（手机端）显示，切换竖屏/横屏布局 */
+        ? '<button class="btn-fs" type="button" title="全屏" aria-label="全屏">⛶</button><button class="btn-fs-exit" type="button" title="退出全屏" aria-label="退出全屏">✕</button><button class="btn-fs-rot" type="button" title="旋转屏幕" aria-label="切换横竖屏">⟳</button>'
         : ''}
       <button class="btn-refresh" title="刷新" aria-label="刷新数据">↻</button>
     </div>`;
@@ -1873,6 +1874,7 @@ function rGame2048(_, c, ep) {
         <div class="g2048-scorebox"><span>分数</span><b class="g-sv">0</b></div>
         <div class="g2048-scorebox"><span>最高</span><b class="g-bv">${st.best}</b></div>
         <button class="g2048-btn" type="button" data-g2048-fs="${id}">⛶ 全屏</button>
+        <button class="g2048-btn" type="button" data-g2048-rot="${id}">⟳ 横屏</button>
         <button class="g2048-btn" type="button" data-g2048-undo="${id}">↶ 撤销</button>
         <button class="g2048-btn" type="button" data-g2048-new="${id}">↻ 重开</button>
       </div>
@@ -1888,7 +1890,7 @@ function rGame2048(_, c, ep) {
   </div>`;
   g2048Paint(id);
   g2048Bind(id);
-  cardFsSync(); // 全屏中刷新重渲后，同步侧栏全屏按钮文案  // 打开即聚焦：方向键无需先点一下棋盘
+  cardFsSync(); // 全屏中刷新重渲后，同步侧栏全屏按钮文案与旋转按钮状态
   const b = wrap2048Board(id);
   if (b) b.focus({ preventScroll: true });
 }
@@ -2250,6 +2252,7 @@ function rMuyu(_, c, ep) {
         <button class="muyu-btn mt" type="button" data-muyu-mute="${id}">${mute ? '🔇 静音中' : '🔊 音效'}</button>
         <button class="muyu-btn" type="button" data-muyu-reset="${id}">↻ 重置</button>
         <button class="muyu-btn" type="button" data-muyu-fs="${id}">⛶ 全屏</button>
+        <button class="muyu-btn" type="button" data-muyu-rot="${id}">⟳ 横屏</button>
       </div>
       <div class="muyu-stage" role="button" tabindex="0" aria-label="敲击木鱼，功德加一">
         ${MUYU_SVG}
@@ -2305,15 +2308,19 @@ function cardFsToggle(card) {
     const p = req.call(card);
     if (p && p.catch) p.catch(() => {});
   } else {
+    // 伪全屏会临时锁 html 滚动（overflow:hidden），浏览器会把滚动位置重置到 0；
+    // 先记下当前位置，退出时恢复，否则用户会被甩回分类顶部
     card.classList.add('fs-fake');
     document.documentElement.classList.add('fs-fake-on');
-    fsState.set(card, { rot: false, prevScroller: document.documentElement.style.overflow });
+    fsState.set(card, {
+      rot: false,
+      prevScroller: document.documentElement.style.overflow,
+      prevScrollY: window.scrollY,
+    });
     document.documentElement.style.overflow = 'hidden'; // 锁背景滚动
-    fsOrient(); // 竖屏（手机）→ 立即进入伪横屏
+    // 默认竖屏布局；用户点 ⟳ 旋转按钮手动切横屏（fsOrient 只做物理姿态自适应）
+    fsOrient();
   }
-  // Android：伪横屏顺带锁定系统方向（iOS Safari 不支持，静默失败）
-  const o = screen.orientation;
-  if (o && o.lock) { try { const r = o.lock('landscape'); r && r.catch && r.catch(() => {}); } catch {} }
   // 进入后聚焦棋盘（若有）：方向键无需先点一下
   setTimeout(() => { card.querySelector('.g2048-board')?.focus({ preventScroll: true }); }, 60);
 }
@@ -2332,14 +2339,17 @@ function fsExitCard(card) {
   document.documentElement.style.overflow = st.prevScroller || '';
   fsState.delete(card);
   cardFsSync();
+  // 恢复进入伪全屏前的滚动位置（overflow:hidden 期间浏览器已把位置清零）
+  if (st.prevScrollY) window.scrollTo({ top: st.prevScrollY, behavior: 'instant' });
   if (screen.orientation && screen.orientation.unlock) {
     try { screen.orientation.unlock(); } catch {}
   }
 }
 
-// 竖屏 + 伪全屏：进入伪横屏——卡片顺时针转 90°（长边贴屏幕高），手势向量由
+// 竖屏伪全屏 ⇄ 伪横屏：卡片顺时针转 90°（长边贴屏幕高），手势向量由
 // g2048Bind 里 rot 因子旋回棋盘坐标；内层宽度按「旋转后的可视高度」用像素变量反推
 // （不用 100dvh：旋转中地址栏收放会先改变 width 再触发 resize，dvh 会随之跳变）
+// 过渡动画由 .card.fs-fake 的 transition 承担：transform 旋转 + width/height 换尺寸
 function fsRotCard(card) {
   const st = fsState.get(card);
   if (!st || st.rot) return;
@@ -2355,6 +2365,9 @@ function fsRotCard(card) {
 }
 
 function fsRemoveRot(card) {
+  const st = fsState.get(card);
+  if (!st || !st.rot) return;
+  st.rot = false;
   card.classList.remove('rot');
   card.style.removeProperty('--vw-px');
   card.style.removeProperty('--vh-px');
@@ -2362,10 +2375,22 @@ function fsRemoveRot(card) {
   cardFsSync();
 }
 
-// 全屏状态变化时，同步卡片头部（⛶/✕）与游戏区内按钮（⛶ 全屏/✕ 退出）的文案
+// 旋转按钮：伪全屏内竖屏⇄横屏手动切换（手机端专属，CSS 控制仅 .fs-fake 显示）
+function fsToggleRot() {
+  const fake = document.querySelector('.card.fs-fake');
+  if (!fake) return;
+  if (fake.classList.contains('rot')) fsRemoveRot(fake);
+  else fsRotCard(fake);
+}
+
+// 全屏状态变化时，同步卡片头部（⛶/✕）与游戏区内按钮（⛶ 全屏/✕ 退出）的文案；
+// 旋转按钮文案随布局切换（⟳ 横屏 ⇄ ⟳ 竖屏），仅伪全屏时可见
 function cardFsSync() {
   const label = cardFsEl() || document.querySelector('.card.fs-fake') ? '✕ 退出' : '⛶ 全屏';
   document.querySelectorAll('[data-g2048-fs], [data-muyu-fs]').forEach(b => { b.textContent = label; });
+  const fake = document.querySelector('.card.fs-fake');
+  const rotLabel = fake && fake.classList.contains('rot') ? '⟳ 竖屏' : '⟳ 横屏';
+  document.querySelectorAll('[data-g2048-rot], [data-muyu-rot]').forEach(b => { b.textContent = rotLabel; });
 }
 document.addEventListener('fullscreenchange', cardFsSync);
 document.addEventListener('webkitfullscreenchange', cardFsSync);
@@ -2379,13 +2404,24 @@ function fsResize() {
 }
 window.addEventListener('resize', fsResize);
 
-// 旋转方向变化时，伪全屏卡片进出伪横屏（仅竖屏时转；横屏系统本身即是横屏布局）
+// 物理姿态自适应：伪横屏状态下把手机横过来（视口变横）→ 取消 CSS 伪旋转，
+// 系统本身已是横屏布局；转回竖屏 → 恢复伪横屏。用户手动旋转意图不受影响：
+// 只有「已处于伪横屏」时才跟随物理方向
 function fsOrient() {
   const fake = document.querySelector('.card.fs-fake');
   if (!fake) return;
   const portrait = window.matchMedia('(orientation: portrait)').matches;
-  if (portrait && !fake.classList.contains('rot')) fsRotCard(fake);
-  else if (!portrait) fsRemoveRot(fake);
+  if (portrait) {
+    if (!fake.classList.contains('rot') && fsState.get(fake)?.physLandscape) {
+      // 物理横屏转回竖屏：恢复进入前的伪横屏意图
+      fsState.get(fake).physLandscape = false;
+      fsRotCard(fake);
+    }
+  } else if (fake.classList.contains('rot')) {
+    // 物理转成横屏：撤掉伪旋转，记住意图
+    fsState.get(fake).physLandscape = true;
+    fsRemoveRot(fake);
+  }
 }
 window.addEventListener('orientationchange', fsOrient);
 if (window.matchMedia) {
@@ -2394,8 +2430,10 @@ if (window.matchMedia) {
   }
 }
 
-// 全屏按钮统一入口：卡片头部 ⛶/✕ 与游戏区内按钮都走这里
+// 全屏按钮统一入口：卡片头部 ⛶/✕ 与游戏区内按钮都走这里；
+// ⟳ 旋转按钮仅伪全屏可见，点击在竖屏/横屏布局间切换
 document.addEventListener('click', e => {
+  if (e.target.closest('.btn-fs-rot, [data-g2048-rot], [data-muyu-rot]')) { fsToggleRot(); return; }
   const fsBtn = e.target.closest('.btn-fs, .btn-fs-exit, [data-g2048-fs], [data-muyu-fs]');
   if (!fsBtn) return;
   const card = fsBtn.closest('.card');

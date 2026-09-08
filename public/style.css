@@ -505,6 +505,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   display: flex; align-items: center; justify-content: center; transition: border-color 0.15s, color 0.15s;
 }
 .card-actions button:hover { border-color: var(--accent); color: var(--accent); }
+/* ↻ 字形本身偏小，放大一档才与 { }/⛶ 视觉等重 */
+.card-actions .btn-refresh { font-size: 15px; line-height: 1; }
 
 /* .card-pane 与 .card-body 共用内容区规则（分组卡片的标签页面板） */
 .card-body, .card-pane {
@@ -1924,10 +1926,13 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 
 /* ============ 卡片全屏（2048 / 电子木鱼，⛶ 按钮） ============ */
-/* ⛶ 与 ✕ 占同一位置：平时只显示 ⛶，全屏时原位互换为 ✕（纯 CSS :fullscreen 驱动） */
+/* ⛶ 与 ✕ 占同一位置：平时只显示 ⛶，全屏时原位互换为 ✕（纯 CSS :fullscreen 驱动）；
+   ⟳ 旋转按钮仅手机端伪全屏可用（原生全屏系统方向自带，桌面无意义） */
 .card-actions .btn-fs-exit { display: none; font-size: 13px; font-weight: 700; }
+.card-actions .btn-fs-rot { display: none; font-size: 15px; }
+.card.fs-fake .btn-fs-rot { display: flex; }
 /* 全屏通用精简（原生 :fullscreen 与伪全屏共用）：只保留游戏本体 + 侧栏菜单，
-   右上角只留 ✕ 退出与 ↻ 刷新；标题、{ }、💡提示条一律隐藏 */
+   右上角只留 ✕ 退出、⟳ 旋转、↻ 刷新；标题、{ }、💡提示条一律隐藏 */
 .card:fullscreen .card-title, .card.fs-fake .card-title,
 .card:fullscreen .btn-json, .card.fs-fake .btn-json,
 .card:fullscreen .card-body > .news-tip, .card.fs-fake .card-body > .news-tip {
@@ -1970,13 +1975,20 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 
 /* ============ 伪全屏（iOS Safari 无 Fullscreen API 的回退） ============ */
 /* 卡片固定铺满视口，视觉与 :fullscreen 一致；html.fs-fake-on 锁背景滚动。
-   高度用 100dvh 随地址栏伸缩（不支持的老浏览器退化 100vh） */
+   高度用 100dvh 随地址栏伸缩（不支持的老浏览器退化 100vh）。
+   transition 承担竖屏⇄横屏切换动画：transform 旋转 + width/height 换尺寸，
+   0.35s 与卡片 hover 过渡同量级，快而不突兀 */
 .card.fs-fake {
   position: fixed; inset: 0; z-index: 999;
   width: 100vw; max-width: none; height: 100dvh; max-height: none;
   border-radius: 0; border: none; animation: none;
+  /* 内联 animation-delay（卡片进场 staggering）会让 animation:none 的重置失效，
+     动画停在 before-phase 的 from 帧（transform:translateY(8px)）并压过 .rot 的
+     旋转 transform——必须显式归零延迟才能彻底停掉动画 */
+  animation-delay: 0s;
   background: var(--bg); overflow: hidden;
   display: flex; flex-direction: column;
+  transition: transform .35s cubic-bezier(.4, 0, .2, 1), width .35s cubic-bezier(.4, 0, .2, 1), height .35s cubic-bezier(.4, 0, .2, 1);
 }
 @supports not (height: 100dvh) { .card.fs-fake { height: 100vh; } }
 .card.fs-fake .btn-fs { display: none; }
@@ -1997,7 +2009,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 
 /* ============ 伪横屏（伪全屏 + 竖屏手机：卡片顺时针转 90°） ============ */
-/* 卡片以视口中心为轴转 90°，宽 = 视口高、高 = 视口宽（像素变量由 JS 维护，
+/* 由 ⟳ 旋转按钮手动切换（默认竖屏）；物理姿态自适应见 fsOrient()。
+   卡片以视口中心为轴转 90°，宽 = 视口高、高 = 视口宽（像素变量由 JS 维护，
    不用 100dvh：旋转中地址栏收放会先改变 width 再触发 resize，dvh 会随之跳变）。
    内层 .fs-rotate 反向转回 90°：宽高在屏幕上互换——「宽度」（屏幕纵向）= 可视高 −
    头部 51 − 上下内边距 20 ≈ 视口高 − 75；「高度」（屏幕横向）同理封顶视口宽 − 75。
@@ -2017,6 +2030,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   align-items: center; justify-content: center;
   transform: rotate(-90deg);
   transform-origin: center;
+  transition: transform .35s cubic-bezier(.4, 0, .2, 1), width .35s cubic-bezier(.4, 0, .2, 1), height .35s cubic-bezier(.4, 0, .2, 1);
 }
 @supports not (height: 100dvh) {
   .card.fs-fake.rot .fs-rotate { width: calc(100vh - 75px); }
