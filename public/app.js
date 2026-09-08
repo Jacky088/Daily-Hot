@@ -2287,12 +2287,21 @@ function rMuyu(_, c, ep) {
 }
 
 // ============ 卡片全屏（2048 / 电子木鱼，EPS 注册项带 fs:1） ============
-// 桌面 / Android 走 Fullscreen API（全屏对象是整张卡片）；iOS Safari 无该 API，
-// 回退 .fs-fake 固定定位模拟全屏。fullscreenchange / 伪全屏两种模式统一由
-// cardFsActive() 判定。手机端进全屏一律先锁竖屏（不跟随系统自动旋转）；
-// ⇄ 旋转按钮：原生全屏走 screen.orientation.lock 真实转屏，方向锁不可用的
-// 浏览器降级伪全屏走 CSS 伪旋转（顺时针转 90° 模拟横屏）；退出时全部还原
-function cardFsEl() { return document.fullscreenElement || document.webkitFullscreenElement; }
+// 桌面 / Android 走 Fullscreen API（全屏对象是整张卡片）；iOS Safari 无该 API、
+// 或全屏请求被拒/挂起（内嵌 WebView）时回退 .fs-fake 固定定位模拟全屏，两种模式
+// 统一由 cardFsActive() 判定。手机端进全屏一律先锁竖屏（不跟随系统自动旋转）；
+// ⇄ 旋转按钮：原生全屏走 screen.orientation.lock 真实转屏（个别 WebView 的 lock
+// Promise 会永久挂起，超时降伪全屏续接 CSS 伪旋转，不让按钮失灵）；退出时
+// （✕/ESC/手势）由 onFsChange 统一还原方向与滚动位置（进入前预记基准——不依赖
+// 方向锁成败，退出后回位并校验停靠）
+function cardFsEl() {
+  // 真实原生全屏元素。现代 API 存在时以其为准：个别 WebView（内嵌 Electron 等）在
+  // 全屏请求挂起期间 webkitFullscreenElement 会残留旧值误报「原生全屏中」，令 ✕/⇄
+  // 走错分支而失灵；仅当 unprefixed API 不存在（老 webkit 浏览器）才采信前缀属性
+  if (document.fullscreenElement) return document.fullscreenElement;
+  if (document.fullscreenElement === undefined && document.webkitFullscreenElement) return document.webkitFullscreenElement;
+  return null;
+}
 
 function cardFsActive(card) {
   return cardFsEl() ? cardFsEl().contains(card) : card.classList.contains('fs-fake');
@@ -2301,59 +2310,136 @@ function cardFsActive(card) {
 // 伪全屏所需 CSS 视口单位（dvh 随地址栏伸缩比 vh 准；不支持时 CSS 内退化 vh）
 function fsVHUnit() { return CSS.supports('height: 1dvh') ? 'dvh' : 'vh'; }
 
-// 进入伪全屏（iOS 无 Fullscreen API / 手机端方向锁不可用降级）。
+// 进入伪全屏（iOS 无 Fullscreen API / 方向锁不可用 / 全屏请求被拒/挂起的兜底）。
 // 伪全屏会临时锁 html 滚动（overflow:hidden），浏览器会把滚动位置重置到 0；
-// 先记下当前位置，退出时恢复，否则用户会被甩回分类顶部
-function fsEnterFake(card) {
+// 先记下当前位置，退出时恢复，否则用户会被甩回分类顶部。
+// prevScrollY：原生全屏降级续接时外部传入「进入原生前」的基准——降级瞬间
+// scrollY 已被全屏钳制，此时读 window.scrollY 是错的。
+// 幂等：看门狗先落伪全屏、全屏请求随后才 reject 时会被再次调用，此时沿用首次
+// 记录的 prevScroller/prevScrollY——否则二次进入把「已锁住的 hidden」当成原值，
+// 退出后页面永久无法滚动
+function fsEnterFake(card, prevScrollY) {
+  const prev = fsState.get(card);
   card.classList.add('fs-fake');
   document.documentElement.classList.add('fs-fake-on');
   fsState.set(card, {
-    rot: false,
-    prevScroller: document.documentElement.style.overflow,
-    prevScrollY: window.scrollY,
+    rot: !!(prev && prev.rot),
+    prevScroller: prev && typeof prev.prevScroller === 'string' ? prev.prevScroller : document.documentElement.style.overflow,
+    prevScrollY: typeof prevScrollY === 'number' ? prevScrollY
+               : (prev && typeof prev.prevScrollY === 'number' ? prev.prevScrollY : window.scrollY),
   });
   document.documentElement.style.overflow = 'hidden'; // 锁背景滚动
   cardFsSync();
   // 默认竖屏布局，是否转横屏完全由用户点 ⇄ 旋转按钮决定
 }
 
-// 原生全屏进入后的方向处理（手机端）：锁竖屏，防止自动旋转 / 横握把全屏带成横屏。
-// 方向锁不可用（部分国产内核）时降级伪全屏——:fullscreen 元素的 UA 样式带
-// transform:none!important，CSS 伪旋转在原生全屏下被封死，伪横屏只有伪全屏承载得了
-function fsAfterNativeEnter(card) {
-  if (!matchMedia('(pointer: coarse)').matches) return; // 桌面无方向问题
-  if (!screen.orientation || typeof screen.orientation.lock !== 'function') {
-    fsDegradeToFake(card, false);
-    return;
+// 当前是否竖屏（screen.orientation 不可用时回退媒体查询）
+function fsIsPortrait() {
+  const t = screen.orientation && screen.orientation.type;
+  if (t) return t.startsWith('portrait');
+  return matchMedia('(orientation: portrait)').matches;
+}
+
+// 原生全屏确认生效后落状态：onFsChange 进入分支已建 {rot,native} 骨架，这里补记滚动基准
+function fsMarkNative(card, prevScrollY) {
+  const el = cardFsEl();
+  if (!el || !el.contains(card)) return; // 全屏未生效（请求失败）：不落状态
+  if (!fsState.has(card)) fsState.set(card, { rot: false, native: true });
+  const st = fsState.get(card);
+  if (st.native && typeof st.prevScrollY !== 'number' && typeof prevScrollY === 'number') {
+    st.prevScrollY = prevScrollY;
   }
+}
+
+// 原生全屏进入后的方向处理（手机端）：锁竖屏，防止自动旋转 / 横握把全屏带成横屏。
+// 滚动基准先落（fsMarkNative）再碰方向锁——个别 WebView 的 lock Promise 永久挂起，
+// 若把基准记录押在锁的回调里，退出全屏将因无基准而无法回位。
+// 锁失败 ≠ 降级：系统开了「竖屏锁定」时 lock 常被拒，但物理上本就竖屏，保持原生
+// 全屏即可（降级会闪一下）；只有「锁不住且当前横屏」才降伪全屏强制竖屏——
+// :fullscreen 元素 UA 样式带 transform:none!important，CSS 伪旋转在原生全屏被封死
+function fsAfterNativeEnter(card, prevScrollY) {
+  const el = cardFsEl();
+  if (!el || !el.contains(card)) { fsEnterFake(card, prevScrollY); return; } // 全屏未生效：伪全屏兜底
+  fsMarkNative(card, prevScrollY); // 先落滚动基准，不依赖方向锁成败
+  if (!matchMedia('(pointer: coarse)').matches) return; // 桌面无方向问题
+  const ori = screen.orientation;
   let p = null;
-  try { p = screen.orientation.lock('portrait'); } catch { p = null; }
-  if (p && p.then) p.catch(() => fsDegradeToFake(card, false));
-  else fsDegradeToFake(card, false);
+  if (ori && typeof ori.lock === 'function') { try { p = ori.lock('portrait'); } catch { p = null; } }
+  if (p && p.then) {
+    let done = false;
+    // 锁悬挂（个别 WebView）：竖屏保持原生全屏即可；横屏才降伪全屏强制竖屏
+    const t = setTimeout(() => {
+      if (done) return;
+      done = true;
+      if (fsIsPortrait()) return;
+      const cur = cardFsEl();
+      if (cur && cur.contains(card)) fsDegradeToFake(card, false, prevScrollY);
+    }, 700);
+    p.then(() => { if (done) return; done = true; clearTimeout(t); })
+     .catch(() => {
+       if (done) return;
+       done = true; clearTimeout(t);
+       if (!fsIsPortrait()) fsDegradeToFake(card, false, prevScrollY);
+     });
+  } else if (fsIsPortrait()) {
+    return; // 锁不可用但已竖屏：保持原生，免降级闪烁
+  } else {
+    fsDegradeToFake(card, false, prevScrollY); // 横屏且锁不住：降伪全屏强制竖屏
+  }
 }
 
 // 原生全屏 → 伪全屏降级（rotAfter：降级后是否直接进伪横屏，供 ⇄ 中途锁失败续接）
-function fsDegradeToFake(card, rotAfter) {
+let fsDegrading = false; // 降级中转标记：onFsChange 退出分支据此跳过滚动恢复
+function fsDegradeToFake(card, rotAfter, prevScrollY) {
+  fsDegrading = true;
+  let done = false;
   const enter = () => {
-    fsEnterFake(card);
+    if (done) return;
+    done = true;
+    fsEnterFake(card, prevScrollY);
     if (rotAfter) fsRotCard(card);
+    fsDegrading = false;
     cardFsSync();
     card.querySelector('.g2048-board')?.focus({ preventScroll: true });
   };
   const el = cardFsEl();
   if (!el || !el.contains(card)) { enter(); return; }
-  if (document.exitFullscreen) document.exitFullscreen().then(enter).catch(enter);
-  else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); setTimeout(enter, 120); }
-  else enter();
+  // 个别 WebView 的 exitFullscreen Promise 永久挂起：350ms 内未退成则强制接管伪全屏，
+  // 否则降级流程卡死（fsDegrading 常驻 true、⇄ 点击无响应）
+  const t = setTimeout(enter, 350);
+  const fin = () => { clearTimeout(t); enter(); };
+  if (document.exitFullscreen) {
+    try {
+      const q = document.exitFullscreen();
+      if (q && q.then) q.then(fin, fin); else fin();
+    } catch { fin(); }
+  } else if (document.webkitExitFullscreen) {
+    document.webkitExitFullscreen();
+    setTimeout(fin, 120);
+  } else fin();
 }
 
 function cardFsToggle(card) {
   if (cardFsActive(card)) { fsExitCard(card); return; }
   const req = card.requestFullscreen || card.webkitRequestFullscreen;
+  // 原生全屏期间元素脱离文档流、文档变矮，scrollY 会被钳制；进入前先记滚动基准
+  const prevY = window.scrollY;
   if (req) {
-    const p = req.call(card);
-    if (p && p.then) p.then(() => fsAfterNativeEnter(card)).catch(() => {});
-    else setTimeout(() => fsAfterNativeEnter(card), 200); // 旧 webkit 无返回值，延时探测
+    let p = null;
+    try { p = req.call(card); } catch { p = null; } // 个别 WebView 同步抛错：视同不可用
+    if (p && p.then) {
+      let settled = false;
+      p.then(() => { settled = true; fsAfterNativeEnter(card, prevY); })
+       .catch(() => { settled = true; fsEnterFake(card, prevY); }); // 请求被拒：伪全屏兜底，不让 ⛶ 失灵
+      // 个别内嵌 WebView 的全屏请求无限挂起（既不成功也不失败）：400ms 内
+      // 无任何进展（无全屏元素、未进伪全屏）则回退伪全屏
+      setTimeout(() => {
+        if (settled || cardFsEl() || card.classList.contains('fs-fake')) return;
+        fsEnterFake(card, prevY);
+      }, 400);
+    } else {
+      setTimeout(() => fsAfterNativeEnter(card, prevY), 200); // 旧 webkit 无返回值，延时探测
+    }
   } else {
     fsEnterFake(card);
   }
@@ -2369,33 +2455,39 @@ function fsExitCard(card) {
     else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
     return;
   }
-  const st = fsState.get(card);
-  if (!st) return;
+  const st = fsState.get(card) || {}; // 状态意外缺失也照常拆类还原，别把用户锁在伪全屏里
   fsRemoveRot(card);
   card.classList.remove('fs-fake');
   document.documentElement.classList.remove('fs-fake-on');
   document.documentElement.style.overflow = st.prevScroller || '';
   fsState.delete(card);
   cardFsSync();
-  // 恢复进入伪全屏前的滚动位置（overflow:hidden 期间浏览器已把位置清零）；
-  // 若布局变化导致原位置不再对准卡片（例如分类切换、内容增删），再兜底定位到卡片本体
-  if (st.prevScrollY) {
-    window.scrollTo({ top: st.prevScrollY, behavior: 'instant' });
-    const dock = (() => {
-      const navEl = document.querySelector('.cat-nav');
-      if (window.innerWidth <= 820) return (navEl ? navEl.getBoundingClientRect().bottom : 0) + 12;
-      const topbar = document.querySelector('.topbar');
-      return (topbar ? topbar.getBoundingClientRect().bottom : 0) + 12;
-    })();
-    if (Math.abs(card.getBoundingClientRect().top - dock) > 60) {
-      card.scrollIntoView({ behavior: 'instant', block: 'start' });
-    }
-  } else {
-    card.scrollIntoView({ behavior: 'instant', block: 'start' });
-  }
+  // 恢复进入前的滚动位置并校验卡片停靠位（overflow:hidden 期间浏览器已把位置清零）
+  fsRestoreScroll(card, st.prevScrollY);
   if (screen.orientation && screen.orientation.unlock) {
     try { screen.orientation.unlock(); } catch {}
   }
+}
+
+// 退出全屏的滚动恢复：先回进入前的 scrollY，再校验卡片是否停靠在 sticky 顶栏/
+// 分类导航下方（偏差 >60px 用 scrollBy 精确补正——scrollIntoView 会把卡片顶到
+// 视口最顶端被 sticky 元素遮住一截，弃用）。verifyOnly：只做停靠校验不回滚
+// （横屏锁退出的二次校验用，避免覆盖用户在补正窗口期内的手动滚动）
+function fsDockTop() {
+  if (window.innerWidth <= 820) {
+    const navEl = document.querySelector('.cat-nav');
+    return (navEl ? navEl.getBoundingClientRect().bottom : 0) + 12;
+  }
+  const topbar = document.querySelector('.topbar');
+  return (topbar ? topbar.getBoundingClientRect().bottom : 0) + 12;
+}
+
+function fsRestoreScroll(card, prevScrollY, verifyOnly) {
+  if (!verifyOnly && typeof prevScrollY === 'number' && prevScrollY >= 0) {
+    window.scrollTo({ top: prevScrollY, behavior: 'instant' });
+  }
+  const delta = card.getBoundingClientRect().top - fsDockTop();
+  if (Math.abs(delta) > 60) window.scrollBy({ top: delta, behavior: 'instant' });
 }
 
 // 竖屏伪全屏 ⇄ 伪横屏：卡片顺时针转 90°（长边贴屏幕高），手势向量由
@@ -2418,8 +2510,8 @@ function fsRotCard(card) {
 
 function fsRemoveRot(card) {
   const st = fsState.get(card);
-  if (!st || !st.rot) return;
-  st.rot = false;
+  if (st) st.rot = false;
+  // 无条件清理类与像素变量：状态缺失时早退会让 .rot 类残留，退出后布局持续歪斜
   card.classList.remove('rot');
   card.style.removeProperty('--vw-px');
   card.style.removeProperty('--vh-px');
@@ -2428,8 +2520,9 @@ function fsRemoveRot(card) {
 }
 
 // ⇄ 旋转按钮：全屏内竖屏⇄横屏手动切换（手机端专属，CSS 控制全屏态显示）。
-// 原生全屏优先 screen.orientation.lock 真实转屏（走系统转屏动画），中途锁失效则
-// 降级伪全屏续接 CSS 伪旋转；伪全屏直接走伪旋转。竖⇄横完全由按钮控制，不跟随物理姿态
+// 原生全屏只有系统方向锁能真实转屏（:fullscreen 的 UA 样式封死 CSS transform，
+// 伪旋转类加了也不显示、还会带歪 2048 手势向量），锁被拒/不可用/挂起一律降伪全屏
+// 续接 CSS 伪旋转；伪全屏直接走伪旋转。竖⇄横完全由按钮控制，不跟随物理姿态
 function fsToggleRot() {
   const el = cardFsEl();
   const card = el ? (el.classList.contains('card') ? el : el.querySelector('.card'))
@@ -2437,18 +2530,36 @@ function fsToggleRot() {
   if (!card) return;
   const st = fsState.get(card);
   const toLandscape = !(st && st.rot);
-  if (el && screen.orientation && typeof screen.orientation.lock === 'function') {
+  const prevY = st && st.prevScrollY;
+  if (el) {
     let p = null;
-    try { p = screen.orientation.lock(toLandscape ? 'landscape' : 'portrait'); } catch { p = null; }
+    if (screen.orientation && typeof screen.orientation.lock === 'function') {
+      try { p = screen.orientation.lock(toLandscape ? 'landscape' : 'portrait'); } catch { p = null; }
+    }
     if (p && p.then) {
+      let done = false;
+      // 个别 WebView 的 lock Promise 永久挂起：超时降伪全屏续接伪旋转，⇄ 不失灵
+      const t = setTimeout(() => {
+        if (done) return;
+        done = true;
+        fsDegradeToFake(card, toLandscape, prevY);
+      }, 800);
       p.then(() => {
+        if (done) return;
+        done = true; clearTimeout(t);
         if (st) st.rot = toLandscape; // 真实转屏成功：仅记忆朝向，不加 .rot 类
         cardFsSync();
-      }).catch(() => fsDegradeToFake(card, toLandscape)); // 中途锁失效：降级续接伪横屏
+      }).catch(() => {
+        if (done) return;
+        done = true; clearTimeout(t);
+        fsDegradeToFake(card, toLandscape, prevY); // 中途锁失效：降级续接伪横屏
+      });
       return;
     }
+    fsDegradeToFake(card, toLandscape, prevY); // 锁不可用：降伪全屏走 CSS 伪旋转
+    return;
   }
-  toLandscape ? fsRotCard(card) : fsRemoveRot(card);
+  toLandscape ? fsRotCard(card) : fsRemoveRot(card); // 伪全屏：CSS 伪旋转
 }
 
 // 全屏状态变化时，同步游戏区内按钮（⛶ 全屏/✕ 退出）文案与右上角 ⇄ 朝向态
@@ -2462,21 +2573,52 @@ function cardFsSync() {
   if (btn) btn.classList.toggle('rot-on', !!(fsState.get(card) && fsState.get(card).rot));
 }
 
-// 原生全屏状态变化：进入时记录状态（⇄ 真实转屏要记忆朝向）；退出时（含 ESC /
-// 系统手势返回，不经 fsExitCard）解锁方向并清理状态
+// 原生全屏状态变化：进入时落状态骨架（基准由 fsMarkNative 补记）；退出时
+// （✕ / ESC / 系统手势返回，不经 fsExitCard）解锁方向并恢复滚动——全屏期间
+// 元素脱离文档流、scrollY 被钳制，退出时浏览器自身的滚动恢复不可靠（Chromium
+// 常见），故等退出处理完、卡片回流的下一帧再恢复
 function onFsChange() {
   const el = cardFsEl();
   if (el) {
     const card = el.classList.contains('card') ? el : el.querySelector('.card');
-    if (card && !fsState.has(card)) fsState.set(card, { rot: false, native: true });
-  } else {
-    let had = false;
-    fsState.forEach((st, card) => {
-      if (st.native) { fsState.delete(card); had = true; }
-    });
-    if (had && screen.orientation && screen.orientation.unlock) {
-      try { screen.orientation.unlock(); } catch {}
+    if (card) {
+      // 看门狗已回退伪全屏后原生全屏才姗姗来迟：升级为原生（体验更好），
+      // 拆掉伪全屏痕迹并沿用其滚动基准/朝向；.rot 必须摘掉——原生全屏下
+      // transform 被 UA 样式封死，留着会错误旋转 2048 的手势向量
+      if (card.classList.contains('fs-fake')) {
+        const fake = fsState.get(card);
+        if (fake && fake.rot) {
+          card.classList.remove('rot');
+          card.style.removeProperty('--vw-px');
+          card.style.removeProperty('--vh-px');
+          card.querySelector('.fs-rotate')?.style.removeProperty('width');
+        }
+        card.classList.remove('fs-fake');
+        document.documentElement.classList.remove('fs-fake-on');
+        document.documentElement.style.overflow = fake ? fake.prevScroller || '' : '';
+        fsState.set(card, { rot: false, native: true, prevScrollY: fake && fake.prevScrollY });
+      } else if (!fsState.has(card)) {
+        fsState.set(card, { rot: false, native: true });
+      }
     }
+    cardFsSync();
+    return;
+  }
+  const restores = [];
+  fsState.forEach((st, card) => {
+    if (st.native) { restores.push({ card, y: st.prevScrollY, rot: st.rot }); fsState.delete(card); }
+  });
+  if (screen.orientation && screen.orientation.unlock) {
+    try { screen.orientation.unlock(); } catch {}
+  }
+  // 降级中转（fsDegrading）时退出事件由降级流程接管，此处不恢复滚动
+  if (!fsDegrading) {
+    restores.forEach(({ card, y, rot }) => {
+      if (!card.isConnected) return;
+      requestAnimationFrame(() => { if (card.isConnected) fsRestoreScroll(card, y); });
+      // 横屏锁下退出：unlock 引发的系统转屏 resize 是异步的，稍后只做停靠校验补正
+      if (rot) setTimeout(() => { if (card.isConnected) fsRestoreScroll(card, y, true); }, 350);
+    });
   }
   cardFsSync();
 }
