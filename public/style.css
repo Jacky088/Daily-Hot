@@ -1927,7 +1927,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 
 /* ============ 卡片全屏（2048 / 电子木鱼，⛶ 按钮） ============ */
 /* ⛶ 与 ✕ 占同一位置：平时只显示 ⛶，全屏时原位互换为 ✕（纯 CSS :fullscreen 驱动）；
-   ⟳ 旋转按钮仅手机端伪全屏可用（原生全屏系统方向自带，桌面无意义） */
+   ⟳ 旋转按钮仅手机端伪全屏可用（原生全屏系统方向自带，桌面无意义），
+   位于 ✕ 与 ↻ 之间，点击在竖屏/横屏布局间切换 */
 .card-actions .btn-fs-exit { display: none; font-size: 13px; font-weight: 700; }
 .card-actions .btn-fs-rot { display: none; font-size: 15px; }
 .card.fs-fake .btn-fs-rot { display: flex; }
@@ -2009,7 +2010,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 
 /* ============ 伪横屏（伪全屏 + 竖屏手机：卡片顺时针转 90°） ============ */
-/* 由 ⟳ 旋转按钮手动切换（默认竖屏）；物理姿态自适应见 fsOrient()。
+/* 由卡片头部 ⟳ 旋转按钮手动切换（默认竖屏），不跟随物理姿态——横屏布局
+   靠 CSS 伪旋转呈现，与系统方向解耦。
    卡片以视口中心为轴转 90°，宽 = 视口高、高 = 视口宽（像素变量由 JS 维护，
    不用 100dvh：旋转中地址栏收放会先改变 width 再触发 resize，dvh 会随之跳变）。
    内层 .fs-rotate 反向转回 90°：宽高在屏幕上互换——「宽度」（屏幕纵向）= 可视高 −
