@@ -1119,8 +1119,9 @@ function makeCard(ep) {
     <div class="card-actions">
       ${ep.noapi ? '' : '<button class="btn-json" title="查看 JSON" aria-label="查看 JSON">{ }</button>'}
       ${ep.fs /* fs:1 卡片恒显示全屏按钮，无 Fullscreen API 时由 cardFsToggle 回退伪全屏；
-                   ⟳ 旋转按钮仅伪全屏（手机端）显示，切换竖屏/横屏布局 */
-        ? '<button class="btn-fs" type="button" title="全屏" aria-label="全屏">⛶</button><button class="btn-fs-exit" type="button" title="退出全屏" aria-label="退出全屏">✕</button><button class="btn-fs-rot" type="button" title="旋转屏幕" aria-label="切换横竖屏">⟳</button>'
+                   ⇄ 旋转按钮手机端全屏显示（伪全屏恒显 / 原生全屏限触屏），切换竖屏/横屏，
+                   勿与 ↻ 刷新按钮混淆 */
+        ? '<button class="btn-fs" type="button" title="全屏" aria-label="全屏">⛶</button><button class="btn-fs-exit" type="button" title="退出全屏" aria-label="退出全屏">✕</button><button class="btn-fs-rot" type="button" title="旋转屏幕" aria-label="切换横竖屏">⇄</button>'
         : ''}
       <button class="btn-refresh" title="刷新" aria-label="刷新数据">↻</button>
     </div>`;
@@ -2287,9 +2288,10 @@ function rMuyu(_, c, ep) {
 
 // ============ 卡片全屏（2048 / 电子木鱼，EPS 注册项带 fs:1） ============
 // 桌面 / Android 走 Fullscreen API（全屏对象是整张卡片）；iOS Safari 无该 API，
-// 回退 .fs-fake 固定定位模拟全屏。fullscreenchange / fs-fakechange 两种模式统一由
-// cardFsActive() 判定。伪全屏 + 竖屏时进入 .rot 伪横屏（顺时针转 90°，模拟横向手机），
-// Android 上额外申请 screen.orientation.lock('landscape')；退出时全部还原
+// 回退 .fs-fake 固定定位模拟全屏。fullscreenchange / 伪全屏两种模式统一由
+// cardFsActive() 判定。手机端进全屏一律先锁竖屏（不跟随系统自动旋转）；
+// ⇄ 旋转按钮：原生全屏走 screen.orientation.lock 真实转屏，方向锁不可用的
+// 浏览器降级伪全屏走 CSS 伪旋转（顺时针转 90° 模拟横屏）；退出时全部还原
 function cardFsEl() { return document.fullscreenElement || document.webkitFullscreenElement; }
 
 function cardFsActive(card) {
@@ -2299,24 +2301,61 @@ function cardFsActive(card) {
 // 伪全屏所需 CSS 视口单位（dvh 随地址栏伸缩比 vh 准；不支持时 CSS 内退化 vh）
 function fsVHUnit() { return CSS.supports('height: 1dvh') ? 'dvh' : 'vh'; }
 
+// 进入伪全屏（iOS 无 Fullscreen API / 手机端方向锁不可用降级）。
+// 伪全屏会临时锁 html 滚动（overflow:hidden），浏览器会把滚动位置重置到 0；
+// 先记下当前位置，退出时恢复，否则用户会被甩回分类顶部
+function fsEnterFake(card) {
+  card.classList.add('fs-fake');
+  document.documentElement.classList.add('fs-fake-on');
+  fsState.set(card, {
+    rot: false,
+    prevScroller: document.documentElement.style.overflow,
+    prevScrollY: window.scrollY,
+  });
+  document.documentElement.style.overflow = 'hidden'; // 锁背景滚动
+  cardFsSync();
+  // 默认竖屏布局，是否转横屏完全由用户点 ⇄ 旋转按钮决定
+}
+
+// 原生全屏进入后的方向处理（手机端）：锁竖屏，防止自动旋转 / 横握把全屏带成横屏。
+// 方向锁不可用（部分国产内核）时降级伪全屏——:fullscreen 元素的 UA 样式带
+// transform:none!important，CSS 伪旋转在原生全屏下被封死，伪横屏只有伪全屏承载得了
+function fsAfterNativeEnter(card) {
+  if (!matchMedia('(pointer: coarse)').matches) return; // 桌面无方向问题
+  if (!screen.orientation || typeof screen.orientation.lock !== 'function') {
+    fsDegradeToFake(card, false);
+    return;
+  }
+  let p = null;
+  try { p = screen.orientation.lock('portrait'); } catch { p = null; }
+  if (p && p.then) p.catch(() => fsDegradeToFake(card, false));
+  else fsDegradeToFake(card, false);
+}
+
+// 原生全屏 → 伪全屏降级（rotAfter：降级后是否直接进伪横屏，供 ⇄ 中途锁失败续接）
+function fsDegradeToFake(card, rotAfter) {
+  const enter = () => {
+    fsEnterFake(card);
+    if (rotAfter) fsRotCard(card);
+    cardFsSync();
+    card.querySelector('.g2048-board')?.focus({ preventScroll: true });
+  };
+  const el = cardFsEl();
+  if (!el || !el.contains(card)) { enter(); return; }
+  if (document.exitFullscreen) document.exitFullscreen().then(enter).catch(enter);
+  else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); setTimeout(enter, 120); }
+  else enter();
+}
+
 function cardFsToggle(card) {
   if (cardFsActive(card)) { fsExitCard(card); return; }
   const req = card.requestFullscreen || card.webkitRequestFullscreen;
   if (req) {
     const p = req.call(card);
-    if (p && p.catch) p.catch(() => {});
+    if (p && p.then) p.then(() => fsAfterNativeEnter(card)).catch(() => {});
+    else setTimeout(() => fsAfterNativeEnter(card), 200); // 旧 webkit 无返回值，延时探测
   } else {
-    // 伪全屏会临时锁 html 滚动（overflow:hidden），浏览器会把滚动位置重置到 0；
-    // 先记下当前位置，退出时恢复，否则用户会被甩回分类顶部
-    card.classList.add('fs-fake');
-    document.documentElement.classList.add('fs-fake-on');
-    fsState.set(card, {
-      rot: false,
-      prevScroller: document.documentElement.style.overflow,
-      prevScrollY: window.scrollY,
-    });
-    document.documentElement.style.overflow = 'hidden'; // 锁背景滚动
-    // 默认竖屏布局，是否转横屏完全由用户点 ⟳ 旋转按钮决定
+    fsEnterFake(card);
   }
   // 进入后聚焦棋盘（若有）：方向键无需先点一下
   setTimeout(() => { card.querySelector('.g2048-board')?.focus({ preventScroll: true }); }, 60);
@@ -2324,6 +2363,8 @@ function cardFsToggle(card) {
 
 function fsExitCard(card) {
   if (cardFsEl()) {
+    // 原生全屏退出：状态清理与方向解锁由 fullscreenchange → onFsChange 统一处理
+    // （ESC / 系统手势退出不走这里，也靠 onFsChange 兜底）
     if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
     else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
     return;
@@ -2386,22 +2427,61 @@ function fsRemoveRot(card) {
   cardFsSync();
 }
 
-// 旋转按钮：伪全屏内竖屏⇄横屏手动切换（手机端专属，CSS 控制仅 .fs-fake 显示）。
-// 竖⇄横完全由按钮控制，不跟随物理姿态——横屏布局靠 CSS 伪旋转呈现，与系统方向解耦
+// ⇄ 旋转按钮：全屏内竖屏⇄横屏手动切换（手机端专属，CSS 控制全屏态显示）。
+// 原生全屏优先 screen.orientation.lock 真实转屏（走系统转屏动画），中途锁失效则
+// 降级伪全屏续接 CSS 伪旋转；伪全屏直接走伪旋转。竖⇄横完全由按钮控制，不跟随物理姿态
 function fsToggleRot() {
-  const fake = document.querySelector('.card.fs-fake');
-  if (!fake) return;
-  if (fake.classList.contains('rot')) fsRemoveRot(fake);
-  else fsRotCard(fake);
+  const el = cardFsEl();
+  const card = el ? (el.classList.contains('card') ? el : el.querySelector('.card'))
+                  : document.querySelector('.card.fs-fake');
+  if (!card) return;
+  const st = fsState.get(card);
+  const toLandscape = !(st && st.rot);
+  if (el && screen.orientation && typeof screen.orientation.lock === 'function') {
+    let p = null;
+    try { p = screen.orientation.lock(toLandscape ? 'landscape' : 'portrait'); } catch { p = null; }
+    if (p && p.then) {
+      p.then(() => {
+        if (st) st.rot = toLandscape; // 真实转屏成功：仅记忆朝向，不加 .rot 类
+        cardFsSync();
+      }).catch(() => fsDegradeToFake(card, toLandscape)); // 中途锁失效：降级续接伪横屏
+      return;
+    }
+  }
+  toLandscape ? fsRotCard(card) : fsRemoveRot(card);
 }
 
-// 全屏状态变化时，同步卡片头部（⛶/✕）与游戏区内按钮（⛶ 全屏/✕ 退出）的文案
+// 全屏状态变化时，同步游戏区内按钮（⛶ 全屏/✕ 退出）文案与右上角 ⇄ 朝向态
 function cardFsSync() {
-  const label = cardFsEl() || document.querySelector('.card.fs-fake') ? '✕ 退出' : '⛶ 全屏';
+  const el = cardFsEl();
+  const card = el ? (el.classList.contains('card') ? el : el.querySelector('.card'))
+                  : document.querySelector('.card.fs-fake');
+  const label = card ? '✕ 退出' : '⛶ 全屏';
   document.querySelectorAll('[data-g2048-fs], [data-muyu-fs]').forEach(b => { b.textContent = label; });
+  const btn = card && card.querySelector('.btn-fs-rot');
+  if (btn) btn.classList.toggle('rot-on', !!(fsState.get(card) && fsState.get(card).rot));
 }
-document.addEventListener('fullscreenchange', cardFsSync);
-document.addEventListener('webkitfullscreenchange', cardFsSync);
+
+// 原生全屏状态变化：进入时记录状态（⇄ 真实转屏要记忆朝向）；退出时（含 ESC /
+// 系统手势返回，不经 fsExitCard）解锁方向并清理状态
+function onFsChange() {
+  const el = cardFsEl();
+  if (el) {
+    const card = el.classList.contains('card') ? el : el.querySelector('.card');
+    if (card && !fsState.has(card)) fsState.set(card, { rot: false, native: true });
+  } else {
+    let had = false;
+    fsState.forEach((st, card) => {
+      if (st.native) { fsState.delete(card); had = true; }
+    });
+    if (had && screen.orientation && screen.orientation.unlock) {
+      try { screen.orientation.unlock(); } catch {}
+    }
+  }
+  cardFsSync();
+}
+document.addEventListener('fullscreenchange', onFsChange);
+document.addEventListener('webkitfullscreenchange', onFsChange);
 
 // 视口尺寸变化时刷新伪横屏像素基准（地址栏收起/展开不触发方向事件，需单独监听）
 function fsResize() {
@@ -2413,7 +2493,7 @@ function fsResize() {
 window.addEventListener('resize', fsResize);
 
 // 全屏按钮统一入口：卡片头部 ⛶/✕ 与游戏区内按钮都走这里；
-// 卡片头部 ⟳ 旋转按钮仅伪全屏可见，点击在竖屏/横屏布局间切换
+// 卡片头部 ⇄ 旋转按钮手机端全屏可见，点击在竖屏/横屏布局间切换（↻ 刷新不在此列）
 document.addEventListener('click', e => {
   if (e.target.closest('.btn-fs-rot')) { fsToggleRot(); return; }
   const fsBtn = e.target.closest('.btn-fs, .btn-fs-exit, [data-g2048-fs], [data-muyu-fs]');
