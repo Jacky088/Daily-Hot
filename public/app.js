@@ -69,7 +69,7 @@ const CATS = [
   { id: 'trans', name: '📚 学习工具' },
 ];
 
-// type: news|list|kv|obj|text|json|qr|color|palette|pwd|fanyi|lyric|hash|weather|weatherfc|fuel|gold|lunar|calendar|bing|epic|steam|ncm|maoyan|moyu|whois|js|exchange|hist|ainews|kuan|36kr|reddit|game2048
+// type: news|list|kv|obj|text|json|qr|color|palette|pwd|fanyi|lyric|hash|weather|weatherfc|fuel|gold|lunar|calendar|bing|epic|steam|ncm|maoyan|moyu|whois|js|exchange|hist|ainews|kuan|36kr|reddit|game2048|muyu
 const EPS = [
   // 新闻
   // span:2 锚点卡片，桌面端跨两列（移动端单列回退，见 style.css 媒体查询）
@@ -164,7 +164,8 @@ const EPS = [
   // { cat:'fun', id:'luck', name:'今日运势', icon:'🍀', path:'/v2/luck', type:'kv', auto:1, keys:[['luck_desc','综合运势'],['luck_rank','运势指数'],['luck_tip','今日提示']] },
   { cat:'fun', id:'geng', name:'梗百科', icon:'🎭', path:'/v2/geng', type:'geng', auto:1 },
   { cat:'fun', id:'answer', name:'答案之书', icon:'📖', path:'/v2/answer', type:'answer', auto:1, hint:'心中默念你的问题，点击 ↻ 揭晓答案' },
-  { cat:'fun', id:'g2048', name:'2048', icon:'🎮', path:'', type:'game2048', auto:1, noapi:1, hint:'拖拽 / 滑动 / 方向键或 WASD 移动合并，凑出 2048' },
+  { cat:'fun', id:'g2048', name:'2048', icon:'🎮', path:'', type:'game2048', auto:1, noapi:1, fs:1, hint:'拖拽 / 滑动 / 方向键或 WASD 移动合并，凑出 2048' },
+  { cat:'fun', id:'muyu', name:'电子木鱼', icon:'🥁', path:'', type:'muyu', auto:1, noapi:1, fs:1, hint:'点击木鱼敲击，功德 +1，连续敲击自动计数' },
   { cat:'fun', id:'bing', name:'必应壁纸', icon:'🖼️', path:'/v2/bing', type:'bing', auto:1 },
   { cat:'fun', id:'awjs', name:'JS题目', icon:'🧩', path:'/v2/awesome-js', type:'js', auto:1 },
 
@@ -1117,6 +1118,9 @@ function makeCard(ep) {
   head.innerHTML = `<div class="card-title"><span class="icon">${ep.icon}</span>${ep.name}</div>
     <div class="card-actions">
       ${ep.noapi ? '' : '<button class="btn-json" title="查看 JSON" aria-label="查看 JSON">{ }</button>'}
+      ${ep.fs /* fs:1 卡片恒显示全屏按钮，无 Fullscreen API 时由 cardFsToggle 回退伪全屏 */
+        ? '<button class="btn-fs" type="button" title="全屏" aria-label="全屏">⛶</button><button class="btn-fs-exit" type="button" title="退出全屏" aria-label="退出全屏">✕</button>'
+        : ''}
       <button class="btn-refresh" title="刷新" aria-label="刷新数据">↻</button>
     </div>`;
   card.appendChild(head);
@@ -1562,7 +1566,7 @@ function renderData(ep, d, c) {
     'maoyan-movie': rMaoyanMovie,
     'baidu-show': rBaiduShow,
     baike: rBaike, health: rHealth, geng: rGeng, 'daily-eng': rDailyEng, simkl: rSimkl,
-    ip: rIP, pwdchk: rPwdChk, calendar: rCalendar, game2048: rGame2048,
+    ip: rIP, pwdchk: rPwdChk, calendar: rCalendar, game2048: rGame2048, muyu: rMuyu,
   }[ep.type] || rJSON;
   fn(d, c, ep);
 }
@@ -1863,10 +1867,12 @@ function rGame2048(_, c, ep) {
   const st = g2048New(id);
 
   c.innerHTML = `<div class="g2048" data-g2048="${id}">
+    <div class="fs-rotate">
     <div class="g2048-main">
       <div class="g2048-side">
         <div class="g2048-scorebox"><span>分数</span><b class="g-sv">0</b></div>
         <div class="g2048-scorebox"><span>最高</span><b class="g-bv">${st.best}</b></div>
+        <button class="g2048-btn" type="button" data-g2048-fs="${id}">⛶ 全屏</button>
         <button class="g2048-btn" type="button" data-g2048-undo="${id}">↶ 撤销</button>
         <button class="g2048-btn" type="button" data-g2048-new="${id}">↻ 重开</button>
       </div>
@@ -1878,10 +1884,11 @@ function rGame2048(_, c, ep) {
         <div class="g2048-over" hidden></div>
       </div>
     </div>
+    </div>
   </div>`;
   g2048Paint(id);
   g2048Bind(id);
-  // 打开即聚焦：方向键无需先点一下棋盘
+  cardFsSync(); // 全屏中刷新重渲后，同步侧栏全屏按钮文案  // 打开即聚焦：方向键无需先点一下棋盘
   const b = wrap2048Board(id);
   if (b) b.focus({ preventScroll: true });
 }
@@ -1974,7 +1981,9 @@ function g2048Bind(id) {
   });
   wrap.addEventListener('pointermove', e => {
     if (!tracking || fired) return;
-    const dx = e.clientX - sx, dy = e.clientY - sy;
+    let dx = e.clientX - sx, dy = e.clientY - sy;
+    // 伪横屏（卡片 CSS 转 90°）：物理右滑 = 棋盘上方滑动，向量旋回棋盘坐标再判向
+    if (wrap.closest('.rot')) { const tx = dx; dx = -dy; dy = tx; }
     // 阈值随棋盘宽度缩放（约 8%），小屏不迟钝、大屏不误触
     const th = Math.max(18, board.clientWidth * 0.08);
     if (Math.abs(dx) < th && Math.abs(dy) < th) return;
@@ -1993,6 +2002,7 @@ function g2048Bind(id) {
 }
 
 document.addEventListener('click', e => {
+  // （游戏区内 ⛶/✕ 全屏按钮由底部统一入口处理，这里只管其余按钮）
   const newBtn = e.target.closest('[data-g2048-new]');
   if (newBtn) {
     const id = newBtn.dataset.g2048New;
@@ -2010,6 +2020,386 @@ document.addEventListener('click', e => {
     const st = g2048[id];
     if (st) { st.wonAck = true; g2048Paint(id); }
   }
+});
+
+// ============ 电子木鱼（纯前端，noapi） ============
+// 点击敲击：木槌下摆 + 木鱼受击挤压回弹 + 功德飘字 + 金色涟漪 + Web Audio 合成木鱼声；
+// 功德总数 localStorage 持久化，重置按钮清零；音效静音状态同样持久化
+const muyu = {};
+let muyuActx = null;
+// 卡片伪全屏状态表（card → { rot, prevScroller }），Fullscreen API 模式不需要
+const fsState = new Map();
+
+// 木鱼造型（内联 SVG，现代扁平拟物风）：圆润团鱼形木鱼坐于红木锦垫上——
+// 单一暖木色球面渐变 + 一圈车削高光环 + 顶部音槽与侧腹螺旋雕纹，干净不喧宾；
+// 右上为木质圆棒槌，四周藏四颗受击时依次弹出的金星。
+// .my-fish / .my-mallet / .my-spark 供 CSS 做受击挤压、挥槌与金星动画；槌尾支点保持 (322,36)，
+// viewBox 高宽比 260/360 不变（全屏布局按此反推宽度）
+const MY_BODY =
+  'M 58,148 C 56,100 98,62 152,62 C 206,62 246,98 246,148 C 246,188 208,216 152,216 C 96,216 60,190 58,148 Z';
+const MUYU_SVG = `<svg class="muyu-svg" viewBox="0 0 360 260" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <radialGradient id="myBody" cx="38%" cy="26%" r="85%">
+      <stop offset="0%" stop-color="#f7dcae"/>
+      <stop offset="38%" stop-color="#e8b77c"/>
+      <stop offset="72%" stop-color="#d0913f"/>
+      <stop offset="100%" stop-color="#a96c2b"/>
+    </radialGradient>
+    <radialGradient id="myBounce" cx="50%" cy="100%" r="65%">
+      <stop offset="0%" stop-color="rgba(255,130,95,.26)"/>
+      <stop offset="100%" stop-color="rgba(255,130,95,0)"/>
+    </radialGradient>
+    <radialGradient id="mySheen" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="rgba(255,244,222,.5)"/>
+      <stop offset="100%" stop-color="rgba(255,244,222,0)"/>
+    </radialGradient>
+    <linearGradient id="mySlot" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1c0a02"/>
+      <stop offset="100%" stop-color="#4a2408"/>
+    </linearGradient>
+    <radialGradient id="myCushTop" cx="50%" cy="34%" r="75%">
+      <stop offset="0%" stop-color="#c9503f"/>
+      <stop offset="60%" stop-color="#b03a2c"/>
+      <stop offset="100%" stop-color="#8c2a1f"/>
+    </radialGradient>
+    <linearGradient id="myCushSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8c2a1f"/>
+      <stop offset="100%" stop-color="#5e1811"/>
+    </linearGradient>
+    <linearGradient id="myHead" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f3cd94"/>
+      <stop offset="100%" stop-color="#c98e4b"/>
+    </linearGradient>
+    <linearGradient id="myStick" gradientUnits="userSpaceOnUse" x1="278" y1="42" x2="282" y2="52">
+      <stop offset="0%" stop-color="#eec28a"/>
+      <stop offset="100%" stop-color="#a06a30"/>
+    </linearGradient>
+    <radialGradient id="myShadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="rgba(20,8,2,.35)"/>
+      <stop offset="100%" stop-color="rgba(20,8,2,0)"/>
+    </radialGradient>
+    <filter id="myBlur2"><feGaussianBlur stdDeviation="2"/></filter>
+    <filter id="myBlur5"><feGaussianBlur stdDeviation="5"/></filter>
+    <clipPath id="myClip"><path d="${MY_BODY}"/></clipPath>
+  </defs>
+
+  <!-- 落地阴影 -->
+  <ellipse cx="152" cy="236" rx="120" ry="12" fill="url(#myShadow)"/>
+  <ellipse cx="152" cy="229" rx="84" ry="8" fill="rgba(15,6,2,.3)" filter="url(#myBlur2)"/>
+
+  <!-- 红木锦垫 -->
+  <g>
+    <ellipse cx="150" cy="217" rx="104" ry="24" fill="url(#myCushSide)"/>
+    <ellipse cx="150" cy="206" rx="104" ry="24" fill="url(#myCushTop)"/>
+    <ellipse cx="150" cy="200" rx="86" ry="16" fill="rgba(255,255,255,.06)"/>
+    <ellipse cx="150" cy="206" rx="104" ry="24" fill="none" stroke="rgba(246,211,122,.5)" stroke-width="2.5"/>
+    <ellipse cx="150" cy="206" rx="90" ry="20" fill="none" stroke="rgba(0,0,0,.14)" stroke-width="1.5"/>
+    <ellipse cx="152" cy="212" rx="70" ry="13" fill="rgba(30,8,4,.45)" filter="url(#myBlur5)"/>
+  </g>
+
+  <g class="my-fish">
+    <path d="${MY_BODY}" fill="url(#myBody)"/>
+    <g clip-path="url(#myClip)">
+      <ellipse cx="118" cy="102" rx="54" ry="38" fill="url(#mySheen)" transform="rotate(-26 118 102)"/>
+      <ellipse cx="110" cy="90" rx="13" ry="6.5" fill="rgba(255,250,238,.65)" transform="rotate(-30 110 90)" filter="url(#myBlur2)"/>
+      <ellipse cx="152" cy="146" rx="88" ry="70" fill="none" stroke="rgba(255,238,205,.14)" stroke-width="5" filter="url(#myBlur2)"/>
+      <ellipse cx="150" cy="238" rx="112" ry="58" fill="url(#myBounce)"/>
+      <path d="${MY_BODY}" fill="none" stroke="rgba(90,45,12,.45)" stroke-width="12" filter="url(#myBlur5)"/>
+      <ellipse cx="150" cy="216" rx="72" ry="12" fill="rgba(60,20,4,.4)" filter="url(#myBlur5)"/>
+    </g>
+    <path d="${MY_BODY}" fill="none" stroke="rgba(122,74,26,.6)" stroke-width="2"/>
+
+    <!-- 音槽 -->
+    <path d="M 146,73 C 148,95 148.5,112 152.5,126 C 154.5,133 160.5,133 162,126 C 165,112 165,95 166,73 C 160,69 152,69 146,73 Z" fill="url(#mySlot)"/>
+    <path d="M 146,73 C 152,69 160,69 166,73" fill="none" stroke="rgba(255,226,178,.5)" stroke-width="2" stroke-linecap="round"/>
+    <path d="M 148,76 C 150,98 150.5,114 154,126" fill="none" stroke="rgba(255,180,110,.3)" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M 164.5,76 C 163.5,98 163,114 160,125" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="1.8" stroke-linecap="round"/>
+
+    <!-- 侧腹螺旋雕纹 -->
+    <path d="M 216,170 A 24,24 0 0 1 168,170 A 20,20 0 0 1 208,170 A 16,16 0 0 1 176,170 A 12,12 0 0 1 200,170 A 8,8 0 0 1 190,170" fill="none" stroke="rgba(104,56,16,.4)" stroke-width="5" stroke-linecap="round"/>
+    <path d="M 215,168 A 24,24 0 0 1 167,168" fill="none" stroke="rgba(255,230,190,.18)" stroke-width="2" stroke-linecap="round"/>
+  </g>
+
+  <!-- 受击金星（CSS .hit 时依次弹出） -->
+  <g class="my-sparks">
+    <g transform="translate(86,60)"><path class="my-spark s1" d="M 0,-7 C 1,-2 2,-1 7,0 C 2,1 1,2 0,7 C -1,2 -2,1 -7,0 C -2,-1 -1,-2 0,-7 Z"/></g>
+    <g transform="translate(268,82) scale(.8)"><path class="my-spark s2" d="M 0,-7 C 1,-2 2,-1 7,0 C 2,1 1,2 0,7 C -1,2 -2,1 -7,0 C -2,-1 -1,-2 0,-7 Z"/></g>
+    <g transform="translate(258,190) scale(.65)"><path class="my-spark s3" d="M 0,-7 C 1,-2 2,-1 7,0 C 2,1 1,2 0,7 C -1,2 -2,1 -7,0 C -2,-1 -1,-2 0,-7 Z"/></g>
+    <g transform="translate(48,178) scale(.7)"><path class="my-spark s4" d="M 0,-7 C 1,-2 2,-1 7,0 C 2,1 1,2 0,7 C -1,2 -2,1 -7,0 C -2,-1 -1,-2 0,-7 Z"/></g>
+  </g>
+
+  <g class="my-mallet">
+    <path d="M 322,36 L 240,53" stroke="url(#myStick)" stroke-width="10" stroke-linecap="round"/>
+    <path d="M 318,33 L 244,50" stroke="rgba(255,240,214,.35)" stroke-width="2.4" stroke-linecap="round"/>
+    <g transform="rotate(-12 226 56)">
+      <rect x="198" y="42" width="52" height="28" rx="14" fill="url(#myHead)" stroke="rgba(110,60,18,.45)" stroke-width="1.2"/>
+      <path d="M 208,48 C 220,44.5 236,44.5 246,48" fill="none" stroke="rgba(255,244,222,.55)" stroke-width="3.2" stroke-linecap="round" filter="url(#myBlur2)"/>
+      <ellipse cx="204" cy="56" rx="4.5" ry="11.5" fill="rgba(150,95,40,.3)"/>
+    </g>
+    <circle cx="322" cy="36" r="5" fill="#a06a30"/>
+    <circle cx="322" cy="36" r="2.2" fill="rgba(255,232,196,.55)"/>
+    <path d="M 318.5,31.5 L 315.5,41.5 M 314.5,33 L 311.5,43 M 310.5,34.5 L 307.5,44.5" stroke="rgba(110,60,18,.5)" stroke-width="1.8" stroke-linecap="round"/>
+  </g>
+</svg>`;
+
+// 合成木鱼声：中频音体（频率快速下滑的"咚"）+ 低频腔体余韵 + 高频短噪声（木质感"嗒"），
+// 每次敲击音高轻微随机，避免连击时的机械感
+function muyuKnock() {
+  try {
+    muyuActx = muyuActx || new (window.AudioContext || window.webkitAudioContext)();
+    if (muyuActx.state === 'suspended') muyuActx.resume();
+    const t = muyuActx.currentTime;
+    const dt = 0.94 + Math.random() * 0.12;
+    const out = muyuActx.createGain();
+    out.gain.value = 0.9;
+    out.connect(muyuActx.destination);
+
+    const osc = muyuActx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(920 * dt, t);
+    osc.frequency.exponentialRampToValueAtTime(480 * dt, t + 0.08);
+    const g1 = muyuActx.createGain();
+    g1.gain.setValueAtTime(0.55, t);
+    g1.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+    osc.connect(g1).connect(out);
+    osc.start(t); osc.stop(t + 0.16);
+
+    const o2 = muyuActx.createOscillator();
+    o2.type = 'sine';
+    o2.frequency.setValueAtTime(185 * dt, t);
+    const g2 = muyuActx.createGain();
+    g2.gain.setValueAtTime(0.3, t);
+    g2.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+    o2.connect(g2).connect(out);
+    o2.start(t); o2.stop(t + 0.3);
+
+    const len = Math.floor(muyuActx.sampleRate * 0.03);
+    const buf = muyuActx.createBuffer(1, len, muyuActx.sampleRate);
+    const ch = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const noise = muyuActx.createBufferSource();
+    noise.buffer = buf;
+    const bp = muyuActx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 2100 * dt;
+    bp.Q.value = 1.2;
+    const g3 = muyuActx.createGain();
+    g3.gain.setValueAtTime(0.5, t);
+    g3.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+    noise.connect(bp).connect(g3).connect(out);
+    noise.start(t);
+  } catch {}
+}
+
+function muyuPaint(id) {
+  const el = document.querySelector(`[data-muyu="${id}"]`);
+  const st = muyu[id];
+  if (!el || !st) return;
+  el.querySelector('.m-count').textContent = st.count.toLocaleString('zh-CN');
+  el.querySelector('.m-combo-b').textContent = st.combo > 1 ? `×${st.combo}` : '—';
+}
+
+function muyuStrike(id) {
+  const st = muyu[id];
+  const el = document.querySelector(`[data-muyu="${id}"]`);
+  if (!st || !el) return;
+  st.count++;
+  const now = Date.now();
+  st.combo = now - st.lastHit < 1400 ? st.combo + 1 : 1;
+  st.lastHit = now;
+  try { localStorage.setItem('muyu-merit', String(st.count)); } catch {}
+
+  // 挥槌 + 挤压动画（重触发：移除类 → 强制回流 → 加回，连点每次都重播）
+  const svg = el.querySelector('.muyu-svg');
+  svg.classList.remove('hit');
+  void el.offsetWidth;
+  svg.classList.add('hit');
+
+  // 功德飘字（位置在木鱼上方，横向轻微随机）
+  const stage = el.querySelector('.muyu-stage');
+  const add = document.createElement('span');
+  add.className = 'm-add';
+  add.textContent = '功德 +1';
+  add.style.left = 42 + Math.random() * 16 + '%';
+  stage.appendChild(add);
+  add.addEventListener('animationend', () => add.remove());
+
+  // 敲击点金色涟漪
+  const rip = document.createElement('span');
+  rip.className = 'm-rip';
+  stage.appendChild(rip);
+  rip.addEventListener('animationend', () => rip.remove());
+
+  if (!st.mute) muyuKnock();
+  muyuPaint(id);
+}
+
+function rMuyu(_, c, ep) {
+  const id = ep.id;
+  let saved = 0, mute = false;
+  try { saved = parseInt(localStorage.getItem('muyu-merit'), 10) || 0; } catch {}
+  try { mute = localStorage.getItem('muyu-mute') === '1'; } catch {}
+  muyu[id] = { count: saved, combo: 0, lastHit: 0, mute };
+
+  c.innerHTML = `<div class="muyu" data-muyu="${id}">
+    <div class="fs-rotate">
+    <div class="muyu-main">
+      <div class="muyu-side">
+        <div class="muyu-scorebox"><span>功德</span><b class="m-count">${saved.toLocaleString('zh-CN')}</b></div>
+        <div class="muyu-scorebox"><span>连击</span><b class="m-combo-b">—</b></div>
+        <button class="muyu-btn mt" type="button" data-muyu-mute="${id}">${mute ? '🔇 静音中' : '🔊 音效'}</button>
+        <button class="muyu-btn" type="button" data-muyu-reset="${id}">↻ 重置</button>
+        <button class="muyu-btn" type="button" data-muyu-fs="${id}">⛶ 全屏</button>
+      </div>
+      <div class="muyu-stage" role="button" tabindex="0" aria-label="敲击木鱼，功德加一">
+        ${MUYU_SVG}
+      </div>
+    </div>
+    </div>
+  </div>`;
+
+  const el = c.querySelector(`[data-muyu="${id}"]`);
+  const stage = el.querySelector('.muyu-stage');
+  stage.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    stage.focus({ preventScroll: true });
+    muyuStrike(id);
+  });
+  stage.addEventListener('keydown', e => {
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); muyuStrike(id); }
+  });
+  el.querySelector('[data-muyu-reset]').onclick = () => {
+    const st = muyu[id];
+    st.count = 0; st.combo = 0; st.lastHit = 0;
+    try { localStorage.setItem('muyu-merit', '0'); } catch {}
+    muyuPaint(id);
+  };
+  // （data-muyu-fs 全屏按钮由底部统一点击入口处理）
+  cardFsSync(); // 全屏中刷新重渲后，同步侧栏全屏按钮文案
+  el.querySelector('[data-muyu-mute]').onclick = ev => {
+    const st = muyu[id];
+    st.mute = !st.mute;
+    try { localStorage.setItem('muyu-mute', st.mute ? '1' : '0'); } catch {}
+    ev.currentTarget.textContent = st.mute ? '🔇 静音中' : '🔊 音效';
+  };
+}
+
+// ============ 卡片全屏（2048 / 电子木鱼，EPS 注册项带 fs:1） ============
+// 桌面 / Android 走 Fullscreen API（全屏对象是整张卡片）；iOS Safari 无该 API，
+// 回退 .fs-fake 固定定位模拟全屏。fullscreenchange / fs-fakechange 两种模式统一由
+// cardFsActive() 判定。伪全屏 + 竖屏时进入 .rot 伪横屏（顺时针转 90°，模拟横向手机），
+// Android 上额外申请 screen.orientation.lock('landscape')；退出时全部还原
+function cardFsEl() { return document.fullscreenElement || document.webkitFullscreenElement; }
+
+function cardFsActive(card) {
+  return cardFsEl() ? cardFsEl().contains(card) : card.classList.contains('fs-fake');
+}
+
+// 伪全屏所需 CSS 视口单位（dvh 随地址栏伸缩比 vh 准；不支持时 CSS 内退化 vh）
+function fsVHUnit() { return CSS.supports('height: 1dvh') ? 'dvh' : 'vh'; }
+
+function cardFsToggle(card) {
+  if (cardFsActive(card)) { fsExitCard(card); return; }
+  const req = card.requestFullscreen || card.webkitRequestFullscreen;
+  if (req) {
+    const p = req.call(card);
+    if (p && p.catch) p.catch(() => {});
+  } else {
+    card.classList.add('fs-fake');
+    document.documentElement.classList.add('fs-fake-on');
+    fsState.set(card, { rot: false, prevScroller: document.documentElement.style.overflow });
+    document.documentElement.style.overflow = 'hidden'; // 锁背景滚动
+    fsOrient(); // 竖屏（手机）→ 立即进入伪横屏
+  }
+  // Android：伪横屏顺带锁定系统方向（iOS Safari 不支持，静默失败）
+  const o = screen.orientation;
+  if (o && o.lock) { try { const r = o.lock('landscape'); r && r.catch && r.catch(() => {}); } catch {} }
+  // 进入后聚焦棋盘（若有）：方向键无需先点一下
+  setTimeout(() => { card.querySelector('.g2048-board')?.focus({ preventScroll: true }); }, 60);
+}
+
+function fsExitCard(card) {
+  if (cardFsEl()) {
+    if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    return;
+  }
+  const st = fsState.get(card);
+  if (!st) return;
+  fsRemoveRot(card);
+  card.classList.remove('fs-fake');
+  document.documentElement.classList.remove('fs-fake-on');
+  document.documentElement.style.overflow = st.prevScroller || '';
+  fsState.delete(card);
+  cardFsSync();
+  if (screen.orientation && screen.orientation.unlock) {
+    try { screen.orientation.unlock(); } catch {}
+  }
+}
+
+// 竖屏 + 伪全屏：进入伪横屏——卡片顺时针转 90°（长边贴屏幕高），手势向量由
+// g2048Bind 里 rot 因子旋回棋盘坐标；内层宽度按「旋转后的可视高度」用像素变量反推
+// （不用 100dvh：旋转中地址栏收放会先改变 width 再触发 resize，dvh 会随之跳变）
+function fsRotCard(card) {
+  const st = fsState.get(card);
+  if (!st || st.rot) return;
+  st.rot = true;
+  const u = fsVHUnit();
+  card.classList.add('rot');
+  card.style.setProperty('--vw-px', window.innerWidth + 'px');
+  card.style.setProperty('--vh-px', window.innerHeight + 'px');
+  // 伪横屏内层宽 = 可用视口高 − 头部/内边距（与 .fs-fake.rot .fs-rotate 的 CSS 缺省一致）
+  const ro = card.querySelector('.fs-rotate');
+  if (ro) ro.style.width = `calc(100${u} - 75px)`;
+  cardFsSync();
+}
+
+function fsRemoveRot(card) {
+  card.classList.remove('rot');
+  card.style.removeProperty('--vw-px');
+  card.style.removeProperty('--vh-px');
+  card.querySelector('.fs-rotate')?.style.removeProperty('width');
+  cardFsSync();
+}
+
+// 全屏状态变化时，同步卡片头部（⛶/✕）与游戏区内按钮（⛶ 全屏/✕ 退出）的文案
+function cardFsSync() {
+  const label = cardFsEl() || document.querySelector('.card.fs-fake') ? '✕ 退出' : '⛶ 全屏';
+  document.querySelectorAll('[data-g2048-fs], [data-muyu-fs]').forEach(b => { b.textContent = label; });
+}
+document.addEventListener('fullscreenchange', cardFsSync);
+document.addEventListener('webkitfullscreenchange', cardFsSync);
+
+// 视口尺寸变化时刷新伪横屏像素基准（地址栏收起/展开不触发方向事件，需单独监听）
+function fsResize() {
+  const fake = document.querySelector('.card.fs-fake.rot');
+  if (!fake) return;
+  fake.style.setProperty('--vw-px', window.innerWidth + 'px');
+  fake.style.setProperty('--vh-px', window.innerHeight + 'px');
+}
+window.addEventListener('resize', fsResize);
+
+// 旋转方向变化时，伪全屏卡片进出伪横屏（仅竖屏时转；横屏系统本身即是横屏布局）
+function fsOrient() {
+  const fake = document.querySelector('.card.fs-fake');
+  if (!fake) return;
+  const portrait = window.matchMedia('(orientation: portrait)').matches;
+  if (portrait && !fake.classList.contains('rot')) fsRotCard(fake);
+  else if (!portrait) fsRemoveRot(fake);
+}
+window.addEventListener('orientationchange', fsOrient);
+if (window.matchMedia) {
+  try { matchMedia('(orientation: portrait)').addEventListener('change', fsOrient); } catch {
+    try { matchMedia('(orientation: portrait)').addListener(fsOrient); } catch {}
+  }
+}
+
+// 全屏按钮统一入口：卡片头部 ⛶/✕ 与游戏区内按钮都走这里
+document.addEventListener('click', e => {
+  const fsBtn = e.target.closest('.btn-fs, .btn-fs-exit, [data-g2048-fs], [data-muyu-fs]');
+  if (!fsBtn) return;
+  const card = fsBtn.closest('.card');
+  if (card) cardFsToggle(card);
 });
 
 function rDouban(d, c) {

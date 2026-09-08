@@ -1733,7 +1733,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
    margin-top 与卡片顶部 hint 提示条隔开，避免两个 accent-bg 色块视觉粘连 */
 .g2048-main { display: flex; align-items: stretch; gap: 8px; width: min(100%, 460px); margin: 10px auto 0; }
 .g2048-side { display: flex; flex-direction: column; gap: 8px; width: 84px; flex-shrink: 0; }
-.g2048-side [data-g2048-undo] { margin-top: auto; } /* 分数在上、按钮贴底 */
+.g2048-side [data-g2048-fs] { margin-top: auto; } /* 分数在上、全屏/撤销/重开按钮贴底 */
 .g2048-scorebox {
   position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 8px 4px; border-radius: 8px; background: var(--accent-bg);
@@ -1838,3 +1838,196 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   .g2048-main { gap: 6px; }
   .g2048-scorebox b { font-size: 14px; }
 }
+
+/* ============ 电子木鱼（趣味内容 / muyu） ============ */
+/* 结构：muyu-main 左侧计分/按钮 + 右侧 muyu-stage（点击区，内嵌 SVG 木鱼）；
+   动画全在 SVG 内：.my-mallet 绕柄尾挥摆，.my-fish 受击挤压回弹，.my-spark 金星弹出 */
+.muyu { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.muyu-main { display: flex; align-items: stretch; gap: 8px; width: min(100%, 460px); margin: 10px auto 0; }
+.muyu-side { display: flex; flex-direction: column; gap: 8px; width: 84px; flex-shrink: 0; }
+.muyu-btn.mt { margin-top: auto; }
+.muyu-scorebox {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 8px 4px; border-radius: 8px; background: var(--accent-bg);
+  font-size: 11px; color: var(--text-dim); line-height: 1.3; white-space: nowrap;
+}
+.muyu-scorebox b { font-size: 16px; color: var(--text); }
+.muyu-btn {
+  padding: 7px 4px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--card); color: var(--text); font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.muyu-btn:hover { border-color: var(--accent); color: var(--accent-light); }
+/* 点击区：touch-action:manipulation 防移动端双击缩放，保证连点跟手 */
+.muyu-stage {
+  position: relative; flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center;
+  touch-action: manipulation; cursor: pointer; border-radius: 12px;
+  background: var(--bg); border: 1px solid var(--border); outline: none;
+}
+.muyu-stage:focus-visible { border-color: var(--accent); }
+.muyu-svg { width: 100%; max-width: 350px; height: auto; display: block; }
+/* 挥槌：绕柄尾（SVG 内 322,36）快速下摆触鱼后回弹 */
+.muyu-svg .my-mallet { transform-box: view-box; transform-origin: 322px 36px; }
+.muyu-svg.hit .my-mallet { animation: my-swing .26s cubic-bezier(.36, .07, .19, .97); }
+@keyframes my-swing {
+  0% { transform: rotate(0deg); }
+  32% { transform: rotate(-17deg); }
+  55% { transform: rotate(-15deg); }
+  100% { transform: rotate(0deg); }
+}
+/* 受击挤压：木鱼以底部为支点压扁再弹性回弹（squash & stretch） */
+.muyu-svg .my-fish { transform-box: fill-box; transform-origin: 50% 100%; }
+.muyu-svg.hit .my-fish { animation: my-squash .32s cubic-bezier(.22, 1.6, .36, 1); }
+@keyframes my-squash {
+  0% { transform: scale(1, 1); }
+  35% { transform: scale(1.05, .94); }
+  70% { transform: scale(.985, 1.015); }
+  100% { transform: scale(1, 1); }
+}
+/* 受击金星：默认隐藏，敲击时从木鱼四周依次弹出并淡出 */
+.muyu-svg .my-spark { opacity: 0; transform-box: fill-box; transform-origin: center; }
+.muyu-svg.hit .my-spark { animation: my-spark .5s ease-out backwards; }
+.muyu-svg.hit .my-spark.s2 { animation-delay: .05s; }
+.muyu-svg.hit .my-spark.s3 { animation-delay: .1s; }
+.muyu-svg.hit .my-spark.s4 { animation-delay: .15s; }
+@keyframes my-spark {
+  0% { opacity: 0; transform: scale(.2) rotate(0deg); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.15) rotate(40deg); }
+}
+/* 功德飘字：自木鱼上方浮起淡出 */
+.m-add {
+  position: absolute; top: 12%; transform: translateX(-50%);
+  font-size: 15px; font-weight: 700; color: #d8a24a; white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .3); pointer-events: none;
+  animation: my-add .9s ease-out forwards;
+}
+@keyframes my-add {
+  0% { opacity: 0; transform: translate(-50%, 10px); }
+  18% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -30px); }
+}
+/* 敲击点金色涟漪：落在槌头触鱼位置（约 67%, 37%） */
+.m-rip {
+  position: absolute; left: 67%; top: 37%; width: 22px; height: 22px; margin: -11px 0 0 -11px;
+  border-radius: 50%; border: 2px solid rgba(245, 195, 100, .85); pointer-events: none;
+  animation: my-rip .55s ease-out forwards;
+}
+@keyframes my-rip {
+  from { transform: scale(.6); opacity: .9; }
+  to { transform: scale(4.6); opacity: 0; }
+}
+@media (max-width: 480px) {
+  .muyu-side { width: 68px; gap: 6px; }
+  .muyu-main { gap: 6px; }
+  .muyu-scorebox b { font-size: 14px; }
+  .m-add { font-size: 13px; }
+}
+
+/* ============ 卡片全屏（2048 / 电子木鱼，⛶ 按钮） ============ */
+/* ⛶ 与 ✕ 占同一位置：平时只显示 ⛶，全屏时原位互换为 ✕（纯 CSS :fullscreen 驱动） */
+.card-actions .btn-fs-exit { display: none; font-size: 13px; font-weight: 700; }
+/* 全屏通用精简（原生 :fullscreen 与伪全屏共用）：只保留游戏本体 + 侧栏菜单，
+   右上角只留 ✕ 退出与 ↻ 刷新；标题、{ }、💡提示条一律隐藏 */
+.card:fullscreen .card-title, .card.fs-fake .card-title,
+.card:fullscreen .btn-json, .card.fs-fake .btn-json,
+.card:fullscreen .card-body > .news-tip, .card.fs-fake .card-body > .news-tip {
+  display: none;
+}
+/* 标题隐藏后头部只剩操作按钮，靠右放置 */
+.card:fullscreen .card-head, .card.fs-fake .card-head { justify-content: flex-end; }
+/* 头部预算 = 按钮 28 + 上下内边距 22 ≈ 50 */
+.card:fullscreen .card-head, .card.fs-fake .card-head { padding-block: 11px; }
+.card:fullscreen {
+  display: flex; flex-direction: column;
+  width: 100vw; height: 100vh; max-height: none;
+  border-radius: 0; border: none; animation: none;
+  background: var(--bg); overflow: hidden;
+}
+.card:fullscreen .btn-fs { display: none; }
+.card:fullscreen .btn-fs-exit { display: flex; }
+.card:fullscreen .card-head { flex-shrink: 0; }
+/* 全屏内容区：去掉限高，flex 纵向布局 */
+.card:fullscreen .card-body {
+  max-height: none; overflow: auto;
+  display: flex; flex-direction: column; align-items: stretch;
+}
+/* 游戏主体（content 容器）占满行宽，auto margin 垂直居中——
+   溢出时 auto margin 自动归零退化为顶对齐滚动，不会裁掉上半部分 */
+.card:fullscreen .card-body > [id^='content-'] { width: 100%; margin-block: auto; }
+/* 放开非全屏时对内部主体的 460px 限宽，让游戏区吃满上面的宽度约束 */
+.card:fullscreen .g2048-main, .card:fullscreen .muyu-main { width: 100%; }
+/* 2048：棋盘随视口放大；棋盘为正方形，宽度同时受视口高度约束防止纵向溢出
+   （预算 = 头部 51 + 上下内边距 20 + 主体 margin 10 ≈ 81，留少量余量） */
+.card:fullscreen .g2048 { width: min(100%, 860px, calc(100vh - 90px)); margin-inline: auto; }
+/* 木鱼：整体加宽；viewBox 高宽比 260/360 ≈ 0.72，宽度按可用高度反推 */
+.card:fullscreen .muyu { width: min(100%, 760px, calc((100vh - 110px) / 0.72)); margin-inline: auto; }
+.card:fullscreen .muyu-svg { max-width: none; }
+/* 移动端用 svh 避开手机浏览器地址栏高度误差 */
+@supports (height: 100svh) {
+  .card:fullscreen .g2048 { width: min(100%, 860px, calc(100svh - 90px)); }
+  .card:fullscreen .muyu { width: min(100%, 760px, calc((100svh - 110px) / 0.72)); }
+}
+
+/* ============ 伪全屏（iOS Safari 无 Fullscreen API 的回退） ============ */
+/* 卡片固定铺满视口，视觉与 :fullscreen 一致；html.fs-fake-on 锁背景滚动。
+   高度用 100dvh 随地址栏伸缩（不支持的老浏览器退化 100vh） */
+.card.fs-fake {
+  position: fixed; inset: 0; z-index: 999;
+  width: 100vw; max-width: none; height: 100dvh; max-height: none;
+  border-radius: 0; border: none; animation: none;
+  background: var(--bg); overflow: hidden;
+  display: flex; flex-direction: column;
+}
+@supports not (height: 100dvh) { .card.fs-fake { height: 100vh; } }
+.card.fs-fake .btn-fs { display: none; }
+.card.fs-fake .btn-fs-exit { display: flex; }
+.card.fs-fake .card-head { flex-shrink: 0; }
+.card.fs-fake .card-body {
+  max-height: none; overflow: auto;
+  display: flex; flex-direction: column; align-items: stretch;
+}
+.card.fs-fake .card-body > [id^='content-'] { width: 100%; margin-block: auto; }
+.card.fs-fake .g2048-main, .card.fs-fake .muyu-main { width: 100%; }
+.card.fs-fake .g2048 { width: min(100%, 860px, calc(100dvh - 90px)); margin-inline: auto; }
+.card.fs-fake .muyu { width: min(100%, 760px, calc((100dvh - 110px) / 0.72)); margin-inline: auto; }
+.card.fs-fake .muyu-svg { max-width: none; }
+@supports not (height: 100dvh) {
+  .card.fs-fake .g2048 { width: min(100%, 860px, calc(100vh - 90px)); }
+  .card.fs-fake .muyu { width: min(100%, 760px, calc((100vh - 110px) / 0.72)); }
+}
+
+/* ============ 伪横屏（伪全屏 + 竖屏手机：卡片顺时针转 90°） ============ */
+/* 卡片以视口中心为轴转 90°，宽 = 视口高、高 = 视口宽（像素变量由 JS 维护，
+   不用 100dvh：旋转中地址栏收放会先改变 width 再触发 resize，dvh 会随之跳变）。
+   内层 .fs-rotate 反向转回 90°：宽高在屏幕上互换——「宽度」（屏幕纵向）= 可视高 −
+   头部 51 − 上下内边距 20 ≈ 视口高 − 75；「高度」（屏幕横向）同理封顶视口宽 − 75。
+   旋转包围盒会把 transform 溢出计进 scrollHeight，故 .g2048/.muyu 裁掉包围盒空白，
+   否则 auto 垂直居中失效、内容整体偏向头部一侧 */
+.card.fs-fake.rot {
+  width: var(--vh-px, 100vh); height: var(--vw-px, 100vw);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) rotate(90deg);
+  transform-origin: center;
+}
+.card.fs-fake.rot .fs-rotate {
+  width: calc(100dvh - 75px); max-width: none;
+  height: calc(100vw - 75px);
+  margin-inline: auto;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  transform: rotate(-90deg);
+  transform-origin: center;
+}
+@supports not (height: 100dvh) {
+  .card.fs-fake.rot .fs-rotate { width: calc(100vh - 75px); }
+}
+/* 伪横屏下游戏主体双向封顶（局部宽 = 屏幕横向尺寸，必须 ≤ 视口宽预算），
+   由 flex 居中；overflow:hidden 裁 transform 旋转包围盒，防撑出滚动破坏居中 */
+.card.fs-fake.rot .g2048, .card.fs-fake.rot .muyu {
+  width: 100%; margin: 0; overflow: hidden;
+}
+.card.fs-fake.rot .g2048-main, .card.fs-fake.rot .muyu-main {
+  width: min(100%, calc(var(--vw-px, 100vw) - 75px));
+  margin: 0 auto;
+}
+.card.fs-fake.rot .muyu-svg { max-width: none; }
