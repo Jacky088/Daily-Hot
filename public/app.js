@@ -1125,7 +1125,7 @@ function makeCard(ep) {
         : ''}
       <button class="btn-refresh" title="刷新" aria-label="刷新数据">↻</button>
     </div>`;
-  card.appendChild(head);
+  // head 的挂载点在函数末尾：fs:1 卡片会连同 body 一起包进 .fs-unit 旋转单元
 
   const body = document.createElement('div');
   body.className = 'card-body';
@@ -1250,7 +1250,19 @@ function makeCard(ep) {
   content.innerHTML = ep.auto ? SKELETON_HTML : placeholder;
   body.appendChild(content);
 
-  card.appendChild(body);
+  // fs:1 卡片（2048/木鱼）：头部（✕/⇄/↻）与内容区同包进 .fs-unit 旋转单元——
+  // 全屏竖⇄横时整个单元（含按钮）一起转，按钮永远在「当前布局」的右上角；
+  // 非全屏时该单元是普通静态容器，无任何视觉影响
+  if (ep.fs) {
+    const unit = document.createElement('div');
+    unit.className = 'fs-unit';
+    unit.appendChild(head);
+    unit.appendChild(body);
+    card.appendChild(unit);
+  } else {
+    card.appendChild(head);
+    card.appendChild(body);
+  }
   card.querySelector('.btn-refresh').onclick = () => load(ep, true);
   const jsonBtn = card.querySelector('.btn-json');
   if (jsonBtn) jsonBtn.onclick = () => toggleJson(ep);
@@ -1869,7 +1881,6 @@ function rGame2048(_, c, ep) {
   const st = g2048New(id);
 
   c.innerHTML = `<div class="g2048" data-g2048="${id}">
-    <div class="fs-rotate">
     <div class="g2048-main">
       <div class="g2048-side">
         <div class="g2048-scorebox"><span>分数</span><b class="g-sv">0</b></div>
@@ -1885,7 +1896,6 @@ function rGame2048(_, c, ep) {
         </div>
         <div class="g2048-over" hidden></div>
       </div>
-    </div>
     </div>
   </div>`;
   g2048Paint(id);
@@ -1984,8 +1994,12 @@ function g2048Bind(id) {
   wrap.addEventListener('pointermove', e => {
     if (!tracking || fired) return;
     let dx = e.clientX - sx, dy = e.clientY - sy;
-    // 伪横屏（卡片 CSS 转 90°）：物理右滑 = 棋盘上方滑动，向量旋回棋盘坐标再判向
-    if (wrap.closest('.rot')) { const tx = dx; dx = -dy; dy = tx; }
+    // 伪旋转布局（.fs-unit 转 -90° 横屏 / +90° 竖屏补偿）：物理滑动向量按单元
+    // 旋转角旋回棋盘坐标再判向。单元 -90°（.rot-l）时物理右滑 = 棋盘上滑：
+    // 向量旋 +90°（tx=dx; dx=-dy; dy=tx）
+    const unit = wrap.closest('.fs-unit');
+    if (unit && unit.classList.contains('rot-l')) { const tx = dx; dx = -dy; dy = tx; }
+    else if (unit && unit.classList.contains('rot-p')) { const ty = dy; dy = -dx; dx = ty; }
     // 阈值随棋盘宽度缩放（约 8%），小屏不迟钝、大屏不误触
     const th = Math.max(18, board.clientWidth * 0.08);
     if (Math.abs(dx) < th && Math.abs(dy) < th) return;
@@ -2244,7 +2258,6 @@ function rMuyu(_, c, ep) {
   muyu[id] = { count: saved, combo: 0, lastHit: 0, mute };
 
   c.innerHTML = `<div class="muyu" data-muyu="${id}">
-    <div class="fs-rotate">
     <div class="muyu-main">
       <div class="muyu-side">
         <div class="muyu-scorebox"><span>功德</span><b class="m-count">${saved.toLocaleString('zh-CN')}</b></div>
@@ -2256,7 +2269,6 @@ function rMuyu(_, c, ep) {
       <div class="muyu-stage" role="button" tabindex="0" aria-label="敲击木鱼，功德加一">
         ${MUYU_SVG}
       </div>
-    </div>
     </div>
   </div>`;
 
@@ -2290,11 +2302,13 @@ function rMuyu(_, c, ep) {
 // 桌面 / Android 走 Fullscreen API（全屏对象是整张卡片）；iOS Safari 无该 API、
 // 或全屏请求被拒/挂起（内嵌 WebView）时回退 .fs-fake 固定定位模拟全屏，两种模式
 // 统一由 cardFsActive() 判定。
-// 竖⇄横完全由 ⇄ 按钮控制，且只旋转全屏内的 .fs-rotate 内层容器——不碰
-// screen.orientation.lock：部分浏览器（MIUI 系等）进全屏会自作主张转横屏且
-// 不服从 JS 方向锁，围绕方向锁的「锁失败降级伪全屏」链路会与 fullscreenchange
-// 竞态，导致全屏丢失、按钮错位。UA 样式的 transform:none!important 只封锁
-// :fullscreen 元素本体，内层子元素可自由旋转，全屏状态全程不丢。
+// 竖⇄横完全由 ⇄ 按钮控制，旋转的是 .fs-unit 旋转单元（card-head + card-body 的
+// 整体包裹层）——✕/⇄/↻ 按钮随单元一起转，永远落在「当前布局」的右上角。
+// 不碰 screen.orientation.lock：部分浏览器（MIUI 系等）进全屏会自作主张转横屏且
+// 不服从 JS 方向锁。UA 样式的 transform:none!important 只封锁 :fullscreen 元素
+// 本体，内层 .fs-unit 子元素可自由旋转，全屏状态全程不丢。
+// 「竖屏」语义 = 界面布局方向与手机 upright 一致：视口若被浏览器自转成横屏
+// （宽>高），进入全屏时把整个单元反向转 90°，等于把被偷走的竖屏转回来。
 // 退出（✕/ESC/手势）由 onFsChange 统一还原滚动位置（进入前预记基准）
 function cardFsEl() {
   // 真实原生全屏元素。现代 API 存在时以其为准：个别 WebView（内嵌 Electron 等）在
@@ -2309,9 +2323,6 @@ function cardFsActive(card) {
   return cardFsEl() ? cardFsEl().contains(card) : card.classList.contains('fs-fake');
 }
 
-// 伪全屏所需 CSS 视口单位（dvh 随地址栏伸缩比 vh 准；不支持时 CSS 内退化 vh）
-function fsVHUnit() { return CSS.supports('height: 1dvh') ? 'dvh' : 'vh'; }
-
 // 进入伪全屏（iOS 无 Fullscreen API / 全屏请求被拒/挂起的兜底）。
 // 伪全屏会临时锁 html 滚动（overflow:hidden），浏览器会把滚动位置重置到 0；
 // 先记下当前位置，退出时恢复，否则用户会被甩回分类顶部。
@@ -2325,27 +2336,28 @@ function fsEnterFake(card, prevScrollY) {
   card.classList.add('fs-fake');
   document.documentElement.classList.add('fs-fake-on');
   fsState.set(card, {
-    rot: !!(prev && prev.rot),
+    layout: prev && prev.layout === 'landscape' ? 'landscape' : 'portrait',
     prevScroller: prev && typeof prev.prevScroller === 'string' ? prev.prevScroller : document.documentElement.style.overflow,
     prevScrollY: typeof prevScrollY === 'number' ? prevScrollY
                : (prev && typeof prev.prevScrollY === 'number' ? prev.prevScrollY : window.scrollY),
   });
   document.documentElement.style.overflow = 'hidden'; // 锁背景滚动
+  applyFsRot(card);
   cardFsSync();
-  // 默认竖屏布局，是否转横屏完全由用户点 ⇄ 旋转按钮决定
 }
 
-// 原生全屏确认生效后落状态：onFsChange 进入分支已建 {rot,native} 骨架，这里补记滚动基准。
-// 不碰方向锁：浏览器进全屏若自转横屏（视频式全屏行为），以横屏为初始态即可——
-// ⇄ 按钮旋转的是内层容器，横屏初始态下点 ⇄ 转回竖屏，逻辑自洽
+// 原生全屏确认生效后落状态：onFsChange 进入分支已建 {layout,native} 骨架，这里补记滚动基准。
+// 初始布局 = 竖屏（浏览文字类信息的最自然方向）；若视口被浏览器自转成横屏，
+// CSS/applyFsRot 会反向旋转 .fs-unit 把竖屏布局转回来
 function fsMarkNative(card, prevScrollY) {
   const el = cardFsEl();
   if (!el || !el.contains(card)) return; // 全屏未生效（请求失败）：不落状态
-  if (!fsState.has(card)) fsState.set(card, { rot: false, native: true });
+  if (!fsState.has(card)) fsState.set(card, { layout: 'portrait', native: true });
   const st = fsState.get(card);
   if (st.native && typeof st.prevScrollY !== 'number' && typeof prevScrollY === 'number') {
     st.prevScrollY = prevScrollY;
   }
+  applyFsRot(card);
 }
 
 function cardFsToggle(card) {
@@ -2385,7 +2397,7 @@ function fsExitCard(card) {
     return;
   }
   const st = fsState.get(card) || {}; // 状态意外缺失也照常拆类还原，别把用户锁在伪全屏里
-  fsRemoveRot(card);
+  fsClearRot(card);
   card.classList.remove('fs-fake');
   document.documentElement.classList.remove('fs-fake-on');
   document.documentElement.style.overflow = st.prevScroller || '';
@@ -2416,47 +2428,41 @@ function fsRestoreScroll(card, prevScrollY, verifyOnly) {
   if (Math.abs(delta) > 60) window.scrollBy({ top: delta, behavior: 'instant' });
 }
 
-// 竖屏 ⇄ 横屏：旋转全屏内的 .fs-rotate 内层容器（原生全屏与伪全屏通用）。
-// UA 样式的 transform:none!important 只封锁 :fullscreen 元素本体，内层子元素
-// 可自由旋转——全屏状态全程不丢，✕/⇄/↻ 按钮恒在。
-// 手势向量由 g2048Bind 里 rot 因子旋回棋盘坐标；内层宽度按「旋转后的可视高度」
-// 用像素变量反推（不用 100dvh：旋转中地址栏收放会先改变 width 再触发 resize，
-// dvh 会随之跳变）。过渡动画由 CSS transition 承担
-function fsRotCard(card) {
+// 把状态里的 layout 落到 DOM：给卡片挂 .rot-l / .rot-p（CSS 据此旋转 .fs-unit）。
+// 命名含义：横屏布局转 -90°（逆时针，顶部倒向左侧）→ .rot-l；
+// 「竖屏布局但视口是横的」（MIUI 自转）→ .rot-p 反向补偿转 +90°。
+// 像素变量供 CSS 计算旋转后单元的宽高（不用 vh/vw 直接参与 transform 尺寸：
+// 地址栏收放会先改变可用尺寸再触发 resize，实时单位会随之跳变）
+function applyFsRot(card) {
   const st = fsState.get(card);
-  if (!st || st.rot) return;
-  st.rot = true;
-  const u = fsVHUnit();
-  card.classList.add('rot');
+  const layout = st && st.layout === 'landscape' ? 'landscape'
+               : (st && st.layout === 'portrait' ? 'portrait' : null);
+  if (!layout) return;
+  card.classList.toggle('rot-l', layout === 'landscape');
+  card.classList.toggle('rot-p', layout === 'portrait' && window.innerWidth > window.innerHeight);
   card.style.setProperty('--vw-px', window.innerWidth + 'px');
   card.style.setProperty('--vh-px', window.innerHeight + 'px');
-  // 伪横屏内层宽 = 可用视口高 − 头部/内边距（与 .rot .fs-rotate 的 CSS 缺省一致）
-  const ro = card.querySelector('.fs-rotate');
-  if (ro) ro.style.width = `calc(100${u} - 75px)`;
   cardFsSync();
 }
 
-function fsRemoveRot(card) {
-  const st = fsState.get(card);
-  if (st) st.rot = false;
-  // 无条件清理类与像素变量：状态缺失时早退会让 .rot 类残留，退出后布局持续歪斜
-  card.classList.remove('rot');
+// 清掉旋转态：类与像素变量无条件清理（状态缺失也清理，防残留布局歪斜）
+function fsClearRot(card) {
+  card.classList.remove('rot-l', 'rot-p');
   card.style.removeProperty('--vw-px');
   card.style.removeProperty('--vh-px');
-  card.querySelector('.fs-rotate')?.style.removeProperty('width');
-  cardFsSync();
 }
 
 // ⇄ 旋转按钮：全屏内竖屏⇄横屏手动切换（手机端专属，CSS 控制全屏态显示）。
-// 只旋转内层 .fs-rotate，原生全屏/伪全屏同一路径，全屏状态恒保持
+// 旋转 .fs-unit 整层（头部按钮 + 游戏区一起），原生全屏/伪全屏同一路径
 function fsToggleRot() {
   const el = cardFsEl();
   const card = el ? (el.classList.contains('card') ? el : el.querySelector('.card'))
                   : document.querySelector('.card.fs-fake');
   if (!card) return;
   const st = fsState.get(card);
-  if (st && st.rot) fsRemoveRot(card);
-  else fsRotCard(card);
+  if (!st) return;
+  st.layout = st.layout === 'landscape' ? 'portrait' : 'landscape';
+  applyFsRot(card);
 }
 
 // 全屏状态变化时，同步游戏区内按钮（⛶ 全屏/✕ 退出）文案与右上角 ⇄ 朝向态
@@ -2467,59 +2473,64 @@ function cardFsSync() {
   const label = card ? '✕ 退出' : '⛶ 全屏';
   document.querySelectorAll('[data-g2048-fs], [data-muyu-fs]').forEach(b => { b.textContent = label; });
   const btn = card && card.querySelector('.btn-fs-rot');
-  if (btn) btn.classList.toggle('rot-on', !!(fsState.get(card) && fsState.get(card).rot));
+  if (btn) btn.classList.toggle('rot-on', !!(card && card.classList.contains('rot-l')));
 }
 
 // 原生全屏状态变化：进入时落状态骨架（基准由 fsMarkNative 补记）；退出时
 // （✕ / ESC / 系统手势返回，不经 fsExitCard）恢复滚动——全屏期间元素脱离文档流、
 // scrollY 被钳制，退出时浏览器自身的滚动恢复不可靠（Chromium 常见），故等退出
-// 处理完、卡片回流的下一帧再恢复。退出时必须摘掉 .rot：旋转规则作用于内层
-// .fs-rotate，留着会让非全屏卡片内容歪 90°
+// 处理完、卡片回流的下一帧再恢复。退出时必须摘掉旋转类：旋转规则作用于内层
+// .fs-unit，留着会让非全屏卡片内容歪 90°
 function onFsChange() {
   const el = cardFsEl();
   if (el) {
     const card = el.classList.contains('card') ? el : el.querySelector('.card');
     if (card) {
       // 看门狗已回退伪全屏后原生全屏才姗姗来迟：升级为原生（体验更好），
-      // 拆掉伪全屏痕迹并沿用其滚动基准/旋转态
+      // 拆掉伪全屏痕迹并沿用其滚动基准/布局态
       if (card.classList.contains('fs-fake')) {
         const fake = fsState.get(card);
         card.classList.remove('fs-fake');
         document.documentElement.classList.remove('fs-fake-on');
         document.documentElement.style.overflow = fake ? fake.prevScroller || '' : '';
-        fsState.set(card, { rot: !!(fake && fake.rot), native: true, prevScrollY: fake && fake.prevScrollY });
+        fsState.set(card, {
+          layout: fake && fake.layout === 'landscape' ? 'landscape' : 'portrait',
+          native: true, prevScrollY: fake && fake.prevScrollY,
+        });
       } else if (!fsState.has(card)) {
-        fsState.set(card, { rot: false, native: true });
+        fsState.set(card, { layout: 'portrait', native: true });
       }
+      applyFsRot(card);
     }
     cardFsSync();
     return;
   }
   const restores = [];
   fsState.forEach((st, card) => {
-    if (st.native) { restores.push({ card, y: st.prevScrollY, rot: st.rot }); fsState.delete(card); }
+    if (st.native) { restores.push({ card, y: st.prevScrollY, landscape: st.layout === 'landscape' }); fsState.delete(card); }
   });
-  restores.forEach(({ card, rot }) => {
-    // .rot 的旋转规则针对内层 .fs-rotate，非全屏态必须摘掉，否则卡片内容歪 90°
-    if (rot) fsRemoveRot(card);
+  restores.forEach(({ card }) => {
+    // 旋转类作用于内层 .fs-unit，非全屏态必须摘掉，否则卡片内容歪 90°
+    fsClearRot(card);
   });
-  restores.forEach(({ card, y, rot }) => {
+  restores.forEach(({ card, y, landscape }) => {
     if (!card.isConnected) return;
     requestAnimationFrame(() => { if (card.isConnected) fsRestoreScroll(card, y); });
     // 横屏态退出：内容旋回引发的回流是同步的，稍后只做停靠校验补正
-    if (rot) setTimeout(() => { if (card.isConnected) fsRestoreScroll(card, y, true); }, 350);
+    if (landscape) setTimeout(() => { if (card.isConnected) fsRestoreScroll(card, y, true); }, 350);
   });
   cardFsSync();
 }
 document.addEventListener('fullscreenchange', onFsChange);
 document.addEventListener('webkitfullscreenchange', onFsChange);
 
-// 视口尺寸变化时刷新伪横屏像素基准（地址栏收起/展开不触发方向事件，需单独监听）
+// 视口尺寸变化时刷新旋转像素基准，并按「宽>高 = 视口横放」重估竖屏补偿
+// （MIUI 自转发生在进全屏瞬间，此后地址栏收放只改高度，方向不变，无需翻转布局）
 function fsResize() {
-  const fake = document.querySelector('.card.fs-fake.rot');
-  if (!fake) return;
-  fake.style.setProperty('--vw-px', window.innerWidth + 'px');
-  fake.style.setProperty('--vh-px', window.innerHeight + 'px');
+  const rot = document.querySelector('.card.fs-fake.rot-l, .card.fs-fake.rot-p, :fullscreen .fs-unit')?.closest('.card');
+  if (!rot) return;
+  rot.style.setProperty('--vw-px', window.innerWidth + 'px');
+  rot.style.setProperty('--vh-px', window.innerHeight + 'px');
 }
 window.addEventListener('resize', fsResize);
 
