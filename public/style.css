@@ -1927,9 +1927,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 
 /* ============ 卡片全屏（2048 / 电子木鱼，⛶ 按钮） ============ */
 /* ⛶ 与 ✕ 占同一位置：平时只显示 ⛶，全屏时原位互换为 ✕（纯 CSS :fullscreen 驱动）；
-   ⇄ 旋转按钮（勿与 ↻ 刷新混淆）手机端全屏可用：伪全屏恒显（CSS 伪旋转），
-   原生全屏限触屏显示（screen.orientation.lock 真实转屏；锁不可用者已被
-   JS 降级伪全屏，不会停留在原生全屏）。位于 ✕ 与 ↻ 之间，点击切换竖屏/横屏 */
+   ⇄ 旋转按钮（勿与 ↻ 刷新混淆）手机端全屏可用：伪全屏恒显，原生全屏限触屏显示。
+   位于 ✕ 与 ↻ 之间，点击切换竖屏/横屏（旋转内层 .fs-rotate，全屏状态不丢） */
 .card-actions .btn-fs-exit { display: none; font-size: 13px; font-weight: 700; }
 .card-actions .btn-fs-rot {
   display: none; font-size: 15px;
@@ -2018,28 +2017,31 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   .card.fs-fake .muyu { width: min(100%, 760px, calc((100vh - 110px) / 0.72)); }
 }
 
-/* ============ 伪横屏（伪全屏 + 竖屏手机：卡片顺时针转 90°） ============ */
-/* 由卡片头部 ⇄ 旋转按钮手动切换（默认竖屏），不跟随物理姿态——横屏布局
-   靠 CSS 伪旋转呈现，与系统方向解耦。
-   卡片以视口中心为轴转 90°，宽 = 视口高、高 = 视口宽（像素变量由 JS 维护，
-   不用 100dvh：旋转中地址栏收放会先改变 width 再触发 resize，dvh 会随之跳变）。
-   内层 .fs-rotate 反向转回 90°：宽高在屏幕上互换——「宽度」（屏幕纵向）= 可视高 −
-   头部 51 − 上下内边距 20 ≈ 视口高 − 75；「高度」（屏幕横向）同理封顶视口宽 − 75。
-   旋转包围盒会把 transform 溢出计进 scrollHeight，故 .g2048/.muyu 裁掉包围盒空白，
-   否则 auto 垂直居中失效、内容整体偏向头部一侧 */
-.card.fs-fake.rot {
-  width: var(--vh-px, 100vh); height: var(--vw-px, 100vw);
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%) rotate(90deg);
-  transform-origin: center;
+/* ============ 伪横屏（全屏内竖屏⇄横屏：旋转内层 .fs-rotate） ============ */
+/* 由卡片头部 ⇄ 旋转按钮手动切换（默认竖屏），不跟随物理姿态，与系统方向解耦。
+   原生全屏与伪全屏通用：UA 样式的 transform:none!important 只封锁 :fullscreen
+   元素本体，内层 .fs-rotate 子元素可自由旋转——全屏状态全程不丢。
+   内层绝对定位于卡片中心再反转 90°：宽 769 级的内层未旋转时远超视口宽，
+   常规流式居中会让旋转中心偏离视口中心、内容甩出屏幕；以卡片中心为轴旋转，
+   可见区（内层的局部高 × 局部宽互换）必然居中。可见宽 = 内层高 = 视口宽 − 75
+   （头部 51 + 上下内边距 20 + 余量），可见高 = 内层宽 = 视口高 − 75。
+   旋转包围盒会把 transform 溢出计进 scrollHeight，content 占位 flex:1 承接，
+   .g2048/.muyu 裁掉包围盒空白防滚动破坏居中 */
+.card.fs-fake.rot .card-body > [id^='content-'],
+.card:fullscreen.rot .card-body > [id^='content-'] {
+  position: relative;
+  margin-block: 0;
+  flex: 1;
 }
-.card.fs-fake.rot .fs-rotate {
+.card.fs-fake.rot .fs-rotate,
+.card:fullscreen.rot .fs-rotate {
+  position: absolute; top: 50%; left: 50%;
   width: calc(100dvh - 75px); max-width: none;
   height: calc(100vw - 75px);
-  margin-inline: auto;
+  margin: 0;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  transform: rotate(-90deg);
+  transform: translate(-50%, -50%) rotate(-90deg);
   transform-origin: center;
   transition: transform .35s cubic-bezier(.4, 0, .2, 1), width .35s cubic-bezier(.4, 0, .2, 1), height .35s cubic-bezier(.4, 0, .2, 1);
 }
@@ -2048,11 +2050,13 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 /* 伪横屏下游戏主体双向封顶（局部宽 = 屏幕横向尺寸，必须 ≤ 视口宽预算），
    由 flex 居中；overflow:hidden 裁 transform 旋转包围盒，防撑出滚动破坏居中 */
-.card.fs-fake.rot .g2048, .card.fs-fake.rot .muyu {
+.card.fs-fake.rot .g2048, .card.fs-fake.rot .muyu,
+.card:fullscreen.rot .g2048, .card:fullscreen.rot .muyu {
   width: 100%; margin: 0; overflow: hidden;
 }
-.card.fs-fake.rot .g2048-main, .card.fs-fake.rot .muyu-main {
+.card.fs-fake.rot .g2048-main, .card.fs-fake.rot .muyu-main,
+.card:fullscreen.rot .g2048-main, .card:fullscreen.rot .muyu-main {
   width: min(100%, calc(var(--vw-px, 100vw) - 75px));
   margin: 0 auto;
 }
-.card.fs-fake.rot .muyu-svg { max-width: none; }
+.card.fs-fake.rot .muyu-svg, .card:fullscreen.rot .muyu-svg { max-width: none; }
