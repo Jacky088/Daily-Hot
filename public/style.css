@@ -424,6 +424,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .card.span-2 { grid-column: span 2; }
 /* 跨列宽卡收起态双栏更矮，懒渲染估算基准单独收敛，减少滚动条跳变 */
 .card.span-2 { contain-intrinsic-size: auto 400px; }
+/* 定位跳转目标卡：临时退出懒渲染（真实高度参与布局计算），
+   定位完成由 JS 移除该类，恢复懒渲染省流 */
+.card.locate-force { content-visibility: visible; }
 /* 收起态（默认 Top 10）：宽卡片内部双栏排布，充分利用横向空间；
    必须解除 max-height 限高——多列容器若有固定高度，溢出内容会横向生成新列而非纵向滚动 */
 .card.span-2:not(.expanded) .card-body {
@@ -450,11 +453,12 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   display: flex; flex-direction: column;
   /* 懒渲染：视口外的卡片跳过渲染（backdrop-filter 是滚动流畅度的隐形杀手）。
      风险与对策——高度估算会让文档总高随滚动塌缩：contain-intrinsic-size 给出
-     接近真实高度的基准（限高 460 + 头部 ≈ 540；span-2 收起态双栏更矮），
-     且模块/分类定位自带 400ms 轮询校正，卡片依次实渲染后坐标自然收敛。
+     接近真实高度的基准。实测已渲染卡高 150-460px、中位数约 240px（榜单默认
+     折叠 Top 10），取 260px 让「估算总高 ≈ 真实总高」，模块/分类定位的首跳
+     误差最小化，剩余偏差由 400ms 轮询校正收敛；span-2 双栏卡更高单独校准。
      sticky 吸顶的 .cat-nav 在 .layout 上，不受卡片渲染跳过影响 */
   content-visibility: auto;
-  contain-intrinsic-size: auto 540px;
+  contain-intrinsic-size: auto 260px;
   scroll-margin-top: 84px;
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.1),
@@ -2046,8 +2050,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 @keyframes vtFadeOut { to { opacity: 0; } }
 @keyframes vtFadeIn { from { opacity: 0; } }
 
-/* ============ 个性化：编辑模式 + 顶栏图标按钮 ============ */
-/* 顶栏 icon-btn 与 theme-toggle 同规格（36px 圆角方块），纯文字图标 */
+/* ============ 顶栏图标按钮（全部刷新） ============ */
+/* 与 theme-toggle 同规格（36px 圆角方块），纯文字图标 */
 .icon-btn {
   width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
   background: var(--card); border: 1px solid var(--border);
@@ -2056,39 +2060,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   font-size: 16px; color: var(--text-dim); line-height: 1;
 }
 .icon-btn:hover { border-color: var(--accent); box-shadow: var(--accent-glow); color: var(--accent); }
-.icon-btn.active { border-color: var(--accent); color: var(--accent); box-shadow: var(--accent-glow); }
 /* 全部刷新进行中：图标转圈提示 + 防重复点击 */
-.icon-btn.busy { pointer-events: none; }
-.icon-btn.busy { animation: iconSpin 1s linear infinite; }
+.icon-btn.busy { pointer-events: none; animation: iconSpin 1s linear infinite; }
 @keyframes iconSpin { to { transform: rotate(360deg); } }
-
-/* 编辑提示条（顶栏下方横条） */
-.edit-bar {
-  position: sticky; top: 61px; z-index: 99;   /* 紧贴顶栏（高约 61px） */
-  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
-  padding: 8px 24px;
-  background: color-mix(in srgb, var(--accent) 8%, var(--bg));
-  border-bottom: 1px solid var(--border);
-  font-size: 12px; color: var(--text-dim);
-}
-.edit-bar .edit-tip { white-space: nowrap; }
-.edit-bar .edit-hidden b { color: var(--accent-text); }
-.edit-bar .edit-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.restore-chip {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px 10px; border-radius: 999px; cursor: pointer;
-  background: var(--card); border: 1px solid var(--border);
-  font-size: 12px; color: var(--text); line-height: 1.4; white-space: nowrap;
-}
-.restore-chip:hover { border-color: var(--accent); color: var(--accent); }
-.restore-none { color: var(--text-dimmer); font-size: 12px; }
-
-/* 卡片上的 ☆/⊖ 编辑按钮：默认隐藏，编辑模式显示 */
-.card-actions .btn-pin, .card-actions .btn-hide { display: none; font-size: 13px; }
-body.edit-mode .card-actions .btn-pin, body.edit-mode .card-actions .btn-hide { display: flex; }
-.card-actions .btn-pin.pinned { color: var(--accent); border-color: var(--accent); }
-/* 隐藏按钮在编辑模式弱化为警示色 hover */
-.card-actions .btn-hide:hover { border-color: var(--error); color: var(--error); }
 
 /* ============ 下拉刷新指示器 ============ */
 .ptr-indicator {

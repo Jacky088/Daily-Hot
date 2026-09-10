@@ -7,7 +7,10 @@ const CACHE_TTL = 30 * 60 * 1000;
 
 // 发版时递增：让所有旧的 localStorage 缓存失效，
 // 否则用户在 TTL 内会继续看到上一版缓存下来的渲染结果
-const CACHE_VERSION = 'v9';
+const CACHE_VERSION = 'v10';
+
+// 清理已下线功能的残留键（如编辑布局的收藏/隐藏偏好），避免永久占空间
+try { localStorage.removeItem('ep-pinned'); localStorage.removeItem('ep-hidden'); } catch {}
 
 function cacheGet(key) {
   try {
@@ -875,33 +878,44 @@ function init() {
       // 与本次卡片定位争抢滚动位置，是精确定位失效的直接原因
       stopAlign();
 
+      // 懒渲染（content-visibility）与精确定位结构性冲突：目标卡处于视口外时
+      // 高度是估算值，首跳必然偏；滚动过去后它实渲染、下方卡片也陆续实渲染，
+      // 高度又变 → 校正反复追赶甚至过冲。定位前临时禁用懒渲染：目标卡真实布局
+      // 立即参与计算，首跳即可精确；轮询稳定后恢复（移除类），懒渲染利益不受影响
+      card.classList.add('locate-force');
+
       // 停靠位与分类定位共用 scrollDockTop()（分端测量顶栏/分类导航底边）
       const absY = () => card.getBoundingClientRect().top + window.scrollY - scrollDockTop();
       // 首跳用 instant：smooth 动画在后台/遮挡标签页会被暂停导致定位中断，
       // 精确性优先于过渡动画；随后的轮询校正同样是瞬时对齐
       window.scrollTo({ top: absY(), behavior: 'instant' });
       // 卡片数据/图片异步加载会改变前方卡片高度，轮询校正：
-      // 每 400ms 瞬时对齐；仅当「连续 3 次检测文档高度无变化且已对齐」才提前退出，
-      // 8s 超时兜底；用户手动滚动立即让位
+      // 250ms 间隔快速对齐（懒渲染下卡片陆续实渲染，高度渐进稳定，间隔太长会
+      // 永远慢一拍）；「连续 4 次文档高度无变化且已对齐」提前退出，9s 超时兜底；
+      // 用户手动滚动立即让位
       let aligned = 0, stableH = 0, lastH = 0, tries = 0;
+      const finishAlign = () => card.classList.remove('locate-force');
       const token = startAlign(() => {
         tries++;
         const h = document.documentElement.scrollHeight;
         stableH = (h === lastH) ? stableH + 1 : 0;
         lastH = h;
-        if (!card.isConnected || tries > 20 || (aligned >= 1 && stableH >= 3)) {
-          stopAlign(); return;
+        if (!card.isConnected || tries > 36 || (aligned >= 1 && stableH >= 4)) {
+          stopAlign(); finishAlign(); return;
         }
-        if (Math.abs(card.getBoundingClientRect().top - scrollDockTop()) < 40) {
+        if (Math.abs(card.getBoundingClientRect().top - scrollDockTop()) < 20) {
           aligned++;
           return;
         }
         aligned = 0;
-        window.scrollTo(0, absY());
-      }, 400);
-      window.addEventListener('wheel', abortAlign, { once: true, passive: true });
-      window.addEventListener('touchmove', abortAlign, { once: true, passive: true });
-      setTimeout(() => stopAlignIfCurrent(token), 8300);
+        // behavior:'instant' 必须显式传：不带 behavior 的 scrollTo 会继承
+        // html { scroll-behavior: smooth }，长距离 smooth 动画在后台/节流标签页
+        // 被暂停导致校正永远追不上（滚动卡在半途）
+        window.scrollTo({ top: absY(), behavior: 'instant' });
+      }, 250);
+      window.addEventListener('wheel', () => { stopAlign(); finishAlign(); }, { once: true, passive: true });
+      window.addEventListener('touchmove', () => { stopAlign(); finishAlign(); }, { once: true, passive: true });
+      setTimeout(() => { stopAlignIfCurrent(token); finishAlign(); }, 9300);
       card.classList.add('locate-flash');
       setTimeout(() => card.classList.remove('locate-flash'), 3000);
     }
@@ -1179,9 +1193,6 @@ function makeCard(ep) {
   const showRel = !ep.noapi;
   head.innerHTML = `<div class="card-title"><span class="icon">${ep.icon}</span>${ep.name}${showRel ? `<span class="rel-time" data-ep-loaded="${ep.id}" hidden></span>` : ''}</div>
     <div class="card-actions">
-      ${'' /* 编辑模式专属：☆ 收藏置顶 / ⊖ 隐藏（CSS body.edit-mode 控制显隐） */}
-      <button class="btn-pin" type="button" title="收藏置顶" aria-label="收藏置顶">☆</button>
-      <button class="btn-hide" type="button" title="隐藏此卡片" aria-label="隐藏此卡片">⊖</button>
       ${ep.noapi ? '' : '<button class="btn-json" title="查看 JSON" aria-label="查看 JSON">{ }</button>'}
       ${ep.fs /* fs:1 卡片恒显示全屏按钮，无 Fullscreen API 时由 cardFsToggle 回退伪全屏；
                    手机端进全屏直接横屏（旋转 .fs-unit 整层），✕ 退出还原 */
@@ -1189,11 +1200,6 @@ function makeCard(ep) {
         : ''}
       <button class="btn-refresh" title="刷新" aria-label="刷新数据">↻</button>
     </div>`;
-  // 收藏态即时反映：进编辑模式/切分类重渲后按钮要显示当前收藏状态
-  if (pinnedEps.has(ep.id)) {
-    head.querySelector('.btn-pin')?.classList.add('pinned');
-    head.querySelector('.btn-pin')?.setAttribute('title', '取消收藏');
-  }
   // head 的挂载点在函数末尾：fs:1 卡片会连同 body 一起包进 .fs-unit 旋转单元
 
   const body = document.createElement('div');
@@ -1427,92 +1433,20 @@ function makeGroupCard(group, eps) {
   return card;
 }
 
-// ============ 个性化：收藏置顶 + 隐藏卡片 ============
-// 编辑模式（顶栏 ✎ 按钮开关）：卡片头部多出 ☆ 收藏 / ⊖ 隐藏 两个小按钮——
-// ☆ 置顶的卡片浮到本分类网格最前（跨分类视图下浮到页面顶部成「常看」区），
-// ⊖ 隐藏的卡片从所有视图消失，可从编辑面板恢复。状态存 localStorage。
-// 搜索时忽略隐藏过滤：用户搜到什么看什么，编辑模式隐藏≠权限控制
-let pinnedEps = new Set();
-let hiddenEps = new Set();
-try { pinnedEps = new Set(JSON.parse(localStorage.getItem('ep-pinned') || '[]')); } catch {}
-try { hiddenEps = new Set(JSON.parse(localStorage.getItem('ep-hidden') || '[]')); } catch {}
-function savePinned() { try { localStorage.setItem('ep-pinned', JSON.stringify([...pinnedEps])); } catch {} }
-function saveHidden() { try { localStorage.setItem('ep-hidden', JSON.stringify([...hiddenEps])); } catch {} }
-
-// 编辑模式开关（body.edit-mode）：控制 ☆/⊖ 按钮显隐 + 编辑提示条
-let editMode = false;
-function setEditMode(on) {
-  editMode = on;
-  document.body.classList.toggle('edit-mode', on);
-  const btn = $('#btnEdit');
-  if (btn) {
-    btn.classList.toggle('active', on);
-    btn.title = on ? '退出编辑' : '编辑布局';
-  }
-  const bar = $('#editBar');
-  if (bar) bar.hidden = !on;
-  if (on) renderHiddenChips();
-}
-
-// 分组卡按「组内任一成员被收藏」置顶（key = 分组 id）
-function isPinnedKey(key, epId) {
-  if (pinnedEps.has(epId)) return true;
-  const g = GROUP_OF[epId];
-  return !!g && g.tabs.some(t => pinnedEps.has(t.ep));
-}
-// 隐藏判定同样以分组卡为准：组内全部成员都被隐藏才整卡隐藏（部分隐藏无意义）
-function isHiddenGroupCard(epId) {
-  const g = GROUP_OF[epId];
-  if (!g) return hiddenEps.has(epId);
-  return g.tabs.every(t => hiddenEps.has(t.ep));
-}
-
-// 编辑面板：已隐藏模块的恢复 chips（无隐藏时面板收成提示行）
-function renderHiddenChips() {
-  const box = $('#hiddenChips');
-  if (!box) return;
-  const hidden = EPS.filter(ep => hiddenEps.has(ep.id) && !GROUP_OF[ep.id]);
-  const hiddenGroups = [];
-  const seen = new Set();
-  EPS.forEach(ep => {
-    const g = GROUP_OF[ep.id];
-    if (g && !seen.has(g.id) && g.tabs.every(t => hiddenEps.has(t.ep))) { seen.add(g.id); hiddenGroups.push({ id: g.id, name: g.name, icon: g.icon }); }
-  });
-  const all = [
-    ...hidden.map(ep => ({ id: ep.id, name: ep.name, icon: ep.icon })),
-    ...hiddenGroups,
-  ];
-  const cnt = $('#hiddenCount');
-  if (cnt) cnt.textContent = all.length;
-  box.innerHTML = all.length
-    ? all.map(h => `<button class="restore-chip" data-restore="${h.id}" type="button" title="恢复显示">${h.icon} ${esc(h.name)} ↺</button>`).join('')
-    : '<span class="restore-none">还没有隐藏的模块</span>';
-}
-
-// 网格填充：分组成员不单独出卡，命中组内任一成员时整组出卡（仅渲染命中的标签页）。
-// 排序：收藏的浮前（收藏之间保持注册顺序）；隐藏的过滤掉（编辑模式除外——
-// 编辑时可见才谈得上恢复/取消隐藏）
+// 网格填充：分组成员不单独出卡，命中组内任一成员时整组出卡（仅渲染命中的标签页）
 function appendCards(grid, eps) {
-  const pool = eps.filter(ep => editMode || !isHiddenGroupCard(ep.id));
-  // 分组卡去重后按「组内任一成员被收藏」置顶
   const emitted = new Set();
-  const list = [];
-  pool.forEach(ep => {
+  eps.forEach((ep, i) => {
     const group = GROUP_OF[ep.id];
-    const key = group ? group.id : ep.id;
-    if (emitted.has(key)) return;
-    emitted.add(key);
-    const members = group ? group.tabs.map(t => eps.find(e => e.id === t.ep)).filter(Boolean) : null;
-    list.push({ ep, group, members, pinned: isPinnedKey(key, ep.id) });
-  });
-  // 稳定置顶：收藏的排前面，其余按原顺序（sort 稳定，同优先级不乱序）
-  list.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
-  list.forEach((it, i) => {
-    if (it.group) {
-      grid.appendChild(makeGroupCard(it.group, it.members));
+    if (group) {
+      if (emitted.has(group.id)) return;
+      emitted.add(group.id);
+      const members = group.tabs.map(t => eps.find(e => e.id === t.ep)).filter(Boolean);
+      if (!members.length) return;
+      grid.appendChild(makeGroupCard(group, members));
       return;
     }
-    const card = makeCard(it.ep);
+    const card = makeCard(ep);
     card.style.animationDelay = (i * 0.03) + 's';
     grid.appendChild(card);
   });
@@ -2696,61 +2630,15 @@ document.addEventListener('click', e => {
   if (card) cardFsToggle(card);
 });
 
-// ============ 个性化/编辑模式/全部刷新：统一点击入口 ============
-// ☆/⊖ 只在 body.edit-mode 下可见（CSS 控制），这里不必再判 editMode
-document.addEventListener('click', e => {
-  const pinBtn = e.target.closest('.btn-pin');
-  if (pinBtn) {
-    const card = pinBtn.closest('.card');
-    const id = card?.id.replace(/^card-/, '');
-    if (!id) return;
-    if (pinnedEps.has(id)) pinnedEps.delete(id);
-    else pinnedEps.add(id);
-    savePinned();
-    pinBtn.classList.toggle('pinned', pinnedEps.has(id));
-    pinBtn.title = pinnedEps.has(id) ? '取消收藏' : '收藏置顶';
-    render(); // 置顶排序即时生效
-    return;
-  }
-  const hideBtn = e.target.closest('.btn-hide');
-  if (hideBtn) {
-    const card = hideBtn.closest('.card');
-    const id = card?.id.replace(/^card-/, '');
-    if (!id) return;
-    // 分组卡：隐藏整组（组内全部成员）；普通卡：隐藏该 ep
-    const g = GROUP_OF[id] || null;
-    const members = g ? g.tabs.map(t => t.ep) : [id];
-    // 分组 id 本身不是 ep id：成员加入 hiddenEps，分组卡随「全成员隐藏」消失
-    if (g) members.forEach(m => hiddenEps.add(m));
-    else hiddenEps.add(id);
-    saveHidden();
-    renderHiddenChips();
-    render();
-    return;
-  }
-  const restore = e.target.closest('[data-restore]');
-  if (restore) {
-    const id = restore.dataset.restore;
-    const g = GROUP_OF[id];
-    if (g) g.tabs.forEach(t => hiddenEps.delete(t.ep));
-    else hiddenEps.delete(id);
-    saveHidden();
-    renderHiddenChips();
-    render();
-    return;
-  }
-  if (e.target.closest('#btnEdit')) { setEditMode(!editMode); return; }
-});
-
-// 全部刷新：当前视图内所有可见卡片 ↻（noapi 卡走 renderData 重置）。
+// ============ 全部刷新 ============
+// 当前视图内所有可见卡片 ↻（noapi 卡走 renderData 重置）。
 // 错峰 60ms/张，避免同时打满上游触发限流；过程中按钮转圈防重复点击
 function refreshAll() {
   const btn = $('#btnRefreshAll');
   if (btn?.classList.contains('busy')) return;
   if (btn) btn.classList.add('busy');
   const kw = ($('#search')?.value || '').trim().toLowerCase();
-  const visEps = EPS.filter(ep => matchKw(ep, kw) && (curCat === 'all' || curCat === ep.cat)
-    && !isHiddenGroupCard(ep.id) && !GROUP_OF[ep.id]);
+  const visEps = EPS.filter(ep => matchKw(ep, kw) && (curCat === 'all' || curCat === ep.cat) && !GROUP_OF[ep.id]);
   visEps.forEach((ep, i) => {
     setTimeout(() => load(ep, true).catch(() => {}), i * 60);
   });
@@ -2792,7 +2680,7 @@ document.addEventListener('click', e => {
   };
 
   document.addEventListener('touchstart', e => {
-    if (window.scrollY > 0 || editMode || e.touches.length !== 1) { pulling = false; return; }
+    if (window.scrollY > 0 || e.touches.length !== 1) { pulling = false; return; }
     // 从游戏卡/输入框/可滚动卡片内容区起手不接管：会跟棋盘滑动、文本选择打架
     const t = e.target;
     if (t.closest('.g2048, .muyu, .fs-fake, .fanyi-textarea, .input-row, .card-body, .cat-sub, .card-pane')) { pulling = false; return; }
