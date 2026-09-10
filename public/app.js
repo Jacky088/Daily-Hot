@@ -2438,8 +2438,11 @@ function applyFsRot(card) {
   const layout = st && st.layout === 'landscape' ? 'landscape'
                : (st && st.layout === 'portrait' ? 'portrait' : null);
   if (!layout) return;
+  // .rot-p 补偿只针对触屏设备：手机浏览器进全屏会把视口自转成横屏（宽>高），
+  // 需要转回来；桌面显示器天然宽>高，是正常形态，绝不能转
+  const touch = window.matchMedia('(pointer: coarse)').matches;
   card.classList.toggle('rot-l', layout === 'landscape');
-  card.classList.toggle('rot-p', layout === 'portrait' && window.innerWidth > window.innerHeight);
+  card.classList.toggle('rot-p', layout === 'portrait' && touch && window.innerWidth > window.innerHeight);
   card.style.setProperty('--vw-px', window.innerWidth + 'px');
   card.style.setProperty('--vh-px', window.innerHeight + 'px');
   cardFsSync();
