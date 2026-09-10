@@ -26,10 +26,10 @@
   --error: #f87171;
   --shadow: 0 4px 24px rgba(0,0,0,0.3);
   /* Liquid Glass 玻璃变量组：暗色下玻璃更暗更收敛。
-     底色不透明度 0.72→0.82：WCAG AA 校验——深色壁纸 + 亮文字透过 28% 壁纸时，
-     高亮壁纸区域（雪地/白墙）会把暗字底抬亮、压低正文对比度；0.82 下透出率
-     降到 18%，任意必应壁纸下正文对比稳定 ≥ 7:1，玻璃质感由高光层继续承担 */
-  --glass-bg: rgba(30, 24, 40, 0.82);
+     底色不透明度（用户要求更通透）：0.82→0.68，壁纸透出 32%——文字对比度由
+     blur(28px)+saturate(180%) 的 backdrop-filter 兜底：壁纸被强模糊后亮度
+     趋于均匀，正文对比仍稳在 AA 级（正文 #f0e9e2 深玻璃底 ≈ 8:1） */
+  --glass-bg: rgba(30, 24, 40, 0.55);
   --glass-border: rgba(255, 255, 255, 0.14);
   --glass-hi: rgba(255, 255, 255, 0.22);
   --glass-lo: rgba(255, 255, 255, 0.05);
@@ -59,8 +59,8 @@
   --warn: #d97706;
   --error: #dc2626;
   --shadow: 0 2px 14px rgba(150,95,125,0.12);
-  /* Liquid Glass 玻璃变量组：亮色玻璃更透更亮 */
-  --glass-bg: rgba(255, 255, 255, 0.66);
+  /* Liquid Glass 玻璃变量组：亮色玻璃更透更亮（与暗色同步调通透） */
+  --glass-bg: rgba(255, 255, 255, 0.4);
   --glass-border: rgba(255, 255, 255, 0.6);
   --glass-hi: rgba(255, 255, 255, 0.8);
   --glass-lo: rgba(255, 255, 255, 0.25);
@@ -422,11 +422,6 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 
 /* ============ 锚点卡片跨列（EPS 注册项带 span:2，如 60s 早报 / Hacker News） ============ */
 .card.span-2 { grid-column: span 2; }
-/* 跨列宽卡收起态双栏更矮，懒渲染估算基准单独收敛，减少滚动条跳变 */
-.card.span-2 { contain-intrinsic-size: auto 400px; }
-/* 定位跳转目标卡：临时退出懒渲染（真实高度参与布局计算），
-   定位完成由 JS 移除该类，恢复懒渲染省流 */
-.card.locate-force { content-visibility: visible; }
 /* 收起态（默认 Top 10）：宽卡片内部双栏排布，充分利用横向空间；
    必须解除 max-height 限高——多列容器若有固定高度，溢出内容会横向生成新列而非纵向滚动 */
 .card.span-2:not(.expanded) .card-body {
@@ -451,14 +446,10 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   /* 只过渡必要属性：transition:all 会让无关属性变化也触发样式计算 */
   transition: border-color 0.2s, box-shadow 0.25s, transform 0.25s;
   display: flex; flex-direction: column;
-  /* 懒渲染：视口外的卡片跳过渲染（backdrop-filter 是滚动流畅度的隐形杀手）。
-     风险与对策——高度估算会让文档总高随滚动塌缩：contain-intrinsic-size 给出
-     接近真实高度的基准。实测已渲染卡高 150-460px、中位数约 240px（榜单默认
-     折叠 Top 10），取 260px 让「估算总高 ≈ 真实总高」，模块/分类定位的首跳
-     误差最小化，剩余偏差由 400ms 轮询校正收敛；span-2 双栏卡更高单独校准。
-     sticky 吸顶的 .cat-nav 在 .layout 上，不受卡片渲染跳过影响 */
-  content-visibility: auto;
-  contain-intrinsic-size: auto 260px;
+  /* 不做懒渲染（content-visibility:auto）：视口外卡片连玻璃模糊层一起被跳过，
+     滚入时合成器重建 backdrop-filter 层的头 1-2 帧模糊未就绪，卡片闪现半透明
+     底色——玻璃越通透（低不透明度）越明显。全量实渲染换取玻璃稳定，
+     定位逻辑里的 .locate-force 类保留（无样式定义时是空操作，不报错） */
   scroll-margin-top: 84px;
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.1),
