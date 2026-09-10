@@ -1927,24 +1927,13 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 
 /* ============ 卡片全屏（2048 / 电子木鱼，⛶ 按钮） ============ */
 /* ⛶ 与 ✕ 占同一位置：平时只显示 ⛶，全屏时原位互换为 ✕（纯 CSS :fullscreen 驱动）；
-   ⇄ 旋转按钮（勿与 ↻ 刷新混淆）手机端全屏可用：伪全屏恒显，原生全屏限触屏显示。
-   位于 ✕ 与 ↻ 之间，点击切换竖屏/横屏（旋转 .fs-unit 整层，全屏状态不丢） */
+   手机端进全屏直接横屏（旋转 .fs-unit 整层），✕ 退出还原回原卡片 */
 .card-actions .btn-fs-exit { display: none; font-size: 13px; font-weight: 700; }
-.card-actions .btn-fs-rot {
-  display: none; font-size: 15px;
-  transition: transform .3s cubic-bezier(.4, 0, .2, 1);
-}
-.card.fs-fake .btn-fs-rot { display: flex; }
-@media (pointer: coarse) {
-  .card:fullscreen .btn-fs-rot { display: flex; }
-}
-/* 横屏态：⇄ 转 90° 视觉变 ⇅（提示点击回竖屏），朝向一目了然 */
-.btn-fs-rot.rot-on { transform: rotate(90deg); }
-/* fs:1 卡片的全屏旋转单元：头部（✕/⇄/↻）+ 内容区包在一起，⇄ 旋转整层——
-   按钮随布局走，永远落在「当前布局」的右上角；非全屏时是普通静态容器 */
+/* fs:1 卡片的全屏旋转单元：头部（✕/↻）+ 内容区包在一起，手机端全屏整层旋转——
+   按钮随布局走，落在横屏画面的右上角；非全屏时是普通静态容器 */
 .fs-unit { display: block; }
 /* 全屏通用精简（原生 :fullscreen 与伪全屏共用）：只保留游戏本体 + 侧栏菜单，
-   右上角只留 ✕ 退出、⇄ 旋转、↻ 刷新；标题、{ }、💡提示条一律隐藏 */
+   右上角只留 ✕ 退出、↻ 刷新；标题、{ }、💡提示条一律隐藏 */
 .card:fullscreen .card-title, .card.fs-fake .card-title,
 .card:fullscreen .btn-json, .card.fs-fake .btn-json,
 .card:fullscreen .card-body > .news-tip, .card.fs-fake .card-body > .news-tip {
@@ -2004,44 +1993,30 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   background: var(--bg); overflow: hidden;
 }
 
-/* ============ 全屏竖⇄横（旋转 .fs-unit 整层：头部按钮 + 游戏区一起转） ============ */
-/* 由卡片头部 ⇄ 旋转按钮手动切换，不跟随物理姿态，与系统方向解耦。
+/* ============ 手机端全屏横屏（旋转 .fs-unit 整层：头部按钮 + 游戏区一起转） ============ */
+/* 进全屏即横屏（JS 仅在触屏设备挂 .rot-l），✕ 退出即还原，与系统方向解耦。
    原生全屏与伪全屏通用：UA 样式的 transform:none!important 只封锁 :fullscreen
    元素本体，内层 .fs-unit 可自由旋转——全屏状态全程不丢。
-   「竖屏」= 布局与手机 upright 一致。浏览器进全屏若把视口自转成横屏（宽>高，
-   MIUI 系行为），.rot-p 把整个单元转 +90°：竖屏布局原样呈现，按钮落在竖屏
-   屏幕的右上角；⇄ 切横屏（.rot-l）时整层转 -90°，按钮跟着落在横屏屏幕右上角。
    单元以视口中心为轴旋转、尺寸取视口短边×长边（像素变量由 JS 维护），
    transform-origin center + absolute 居中保证旋转前后内容都充满视口 */
 /* 旋转发生在 .fs-unit（:fullscreen 的后代），选择器必须用「卡片有旋转类」的
    后代形式而非 .rot-l.fs-unit 复合形式——rot-l 挂在卡片上，不在 unit 上 */
-.card.fs-fake.rot-l .fs-unit, .card:fullscreen.rot-l .fs-unit,
-.card.fs-fake.rot-p .fs-unit, .card:fullscreen.rot-p .fs-unit {
+.card.fs-fake.rot-l .fs-unit, .card:fullscreen.rot-l .fs-unit {
   position: absolute; top: 50%; left: 50%;
   width: calc(var(--vh-px, 100vh));  /* 旋转后的「宽度」= 视口高 */
   height: calc(var(--vw-px, 100vw)); /* 旋转后的「高度」= 视口宽 */
   margin: 0;
-  transform: translate(-50%, -50%);
+  /* 横屏布局：逆时针 90°（顶部倒向左侧，与手机顺时针横握一致） */
+  transform: translate(-50%, -50%) rotate(-90deg);
   transform-origin: center;
   transition: transform .35s cubic-bezier(.4, 0, .2, 1);
 }
-/* 横屏布局：逆时针 90°（顶部倒向左侧，与手机顺时针横握一致） */
-.card.fs-fake.rot-l .fs-unit, .card:fullscreen.rot-l .fs-unit {
-  transform: translate(-50%, -50%) rotate(-90deg);
-}
-/* 竖屏布局但视口被自转成横的：反向补偿 +90° 把竖屏转回来 */
-.card.fs-fake.rot-p .fs-unit, .card:fullscreen.rot-p .fs-unit {
-  transform: translate(-50%, -50%) rotate(90deg);
-}
 /* 旋转单元内的游戏主体尺寸按「旋转后的可视宽」封顶（--vw-px = 视口宽），
    头部/内边距预算 90px 与竖屏口径一致 */
-.card.fs-fake.rot-l .g2048, .card:fullscreen.rot-l .g2048,
-.card.fs-fake.rot-p .g2048, .card:fullscreen.rot-p .g2048 {
+.card.fs-fake.rot-l .g2048, .card:fullscreen.rot-l .g2048 {
   width: min(100%, calc(var(--vw-px, 100vw) - 90px));
 }
-.card.fs-fake.rot-l .muyu, .card:fullscreen.rot-l .muyu,
-.card.fs-fake.rot-p .muyu, .card:fullscreen.rot-p .muyu {
+.card.fs-fake.rot-l .muyu, .card:fullscreen.rot-l .muyu {
   width: min(100%, calc(var(--vw-px, 100vw) - 90px));
 }
-.card.fs-fake.rot-l .muyu-svg, .card:fullscreen.rot-l .muyu-svg,
-.card.fs-fake.rot-p .muyu-svg, .card:fullscreen.rot-p .muyu-svg { max-width: none; }
+.card.fs-fake.rot-l .muyu-svg, .card:fullscreen.rot-l .muyu-svg { max-width: none; }
