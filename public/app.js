@@ -19,11 +19,56 @@ function cacheGet(key) {
   } catch { return null; }
 }
 
+// 缓存读取附带时间戳版本：renderData 用来显示「x 分钟前」
+function cacheGetWithTs(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL) { localStorage.removeItem(key); return null; }
+    return { data, ts };
+  } catch { return null; }
+}
+
+// 相对时间：<1 分钟「刚刚」，<60 分钟「N 分钟前」，当天「HH:MM」，
+// 更早「昨天」/「M-D HH:MM」。热榜用户最关心新鲜度，人话格式比绝对时间好读
+function relTime(ts) {
+  if (typeof ts !== 'number' || !isFinite(ts)) return '';
+  const diff = Date.now() - ts;
+  if (diff < 60 * 1000) return '刚刚';
+  if (diff < 60 * 60 * 1000) return Math.floor(diff / 60000) + ' 分钟前';
+  const d = new Date(ts), now = new Date();
+  const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const sameDay = d.toDateString() === now.toDateString();
+  if (sameDay) return hm;
+  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return `昨天 ${hm}`;
+  return `${d.getMonth() + 1}-${d.getDate()} ${hm}`;
+}
+
+// 卡片级加载时间戳：load 成功（缓存命中或网络返回）时刷新，
+// paintRelTimes 循环重绘（30s 间隔），保证「3 分钟前」随时间自然增长
+const epLoadedAt = {};
+function markEpLoaded(id, ts) {
+  epLoadedAt[id] = ts;
+  const el = document.querySelector(`[data-ep-loaded="${id}"]`);
+  if (el) { el.textContent = relTime(ts); el.hidden = false; }
+}
+function paintRelTimes() {
+  document.querySelectorAll('[data-ep-loaded]').forEach(el => {
+    const t = relTime(epLoadedAt[el.dataset.epLoaded]);
+    if (t && el.textContent !== t) el.textContent = t;
+  });
+}
+setInterval(paintRelTimes, 30 * 1000);
+
 function cacheSet(key, data) {
   try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch {}
 }
 
 function cacheKey(ep, url) { return `cache:${CACHE_VERSION}:${ep.id}:${url}`; }
+
+
 
 // ============ 方案二：榜单 Top N 折叠 ============
 // 榜单类卡片（type:'list'）默认只渲染前 N 条，点击「展开全部」后本地重渲染全部条目，
@@ -436,8 +481,9 @@ const SEARCH_EMPTY_HTML = '<div class="empty-state search-empty"><span class="es
 function unavailableHTML(ep, detail) {
   return `<div class="placeholder card-unavailable">
     <span class="un-icon">😴</span>
-    <span class="un-text">数据源开小差了，稍后再来看看${detail ? ` <span class="un-detail">（${esc(detail)}）</span>` : ''}</span>
-    <button class="retry-btn" onclick="load(window._ep_${ep.id})">再试一次</button>
+    <span class="un-text">数据源开小差了，稍后再来看看</span>
+    ${detail ? `<span class="un-detail">${esc(detail)}</span>` : ''}
+    <button class="retry-btn" onclick="load(window._ep_${ep.id})">↻ 再试一次</button>
   </div>`;
 }
 
@@ -866,6 +912,8 @@ function init() {
   // 在它之前算出的坐标指向的是即将被销毁的旧 DOM。
   // 移动端吸顶高度已恒定（模块面板是悬浮层不占文档流），但卡片图片异步加载
   // 仍会改变上方高度，所以定位后的轮询校正保留。
+  // 逐卡补 contain-intrinsic-size 基准：scroll 定位前卡片被 content-visibility
+  // 跳过渲染时高度是估算值，定位算出的坐标会失准——校正在卡片依次渲染后自然收敛
   function scrollToCatTitle(catId) {
     // 取消上一轮校正（可能是模块定位留下的），避免两个计时器争抢滚动位置
     stopAlign();
@@ -1023,7 +1071,19 @@ function init() {
   }
 }
 
+// View Transitions：跨视图过渡（分类/搜索切换）。不支持或偏好减少动画时直通渲染。
+// 首次渲染跳过：首屏有 splash 遮罩，再叠过渡是双重动画
+let renderVTReady = false;
 function render() {
+  const doRender = () => { renderImpl(); };
+  const okVT = document.startViewTransition && renderVTReady
+    && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  renderVTReady = true;
+  if (okVT) document.startViewTransition(doRender);
+  else doRender();
+}
+
+function renderImpl() {
   const main = $('#main');
   main.innerHTML = '';
   const kw = ($('#search')?.value || '').trim().toLowerCase();
@@ -1115,8 +1175,13 @@ function makeCard(ep) {
 
   const head = document.createElement('div');
   head.className = 'card-head';
-  head.innerHTML = `<div class="card-title"><span class="icon">${ep.icon}</span>${ep.name}</div>
+  // noapi 纯前端卡（2048/木鱼/翻译类输入卡）没有「数据加载」概念，不显示相对时间
+  const showRel = !ep.noapi;
+  head.innerHTML = `<div class="card-title"><span class="icon">${ep.icon}</span>${ep.name}${showRel ? `<span class="rel-time" data-ep-loaded="${ep.id}" hidden></span>` : ''}</div>
     <div class="card-actions">
+      ${'' /* 编辑模式专属：☆ 收藏置顶 / ⊖ 隐藏（CSS body.edit-mode 控制显隐） */}
+      <button class="btn-pin" type="button" title="收藏置顶" aria-label="收藏置顶">☆</button>
+      <button class="btn-hide" type="button" title="隐藏此卡片" aria-label="隐藏此卡片">⊖</button>
       ${ep.noapi ? '' : '<button class="btn-json" title="查看 JSON" aria-label="查看 JSON">{ }</button>'}
       ${ep.fs /* fs:1 卡片恒显示全屏按钮，无 Fullscreen API 时由 cardFsToggle 回退伪全屏；
                    手机端进全屏直接横屏（旋转 .fs-unit 整层），✕ 退出还原 */
@@ -1124,6 +1189,11 @@ function makeCard(ep) {
         : ''}
       <button class="btn-refresh" title="刷新" aria-label="刷新数据">↻</button>
     </div>`;
+  // 收藏态即时反映：进编辑模式/切分类重渲后按钮要显示当前收藏状态
+  if (pinnedEps.has(ep.id)) {
+    head.querySelector('.btn-pin')?.classList.add('pinned');
+    head.querySelector('.btn-pin')?.setAttribute('title', '取消收藏');
+  }
   // head 的挂载点在函数末尾：fs:1 卡片会连同 body 一起包进 .fs-unit 旋转单元
 
   const body = document.createElement('div');
@@ -1357,20 +1427,92 @@ function makeGroupCard(group, eps) {
   return card;
 }
 
-// 网格填充：分组成员不单独出卡，命中组内任一成员时整组出卡（仅渲染命中的标签页）
+// ============ 个性化：收藏置顶 + 隐藏卡片 ============
+// 编辑模式（顶栏 ✎ 按钮开关）：卡片头部多出 ☆ 收藏 / ⊖ 隐藏 两个小按钮——
+// ☆ 置顶的卡片浮到本分类网格最前（跨分类视图下浮到页面顶部成「常看」区），
+// ⊖ 隐藏的卡片从所有视图消失，可从编辑面板恢复。状态存 localStorage。
+// 搜索时忽略隐藏过滤：用户搜到什么看什么，编辑模式隐藏≠权限控制
+let pinnedEps = new Set();
+let hiddenEps = new Set();
+try { pinnedEps = new Set(JSON.parse(localStorage.getItem('ep-pinned') || '[]')); } catch {}
+try { hiddenEps = new Set(JSON.parse(localStorage.getItem('ep-hidden') || '[]')); } catch {}
+function savePinned() { try { localStorage.setItem('ep-pinned', JSON.stringify([...pinnedEps])); } catch {} }
+function saveHidden() { try { localStorage.setItem('ep-hidden', JSON.stringify([...hiddenEps])); } catch {} }
+
+// 编辑模式开关（body.edit-mode）：控制 ☆/⊖ 按钮显隐 + 编辑提示条
+let editMode = false;
+function setEditMode(on) {
+  editMode = on;
+  document.body.classList.toggle('edit-mode', on);
+  const btn = $('#btnEdit');
+  if (btn) {
+    btn.classList.toggle('active', on);
+    btn.title = on ? '退出编辑' : '编辑布局';
+  }
+  const bar = $('#editBar');
+  if (bar) bar.hidden = !on;
+  if (on) renderHiddenChips();
+}
+
+// 分组卡按「组内任一成员被收藏」置顶（key = 分组 id）
+function isPinnedKey(key, epId) {
+  if (pinnedEps.has(epId)) return true;
+  const g = GROUP_OF[epId];
+  return !!g && g.tabs.some(t => pinnedEps.has(t.ep));
+}
+// 隐藏判定同样以分组卡为准：组内全部成员都被隐藏才整卡隐藏（部分隐藏无意义）
+function isHiddenGroupCard(epId) {
+  const g = GROUP_OF[epId];
+  if (!g) return hiddenEps.has(epId);
+  return g.tabs.every(t => hiddenEps.has(t.ep));
+}
+
+// 编辑面板：已隐藏模块的恢复 chips（无隐藏时面板收成提示行）
+function renderHiddenChips() {
+  const box = $('#hiddenChips');
+  if (!box) return;
+  const hidden = EPS.filter(ep => hiddenEps.has(ep.id) && !GROUP_OF[ep.id]);
+  const hiddenGroups = [];
+  const seen = new Set();
+  EPS.forEach(ep => {
+    const g = GROUP_OF[ep.id];
+    if (g && !seen.has(g.id) && g.tabs.every(t => hiddenEps.has(t.ep))) { seen.add(g.id); hiddenGroups.push({ id: g.id, name: g.name, icon: g.icon }); }
+  });
+  const all = [
+    ...hidden.map(ep => ({ id: ep.id, name: ep.name, icon: ep.icon })),
+    ...hiddenGroups,
+  ];
+  const cnt = $('#hiddenCount');
+  if (cnt) cnt.textContent = all.length;
+  box.innerHTML = all.length
+    ? all.map(h => `<button class="restore-chip" data-restore="${h.id}" type="button" title="恢复显示">${h.icon} ${esc(h.name)} ↺</button>`).join('')
+    : '<span class="restore-none">还没有隐藏的模块</span>';
+}
+
+// 网格填充：分组成员不单独出卡，命中组内任一成员时整组出卡（仅渲染命中的标签页）。
+// 排序：收藏的浮前（收藏之间保持注册顺序）；隐藏的过滤掉（编辑模式除外——
+// 编辑时可见才谈得上恢复/取消隐藏）
 function appendCards(grid, eps) {
+  const pool = eps.filter(ep => editMode || !isHiddenGroupCard(ep.id));
+  // 分组卡去重后按「组内任一成员被收藏」置顶
   const emitted = new Set();
-  eps.forEach((ep, i) => {
+  const list = [];
+  pool.forEach(ep => {
     const group = GROUP_OF[ep.id];
-    if (group) {
-      if (emitted.has(group.id)) return;
-      emitted.add(group.id);
-      const members = group.tabs.map(t => eps.find(e => e.id === t.ep)).filter(Boolean);
-      if (!members.length) return;
-      grid.appendChild(makeGroupCard(group, members));
+    const key = group ? group.id : ep.id;
+    if (emitted.has(key)) return;
+    emitted.add(key);
+    const members = group ? group.tabs.map(t => eps.find(e => e.id === t.ep)).filter(Boolean) : null;
+    list.push({ ep, group, members, pinned: isPinnedKey(key, ep.id) });
+  });
+  // 稳定置顶：收藏的排前面，其余按原顺序（sort 稳定，同优先级不乱序）
+  list.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+  list.forEach((it, i) => {
+    if (it.group) {
+      grid.appendChild(makeGroupCard(it.group, it.members));
       return;
     }
-    const card = makeCard(ep);
+    const card = makeCard(it.ep);
     card.style.animationDelay = (i * 0.03) + 's';
     grid.appendChild(card);
   });
@@ -1416,13 +1558,15 @@ async function load(ep, forceUpdate = false) {
 
   // 非强制刷新时检查缓存：命中直接渲染，不再后台重复请求
   if (!forceUpdate && !noCacheTool) {
-    const cached = cacheGet(ck);
+    const cached = cacheGetWithTs(ck);
     if (cached !== null) {
       if (ep.type === 'qr') {
-        c.innerHTML = qrWrapHTML(cached);
+        c.innerHTML = qrWrapHTML(cached.data);
       } else {
-        renderData(ep, cached, c);
+        renderData(ep, cached.data, c);
       }
+      // 缓存命中的时间戳 = 这份数据当初落缓存的时刻（不是当前），相对时间如实反映
+      markEpLoaded(ep.id, cached.ts);
       return;
     }
   }
@@ -1464,6 +1608,7 @@ async function gtranslateLoad(ep, params, url, ck, c, forceUpdate) {
           };
           cacheSet(ck, data);
           renderData(ep, data, c);
+          markEpLoaded(ep.id, Date.now());
           return;
         }
       }
@@ -1542,6 +1687,7 @@ async function fetchWithRetry(ep, url, ck, c, retriesLeft) {
     // 密码生成/检测不写缓存（同 load 侧的 noCacheTool）：同参数再次查询必须重新生成/重算
     if (ep.type !== 'pwd' && ep.type !== 'pwdchk') cacheSet(ck, json.data);
     renderData(ep, json.data, c);
+    markEpLoaded(ep.id, Date.now());
   } catch(e) {
     if (retriesLeft > 0) {
       await new Promise(r => setTimeout(r, 1000));
@@ -1722,6 +1868,7 @@ async function calLoad(id) {
     if (json.code !== 200) { c.innerHTML = unavailableHTML(ep, json.message); return; }
     cacheSet(ck, json.data);
     renderData(ep, json.data, c);
+    markEpLoaded(ep.id, Date.now());
   } catch (e) {
     c.innerHTML = unavailableHTML(ep, e.message);
   }
@@ -1794,6 +1941,39 @@ function g2048CanMove(st) {
   return false;
 }
 
+// 触感反馈：合并 15ms / 敲击 10ms 短震（支持的设备才生效，配合全局震动开关）
+let hapticOn = true;
+try { hapticOn = localStorage.getItem('haptic-off') !== '1'; } catch {}
+function haptic(ms) {
+  if (hapticOn && navigator.vibrate) { try { navigator.vibrate(ms); } catch {} }
+}
+
+// 数字滚动（count-up）：值变化时从旧值 200ms 滚到新值；reduced-motion 时直接跳终值。
+// 竞态处理：新动画开始前取消旧动画，快速连击不会叠加多个 rAF 循环
+const countUps = new WeakMap();
+function countUp(el, target, format) {
+  if (!el) return;
+  const fmt = format || (n => n.toLocaleString('zh-CN'));
+  const prev = countUps.get(el);
+  const from = typeof prev?.value === 'number' ? prev.value : null;
+  if (prev?.raf) cancelAnimationFrame(prev.raf);
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (from === null || reduced || from === target) {
+    countUps.set(el, { value: target, raf: 0 });
+    el.textContent = fmt(target);
+    return;
+  }
+  const t0 = performance.now(), dur = 200;
+  const tick = now => {
+    const k = Math.min(1, (now - t0) / dur);
+    const v = Math.round(from + (target - from) * k);
+    el.textContent = fmt(v);
+    if (k < 1) countUps.get(el).raf = requestAnimationFrame(tick);
+    else countUps.set(el, { value: target, raf: 0 });
+  };
+  countUps.set(el, { value: from, raf: requestAnimationFrame(tick) });
+}
+
 function g2048Move(id, dir) {
   const st = g2048[id];
   if (!st || st.over || (st.won && !st.wonAck)) return;
@@ -1847,7 +2027,7 @@ function g2048Move(id, dir) {
   g2048Spawn(st);
   if (!g2048CanMove(st)) st.over = true;
   g2048Paint(id);
-  if (gained) g2048Float(id, gained);
+  if (gained) { g2048Float(id, gained); haptic(15); }
 }
 
 function g2048Undo(id) {
@@ -1960,7 +2140,7 @@ function g2048Paint(id) {
     });
   }, 220);
 
-  wrap.querySelector('.g-sv').textContent = st.score;
+  countUp(wrap.querySelector('.g-sv'), st.score);
   wrap.querySelector('.g-bv').textContent = st.best;
   wrap.querySelector('[data-g2048-undo]').disabled = !st.hist;
 
@@ -2207,7 +2387,7 @@ function muyuPaint(id) {
   const el = document.querySelector(`[data-muyu="${id}"]`);
   const st = muyu[id];
   if (!el || !st) return;
-  el.querySelector('.m-count').textContent = st.count.toLocaleString('zh-CN');
+  countUp(el.querySelector('.m-count'), st.count);
   el.querySelector('.m-combo-b').textContent = st.combo > 1 ? `×${st.combo}` : '—';
 }
 
@@ -2242,6 +2422,7 @@ function muyuStrike(id) {
   stage.appendChild(rip);
   rip.addEventListener('animationend', () => rip.remove());
 
+  haptic(10);
   if (!st.mute) muyuKnock();
   muyuPaint(id);
 }
@@ -2514,6 +2695,133 @@ document.addEventListener('click', e => {
   const card = fsBtn.closest('.card');
   if (card) cardFsToggle(card);
 });
+
+// ============ 个性化/编辑模式/全部刷新：统一点击入口 ============
+// ☆/⊖ 只在 body.edit-mode 下可见（CSS 控制），这里不必再判 editMode
+document.addEventListener('click', e => {
+  const pinBtn = e.target.closest('.btn-pin');
+  if (pinBtn) {
+    const card = pinBtn.closest('.card');
+    const id = card?.id.replace(/^card-/, '');
+    if (!id) return;
+    if (pinnedEps.has(id)) pinnedEps.delete(id);
+    else pinnedEps.add(id);
+    savePinned();
+    pinBtn.classList.toggle('pinned', pinnedEps.has(id));
+    pinBtn.title = pinnedEps.has(id) ? '取消收藏' : '收藏置顶';
+    render(); // 置顶排序即时生效
+    return;
+  }
+  const hideBtn = e.target.closest('.btn-hide');
+  if (hideBtn) {
+    const card = hideBtn.closest('.card');
+    const id = card?.id.replace(/^card-/, '');
+    if (!id) return;
+    // 分组卡：隐藏整组（组内全部成员）；普通卡：隐藏该 ep
+    const g = GROUP_OF[id] || null;
+    const members = g ? g.tabs.map(t => t.ep) : [id];
+    // 分组 id 本身不是 ep id：成员加入 hiddenEps，分组卡随「全成员隐藏」消失
+    if (g) members.forEach(m => hiddenEps.add(m));
+    else hiddenEps.add(id);
+    saveHidden();
+    renderHiddenChips();
+    render();
+    return;
+  }
+  const restore = e.target.closest('[data-restore]');
+  if (restore) {
+    const id = restore.dataset.restore;
+    const g = GROUP_OF[id];
+    if (g) g.tabs.forEach(t => hiddenEps.delete(t.ep));
+    else hiddenEps.delete(id);
+    saveHidden();
+    renderHiddenChips();
+    render();
+    return;
+  }
+  if (e.target.closest('#btnEdit')) { setEditMode(!editMode); return; }
+});
+
+// 全部刷新：当前视图内所有可见卡片 ↻（noapi 卡走 renderData 重置）。
+// 错峰 60ms/张，避免同时打满上游触发限流；过程中按钮转圈防重复点击
+function refreshAll() {
+  const btn = $('#btnRefreshAll');
+  if (btn?.classList.contains('busy')) return;
+  if (btn) btn.classList.add('busy');
+  const kw = ($('#search')?.value || '').trim().toLowerCase();
+  const visEps = EPS.filter(ep => matchKw(ep, kw) && (curCat === 'all' || curCat === ep.cat)
+    && !isHiddenGroupCard(ep.id) && !GROUP_OF[ep.id]);
+  visEps.forEach((ep, i) => {
+    setTimeout(() => load(ep, true).catch(() => {}), i * 60);
+  });
+  const done = () => { if (btn) btn.classList.remove('busy'); };
+  setTimeout(done, Math.max(600, visEps.length * 60 + 400));
+}
+document.addEventListener('click', e => {
+  if (e.target.closest('#btnRefreshAll')) refreshAll();
+});
+
+// ============ 下拉刷新（pull-to-refresh） ============
+// 仅触屏 + 页面在顶部时激活：下拉 12px 出指示器、拉满 64px 松手触发全部刷新，
+// 未拉满回弹。与系统 overscroll 的差别：跟随手指的转圈指示器 + 统一刷新入口。
+// touchmove 在 document 上被动监听：浏览器默认把竖直触摸给页面滚动，
+// 顶部时 scrollY=0 拉不动，才轮到我们接管（无 CSS overscroll-behavior 改动，不与系统冲突）
+(function setupPullToRefresh() {
+  if (!window.matchMedia('(pointer: coarse)').matches) return;
+  const ind = () => document.getElementById('ptrIndicator');
+  const TRIGGER = 64, SHOW = 12;
+  let startY = 0, pulling = false, dist = 0, animating = false;
+
+  const apply = () => {
+    const el = ind();
+    if (!el) return;
+    const k = Math.min(1, dist / TRIGGER);
+    el.style.opacity = dist > SHOW ? String(Math.min(1, (dist - SHOW) / 30)) : '0';
+    el.style.transform = `translateY(${Math.max(0, dist - SHOW)}px)`;
+    el.classList.toggle('ready', dist >= TRIGGER);
+  };
+  const retract = () => {
+    const el = ind();
+    if (!el) return;
+    animating = true;
+    el.style.transition = 'transform .25s ease, opacity .25s ease';
+    el.style.transform = 'translateY(0)';
+    el.style.opacity = '0';
+    el.classList.remove('ready');
+    setTimeout(() => { if (el) el.style.transition = ''; animating = false; }, 260);
+  };
+
+  document.addEventListener('touchstart', e => {
+    if (window.scrollY > 0 || editMode || e.touches.length !== 1) { pulling = false; return; }
+    // 从游戏卡/输入框/可滚动卡片内容区起手不接管：会跟棋盘滑动、文本选择打架
+    const t = e.target;
+    if (t.closest('.g2048, .muyu, .fs-fake, .fanyi-textarea, .input-row, .card-body, .cat-sub, .card-pane')) { pulling = false; return; }
+    startY = e.touches[0].clientY;
+    pulling = true; dist = 0;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if (!pulling || animating) return;
+    dist = e.touches[0].clientY - startY;
+    if (dist <= 0) { dist = 0; apply(); return; }
+    // 顶部下拉：阻力渐增（越拉越沉），手指移动 2px 指示器走 1px 上下
+    dist = Math.min(TRIGGER * 1.35, dist * 0.5 + Math.min(dist, 40) * 0.5);
+    apply();
+  }, { passive: true });
+
+  document.addEventListener('touchend', () => {
+    if (!pulling) return;
+    pulling = false;
+    if (dist >= TRIGGER) {
+      haptic(20);
+      retract();
+      refreshAll();
+    } else {
+      retract();
+    }
+    dist = 0;
+  }, { passive: true });
+})();
 
 function rDouban(d, c) {
   if (!Array.isArray(d)) return rJSON(d, c);
