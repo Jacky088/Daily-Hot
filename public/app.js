@@ -263,6 +263,17 @@ const CARD_GROUPS = [
 const GROUP_OF = {};
 CARD_GROUPS.forEach(g => g.tabs.forEach(t => { GROUP_OF[t.ep] = g; }));
 
+// ============ 响应式判定：断点与输入能力（CSS 与 JS 共用同一口径） ============
+// MQ_TOUCH  ：主输入为触摸（手机/平板）——全屏分流用；触摸设备绕开系统 Fullscreen API，
+//             避免 Android / 内嵌 WebView 进入全屏时把屏幕强制旋转为横屏。
+// MQ_MOBILE ：窄屏「或」触摸——移动端布局/交互判定。与 style.css 的
+//             @media (max-width: 820px), (pointer: coarse) 逐字一致；
+//             手机横屏时宽度常 >820px，靠 (pointer: coarse) 兜住，仍按移动端布局。
+const MQ_TOUCH = window.matchMedia('(pointer: coarse)');
+const MQ_MOBILE = window.matchMedia('(max-width: 820px), (pointer: coarse)');
+// 移动端布局是否生效：原分散的 window.innerWidth <=/> 820 判断统一改用它，杜绝断点散落
+const isMobileLayout = () => MQ_MOBILE.matches;
+
 // ============ 菜单目录数据与同步（分类=切换视图，模块=本页目录 TOC） ============
 let syncSpy = null; // init 内部赋值 setupScrollSpy：render 后按新卡片集合重建滚动监听
 
@@ -311,7 +322,7 @@ function setupScrollSpy() {
   if (spyObserver) { spyObserver.disconnect(); spyObserver = null; }
   spyVisible.clear();
   // 「全部」无目录；移动端目录是呼出面板，跟随滚动高亮没有意义
-  if (curCat === 'all' || window.innerWidth <= 820) return;
+  if (curCat === 'all' || isMobileLayout()) return;
   const keys = catTocEntries(curCat).map(e => e.key);
   spyObserver = new IntersectionObserver(entries => {
     for (const en of entries) {
@@ -342,7 +353,7 @@ function setupScrollSpy() {
   });
 }
 // 跨越桌面/移动断点时重建监听（只有桌面需要 spy）
-window.matchMedia('(max-width: 820px)').addEventListener('change', () => setupScrollSpy());
+MQ_MOBILE.addEventListener('change', () => setupScrollSpy());
 
 let curCat = 'all';
 let activeModuleId = null; // 当前高亮的子菜单模块（点击模块菜单后记录）
@@ -664,7 +675,7 @@ function init() {
   // 失效、退化成纯半透明。挂到 body 后 backdrop root 回到根元素才能磨砂壁纸。
   // top 跟随吸顶栏实测底边（吸顶后高度恒定，打开与窗口变化时校准即可）
   function placeCatPanel() {
-    if (window.innerWidth > 820) return;
+    if (!isMobileLayout()) return;
     catPanel.style.top = nav.getBoundingClientRect().bottom + 'px';
   }
   // 开合状态同步打在 nav（沿用 toc-open 语义）与面板本体（CSS 显示开关）上
@@ -719,7 +730,7 @@ function init() {
 
   // 窄屏下把元素水平居中到其可滚动容器可视区（分类 pill / 模块 chip 通用）
   function centerInContainer(container, el) {
-    if (window.innerWidth > 820) return;
+    if (!isMobileLayout()) return;
     const elRect = el.getBoundingClientRect();
     const cRect = container.getBoundingClientRect();
     container.scrollTo({
@@ -763,7 +774,7 @@ function init() {
   // 桌面端目录条目滚动到可视即可；移动端仅在面板展开时把对应 chip 滚入面板可视区
   function focusSubChip(epId) {
     const key = GROUP_OF[epId] ? GROUP_OF[epId].id : epId;
-    if (window.innerWidth > 820) {
+    if (!isMobileLayout()) {
       const item = catRow.querySelector(`.cat-toc-item[data-key="${key}"]`);
       if (item) item.scrollIntoView({ block: 'nearest' });
       return;
@@ -807,7 +818,7 @@ function init() {
   // 桌面端分类栏在侧边不遮挡内容、遮挡卡片的是吸顶顶栏——必须分端测量，
   // 否则桌面端会算出负偏移导致根本不滚动。
   function scrollDockTop() {
-    if (window.innerWidth <= 820) {
+    if (isMobileLayout()) {
       const navEl = document.querySelector('.cat-nav');
       return (navEl ? navEl.getBoundingClientRect().bottom : 0) + 12;
     }
@@ -982,7 +993,7 @@ function init() {
       // 点击已激活分类：桌面折叠/展开目录手风琴；移动端开合模块面板（「全部」无目录）
       if (curCat === c.id) {
         if (c.id === 'all') return;
-        if (window.innerWidth <= 820) setCatPanelOpen(!nav.classList.contains('toc-open'));
+        if (isMobileLayout()) setCatPanelOpen(!nav.classList.contains('toc-open'));
         else nav.classList.toggle('sub-collapsed');
         b.setAttribute('aria-expanded', nav.classList.contains('sub-collapsed') ? 'false' : 'true');
         return;
@@ -1028,7 +1039,7 @@ function init() {
   refreshSubs();
   // 移动端模块面板的常规退出路径：点击面板外任意处 / Esc（定位点击由 locateCard 自己收起）
   document.addEventListener('click', e => {
-    if (window.innerWidth > 820) return;
+    if (!isMobileLayout()) return;
     if (!nav.classList.contains('toc-open')) return;
     if (!nav.contains(e.target) && !catPanel.contains(e.target)) setCatPanelOpen(false);
   });
@@ -2466,27 +2477,34 @@ function fsMarkNative(card, prevScrollY) {
 
 function cardFsToggle(card) {
   if (cardFsActive(card)) { fsExitCard(card); return; }
-  const req = card.requestFullscreen || card.webkitRequestFullscreen;
-  // 原生全屏期间元素脱离文档流、文档变矮，scrollY 会被钳制；进入前先记滚动基准
-  const prevY = window.scrollY;
-  if (req) {
-    let p = null;
-    try { p = req.call(card); } catch { p = null; } // 个别 WebView 同步抛错：视同不可用
-    if (p && p.then) {
-      let settled = false;
-      p.then(() => { settled = true; fsMarkNative(card, prevY); cardFsSync(); })
-       .catch(() => { settled = true; fsEnterFake(card, prevY); }); // 请求被拒：伪全屏兜底，不让 ⛶ 失灵
-      // 个别内嵌 WebView 的全屏请求无限挂起（既不成功也不失败）：400ms 内
-      // 无任何进展（无全屏元素、未进伪全屏）则回退伪全屏
-      setTimeout(() => {
-        if (settled || cardFsEl() || card.classList.contains('fs-fake')) return;
-        fsEnterFake(card, prevY);
-      }, 400);
-    } else {
-      setTimeout(() => { fsMarkNative(card, prevY); cardFsSync(); }, 200); // 旧 webkit 无返回值，延时探测
-    }
-  } else {
+  // 触摸设备统一走伪全屏：不调用系统 Fullscreen API，规避 Android / 内嵌 WebView 在
+  // 进入全屏时把屏幕强制旋转为横屏（网页无法可靠锁定方向，只能从源头绕开）。
+  // 桌面端无此问题，仍走原生全屏以获得真沉浸体验。
+  if (MQ_TOUCH.matches) {
     fsEnterFake(card);
+  } else {
+    const req = card.requestFullscreen || card.webkitRequestFullscreen;
+    // 原生全屏期间元素脱离文档流、文档变矮，scrollY 会被钳制；进入前先记滚动基准
+    const prevY = window.scrollY;
+    if (req) {
+      let p = null;
+      try { p = req.call(card); } catch { p = null; } // 个别 WebView 同步抛错：视同不可用
+      if (p && p.then) {
+        let settled = false;
+        p.then(() => { settled = true; fsMarkNative(card, prevY); cardFsSync(); })
+         .catch(() => { settled = true; fsEnterFake(card, prevY); }); // 请求被拒：伪全屏兜底，不让 ⛶ 失灵
+        // 个别内嵌 WebView 的全屏请求无限挂起（既不成功也不失败）：400ms 内
+        // 无任何进展（无全屏元素、未进伪全屏）则回退伪全屏
+        setTimeout(() => {
+          if (settled || cardFsEl() || card.classList.contains('fs-fake')) return;
+          fsEnterFake(card, prevY);
+        }, 400);
+      } else {
+        setTimeout(() => { fsMarkNative(card, prevY); cardFsSync(); }, 200); // 旧 webkit 无返回值，延时探测
+      }
+    } else {
+      fsEnterFake(card);
+    }
   }
   // 进入后聚焦棋盘（若有）：方向键无需先点一下
   setTimeout(() => { card.querySelector('.g2048-board')?.focus({ preventScroll: true }); }, 60);
@@ -2515,7 +2533,7 @@ function fsExitCard(card) {
 // 视口最顶端被 sticky 元素遮住一截，弃用）。verifyOnly：只做停靠校验不回滚
 // （横屏锁退出的二次校验用，避免覆盖用户在补正窗口期内的手动滚动）
 function fsDockTop() {
-  if (window.innerWidth <= 820) {
+  if (isMobileLayout()) {
     const navEl = document.querySelector('.cat-nav');
     return (navEl ? navEl.getBoundingClientRect().bottom : 0) + 12;
   }
