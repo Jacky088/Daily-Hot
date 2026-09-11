@@ -2020,7 +2020,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   /* 横屏布局：逆时针 90°（顶部倒向左侧，与手机顺时针横握一致） */
   transform: translate(-50%, -50%) rotate(-90deg);
   transform-origin: center;
-  transition: transform .35s cubic-bezier(.4, 0, .2, 1);
+  /* 不加过渡：全屏瞬间直接呈现横屏成品。旋转过渡（transform .35s）会造成
+     「先全屏、再转 90°」的两段式观感，且退出时选择器失配过渡失效、进出不对称 */
 }
 /* 旋转单元内的游戏主体尺寸按「旋转后的可视宽」封顶（--vw-px = 视口宽），
    头部/内边距预算 90px 与竖屏口径一致 */

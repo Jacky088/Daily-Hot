@@ -2101,6 +2101,11 @@ function g2048Bind(id) {
   let sx = 0, sy = 0, tracking = false, fired = false;
   wrap.addEventListener('pointerdown', e => {
     tracking = true; fired = false; sx = e.clientX; sy = e.clientY;
+    // 按钮等交互控件上不捕获指针：setPointerCapture 会把后续 click 重定向到 wrap，
+    // 委托在 document 的按钮点击（全屏/撤销/重开）就再也匹配不到目标——桌面鼠标
+    // 必现；触摸端因点击前常先有滚动、capture 时序不同而侥幸可用。滑动手势只
+    // 需要在棋盘上生效，这里放行按钮，手势逻辑不受影响
+    if (e.target.closest('button, a, input, select, textarea, label')) return;
     try { wrap.setPointerCapture(e.pointerId); } catch {}
     board.focus({ preventScroll: true });
   });
