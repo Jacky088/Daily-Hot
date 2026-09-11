@@ -1195,12 +1195,12 @@ function makeCard(ep) {
     <div class="card-actions">
       ${ep.noapi ? '' : '<button class="btn-json" title="查看 JSON" aria-label="查看 JSON">{ }</button>'}
       ${ep.fs /* fs:1 卡片恒显示全屏按钮，无 Fullscreen API 时由 cardFsToggle 回退伪全屏；
-                   手机端进全屏直接横屏（旋转 .fs-unit 整层），✕ 退出还原 */
+                   全屏按屏幕真实方向自然渲染，✕ 退出还原 */
         ? '<button class="btn-fs" type="button" title="全屏" aria-label="全屏">⛶</button><button class="btn-fs-exit" type="button" title="退出全屏" aria-label="退出全屏">✕</button>'
         : ''}
       <button class="btn-refresh" title="刷新" aria-label="刷新数据">↻</button>
     </div>`;
-  // head 的挂载点在函数末尾：fs:1 卡片会连同 body 一起包进 .fs-unit 旋转单元
+  // head 的挂载点在函数末尾：fs:1 卡片会连同 body 一起包进 .fs-unit 布局单元
 
   const body = document.createElement('div');
   body.className = 'card-body';
@@ -1325,9 +1325,9 @@ function makeCard(ep) {
   content.innerHTML = ep.auto ? SKELETON_HTML : placeholder;
   body.appendChild(content);
 
-  // fs:1 卡片（2048/木鱼）：头部（✕/⇄/↻）与内容区同包进 .fs-unit 旋转单元——
-  // 全屏竖⇄横时整个单元（含按钮）一起转，按钮永远在「当前布局」的右上角；
-  // 非全屏时该单元是普通静态容器，无任何视觉影响
+  // fs:1 卡片（2048/木鱼）：头部（✕/↻）与内容区同包进 .fs-unit 布局单元——
+  // 全屏时该单元是 flex 布局宿主（头部按钮 + 游戏区纵向排布）；
+  // 非全屏时是普通静态容器，无任何视觉影响
   if (ep.fs) {
     const unit = document.createElement('div');
     unit.className = 'fs-unit';
@@ -2112,9 +2112,6 @@ function g2048Bind(id) {
   wrap.addEventListener('pointermove', e => {
     if (!tracking || fired) return;
     let dx = e.clientX - sx, dy = e.clientY - sy;
-    // 伪横屏（.fs-unit 转 -90°）：物理右滑 = 棋盘上滑，向量旋 +90° 旋回棋盘坐标再判向
-    const unit = wrap.closest('.fs-unit');
-    if (unit && unit.classList.contains('rot-l')) { const tx = dx; dx = -dy; dy = tx; }
     // 阈值随棋盘宽度缩放（约 8%），小屏不迟钝、大屏不误触
     const th = Math.max(18, board.clientWidth * 0.08);
     if (Math.abs(dx) < th && Math.abs(dy) < th) return;
@@ -2418,12 +2415,9 @@ function rMuyu(_, c, ep) {
 // 桌面 / Android 走 Fullscreen API（全屏对象是整张卡片）；iOS Safari 无该 API、
 // 或全屏请求被拒/挂起（内嵌 WebView）时回退 .fs-fake 固定定位模拟全屏，两种模式
 // 统一由 cardFsActive() 判定。
-// 手机端进全屏直接横屏：旋转 .fs-unit 旋转单元（card-head + card-body 的整体
-// 包裹层）-90°——✕/↻ 按钮随单元一起转，落在横屏画面的右上角；✕ 退出即还原
-// 回到原卡片。不碰 screen.orientation.lock：部分浏览器（MIUI 系等）进全屏会
-// 自作主张转横屏且不服从 JS 方向锁。UA 样式的 transform:none!important 只封锁
-// :fullscreen 元素本体，内层 .fs-unit 子元素可自由旋转，全屏状态全程不丢。
-// 桌面端（pointer:fine）显示器天然横屏，不旋转直接全屏。
+// 全屏按屏幕真实方向自然渲染：竖屏设备得到竖屏全屏布局，横屏设备得到横屏布局，
+// 不做任何内容旋转（早期版本曾把 .fs-unit 转 -90° 强制横屏，实测屏幕并不跟随
+// 旋转，内容侧躺纯属负体验，已整体移除）。
 // 退出（✕/ESC/手势）由 onFsChange 统一还原滚动位置（进入前预记基准）
 function cardFsEl() {
   // 真实原生全屏元素。现代 API 存在时以其为准：个别 WebView（内嵌 Electron 等）在
@@ -2436,11 +2430,6 @@ function cardFsEl() {
 
 function cardFsActive(card) {
   return cardFsEl() ? cardFsEl().contains(card) : card.classList.contains('fs-fake');
-}
-
-// 手机端（触屏）才做伪横屏旋转；桌面显示器天然横屏，直接全屏即可
-function fsIsTouch() {
-  return window.matchMedia('(pointer: coarse)').matches;
 }
 
 // 进入伪全屏（iOS 无 Fullscreen API / 全屏请求被拒/挂起的兜底）。
@@ -2461,12 +2450,10 @@ function fsEnterFake(card, prevScrollY) {
                : (prev && typeof prev.prevScrollY === 'number' ? prev.prevScrollY : window.scrollY),
   });
   document.documentElement.style.overflow = 'hidden'; // 锁背景滚动
-  applyFsRot(card);
   cardFsSync();
 }
 
 // 原生全屏确认生效后落状态：onFsChange 进入分支已建 {native} 骨架，这里补记滚动基准。
-// 手机端进全屏即转横屏（applyFsRot 挂 .rot-l）；桌面端不转
 function fsMarkNative(card, prevScrollY) {
   const el = cardFsEl();
   if (!el || !el.contains(card)) return; // 全屏未生效（请求失败）：不落状态
@@ -2475,7 +2462,6 @@ function fsMarkNative(card, prevScrollY) {
   if (st.native && typeof st.prevScrollY !== 'number' && typeof prevScrollY === 'number') {
     st.prevScrollY = prevScrollY;
   }
-  applyFsRot(card);
 }
 
 function cardFsToggle(card) {
@@ -2515,7 +2501,6 @@ function fsExitCard(card) {
     return;
   }
   const st = fsState.get(card) || {}; // 状态意外缺失也照常拆类还原，别把用户锁在伪全屏里
-  fsClearRot(card);
   card.classList.remove('fs-fake');
   document.documentElement.classList.remove('fs-fake-on');
   document.documentElement.style.overflow = st.prevScroller || '';
@@ -2546,24 +2531,6 @@ function fsRestoreScroll(card, prevScrollY, verifyOnly) {
   if (Math.abs(delta) > 60) window.scrollBy({ top: delta, behavior: 'instant' });
 }
 
-// 把横屏旋转态落到 DOM：手机端全屏给卡片挂 .rot-l（CSS 据此把 .fs-unit 转 -90°），
-// 桌面端不挂。像素变量供 CSS 计算旋转后单元的宽高（不用 vh/vw 直接参与 transform
-// 尺寸：地址栏收放会先改变可用尺寸再触发 resize，实时单位会随之跳变）
-function applyFsRot(card) {
-  const active = cardFsActive(card);
-  card.classList.toggle('rot-l', active && fsIsTouch());
-  card.style.setProperty('--vw-px', window.innerWidth + 'px');
-  card.style.setProperty('--vh-px', window.innerHeight + 'px');
-  cardFsSync();
-}
-
-// 清掉旋转态：类与像素变量无条件清理（状态缺失也清理，防残留布局歪斜）
-function fsClearRot(card) {
-  card.classList.remove('rot-l');
-  card.style.removeProperty('--vw-px');
-  card.style.removeProperty('--vh-px');
-}
-
 // 全屏状态变化时，同步游戏区内按钮（⛶ 全屏/✕ 退出）文案
 function cardFsSync() {
   const el = cardFsEl();
@@ -2576,8 +2543,7 @@ function cardFsSync() {
 // 原生全屏状态变化：进入时落状态骨架（基准由 fsMarkNative 补记）；退出时
 // （✕ / ESC / 系统手势返回，不经 fsExitCard）恢复滚动——全屏期间元素脱离文档流、
 // scrollY 被钳制，退出时浏览器自身的滚动恢复不可靠（Chromium 常见），故等退出
-// 处理完、卡片回流的下一帧再恢复。退出时必须摘掉旋转类：旋转规则作用于内层
-// .fs-unit，留着会让非全屏卡片内容歪 90°
+// 处理完、卡片回流的下一帧再恢复
 function onFsChange() {
   const el = cardFsEl();
   if (el) {
@@ -2594,7 +2560,6 @@ function onFsChange() {
       } else if (!fsState.has(card)) {
         fsState.set(card, { native: true });
       }
-      applyFsRot(card);
     }
     cardFsSync();
     return;
@@ -2603,29 +2568,15 @@ function onFsChange() {
   fsState.forEach((st, card) => {
     if (st.native) { restores.push({ card, y: st.prevScrollY }); fsState.delete(card); }
   });
-  restores.forEach(({ card }) => {
-    // 旋转类作用于内层 .fs-unit，非全屏态必须摘掉，否则卡片内容歪 90°
-    fsClearRot(card);
-  });
   restores.forEach(({ card, y }) => {
     if (!card.isConnected) return;
     requestAnimationFrame(() => { if (card.isConnected) fsRestoreScroll(card, y); });
-    // 横屏态退出：内容旋回引发的回流是同步的，稍后只做停靠校验补正
     setTimeout(() => { if (card.isConnected) fsRestoreScroll(card, y, true); }, 350);
   });
   cardFsSync();
 }
 document.addEventListener('fullscreenchange', onFsChange);
 document.addEventListener('webkitfullscreenchange', onFsChange);
-
-// 视口尺寸变化时刷新旋转像素基准（地址栏收放不触发方向事件，需单独监听）
-function fsResize() {
-  const rot = document.querySelector('.card.fs-fake.rot-l, :fullscreen .fs-unit')?.closest('.card');
-  if (!rot) return;
-  rot.style.setProperty('--vw-px', window.innerWidth + 'px');
-  rot.style.setProperty('--vh-px', window.innerHeight + 'px');
-}
-window.addEventListener('resize', fsResize);
 
 // 全屏按钮统一入口：卡片头部 ⛶/✕ 与游戏区内按钮都走这里（↻ 刷新不在此列）
 document.addEventListener('click', e => {
