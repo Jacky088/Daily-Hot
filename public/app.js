@@ -56,6 +56,7 @@ function markEpLoaded(id, ts) {
   epLoadedAt[id] = ts;
   const el = document.querySelector(`[data-ep-loaded="${id}"]`);
   if (el) { el.textContent = relTime(ts); el.hidden = false; }
+  heroRefreshTime();
 }
 function paintRelTimes() {
   document.querySelectorAll('[data-ep-loaded]').forEach(el => {
@@ -64,6 +65,44 @@ function paintRelTimes() {
   });
 }
 setInterval(paintRelTimes, 30 * 1000);
+
+// ============ 页首 Hero 卡（站点简介 + 数据统计） ============
+// 「更新于」与卡片「x 分钟前」同一数据源：取所有已加载卡片时间戳的最大值——
+// 缓存命中显示的是这份数据当初落缓存的时刻、网络加载显示返回时刻，
+// 每次打开页面都如实反映当前所见数据的新鲜度，随卡片陆续就绪自动刷新
+function fmtFullTime(ts) {
+  const d = new Date(ts);
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+function heroRefreshTime() {
+  const el = document.getElementById('heroTime');
+  if (!el) return;
+  const times = Object.values(epLoadedAt);
+  if (times.length) el.textContent = fmtFullTime(Math.max(...times));
+}
+// 分组标题装饰泡泡：纯装饰元素（绝对定位不占布局），默认 CSS 隐藏，
+// 标题启用 .anim-bubble 时显示；尺寸/时长/相位由 CSS nth-of-type 伪随机错开
+const TITLE_BUBBLES = '<i class="bubble" aria-hidden="true"></i>'.repeat(4);
+
+function buildHero() {
+  const el = document.createElement('section');
+  el.className = 'hero';
+  el.innerHTML = `
+    <div class="hero-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2c0 0-1.5 2-3 4.5S6.5 11 8 13c-1-.5-2-1.5-2.5-3 0 0-1.5 2-1 4.5C5 17.5 7 20 12 22c5-2 7-4.5 7.5-7.5.5-2.5-1-4.5-1-4.5-.5 1.5-1.5 2.5-2.5 3 1.5-2 1-4.5-.5-7S13.5 4 12 2z" fill="#fff"/></svg>
+    </div>
+    <div class="hero-body">
+      <div class="hero-title">每日热榜<span class="hero-sub">一站看完天下事</span></div>
+      <p class="hero-desc">聚合微博、知乎、B站、抖音等主流平台实时热点，热榜动态实时更新，一站式掌握全网热门话题</p>
+      <div class="hero-stats">
+        <span class="hero-chip">🕒 更新于 <b id="heroTime">获取中…</b></span>
+        <span class="hero-chip">📊 ${EPS.length} 个热榜模块</span>
+        <span class="hero-chip">🗂 ${CATS.length - 1} 大分类</span>
+      </div>
+    </div>`;
+  return el;
+}
 
 function cacheSet(key, data) {
   try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch {}
@@ -818,10 +857,10 @@ function init() {
   // 桌面端分类栏在侧边不遮挡内容、遮挡卡片的是吸顶顶栏——必须分端测量，
   // 否则桌面端会算出负偏移导致根本不滚动。
   function scrollDockTop() {
-    if (isMobileLayout()) {
-      const navEl = document.querySelector('.cat-nav');
-      return (navEl ? navEl.getBoundingClientRect().bottom : 0) + 12;
-    }
+    // 吸顶停靠底边 = 分类导航条实时底边（顶栏导航版式下导航条与移动端同为顶部吸顶，
+    // 需把整条导航含目录行都算进避让高度）；导航不存在时退回顶栏底边
+    const navEl = document.querySelector('.cat-nav');
+    if (navEl) return navEl.getBoundingClientRect().bottom + 12;
     const topbar = document.querySelector('.topbar');
     return (topbar ? topbar.getBoundingClientRect().bottom : 0) + 12;
   }
@@ -1113,6 +1152,12 @@ function renderImpl() {
   main.innerHTML = '';
   const kw = ($('#search')?.value || '').trim().toLowerCase();
 
+  // 页首 Hero 卡：正常浏览视图（全部/单分类）显示；搜索结果视图不展示，让位给结果
+  if (!(curCat === 'all' && kw)) {
+    main.appendChild(buildHero());
+    heroRefreshTime();
+  }
+
   if (curCat === 'all' && !kw) {
     CATS.filter(c => c.id !== 'all').forEach(c => {
       const eps = EPS.filter(ep => ep.cat === c.id && matchKw(ep, kw));
@@ -1120,7 +1165,7 @@ function renderImpl() {
       const sec = document.createElement('div');
       sec.className = 'cat-section';
       sec.dataset.cat = c.id; // 供分类导航点击后定位到该分类标题
-      sec.innerHTML = `<div class="cat-title">${c.name}<span class="count">${eps.length}</span></div>`;
+      sec.innerHTML = `<div class="cat-title">${TITLE_BUBBLES}${c.name}<span class="count">${eps.length}</span></div>`;
       const grid = document.createElement('div');
       grid.className = 'grid';
       appendCards(grid, eps);
@@ -1146,7 +1191,7 @@ function renderImpl() {
         const sec = document.createElement('div');
         sec.className = 'cat-section';
         sec.dataset.cat = curCat; // 供分类导航点击后定位到该分类标题
-        sec.innerHTML = `<div class="cat-title">${selCat.name}<span class="count">${eps.length}</span></div>`;
+        sec.innerHTML = `<div class="cat-title">${TITLE_BUBBLES}${selCat.name}<span class="count">${eps.length}</span></div>`;
         const grid = document.createElement('div');
         grid.className = 'grid';
         appendCards(grid, eps);

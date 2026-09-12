@@ -256,22 +256,24 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   .wallpaper-bg, .splash { transition-duration: 0.15s !important; }
 }
 
-/* ============ Layout（侧边栏 + 内容区） ============ */
+/* ============ Layout（顶栏导航 + 通栏内容，纵向堆叠） ============ */
 .layout {
-  display: flex; align-items: flex-start; gap: 0;
+  /* 2026-09 改版：桌面端菜单移到顶部（与移动端同构、大屏适配），
+     原为「左侧栏 + 内容区」左右分栏 */
+  display: flex; flex-direction: column; align-items: stretch; gap: 0;
   max-width: 1600px; margin: 0 auto; padding: 0 12px;
 }
 
-/* ============ Category Nav（左侧侧边栏） ============ */
+/* ============ Category Nav（顶栏分类导航） ============ */
 .cat-nav {
   display: flex; flex-direction: column; gap: 0;
-  /* 240px：保证目录条目「编号+图标+完整卡名+标签徽章」不截断（最长短名 8 个汉字） */
-  width: 240px; flex-shrink: 0; padding: 14px 10px;
+  /* 通栏宽度：与下方内容区对齐（左右 24px 同 .main 内边距） */
+  width: auto; align-self: stretch; padding: 10px 12px;
   /* 卡片化底：壁纸上保证菜单文字可读（与 .card 同款毛玻璃语言）
      注意：不加 backdrop-filter——fixed 滚动容器 + backdrop-filter 会触发
      Chromium 命中检测与视觉位置不同步的渲染 bug（子菜单展开后下方按钮 hover 失灵），
      且 0.9 高不透明度下模糊几乎不可见，去掉无视觉损失 */
-  margin: 12px 8px 12px 0;
+  margin: 12px 24px 12px;
   background: var(--glass-bg);
   backdrop-filter: blur(28px) saturate(180%); -webkit-backdrop-filter: blur(28px) saturate(180%);
   border: 1px solid var(--glass-border); border-radius: 18px;
@@ -281,9 +283,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
     inset 0 0 24px var(--glass-lo);
   /* 显式层叠：高于内容区，低于顶栏（100），避免被任何兄弟层叠上下文遮挡 */
   z-index: 50;
-  align-self: flex-start;
-  /* sticky 固定：top 与元素初始位置一致（顶栏实际高度 --topbar-h + 上间距 12px），
-     从第一帧就吸住，视觉上等同 fixed；且随 .layout 底部结束自动让位给页脚，不会重叠。
+  /* sticky 固定：吸附在吸顶顶栏下方 12px 处，滚动时分类与模块目录始终可见可切换。
      不用 fixed：fixed 脱离文档流需占位、滚到页脚必然重叠、还会引入层叠与命中检测问题 */
   position: sticky; top: calc(var(--topbar-h, 64px) + 12px);
   max-height: calc(100vh - var(--topbar-h, 64px) - 24px);
@@ -291,9 +291,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   -webkit-overflow-scrolling: touch;
 }
 .cat-nav::-webkit-scrollbar { display: none; }
-/* 子菜单结构：cat-row 桌面下 display:contents 让按钮/手风琴直接参与纵向排列；
-   移动端则成为横向滚动 pill 行（见末尾媒体查询） */
-.cat-row { display: contents; }
+/* 子菜单结构：cat-row 为横向换行的 pill 行（分类一行铺开，大屏一行放下；
+   中等宽度自动换行，窄屏走末尾媒体查询变横向滚动） */
+.cat-row { display: flex; flex-wrap: wrap; gap: 4px 6px; padding: 0; }
 /* 移动端模块面板：桌面隐藏（悬浮层样式只存在于窄屏媒体查询内） */
 .cat-panel { display: none; }
 .cat-nav button {
@@ -304,8 +304,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   display: flex; align-items: center; gap: 6px;
 }
 .cat-row > button {
-  /* nav 用 gap:0（收起的子菜单零高度仍占 gap 位），间距改由按钮下边距承担 */
-  margin-bottom: 4px;
+  /* pill 间距由 cat-row 的 gap 承担，不再用按钮下边距 */
+  margin-bottom: 0;
 }
 /* hover 高亮用浅橙底：侧边栏自身即 card 色底，用 card 色高亮会与背景融为一体
    （规则本体在上方 @media (hover:hover) 块内，触屏不粘滞） */
@@ -341,18 +341,25 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   border-radius: 10px;
   background: var(--toc-panel);
   opacity: 0;
+  /* 收起态移出 flex 流（绝对定位 + 隐藏）：0fr 只收高度不收宽度，
+     目录条 ~1200px 的隐形宽度会把分类 pill 行挤乱 */
+  position: absolute; visibility: hidden;
   transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1),
               opacity 0.25s ease, margin 0.3s, padding 0.3s;
 }
 .cat-sub.open {
+  position: static; visibility: visible;
   grid-template-rows: 1fr; opacity: 1;
-  margin: 2px 3px 6px; padding: 4px 6px 6px;
+  /* 顶栏版式：目录条独占一行排在全部分类 pill 之后（order 99 + basis 100%），
+     视觉上成为「第二行模块芯片条」 */
+  margin: 4px 0 2px; padding: 4px 8px 6px;
+  flex-basis: 100%; order: 99;
 }
-.cat-nav.sub-collapsed .cat-sub { grid-template-rows: 0fr; opacity: 0; }
+.cat-nav.sub-collapsed .cat-sub { grid-template-rows: 0fr; opacity: 0; position: absolute; visibility: hidden; }
 /* 折叠时同步清零 .open 残留的纵向 margin/padding（transition 已含二者），
    子菜单完全收起不留空隙，与箭头回到 ▸ 的收起态保持一致 */
 .cat-nav.sub-collapsed .cat-sub.open { margin: 0 3px; padding: 0 6px; }
-.cat-sub-inner { min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 1px; }
+.cat-sub-inner { min-height: 0; overflow: hidden; display: flex; flex-direction: row; flex-wrap: wrap; gap: 2px 6px; }
 .cat-subitem {
   padding: 5px 10px; margin: 0; background: transparent; border: none; border-radius: 8px;
   color: var(--text-dim); font-size: 12px; font-weight: 500; text-align: left;
@@ -371,7 +378,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
    9px/14px 内边距与 13px 字号会压过这里的紧凑布局 */
 .cat-nav .cat-toc-item {
   display: flex; align-items: center; gap: 3px;
-  width: 100%; padding: 6px 5px 8px; background: transparent; border: none;
+  width: auto; padding: 6px 5px 8px; background: transparent; border: none;
   border-radius: 8px; color: var(--text-dim); font-size: 12px; font-weight: 500;
   text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden;
   transition: background 0.15s, color 0.15s;
@@ -409,21 +416,75 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
    两点收益：① 各分类滚动条占用宽度一致，网格列数不会因分类切换而跳变；
    ② 页脚到底部的距离在任何分类下都一致。只改高度，不影响宽度与列数 */
 .main {
-  flex: 1; min-width: 0; padding: 20px 24px 60px;
+  flex: 1; min-width: 0;
+  /* 顶部 12px 与上方导航条的 margin-bottom 同值，保持垂直节奏一致 */
+  padding: 12px 24px 60px;
   min-height: calc(100vh - var(--topbar-h, 76px) - 100px);
 }
+
+/* ============ 页首 Hero 卡 ============ */
+/* 与侧栏面板/卡片同一套 Liquid Glass：玻璃底 + 玻璃描边 + 内高光，
+   品牌橙只出现在图标块与副标语，数据芯片保持中性玻璃 */
+.hero {
+  display: flex; align-items: flex-start; gap: 14px;
+  margin-bottom: 18px; padding: 18px 20px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(28px) saturate(180%); -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid var(--glass-border); border-radius: 18px;
+  box-shadow:
+    inset 0 1px 0 var(--glass-hi),
+    inset 0 -1px 0 var(--glass-lo),
+    inset 0 0 24px var(--glass-lo);
+}
+/* 图标块：橙渐变圆角方块 + 白色火焰（复用顶栏 logo 图形） */
+.hero-icon {
+  flex-shrink: 0; width: 46px; height: 46px; border-radius: 13px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--accent-glow);
+}
+.hero-icon svg { width: 30px; height: 30px; }
+.hero-body { flex: 1; min-width: 0; }
+.hero-title {
+  font-size: 19px; font-weight: 800; color: var(--text); letter-spacing: 0.3px;
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+}
+.hero-sub { font-size: 12px; font-weight: 600; color: var(--accent-text); letter-spacing: 0; }
+.hero-desc { margin-top: 4px; font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+.hero-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.hero-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--text-dim);
+  background: var(--glass-lo); border: 1px solid var(--glass-border);
+  padding: 4px 10px; border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+.hero-chip b { color: var(--text); font-weight: 600; }
+@media (max-width: 560px) {
+  .hero { padding: 14px 16px; gap: 12px; margin-bottom: 14px; }
+  .hero-icon { width: 40px; height: 40px; border-radius: 11px; }
+  .hero-icon svg { width: 26px; height: 26px; }
+  .hero-title { font-size: 17px; }
+  .hero-desc { font-size: 12px; }
+}
 .cat-section { margin-bottom: 32px; }
-/* 分组标题：整枚磨砂玻璃胶囊包裹（标题 + 数量徽章），与卡片玻璃语言统一；
-   inline-flex 收缩为内容宽度，不再通栏 */
+/* 分组标题：与卡片同款圆角玻璃横条——18px 圆角、卡片级 Liquid Glass 配方
+   （强饱和/提亮 backdrop-filter + 多层内高光），通栏铺满与上方 Hero 卡一致。
+   relative + overflow:hidden：内部泡泡装饰被裁在圆角条内滚动 */
 .cat-title {
   font-size: 14px; font-weight: 800;
   color: var(--text); letter-spacing: 0.3px;
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 7px 12px 7px 11px; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; margin-bottom: 14px;
   background: var(--glass-bg);
-  border: 1px solid var(--glass-border); border-radius: 999px;
-  backdrop-filter: blur(12px) saturate(160%);
-  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border: 1px solid var(--glass-border); border-radius: 18px;
+  backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+  -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+  position: relative; overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 var(--glass-hi),
+    inset 0 -1px 0 var(--glass-lo),
+    inset 0 0 24px var(--glass-lo);
 }
 /* 标题前橙色小竖条：呼应激活分类 pill 的橙色渐变，给分组一个视觉锚点 */
 .cat-title::before {
@@ -436,6 +497,41 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   background: linear-gradient(135deg, var(--accent), var(--accent-light));
   padding: 2px 8px; border-radius: 8px;
   font-variant-numeric: tabular-nums;
+}
+
+/* ---- 标题条泡泡动画：四颗大小不一的玻璃泡泡在留白内不停流转 ----
+   泡泡是标题模板注入的 .bubble 装饰元素（app.js TITLE_BUBBLES），
+   绝对定位不占布局；负 z-index 落在玻璃底之上、标题文字之下，
+   越出 18px 圆角的部分被裁掉。尺寸/时长/负延迟伪随机错开，
+   打开页面即在途中，任意时刻都有泡泡在流转 */
+.cat-title .bubble {
+  --bubble-bg:
+    radial-gradient(circle at 30% 26%, rgba(255,255,255,.9) 0 9%, transparent 20%),
+    radial-gradient(circle at 66% 78%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 46%),
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,.05) 0 52%, rgba(255,255,255,.38) 66%, transparent 74%);
+  display: block; position: absolute; top: 50%; z-index: -1;
+  border-radius: 50%;
+  background: var(--bubble-bg);
+  animation: titleBubbleFloat 16s linear infinite, titleBubbleBob 5s ease-in-out infinite;
+}
+.cat-title .bubble:nth-of-type(1) { width: 58px; height: 58px; margin-top: -29px; animation-duration: 15s, 4.6s; animation-delay: -3s, -1.2s; }
+.cat-title .bubble:nth-of-type(2) { width: 34px; height: 34px; margin-top: -17px; animation-duration: 19s, 5.6s; animation-delay: -11s, -2.6s; }
+.cat-title .bubble:nth-of-type(3) { width: 46px; height: 46px; margin-top: -23px; animation-duration: 17.5s, 5.1s; animation-delay: -6.5s, -3.8s; }
+.cat-title .bubble:nth-of-type(4) { width: 22px; height: 22px; margin-top: -11px; animation-duration: 13s, 4.3s; animation-delay: -16s, -0.6s; }
+@keyframes titleBubbleFloat {
+  0%   { right: calc(0% - 90px); opacity: 0; }
+  8%   { opacity: .95; }
+  92%  { opacity: .95; }
+  100% { right: calc(100% + 10px); opacity: 0; }
+}
+@keyframes titleBubbleBob {
+  0%, 100% { transform: translateY(3px); }
+  50%      { transform: translateY(-4px); }
+}
+/* 减弱动态偏好：泡泡直接不显示（静止的大泡泡悬在条内显得突兀） */
+@media (prefers-reduced-motion: reduce) {
+  .cat-title .bubble { display: none; }
+}
 }
 
 /* ============ Grid ============ */
@@ -477,7 +573,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
      滚入时合成器重建 backdrop-filter 层的头 1-2 帧模糊未就绪，卡片闪现半透明
      底色——玻璃越通透（低不透明度）越明显。全量实渲染换取玻璃稳定，
      定位逻辑里的 .locate-force 类保留（无样式定义时是空操作，不报错） */
-  scroll-margin-top: 84px;
+  /* 桌面吸顶栈高度：顶栏 + 顶栏导航条 ≈ 180px（scrollIntoView/键盘聚焦用；
+     卡片定位主路径走 JS 的 scrollDockTop() 动态测量，不依赖此值） */
+  scroll-margin-top: 180px;
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.1),
     inset 0 1px 0 var(--glass-hi),
@@ -2037,12 +2135,11 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 
 /* ============ 分类/搜索切换过渡（View Transitions） ============ */
-/* render() 用 startViewTransition 包装后，新旧 #main 快照做交叉淡入淡出。
-   默认 root 过渡是 0.25s 淡入：够顺滑且不拖沓；壁纸/顶栏在快照外保持静止，
-   只有内容区在过渡。不支持该 API 的浏览器自动走直通渲染（无降级代码需要） */
-::view-transition-old(root) { animation: vtFadeOut .18s ease; }
+/* render() 用 startViewTransition 包装后，新 #main 快照淡入覆盖旧快照。
+   旧快照必须保持完全不透明、不做淡出：若新旧同时半透明，合成会出现透明缺口，
+   露出文档画布底色（日间 --bg-grad 近白 / 夜间近黑），用户会感知到
+   「切换分类全屏闪一下」。只淡入不淡出，视觉等效交叉溶解且无闪帧 */
 ::view-transition-new(root) { animation: vtFadeIn .25s ease; }
-@keyframes vtFadeOut { to { opacity: 0; } }
 @keyframes vtFadeIn { from { opacity: 0; } }
 
 /* ============ 顶栏图标按钮（全部刷新） ============ */
