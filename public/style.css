@@ -413,17 +413,29 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   min-height: calc(100vh - var(--topbar-h, 76px) - 100px);
 }
 .cat-section { margin-bottom: 32px; }
+/* 分组标题：整枚磨砂玻璃胶囊包裹（标题 + 数量徽章），与卡片玻璃语言统一；
+   inline-flex 收缩为内容宽度，不再通栏 */
 .cat-title {
-  font-size: 14px; font-weight: 800; margin-bottom: 14px;
+  font-size: 14px; font-weight: 800;
   color: var(--text); letter-spacing: 0.3px;
-  display: flex; align-items: center; gap: 10px;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 12px 7px 11px; margin-bottom: 14px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border); border-radius: 999px;
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
 }
-.cat-title::after {
-  content: ""; flex: 1; height: 1px; background: var(--border);
+/* 标题前橙色小竖条：呼应激活分类 pill 的橙色渐变，给分组一个视觉锚点 */
+.cat-title::before {
+  content: ""; flex-shrink: 0; width: 3px; height: 14px; border-radius: 2px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-light));
 }
+/* 数量徽章：实心橙渐变 + 白字（同激活分类 pill 配方），玻璃胶囊内足够跳出易读 */
 .cat-title .count {
-  font-size: 10px; font-weight: 500; color: var(--text-dimmer);
-  background: var(--card); padding: 2px 8px; border-radius: 8px; border: 1px solid var(--border);
+  font-size: 10px; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  padding: 2px 8px; border-radius: 8px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ============ Grid ============ */
