@@ -22,6 +22,8 @@
   /* 折叠目录面板底色：淡纯色暖调，包住整个子菜单 */
   --toc-panel: color-mix(in srgb, var(--accent) 7%, var(--card));
   --success: #34d399;
+  /* 绿色小字专用（同 --accent-text 思路）：暗色亮翡翠在深玻璃底对比已够，用本色 */
+  --success-text: #34d399;
   --warn: #fbbf24;
   --error: #f87171;
   --shadow: 0 4px 24px rgba(0,0,0,0.3);
@@ -56,6 +58,9 @@
   /* 折叠目录面板底色：淡纯色暖调，包住整个子菜单 */
   --toc-panel: color-mix(in srgb, var(--accent) 6%, var(--card));
   --success: #059669;
+  /* 绿色小字专用（同 --accent-text 思路）：翡翠 600 在蓝调壁纸/玻璃底仅 ~3.4:1，
+     小字换翡翠 700 才稳住 AA 对比度 */
+  --success-text: #047857;
   --warn: #d97706;
   --error: #dc2626;
   --shadow: 0 2px 14px rgba(150,95,125,0.12);
@@ -748,13 +753,17 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
 }
 .hist-item:last-child { border-bottom: none; }
+/* 事件徽章（默认橙）：底色混入 card 做成实色，与 birth/death 徽章统一，
+   透明橙在蓝调壁纸玻璃底上会透色发虚 */
 .hist-year {
   flex-shrink: 0; min-width: 46px; box-sizing: border-box; padding: 0 7px;
   height: 22px; line-height: 22px; text-align: center;
   font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
-  color: var(--accent-text); background: var(--accent-bg); border-radius: 6px;
+  color: var(--accent-text); background: color-mix(in srgb, var(--accent) 12%, var(--card)); border-radius: 6px;
 }
-.hist-year.birth { color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); }
+/* 出生徽章：文字用 --success-text（亮色下深翡翠保 AA）；底色混入 card 而非
+   transparent——实色浅绿不透壁纸，蓝色壁纸下绿色年份/标签不再发虚 */
+.hist-year.birth { color: var(--success-text); background: color-mix(in srgb, var(--success) 14%, var(--card)); }
 .hist-year.death { color: var(--text-dimmer); background: var(--bg); border: 1px solid var(--border); }
 .hist-body { flex: 1; min-width: 0; }
 .hist-title { font-size: 13px; line-height: 1.5; }
@@ -763,9 +772,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .hist-tag {
   display: inline-block; margin-right: 6px; padding: 0 6px; height: 16px; line-height: 16px;
   font-size: 10px; font-weight: 600; border-radius: 4px; vertical-align: 2px;
-  color: var(--accent-text); background: var(--accent-bg);
+  color: var(--accent-text); background: color-mix(in srgb, var(--accent) 12%, var(--card));
 }
-.hist-tag.birth { color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); }
+.hist-tag.birth { color: var(--success-text); background: color-mix(in srgb, var(--success) 14%, var(--card)); }
 .hist-tag.death { color: var(--text-dim); background: var(--bg); border: 1px solid var(--border); }
 .hist-desc {
   font-size: 11.5px; color: var(--text-dim); margin-top: 3px; line-height: 1.55;
@@ -2025,15 +2034,17 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 @keyframes vtFadeIn { from { opacity: 0; } }
 
 /* ============ 顶栏图标按钮（全部刷新） ============ */
-/* 与 theme-toggle 同规格（36px 圆角方块），纯文字图标 */
+/* 与 theme-toggle 同规格（36px 圆角方块），图标为 SVG，
+   尺寸/默认色由 .header-right svg（18px、text-dim）统一控制 */
 .icon-btn {
   width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
   background: var(--card); border: 1px solid var(--border);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s;
-  font-size: 16px; color: var(--text-dim); line-height: 1;
 }
 .icon-btn:hover { border-color: var(--accent); box-shadow: var(--accent-glow); color: var(--accent); }
+/* svg 自带显式 color（.header-right svg），hover 提亮需单独覆盖 */
+.icon-btn:hover svg { color: var(--accent); }
 /* 全部刷新进行中：图标转圈提示 + 防重复点击 */
 .icon-btn.busy { pointer-events: none; animation: iconSpin 1s linear infinite; }
 @keyframes iconSpin { to { transform: rotate(360deg); } }
