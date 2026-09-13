@@ -1,5 +1,10 @@
 const API = location.origin;
 
+// 平滑滚动开关：系统开启「减少动态」时退回瞬时跳转。
+// 必须显式传给 scrollTo/scrollBy/scrollIntoView——JS 传的 behavior 优先级高于
+// CSS 的 html{scroll-behavior}，只在 CSS 里降级对这些调用无效
+const SMOOTH = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+
 // ============ P0: API 响应缓存 ============
 // 缓存优先策略：30 分钟内切换分类/模块直接读缓存不重新请求，
 // 手动点卡片 ↻ 才强制刷新（forceUpdate 绕过缓存）
@@ -7,7 +12,7 @@ const CACHE_TTL = 30 * 60 * 1000;
 
 // 发版时递增：让所有旧的 localStorage 缓存失效，
 // 否则用户在 TTL 内会继续看到上一版缓存下来的渲染结果
-const CACHE_VERSION = 'v11';
+const CACHE_VERSION = 'v12';
 
 // 清理已下线功能的残留键（如编辑布局的收藏/隐藏偏好），避免永久占空间
 try { localStorage.removeItem('ep-pinned'); localStorage.removeItem('ep-hidden'); } catch {}
@@ -89,23 +94,280 @@ function buildHero() {
   const el = document.createElement('section');
   el.className = 'hero';
   el.innerHTML = `
-    <div class="hero-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2c0 0-1.5 2-3 4.5S6.5 11 8 13c-1-.5-2-1.5-2.5-3 0 0-1.5 2-1 4.5C5 17.5 7 20 12 22c5-2 7-4.5 7.5-7.5.5-2.5-1-4.5-1-4.5-.5 1.5-1.5 2.5-2.5 3 1.5-2 1-4.5-.5-7S13.5 4 12 2z" fill="#fff"/></svg>
-    </div>
-    <div class="hero-body">
-      <div class="hero-title">每日热榜<span class="hero-sub">一站看完天下事</span></div>
-      <p class="hero-desc">聚合微博、知乎、B站、抖音等主流平台实时热点，热榜动态实时更新，一站式掌握全网热门话题</p>
-      <div class="hero-stats">
-        <span class="hero-chip">🕒 更新于 <b id="heroTime">获取中…</b></span>
-        <span class="hero-chip">📊 ${EPS.length} 个热榜模块</span>
-        <span class="hero-chip">🗂 ${CATS.length - 1} 大分类</span>
+    <div class="hero-main">
+      <div class="hero-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2c0 0-1.5 2-3 4.5S6.5 11 8 13c-1-.5-2-1.5-2.5-3 0 0-1.5 2-1 4.5C5 17.5 7 20 12 22c5-2 7-4.5 7.5-7.5.5-2.5-1-4.5-1-4.5-.5 1.5-1.5 2.5-2.5 3 1.5-2 1-4.5-.5-7S13.5 4 12 2z" fill="#fff"/></svg>
       </div>
-    </div>`;
+      <div class="hero-body">
+        <div class="hero-title">每日热榜<span class="hero-sub">一站看完天下事</span></div>
+        <p class="hero-desc">聚合微博、知乎、B站、抖音等主流平台实时热点，热榜动态实时更新，一站式掌握全网热门话题</p>
+        <div class="hero-stats">
+          <span class="hero-chip">🕒 更新于 <b id="heroTime">获取中…</b></span>
+          <span class="hero-chip">📊 ${EPS.length} 个热榜模块</span>
+          <span class="hero-chip">🗂 ${CATS.length - 1} 大分类</span>
+        </div>
+      </div>
+    </div>
+    <aside class="hero-weather" id="heroWeather" hidden></aside>`;
   return el;
 }
 
-function cacheSet(key, data) {
-  try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch {}
+// ============ 页首 Hero：今日天气（按访客 IP 自动定位） ============
+// 数据来自 /v2/weather/local：服务端按 IP 定位中文城市后返回「实时天气 + 今日区间」。
+// 走 cacheGet/cacheSet 的 30 分钟 TTL——天气变化慢，切分类重渲染也不必重复请求；
+// 请求失败静默隐藏，绝不因天气影响首屏其它内容
+let heroWeather = null;
+// 当前数据对应的缓存 key：手动指定城市与 IP 自动定位分开缓存，互不污染
+let heroWeatherKey = '';
+let heroWeatherLoading = false;
+// 失败静默期：天气失败不打扰用户，也避免快速切分类时反复重试打上游
+let heroWeatherRetryAt = 0;
+// 编辑态：点击天气区展开「重新定位 / 手动输入城市」浮层
+let heroWeatherEditing = false;
+
+// 手动指定的城市偏好：一旦设定就一直沿用它（跨刷新），点「重新定位」清除后回到 IP 定位
+function heroCityPref() {
+  try { return localStorage.getItem('hero-city') || ''; } catch { return ''; }
+}
+function setHeroCityPref(v) {
+  try { v ? localStorage.setItem('hero-city', v) : localStorage.removeItem('hero-city'); } catch {}
+}
+function heroWeatherCacheKey(city) {
+  return `cache:${CACHE_VERSION}:hero-weather${city ? `:${city}` : ''}`;
+}
+
+// 天空背景：按中文描述关键词匹配（比 weather_code 更抗上游编码变化），
+// 分白天/夜晚两套色；白字对比度由 CSS 里那层暗罩统一兜底
+const HW_SKY_LOADING = 'linear-gradient(160deg,#5a6472,#7c8797,#9aa4b1)';
+const HW_SKY_DAY = 'linear-gradient(160deg,#2f86d6,#6fb6ee,#b9e0fb)';
+
+function hwIsDay(d) {
+  const s = d.sunrise || {};
+  const now = new Date();
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  const toMin = (t) => { const m = /(\d{1,2}):(\d{2})/.exec(t || ''); return m ? +m[1] * 60 + +m[2] : null; };
+  const rise = toMin(s.sunrise_desc), set = toMin(s.sunset_desc);
+  // 有日出日落就按真实时段判断，缺失时退回 6:00-18:00
+  return rise != null && set != null ? (minutes >= rise && minutes < set) : (now.getHours() >= 6 && now.getHours() < 18);
+}
+
+function hwSkyGradient(d) {
+  const c = String((d.weather && d.weather.condition) || '');
+  const day = hwIsDay(d);
+  if (/雷/.test(c)) return 'linear-gradient(160deg,#2a3150,#3f4a75,#5c6797)';
+  if (/雪|冰|冻/.test(c)) return day ? 'linear-gradient(160deg,#7c8fa7,#a6b9cd,#d9e5f1)' : 'linear-gradient(160deg,#39445a,#5a6880,#8492a8)';
+  if (/雨/.test(c)) return day ? 'linear-gradient(160deg,#31506f,#4a6a8d,#6d8aa8)' : 'linear-gradient(160deg,#1b2b41,#2a3e58,#42597a)';
+  if (/雾|霾|沙|尘/.test(c)) return 'linear-gradient(160deg,#666c74,#90969d,#bcc1c7)';
+  if (/阴/.test(c)) return day ? 'linear-gradient(160deg,#57606c,#88919d,#b4bcc5)' : 'linear-gradient(160deg,#252b36,#3d4553,#5c6673)';
+  if (/多云/.test(c)) return day ? 'linear-gradient(160deg,#4a76a9,#79a2ce,#b1cbe5)' : 'linear-gradient(160deg,#242e4c,#3a486d,#58678e)';
+  if (/晴/.test(c)) return day ? HW_SKY_DAY : 'linear-gradient(160deg,#131c38,#242e59,#3b487d)';
+  return day ? 'linear-gradient(160deg,#587fb0,#88a7cb,#bacde1)' : 'linear-gradient(160deg,#222b45,#343f5e,#4c5a7e)';
+}
+
+function heroWeatherHtml(d, editing) {
+  const w = d.weather || {};
+  const t = d.today || {};
+  const a = d.air_quality || {};
+  // 城市名：优先 city（如「福州市」），去掉末尾「市」；定位失败时退化为 location.name
+  const city = String((d.location && (d.location.city || d.location.name)) || '').replace(/市$/, '');
+  // 未定位成功（用的是默认城市）时如实标注，避免用户误以为定位到了这里
+  const isDefault = !!(d.source && d.source.mode === 'default');
+  // 底部一行附加信息：今日区间 + 空气质量（无 AQI 时退回湿度）
+  const bits = [];
+  if (Number.isFinite(t.min_temperature) && Number.isFinite(t.max_temperature)) bits.push(`${t.min_temperature}° ~ ${t.max_temperature}°`);
+  if (a.aqi != null) bits.push(`${a.quality || ''} ${a.aqi}`);
+  else if (w.humidity != null) bits.push(`湿度 ${w.humidity}%`);
+  return `<div class="hw-city">${esc(city)}<span class="hw-tip" aria-hidden="true">✎</span>${isDefault ? '<span class="hw-def">默认</span>' : ''}</div>
+    <div class="hw-temp">${esc(String(w.temperature ?? '--'))}<span class="hw-unit">°C</span><span class="hw-cond">${esc(w.condition || '')}</span></div>
+    ${bits.length ? `<div class="hw-sub">${esc(bits.join(' · '))}</div>` : ''}
+    <div class="hw-edit"${editing ? '' : ' hidden'}>
+      <button type="button" class="hw-edit-close" aria-label="关闭">×</button>
+      <input class="hw-input" type="text" placeholder="输入城市，如 上海" aria-label="城市名" autocomplete="off" enterkeyhint="search" autocapitalize="off" spellcheck="false">
+      <div class="hw-err" hidden></div>
+      <div class="hw-edit-actions">
+        <button type="button" class="hw-btn hw-btn-locate">重新定位</button>
+        <button type="button" class="hw-btn hw-btn-go">查询</button>
+      </div>
+    </div>`;
+}
+
+function paintHeroWeather() {
+  const box = document.getElementById('heroWeather');
+  if (!box || !heroWeather) return;
+  box.innerHTML = heroWeatherHtml(heroWeather, heroWeatherEditing);
+  box.style.background = hwSkyGradient(heroWeather);
+  // 悬浮提示里交代清楚定位依据：定位成功显示探测到的 IP，失败则说明用的是默认城市
+  const src = heroWeather.source || {};
+  const srcText = src.mode === 'manual'
+    ? '手动指定城市 · 点击可更换'
+    : src.mode === 'default'
+      ? `未定位到中国大陆城市（探测 IP：${src.ip || '未知'}），显示默认城市`
+      : `根据访问 IP 自动定位${src.ip ? `（${src.ip}）` : ''} · 点击可更换`;
+  box.title = `今日天气 · ${srcText} · 数据源：腾讯天气`;
+  box.hidden = false;
+  box.classList.toggle('editing', heroWeatherEditing);
+  bindHeroWeatherEvents(box);
+}
+
+// 编辑层交互绑定：innerHTML 重建后节点会换新，每次重绘都要重绑
+function bindHeroWeatherEvents(box) {
+  const input = box.querySelector('.hw-input');
+  const goBtn = box.querySelector('.hw-btn-go');
+  const locateBtn = box.querySelector('.hw-btn-locate');
+  const closeBtn = box.querySelector('.hw-edit-close');
+
+  const submitCity = () => {
+    const city = (input.value || '').trim();
+    if (!city) { input.focus(); return; }
+    setHeroCityPref(city);
+    closeHeroWeatherEdit();
+    // force：同时绕过本地 30 分钟缓存与服务端定位缓存，立刻按新城市取数
+    loadHeroWeather({ city, force: true });
+  };
+
+  // 编辑层内的交互统一 stopPropagation，避免冒泡到 box 又触发「打开编辑」
+  goBtn.onclick = (e) => { e.stopPropagation(); submitCity(); };
+  locateBtn.onclick = (e) => {
+    e.stopPropagation();
+    setHeroCityPref('');
+    closeHeroWeatherEdit();
+    loadHeroWeather({ city: '', force: true });
+  };
+  closeBtn.onclick = (e) => { e.stopPropagation(); closeHeroWeatherEdit(); };
+  input.onclick = (e) => e.stopPropagation();
+  input.onkeydown = (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') submitCity();
+    else if (e.key === 'Escape') closeHeroWeatherEdit();
+  };
+  box.onclick = (e) => {
+    if (heroWeatherEditing) return;
+    e.stopPropagation();
+    openHeroWeatherEdit();
+  };
+}
+
+// prefill：手动指定失败时把用户刚输入的城市带回来，方便改错字
+function openHeroWeatherEdit(prefill) {
+  const box = document.getElementById('heroWeather');
+  if (!box) return;
+  heroWeatherEditing = true;
+  box.classList.add('editing');
+  const layer = box.querySelector('.hw-edit');
+  const input = box.querySelector('.hw-input');
+  if (layer) layer.hidden = false;
+  if (input) {
+    input.value = prefill != null ? prefill : heroCityPref();
+    input.focus();
+    input.select();
+  }
+}
+
+function closeHeroWeatherEdit() {
+  heroWeatherEditing = false;
+  const box = document.getElementById('heroWeather');
+  if (!box) return;
+  box.classList.remove('editing');
+  const layer = box.querySelector('.hw-edit');
+  if (layer) layer.hidden = true;
+}
+
+// 手动指定的城市查不到时：撤销偏好、展开编辑层并就地提示，避免用户反复踩同一个错
+function showHeroWeatherError(msg, city) {
+  setHeroCityPref('');
+  const box = document.getElementById('heroWeather');
+  if (!box) return;
+  if (heroWeather) paintHeroWeather();
+  openHeroWeatherEdit(city);
+  const err = box.querySelector('.hw-err');
+  if (err) {
+    err.textContent = String(msg || '天气获取失败').replace(/^未找到城市[:：]\s*/, '未找到城市 ');
+    err.hidden = false;
+  }
+}
+
+// 点击天气区以外 / Esc：收起编辑层
+document.addEventListener('click', (e) => {
+  if (!heroWeatherEditing) return;
+  const box = document.getElementById('heroWeather');
+  if (box && !box.contains(e.target)) closeHeroWeatherEdit();
+});
+document.addEventListener('keydown', (e) => {
+  if (heroWeatherEditing && e.key === 'Escape') closeHeroWeatherEdit();
+});
+
+// 占位骨架：天气区一出现就会压缩左侧文案宽度，先占好位避免文字重排跳动
+function paintHeroWeatherLoading() {
+  const box = document.getElementById('heroWeather');
+  if (!box || heroWeather) return;
+  box.innerHTML = '<div class="hw-city">定位中…</div><div class="hw-temp">--<span class="hw-unit">°C</span></div>';
+  box.style.background = HW_SKY_LOADING;
+  box.hidden = false;
+}
+
+function hideHeroWeather() {
+  const box = document.getElementById('heroWeather');
+  if (box && !heroWeather) box.hidden = true;
+}
+
+async function loadHeroWeather(opts = {}) {
+  // city：显式传入优先生效（含空串=清除手动偏好回到 IP 定位）；否则读本地偏好
+  const city = opts.city != null ? opts.city : heroCityPref();
+  const key = heroWeatherCacheKey(city);
+  const force = !!opts.force; // 用户主动「重新定位 / 查城市」：绕过本地与服务端缓存
+
+  // 内存命中（同一次会话内切换分类回来）：数据源一致就直接回填，不闪空、不发请求
+  if (!force && heroWeather && heroWeatherKey === key) { paintHeroWeather(); return; }
+  if (!force) {
+    const hit = cacheGet(key);
+    if (hit) { heroWeather = hit; heroWeatherKey = key; paintHeroWeather(); return; }
+  }
+  if (heroWeatherLoading) return;
+  if (!force && Date.now() < heroWeatherRetryAt) return;
+
+  heroWeatherLoading = true;
+  // 仅首次加载占位骨架：已有画面时静默替换，避免闪一下
+  if (!heroWeather) paintHeroWeatherLoading();
+  try {
+    const qs = [];
+    if (city) qs.push(`query=${encodeURIComponent(city)}`);
+    // force-update：让服务端 cached() 跳过定位/出口 IP 的 TTL 缓存，重新走一遍完整定位
+    if (force) qs.push('force-update');
+    const r = await fetch(`${API}/v2/weather/local${qs.length ? `?${qs.join('&')}` : ''}`);
+    const j = await r.json();
+    if (j && j.code === 200 && j.data && j.data.weather) {
+      heroWeather = j.data;
+      heroWeatherKey = key;
+      cacheSet(key, j.data);
+      paintHeroWeather();
+    } else {
+      heroWeatherRetryAt = Date.now() + 5 * 60 * 1000;
+      // 手动输入的城市查不到：就地报错让用户改，别默默停在旧城市上
+      if (city) showHeroWeatherError(j && j.data && j.data.error, city);
+      else if (!heroWeather) hideHeroWeather();
+    }
+  } catch {
+    heroWeatherRetryAt = Date.now() + 5 * 60 * 1000;
+    if (city) showHeroWeatherError('天气服务暂时不可用，请稍后再试', city);
+    else if (!heroWeather) hideHeroWeather();
+  } finally {
+    heroWeatherLoading = false;
+  }
+}
+
+// ts 缺省为当前时刻；传 X-Data-Updated 时记录数据的真实时间，
+// 这样缓存命中时卡片显示的是「数据什么时候的」而非「什么时候存进本地缓存的」
+function cacheSet(key, data, ts) {
+  try { localStorage.setItem(key, JSON.stringify({ ts: ts || Date.now(), data })); } catch {}
+}
+
+// 读服务端 X-Data-Updated：这份数据在服务端的抓取/缓存时刻。
+// 拿不到（旧版本部署、即抓即用型接口）就退回本地时刻，至少不比原来差
+function readDataTs(res) {
+  try {
+    const ts = Number(res.headers.get('X-Data-Updated'));
+    return Number.isFinite(ts) && ts > 0 ? ts : Date.now();
+  } catch { return Date.now(); }
 }
 
 function cacheKey(ep, url) { return `cache:${CACHE_VERSION}:${ep.id}:${url}`; }
@@ -736,14 +998,33 @@ function init() {
   loadWallpaperBg();
 
   const nav = $('#catNav');
+  // 两段式结构：.cat-row 是外层行容器（还要容纳桌面手风琴子菜单 .cat-sub，
+  // 它靠 flex-basis:100% 换到下一行），内层 .cat-scroll 专管分类 pill——
+  // pill 行一律不换行，放不下就横向滚动，溢出时两端出现可点击的箭头
   const catRow = document.createElement('div');
   catRow.className = 'cat-row';
+  const catScroll = document.createElement('div');
+  catScroll.className = 'cat-scroll';
+  const catPills = document.createElement('div');
+  catPills.className = 'cat-pills';
+  const catArrowPrev = document.createElement('button');
+  catArrowPrev.type = 'button';
+  catArrowPrev.className = 'cat-arrow prev';
+  catArrowPrev.setAttribute('aria-label', '向左查看更多分类');
+  catArrowPrev.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
+  const catArrowNext = document.createElement('button');
+  catArrowNext.type = 'button';
+  catArrowNext.className = 'cat-arrow next';
+  catArrowNext.setAttribute('aria-label', '向右查看更多分类');
+  catArrowNext.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+  catScroll.append(catArrowPrev, catPills, catArrowNext);
+  catRow.appendChild(catScroll);
+  // 鼠标拖拽横向滚动（桌面鼠标；触摸端原生支持滑动，不重复绑定）
+  enableDragScroll(catPills);
   // 移动端模块面板：absolute 悬浮在吸顶分类行下方、不占文档流，
   // 吸顶高度恒定，定位系统无需再感知面板开合带来的布局变化
   const catPanel = document.createElement('div');
   catPanel.className = 'cat-panel';
-  // 鼠标拖拽横向滚动（分类 pill 行；触摸端原生支持，不重复绑定）
-  enableDragScroll(catRow);
 
   // 面板 fixed 挂在 body 下（见 init 末尾的 appendChild）：不能做 .cat-nav 的子元素——
   // 吸顶栏自身带 backdrop-filter，会形成 backdrop root，其后代的毛玻璃只能采样
@@ -804,14 +1085,15 @@ function init() {
     });
   }
 
-  // 窄屏下把元素水平居中到其可滚动容器可视区（分类 pill / 模块 chip 通用）
+  // 把元素水平居中到其可滚动容器可视区（分类 pill / 模块 chip 通用）。
+  // 桌面端同样需要：pill 行放不下时靠它把激活分类滚入视野
   function centerInContainer(container, el) {
-    if (!isMobileLayout()) return;
+    if (!container || container.scrollWidth <= container.clientWidth) return;
     const elRect = el.getBoundingClientRect();
     const cRect = container.getBoundingClientRect();
     container.scrollTo({
       left: container.scrollLeft + (elRect.left - cRect.left) - (cRect.width - elRect.width) / 2,
-      behavior: 'smooth',
+      behavior: SMOOTH,
     });
   }
 
@@ -844,6 +1126,26 @@ function init() {
       }
     };
     window.addEventListener('mouseup', end);
+  }
+
+  // 分类 pill 行左右的箭头：仅在溢出时出现，滚到某一端后该侧箭头隐藏。
+  // 箭头本身会占宽度，但「显示箭头 → 可用宽度更小 → 更溢出」，不会反过来把溢出消掉，
+  // 因此不存在显示/隐藏来回抖动的可能
+  function setupCatArrows(scroller, prev, next) {
+    const step = () => Math.max(140, Math.round(scroller.clientWidth * 0.75));
+    const sync = () => {
+      const max = scroller.scrollWidth - scroller.clientWidth;
+      const overflow = max > 1;
+      prev.hidden = !overflow || scroller.scrollLeft <= 1;
+      next.hidden = !overflow || scroller.scrollLeft >= max - 1;
+    };
+    prev.onclick = () => scroller.scrollBy({ left: -step(), behavior: SMOOTH });
+    next.onclick = () => scroller.scrollBy({ left: step(), behavior: SMOOTH });
+    scroller.addEventListener('scroll', sync, { passive: true });
+    window.addEventListener('resize', sync);
+    // 首帧与字体就绪后各测一次：字体替换会改变 pill 宽度，直接影响是否溢出
+    requestAnimationFrame(sync);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(sync).catch(() => {});
   }
 
   // 让某模块在菜单中滚入可视区（定位跳转与分组标签页切换共用）：
@@ -937,12 +1239,12 @@ function init() {
       // 定位跳转切换分类同样要解除折叠态，保证箭头朝向与目录展开状态一致
       nav.classList.remove('sub-collapsed');
       location.hash = ep.cat;
-      $$('.cat-row > button').forEach(x => x.classList.remove('active'));
+      $$('.cat-pills > button').forEach(x => x.classList.remove('active'));
       const btn = catRow.querySelector(`button[data-cat="${ep.cat}"]`);
       if (btn) {
         btn.classList.add('active');
-        // 窄屏：让选中的分类 pill 回到可视区
-        centerInContainer(catRow, btn);
+        // pill 行放不下时：让选中的分类滚回可视区（内部按宽度判断，够宽时跳过）
+        centerInContainer(catPills, btn);
       }
     }
     activeModuleId = ep.id;
@@ -1021,7 +1323,7 @@ function init() {
 
     // 「全部」渲染的是所有分类的分组列表，本身就是从头看起，保持回到页面顶部
     if (catId === 'all') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: SMOOTH });
       return;
     }
 
@@ -1080,19 +1382,19 @@ function init() {
       // 移动端面板保持当前开合——开着就地换内容，关着不打扰
       nav.classList.remove('sub-collapsed');
       location.hash = c.id;
-      $$('.cat-row > button').forEach(x => {
+      $$('.cat-pills > button').forEach(x => {
         x.classList.remove('active');
         x.setAttribute('aria-expanded', 'false');
       });
       b.classList.add('active');
       b.setAttribute('aria-expanded', c.id !== 'all' ? 'true' : 'false');
-      // 窄屏分类栏是横向滚动的：把选中的 pill 水平居中（内部已按宽度判断，桌面端自动跳过）
-      centerInContainer(catRow, b);
+      // pill 行放不下时把选中的分类居中（内部按宽度判断，够宽时跳过）
+      centerInContainer(catPills, b);
       refreshSubs();
       render();
       scrollToCatTitle(c.id);
     };
-    catRow.appendChild(b);
+    catPills.appendChild(b);
     // 桌面侧边栏手风琴：卡片目录紧跟所属分类按钮后（display:contents 参与纵向排列）；
     // inner 包装层供 grid-template-rows 0fr→1fr 展开动画使用
     if (c.id !== 'all') {
@@ -1122,9 +1424,11 @@ function init() {
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') setCatPanelOpen(false);
   });
-  // 刷新/hash 恢复后：窄屏把当前激活的分类 pill 居中，避免落在屏幕外
-  const activeBtn = catRow.querySelector('button.active');
-  if (activeBtn) centerInContainer(catRow, activeBtn);
+  // 刷新/hash 恢复后：把当前激活的分类 pill 滚入视野，避免落在屏幕外
+  const activeBtn = catPills.querySelector('button.active');
+  if (activeBtn) centerInContainer(catPills, activeBtn);
+  // 箭头显隐由溢出状态驱动（首帧 + resize + 滚动 + 字体就绪都会重算）
+  setupCatArrows(catPills, catArrowPrev, catArrowNext);
 
   $('#search').oninput = () => { syncSearchClear(); render(); };
 
@@ -1149,7 +1453,8 @@ function init() {
     if (dateDesktopEl) dateDesktopEl.textContent = ds;
     if (dateMobileEl) dateMobileEl.textContent = md;
     const pct = ((d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) / 86400) * 100;
-    fillEls.forEach(el => { if (el) el.style.width = pct + '%'; });
+    // 配合 CSS 的 scaleX：只改 transform 不触发布局（原来写 width 每秒都要重算 layout）
+    fillEls.forEach(el => { if (el) el.style.transform = `scaleX(${pct / 100})`; });
   }
   tick();
   setInterval(tick, 1000);
@@ -1185,8 +1490,15 @@ function render() {
   const okVT = document.startViewTransition && renderVTReady
     && !matchMedia('(prefers-reduced-motion: reduce)').matches;
   renderVTReady = true;
-  if (okVT) document.startViewTransition(doRender);
-  else doRender();
+  if (okVT) {
+    // VT 期间抑制卡片自身的入场动画：整块快照已在淡入，
+    // 卡片再各自 translateY(8px) 淡入就是双重动画，叠加后会互相干扰、看着「抖」
+    const root = document.documentElement;
+    root.classList.add('vt-run');
+    document.startViewTransition(doRender).finished.finally(() => root.classList.remove('vt-run'));
+  } else {
+    doRender();
+  }
 }
 
 function renderImpl() {
@@ -1198,6 +1510,8 @@ function renderImpl() {
   if (!(curCat === 'all' && kw)) {
     main.appendChild(buildHero());
     heroRefreshTime();
+    // Hero 重建后回填天气：有内存/本地缓存则立即绘制，否则发起一次请求
+    loadHeroWeather();
   }
 
   if (curCat === 'all' && !kw) {
@@ -1717,9 +2031,11 @@ async function fetchWithRetry(ep, url, ck, c, retriesLeft) {
       return;
     }
     // 密码生成/检测不写缓存（同 load 侧的 noCacheTool）：同参数再次查询必须重新生成/重算
-    if (ep.type !== 'pwd' && ep.type !== 'pwdchk') cacheSet(ck, json.data);
+    // 时间以服务端数据时间为准：服务端缓存命中的旧数据不会被标成「刚刚」
+    const dataTs = readDataTs(res);
+    if (ep.type !== 'pwd' && ep.type !== 'pwdchk') cacheSet(ck, json.data, dataTs);
     renderData(ep, json.data, c);
-    markEpLoaded(ep.id, Date.now());
+    markEpLoaded(ep.id, dataTs);
   } catch(e) {
     if (retriesLeft > 0) {
       await new Promise(r => setTimeout(r, 1000));
@@ -1898,9 +2214,10 @@ async function calLoad(id) {
     const res = await fetch(url);
     const json = await res.json();
     if (json.code !== 200) { c.innerHTML = unavailableHTML(ep, json.message); return; }
-    cacheSet(ck, json.data);
+    const dataTs = readDataTs(res);
+    cacheSet(ck, json.data, dataTs);
     renderData(ep, json.data, c);
-    markEpLoaded(ep.id, Date.now());
+    markEpLoaded(ep.id, dataTs);
   } catch (e) {
     c.innerHTML = unavailableHTML(ep, e.message);
   }
@@ -4095,7 +4412,7 @@ function setKbFocus(card) {
   $$('.card.kb-focus').forEach(c => c.classList.remove('kb-focus'));
   if (card) {
     card.classList.add('kb-focus');
-    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    card.scrollIntoView({ behavior: SMOOTH, block: 'nearest' });
   }
 }
 

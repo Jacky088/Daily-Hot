@@ -164,6 +164,8 @@ appRouter.get('/baidu/tieba', serviceBaidu.handleTieba())
 
 appRouter.get('/weather/realtime', serviceWeather.handle())
 appRouter.get('/weather/forecast', serviceWeather.handleForecast())
+// 按访客 IP 自动定位的实时天气（Hero 卡「今日天气」用，免传城市）
+appRouter.get('/weather/local', serviceWeather.handleLocal())
 
 appRouter.get('/ncm-rank/list', serviceNcm.handleRank())
 appRouter.get('/ncm-rank/:id', serviceNcm.handleRankDetail())

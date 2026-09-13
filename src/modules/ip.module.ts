@@ -41,8 +41,8 @@ class ServiceIP {
     return ''
   }
 
-  // 检查是否为本地或内网 IP
-  private isLocalIP(ip: string): boolean {
+  // 检查是否为本地或内网 IP（public：天气等模块用它判断是否需要改用出口公网 IP 定位）
+  isLocalIP(ip: string): boolean {
     if (!ip) return false
 
     // IPv6 本地地址
@@ -66,8 +66,8 @@ class ServiceIP {
     return false
   }
 
-  // 获取公网 IP
-  private async getPublicIP(): Promise<string> {
+  // 获取本机出口公网 IP（public：本地开发/预览没有访客 IP 时，用它兜底定位）
+  async getPublicIP(): Promise<string> {
     try {
       // 使用多个备用服务，提高可靠性
       const services = ['https://api.ipify.org?format=text', 'https://ifconfig.me/ip', 'https://icanhazip.com']
@@ -136,9 +136,16 @@ class ServiceIP {
     }
   }
 
-  async fetchIpInfo(ip: string): Promise<IpInfo> {
+  async fetchIpInfo(ip: string, preferChinese = false): Promise<IpInfo> {
     // 多源回退：ipinfo.io（IPv4+IPv6）→ ip-api.com（IPv4 中文省市）→ ip.sb（兜底）
     const isIPv4 = ip.includes('.') && !ip.includes(':')
+
+    // 需要中文省市的场景（天气等下游只认中文城市名）：把 ip-api.com 提到最前。
+    // ipinfo 对中国 IP 常只给拼音城市名（如 Fuzhou），下游按中文检索城市会失败
+    if (preferChinese && isIPv4) {
+      const zh = await this.fetchByIpApi(ip)
+      if (zh) return zh
+    }
 
     // 1. 主源：ipinfo.io —— 同时支持 IPv4/IPv6，数据准确
     try {
@@ -177,38 +184,8 @@ class ServiceIP {
 
     // 2. 回退：ip-api.com —— 仅 IPv4，中文省市更友好
     if (isIPv4) {
-      try {
-        const res = await fetch(
-          `http://ip-api.com/json/${ip}?lang=zh-CN&fields=status,message,country,countryCode,regionName,city,isp,org,as,lat,lon,timezone`,
-          { signal: AbortSignal.timeout(5000) },
-        )
-        if (res.ok) {
-          const d = await res.json()
-          if (d && d.status === 'success') {
-            const asMatch = (d.as || '').match(/^AS(\d+)/)
-            return {
-              ip,
-              continent: '',
-              country: d.country || '',
-              zipcode: '',
-              timezone: d.timezone || '',
-              accuracy: '',
-              owner: d.org || '',
-              isp: d.isp || '',
-              source: 'ip-api.com',
-              areacode: d.countryCode || '',
-              adcode: '',
-              asnumber: asMatch ? asMatch[1] : (d.as || ''),
-              lat: String(d.lat || ''),
-              lng: String(d.lon || ''),
-              radius: '',
-              prov: d.regionName || '',
-              city: d.city || '',
-              district: '',
-            }
-          }
-        }
-      } catch {}
+      const byIpApi = await this.fetchByIpApi(ip)
+      if (byIpApi) return byIpApi
     }
 
     // 3. 最后兜底：ip.sb
@@ -261,6 +238,45 @@ class ServiceIP {
       prov: '',
       city: '',
       district: '',
+    }
+  }
+
+  // ip-api.com：免费源里唯一直接给中文省市（regionName/city）的，仅支持 IPv4，
+  // 免费版只走 HTTP。失败返回 null，由调用方继续回退
+  private async fetchByIpApi(ip: string): Promise<IpInfo | null> {
+    try {
+      const res = await fetch(
+        `http://ip-api.com/json/${ip}?lang=zh-CN&fields=status,message,country,countryCode,regionName,city,isp,org,as,lat,lon,timezone`,
+        { signal: AbortSignal.timeout(5000) },
+      )
+      if (!res.ok) return null
+
+      const d = await res.json()
+      if (!d || d.status !== 'success') return null
+
+      const asMatch = (d.as || '').match(/^AS(\d+)/)
+      return {
+        ip,
+        continent: '',
+        country: d.country || '',
+        zipcode: '',
+        timezone: d.timezone || '',
+        accuracy: '',
+        owner: d.org || '',
+        isp: d.isp || '',
+        source: 'ip-api.com',
+        areacode: d.countryCode || '',
+        adcode: '',
+        asnumber: asMatch ? asMatch[1] : (d.as || ''),
+        lat: String(d.lat || ''),
+        lng: String(d.lon || ''),
+        radius: '',
+        prov: d.regionName || '',
+        city: d.city || '',
+        district: '',
+      }
+    } catch {
+      return null
     }
   }
 }

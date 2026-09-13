@@ -1,5 +1,10 @@
 import { Common, dayjs } from '../common.ts'
+import { serviceIP } from './ip.module.ts'
+import { cached } from '../cache.ts'
 import type { RouterMiddleware } from '@oak/oak'
+
+// 无法定位（海外 IP、IP 库全挂）或上游城市库查不到时的兜底城市
+const FALLBACK_CITY = '北京'
 
 interface CityInfo {
   name: string
@@ -153,88 +158,7 @@ class ServiceWeather {
         const province = (await Common.getParam('province', ctx.request)) || ''
         const cityInfo = await this.getCityInfo(location, city, province)
 
-        const [weatherData, airData] = await Promise.all([
-          this.fetchCurrentWeather(cityInfo),
-          this.fetchAirQuality(cityInfo),
-        ])
-
-        const observe = weatherData.observe
-
-        if (!observe) {
-          throw new Error('无法获取当前天气观测数据')
-        }
-
-        if (!airData) {
-          throw new Error('无法获取空气质量数据')
-        }
-
-        const result = {
-          location: {
-            name: `${cityInfo.province}${cityInfo.city}${cityInfo.county || ''}`.replace(/省|市/g, ''),
-            province: cityInfo.province,
-            city: cityInfo.city,
-            county: cityInfo.county || '',
-          },
-          weather: {
-            condition: observe.weather,
-            condition_code: observe.weather_code,
-            temperature: this.safeParseInt(observe.degree),
-            humidity: this.safeParseInt(observe.humidity),
-            pressure: this.safeParseInt(observe.pressure),
-            precipitation: this.safeParseFloat(observe.precipitation),
-            wind_direction: observe.wind_direction_name,
-            wind_power: observe.wind_power,
-            weather_icon: observe.weather_url,
-            weather_colors: observe.weather_color || [],
-            updated: this.formatUpdateTime(observe.update_time),
-            updated_at: new Date(this.formatUpdateTime(observe.update_time)).getTime(),
-          },
-          air_quality: airData.air
-            ? {
-                aqi: airData.air.aqi,
-                level: airData.air.aqi_level,
-                quality: airData.air.aqi_name,
-                pm25: this.safeParseInt(airData.air.pm25),
-                pm10: this.safeParseInt(airData.air.pm10),
-                co: this.safeParseFloat(airData.air.co),
-                no2: this.safeParseInt(airData.air.no2),
-                o3: this.safeParseInt(airData.air.o3),
-                so2: this.safeParseInt(airData.air.so2),
-                rank: airData.air.rank,
-                total_cities: airData.air.total,
-                updated: this.formatUpdateTime(airData.air.update_time),
-                updated_at: new Date(this.formatUpdateTime(airData.air.update_time)).getTime(),
-              }
-            : null,
-          sunrise: weatherData.rise?.[0]
-            ? (() => {
-                const sunriseData = this.formatSunriseTime(weatherData.rise[0].time, weatherData.rise[0].sunrise)
-                const sunsetData = this.formatSunriseTime(weatherData.rise[0].time, weatherData.rise[0].sunset)
-                return {
-                  sunrise: sunriseData.formatted,
-                  sunrise_at: sunriseData.timestamp,
-                  sunrise_desc: weatherData.rise[0].sunrise,
-                  sunset: sunsetData.formatted,
-                  sunset_at: sunsetData.timestamp,
-                  sunset_desc: weatherData.rise[0].sunset,
-                }
-              })()
-            : null,
-          life_indices: this.formatLifeIndices(weatherData.index || {}),
-          alerts: Array.isArray(weatherData.alarm)
-            ? weatherData.alarm.map((alarm) => ({
-                type: alarm.type_name,
-                level: alarm.level_name,
-                level_code: alarm.level_code,
-                province: alarm.province,
-                city: alarm.city,
-                county: alarm.county,
-                detail: alarm.detail,
-                updated: dayjs(alarm.update_time).format('YYYY-MM-DD HH:mm:ss'),
-                updated_at: dayjs(alarm.update_time).toDate().getTime(),
-              }))
-            : [],
-        }
+        const result = await this.buildRealtime(cityInfo)
 
         switch (ctx.state.encoding) {
           case 'text':
@@ -345,6 +269,201 @@ class ServiceWeather {
         const statusCode = message.includes('未找到城市') ? 404 : 500
         ctx.response.body = Common.buildJson({ error: message }, statusCode)
       }
+    }
+  }
+
+  /**
+   * 按访客 IP 自动定位的实时天气：供页首 Hero 卡「今日天气」使用。
+   * 定位完全复用 /v2/ip 的链路（cf-connecting-ip → 反代转发头 → 公网 IP 兜底），
+   * 得到中文省市后交给天气源换算城市码；定位失败则回退 query 参数或默认城市。
+   */
+  handleLocal(): RouterMiddleware<'/weather/local'> {
+    return async (ctx) => {
+      try {
+        let ip = serviceIP.getClientIP(ctx.request.headers) || ctx.request.ip || ''
+        // 本地/内网 IP（本机预览、无反代的自托管）拿不到归属地：改用服务器出口公网 IP 兜底，
+        // 这样本地开发也能验证整条定位链路。线上 Worker 拿到的是访客真实 IP，不会进这个分支
+        if (ip && serviceIP.isLocalIP(ip)) {
+          const pub = await cached<string>('weather:public-ip', () => serviceIP.getPublicIP(), {
+            ttl: 60 * 60 * 1000,
+            staleTtl: 6 * 60 * 60 * 1000,
+          })
+          if (pub) ip = pub
+        }
+
+        // IP → 中文省市：按 IP 缓存 6 小时，同一访客的定位只查一次 IP 库。
+        // preferChinese：天气下游按中文城市名检索，必须避开 ipinfo 对中国 IP 返回的拼音城市名
+        const geo = ip
+          ? await cached(
+              `weather:geo:${ip}`,
+              async () => {
+                const info = await serviceIP.fetchIpInfo(ip, true)
+                return {
+                  province: info.prov || '',
+                  city: info.city || '',
+                  district: info.district || '',
+                  countryCode: info.areacode || '',
+                }
+              },
+              { ttl: 6 * 60 * 60 * 1000, staleTtl: 24 * 60 * 60 * 1000 },
+            )
+          : { province: '', city: '', district: '', countryCode: '' }
+
+        // 手动指定优先于自动定位（也便于本地开发自测：?query=上海）
+        const manual = (await Common.getParam('query', ctx.request)) || ''
+        // 腾讯天气源只覆盖中国大陆：海外 IP（代理、企业出口）按未定位处理，
+        // 否则会拿「新加坡」这类城市名去中文城市库检索，直接报「未找到城市」
+        const inChina = geo.countryCode === 'CN'
+        const located = inChina && !!(geo.city || geo.province)
+        const location = manual || (located ? geo.city || geo.province : '') || FALLBACK_CITY
+
+        // 上游城市库查不到时的兜底：自动定位（海外 IP、生僻地名）宁可退回默认城市，
+        // 也不要让整个接口 500 让前端整块隐藏天气区。
+        // 但手动指定的城市是「明确意图」，查不到必须如实报错——
+        // 悄悄换成北京会让用户以为自己输对了，前端也就没法提示改错字
+        let cityInfo: CityInfo
+        let usedFallback = false
+        try {
+          cityInfo = await this.getCityInfo(location, geo.city, geo.province)
+        } catch (error) {
+          if (manual || location === FALLBACK_CITY) throw error
+          cityInfo = await this.getCityInfo(FALLBACK_CITY, '', '')
+          usedFallback = true
+        }
+
+        const result = {
+          ...(await this.buildRealtime(cityInfo)),
+          // 定位来源：前端据此展示识别到的城市，未定位时标注「默认」并附上探测到的 IP 便于排查
+          source: {
+            mode: manual ? 'manual' : located && !usedFallback ? 'ip' : 'default',
+            province: geo.province,
+            city: geo.city,
+            ip,
+          },
+        }
+
+        switch (ctx.state.encoding) {
+          case 'text':
+            ctx.response.body = this.formatWeatherText(result)
+            break
+
+          case 'markdown':
+            ctx.response.body = this.formatWeatherMarkdown(result)
+            break
+
+          case 'json':
+          default:
+            ctx.response.body = Common.buildJson(result)
+            break
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '未知错误'
+        const statusCode = message.includes('未找到城市') ? 404 : 500
+        ctx.response.body = Common.buildJson({ error: message }, statusCode)
+      }
+    }
+  }
+
+  /**
+   * 实时天气结果组装：/weather 与 /weather/local 共用同一份字段结构。
+   * 顺带带上今日（forecast_24h[0]）的最高/最低温——上游 weather_type 已含 forecast_24h，
+   * Hero 天气卡一次请求即可拿全「当前天气 + 今日区间」，不必再调预报接口。
+   */
+  private async buildRealtime(cityInfo: CityInfo) {
+    const [weatherData, airData] = await Promise.all([
+      this.fetchCurrentWeather(cityInfo),
+      this.fetchAirQuality(cityInfo),
+    ])
+
+    const observe = weatherData.observe
+
+    if (!observe) {
+      throw new Error('无法获取当前天气观测数据')
+    }
+
+    if (!airData) {
+      throw new Error('无法获取空气质量数据')
+    }
+
+    const today = weatherData.forecast_24h?.[0]
+
+    return {
+      location: {
+        name: `${cityInfo.province}${cityInfo.city}${cityInfo.county || ''}`.replace(/省|市/g, ''),
+        province: cityInfo.province,
+        city: cityInfo.city,
+        county: cityInfo.county || '',
+      },
+      weather: {
+        condition: observe.weather,
+        condition_code: observe.weather_code,
+        temperature: this.safeParseInt(observe.degree),
+        humidity: this.safeParseInt(observe.humidity),
+        pressure: this.safeParseInt(observe.pressure),
+        precipitation: this.safeParseFloat(observe.precipitation),
+        wind_direction: observe.wind_direction_name,
+        wind_power: observe.wind_power,
+        weather_icon: observe.weather_url,
+        weather_colors: observe.weather_color || [],
+        updated: this.formatUpdateTime(observe.update_time),
+        updated_at: new Date(this.formatUpdateTime(observe.update_time)).getTime(),
+      },
+      today: today
+        ? {
+            date: today.time,
+            day_condition: today.day_weather,
+            night_condition: today.night_weather,
+            max_temperature: this.safeParseInt(today.max_degree),
+            min_temperature: this.safeParseInt(today.min_degree),
+            day_weather_icon: today.day_weather_url,
+            night_weather_icon: today.night_weather_url,
+          }
+        : null,
+      air_quality: airData.air
+        ? {
+            aqi: airData.air.aqi,
+            level: airData.air.aqi_level,
+            quality: airData.air.aqi_name,
+            pm25: this.safeParseInt(airData.air.pm25),
+            pm10: this.safeParseInt(airData.air.pm10),
+            co: this.safeParseFloat(airData.air.co),
+            no2: this.safeParseInt(airData.air.no2),
+            o3: this.safeParseInt(airData.air.o3),
+            so2: this.safeParseInt(airData.air.so2),
+            rank: airData.air.rank,
+            total_cities: airData.air.total,
+            updated: this.formatUpdateTime(airData.air.update_time),
+            updated_at: new Date(this.formatUpdateTime(airData.air.update_time)).getTime(),
+          }
+        : null,
+      sunrise: weatherData.rise?.[0]
+        ? (() => {
+            const sunriseData = this.formatSunriseTime(weatherData.rise[0].time, weatherData.rise[0].sunrise)
+            const sunsetData = this.formatSunriseTime(weatherData.rise[0].time, weatherData.rise[0].sunset)
+            return {
+              sunrise: sunriseData.formatted,
+              sunrise_at: sunriseData.timestamp,
+              sunrise_desc: weatherData.rise[0].sunrise,
+              sunset: sunsetData.formatted,
+              sunset_at: sunsetData.timestamp,
+              sunset_desc: weatherData.rise[0].sunset,
+            }
+          })()
+        : null,
+      life_indices: this.formatLifeIndices(weatherData.index || {}),
+      alerts: Array.isArray(weatherData.alarm)
+        ? weatherData.alarm.map((alarm) => ({
+            type: alarm.type_name,
+            level: alarm.level_name,
+            level_code: alarm.level_code,
+            province: alarm.province,
+            city: alarm.city,
+            county: alarm.county,
+            detail: alarm.detail,
+            updated: dayjs(alarm.update_time).format('YYYY-MM-DD HH:mm:ss'),
+            updated_at: dayjs(alarm.update_time).toDate().getTime(),
+          }))
+        : [],
     }
   }
 

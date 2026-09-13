@@ -1,4 +1,13 @@
 /* ============ 主题变量 ============ */
+/* 动效时长令牌：全站统一三档。此前各处 0.1~0.9s 各写各的，同类交互在不同组件上
+   快慢不一（同样是悬停，有的 0.15s 有的 0.2s），整体观感很「散」；
+   缓动多数沿用默认 ease，只在展开、脉冲等有明确语义的地方单独指定 */
+:root {
+  --dur-fast: 0.15s;  /* 悬停、按压等即时反馈 */
+  --dur-base: 0.25s;  /* 淡入、展开等结构性变化 */
+  --dur-slow: 0.45s;  /* 进度条等大幅变化 */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1); /* 标准缓动：展开、位移等需要「控制感」的场景 */
+}
 :root[data-theme="dark"] {
   /* color-scheme：让原生控件（select 下拉面板/滚动条/自动填充底色）跟随暗色渲染，
      否则暗色 UI 里弹出的下拉菜单仍是亮色白底，割裂感明显 */
@@ -19,8 +28,6 @@
   --accent-glow: 0 0 20px rgba(249,115,22,0.18);
   /* 小字号橙色文字专用：暗色取更亮的 accent-light，亮色须用深烧橙才够 AA 对比度 */
   --accent-text: #fb923c;
-  /* 折叠目录面板底色：淡纯色暖调，包住整个子菜单 */
-  --toc-panel: color-mix(in srgb, var(--accent) 7%, var(--card));
   --success: #34d399;
   /* 绿色小字专用（同 --accent-text 思路）：暗色亮翡翠在深玻璃底对比已够，用本色 */
   --success-text: #34d399;
@@ -59,8 +66,6 @@
   --accent-glow: 0 0 20px rgba(249,115,22,0.12);
   /* 亮色下橙 500 在白底只有 ~2.8:1，小字一律用烧橙 700（≈5:1） */
   --accent-text: #c2410c;
-  /* 折叠目录面板底色：淡纯色暖调，包住整个子菜单 */
-  --toc-panel: color-mix(in srgb, var(--accent) 6%, var(--card));
   --success: #059669;
   /* 绿色小字专用（同 --accent-text 思路）：翡翠 600 在蓝调壁纸/玻璃底仅 ~3.4:1，
      小字换翡翠 700 才稳住 AA 对比度 */
@@ -81,6 +86,11 @@
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; }
+/* 减少动态偏好：平滑滚动本身也是一种动画，一并退回瞬时跳转
+   （JS 里显式传 behavior 的地方用同一个判断，见 app.js 的 SMOOTH） */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   background: var(--bg);
@@ -90,7 +100,7 @@ body {
   line-height: 1.5;
   /* 不设 -webkit-font-smoothing: antialiased：它会强制灰度抗锯齿、关闭次像素渲染，
      项目大量 11-12px 小字发虚。恢复系统原生渲染（默认 auto）后小字显著更实 */
-  transition: background 0.3s, color 0.3s;
+  transition: background var(--dur-base), color var(--dur-base);
   min-height: 100vh;
 }
 a { color: var(--accent-text); text-decoration: none; }
@@ -154,7 +164,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   width: 36px; height: 36px; border-radius: 8px;
   background: var(--card); border: 1px solid var(--border);
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s; flex-shrink: 0;
+  cursor: pointer; transition: border-color var(--dur-fast), box-shadow var(--dur-fast); flex-shrink: 0;
   text-decoration: none;
 }
 .header-right a:hover, .header-right button:hover { border-color: var(--accent); box-shadow: var(--accent-glow); }
@@ -167,7 +177,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .search-wrap input {
   width: 100%; padding: 7px 30px 7px 34px;
   background: var(--card); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+  color: var(--text); font-size: 13px; outline: none; transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
 }
 .search-wrap input:focus { border-color: var(--accent); box-shadow: var(--accent-glow); }
 .search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); opacity: 0.4; }
@@ -177,7 +187,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   width: 22px; height: 22px; border: none; border-radius: 50%;
   background: transparent; color: var(--text-dim); font-size: 14px; line-height: 1;
   cursor: pointer; display: none; align-items: center; justify-content: center;
-  transition: color 0.15s, background 0.15s;
+  transition: color var(--dur-fast), background var(--dur-fast);
 }
 .search-clear:hover { color: var(--text); background: var(--accent-bg); }
 .search-wrap.has-value .search-clear { display: flex; }
@@ -194,19 +204,23 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   background: var(--card);
   color: var(--text-dim); font-size: 13px;
   font-variant-numeric: tabular-nums;
-  transition: border 0.2s, box-shadow 0.2s;
+  transition: border var(--dur-fast), box-shadow var(--dur-fast);
 }
 /* 一日进度填充：从 0:00 起随时间铺满，到 24:00 满格。
    填充色提亮为 accent→accent-light 实感渐变（原 12%/22% 极淡版几乎看不出进度），
    仍垫在文字下层（z-index 0），正文对比由胶囊底色兜底 */
 .clock-fill {
-  position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
+  position: absolute; left: 0; top: 0; bottom: 0; width: 100%;
   border-radius: inherit; z-index: 0; pointer-events: none;
   background: linear-gradient(90deg,
     color-mix(in srgb, var(--accent) 38%, transparent),
     color-mix(in srgb, var(--accent-light) 68%, transparent));
   opacity: 0.9;
-  transition: width 1s linear;
+  /* 用 transform: scaleX 代替 width：这条填充每秒更新一次，
+     width 变化会触发 layout + paint，scaleX 只走合成层，
+     页面常驻打开也不会有每秒一次的布局抖动。origin 固定左侧才能从左往右铺满 */
+  transform: scaleX(0); transform-origin: left center;
+  transition: transform 1s linear;
 }
 :root[data-theme="light"] .clock-fill { opacity: 0.95; }
 .clock-dot {
@@ -264,7 +278,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 /* 无动画偏好：跳过脉冲，快速淡出 */
 @media (prefers-reduced-motion: reduce) {
   .splash-icon { animation: none; }
-  .splash { transition: opacity 0.15s ease, visibility 0.15s; }
+  .splash { transition: opacity var(--dur-fast) ease, visibility var(--dur-fast); }
 }
 
 /* 减少动态偏好全局兜底：除上面 splash 专项外，统一关掉所有无限/装饰动画与过渡——
@@ -277,7 +291,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
     transition-duration: 0.01ms !important;
   }
   /* 壁纸淡入与 splash 渐隐保留极短过渡：只求不闪跳，不求动画感 */
-  .wallpaper-bg, .splash { transition-duration: 0.15s !important; }
+  .wallpaper-bg, .splash { transition-duration: var(--dur-fast) !important; }
 }
 
 /* ============ Layout（顶栏导航 + 通栏内容，纵向堆叠） ============ */
@@ -315,80 +329,117 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   -webkit-overflow-scrolling: touch;
 }
 .cat-nav::-webkit-scrollbar { display: none; }
-/* 子菜单结构：cat-row 为横向换行的 pill 行（分类一行铺开，大屏一行放下；
-   中等宽度自动换行，窄屏走末尾媒体查询变横向滚动） */
+/* 分类导航两段式：
+   .cat-row    外层行容器——还要容纳桌面手风琴子菜单 .cat-sub（靠 flex-basis:100% 换行）
+   .cat-scroll 内层——分类 pill 专用：一律不换行，放不下就横向滚动，溢出时两端出现箭头 */
 .cat-row { display: flex; flex-wrap: wrap; gap: 4px 6px; padding: 0; }
+.cat-scroll { flex-basis: 100%; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.cat-pills {
+  display: flex; flex-wrap: nowrap; gap: 6px;
+  flex: 1; min-width: 0;
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.cat-pills::-webkit-scrollbar { display: none; }
+/* 鼠标拖拽横向滚动时禁用文本选择（触摸端原生支持，不受影响） */
+.cat-pills.dragging { user-select: none; -webkit-user-select: none; cursor: grabbing; }
+/* 左右箭头：仅 pill 行溢出时出现，滚到某一端后该侧隐藏。
+   注意 .cat-nav button 的基础样式特异性更高，这里的覆盖必须带 .cat-nav 前缀 */
+.cat-nav .cat-arrow {
+  flex-shrink: 0; width: 26px; height: 26px; padding: 0; gap: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; cursor: pointer;
+  background: var(--card); border: 1px solid var(--border); color: var(--text-dim);
+  transition: color var(--dur-fast), border-color var(--dur-fast);
+}
+.cat-nav .cat-arrow[hidden] { display: none; }
+.cat-nav .cat-arrow:hover { color: var(--accent); border-color: var(--accent); }
+.cat-arrow svg { width: 14px; height: 14px; }
 /* 移动端模块面板：桌面隐藏（悬浮层样式只存在于窄屏媒体查询内） */
 .cat-panel { display: none; }
 .cat-nav button {
   padding: 9px 14px; background: transparent; border: 1px solid transparent;
   border-radius: 10px; color: var(--text-dim); font-size: 13px;
   text-align: left; cursor: pointer; white-space: nowrap;
-  transition: color 0.2s, background 0.2s, border-color 0.2s; font-weight: 600;
+  transition: color var(--dur-fast), background var(--dur-fast), border-color var(--dur-fast); font-weight: 600;
   display: flex; align-items: center; gap: 6px;
 }
-.cat-row > button {
-  /* pill 间距由 cat-row 的 gap 承担，不再用按钮下边距 */
+.cat-pills > button {
+  /* pill 间距由 .cat-pills 的 gap 承担，不再用按钮下边距 */
   margin-bottom: 0;
 }
 /* hover 高亮用浅橙底：侧边栏自身即 card 色底，用 card 色高亮会与背景融为一体
    （规则本体在上方 @media (hover:hover) 块内，触屏不粘滞） */
-.cat-row > button.active {
+.cat-pills > button.active {
   background: linear-gradient(135deg, var(--accent), var(--accent-light));
   border-color: transparent; color: #fff;
   box-shadow: var(--accent-glow);
 }
 /* 分类按钮右侧的模块计数徽章：提供「这个分类有几张卡」的信息量（移动端隐藏） */
-.cat-row > button .cnt {
+.cat-pills > button .cnt {
   margin-left: auto; font-size: 10px; font-weight: 600;
   color: var(--text-dimmer); font-variant-numeric: tabular-nums;
 }
-.cat-row > button.active .cnt { color: rgba(255, 255, 255, 0.8); }
+.cat-pills > button.active .cnt { color: rgba(255, 255, 255, 0.8); }
 /* 目录/面板开合箭头：只在已激活分类上显示——未激活分类的点击语义是「切换」，
    不应暗示展开。方向约定：▸=收起，rotate(90°)→▾=展开；手动折叠时回转回 ▸ */
-.cat-row > button.active[data-cat]:not([data-cat="all"])::after {
+.cat-pills > button.active[data-cat]:not([data-cat="all"])::after {
   content: '▸'; margin-left: 4px; flex-shrink: 0;
   width: 22px; height: 22px; line-height: 22px; text-align: center;
   border-radius: 7px; background: rgba(255, 255, 255, 0.25);
   font-size: 15px; font-weight: 700; color: #fff;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform var(--dur-base) var(--ease);
   transform: rotate(90deg);
 }
 /* 子菜单被手动折叠（点已激活分类）时，激活分类的箭头必须回到收起朝向 ▸ */
-.cat-nav.sub-collapsed .cat-row > button.active::after { transform: rotate(0deg); }
+.cat-nav.sub-collapsed .cat-pills > button.active::after { transform: rotate(0deg); }
 
-/* 桌面手风琴子菜单：grid-rows 0fr→1fr 平滑展开/收起，仅当前分类展开 */
+/* 桌面手风琴子菜单：grid-rows 0fr→1fr 平滑展开/收起，仅当前分类展开。
+   不再用「整块淡色面板」——那会和上方分类胶囊行并排成「两块板」，层级糊在一起。
+   改成一条两端淡出的细分隔线 + 下面一排小卡片：
+   分类胶囊 = 一级（橙渐变激活），目录卡片 = 二级（淡底，激活才变橙） */
 .cat-sub {
-  /* 淡纯色圆角面板包住整个目录（取代旧的左侧分隔线），随展开动画生长 */
   display: grid; grid-template-rows: 0fr;
   margin: 0 3px; padding: 0 6px;
   border-radius: 10px;
-  background: var(--toc-panel);
   opacity: 0;
   /* 收起态移出 flex 流（绝对定位 + 隐藏）：0fr 只收高度不收宽度，
      目录条 ~1200px 的隐形宽度会把分类 pill 行挤乱 */
   position: absolute; visibility: hidden;
-  transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-              opacity 0.25s ease, margin 0.3s, padding 0.3s;
+  transition: grid-template-rows var(--dur-base) var(--ease),
+              opacity var(--dur-base) ease, margin var(--dur-base), padding var(--dur-base);
 }
 .cat-sub.open {
-  position: static; visibility: visible;
+  position: relative; visibility: visible;
   grid-template-rows: 1fr; opacity: 1;
   /* 顶栏版式：目录条独占一行排在全部分类 pill 之后（order 99 + basis 100%），
      视觉上成为「第二行模块芯片条」 */
-  margin: 4px 0 2px; padding: 4px 8px 6px;
+  margin: 8px 0 2px; padding: 12px 2px 2px;
   flex-basis: 100%; order: 99;
+}
+/* 与分类胶囊行之间的细分隔线：两端淡出，比通栏实线更轻，
+   接手原先整块面板底所承担的「这里进入下一层」的提示 */
+.cat-sub.open::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-light) 18%, var(--border-light) 82%, transparent);
 }
 .cat-nav.sub-collapsed .cat-sub { grid-template-rows: 0fr; opacity: 0; position: absolute; visibility: hidden; }
 /* 折叠时同步清零 .open 残留的纵向 margin/padding（transition 已含二者），
    子菜单完全收起不留空隙，与箭头回到 ▸ 的收起态保持一致 */
 .cat-nav.sub-collapsed .cat-sub.open { margin: 0 3px; padding: 0 6px; }
-.cat-sub-inner { min-height: 0; overflow: hidden; display: flex; flex-direction: row; flex-wrap: wrap; gap: 2px 6px; }
+/* 卡片之间需要呼吸感；内容整体轻微下移淡入，配合高度展开做出「抽屉拉开」的手感 */
+.cat-sub-inner {
+  min-height: 0; overflow: hidden;
+  display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px;
+  opacity: 0; transform: translateY(-4px);
+  transition: opacity var(--dur-base) ease 0.05s, transform var(--dur-base) var(--ease);
+}
+.cat-sub.open .cat-sub-inner { opacity: 1; transform: none; }
 .cat-subitem {
   padding: 5px 10px; margin: 0; background: transparent; border: none; border-radius: 8px;
   color: var(--text-dim); font-size: 12px; font-weight: 500; text-align: left;
   cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  transition: color 0.15s, background 0.15s;
+  transition: color var(--dur-fast), background var(--dur-fast);
 }
 .cat-subitem .ci { margin-right: 5px; }
 .cat-subitem.active {
@@ -401,17 +452,20 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 /* 注意：必须用 .cat-nav 前缀提升特异性，否则 .cat-nav button（0,1,1）的
    9px/14px 内边距与 13px 字号会压过这里的紧凑布局 */
 .cat-nav .cat-toc-item {
-  display: flex; align-items: center; gap: 3px;
-  width: auto; padding: 6px 5px 8px; background: transparent; border: none;
-  border-radius: 8px; color: var(--text-dim); font-size: 12px; font-weight: 500;
+  display: flex; align-items: center; gap: 6px;
+  width: auto; padding: 6px 10px;
+  /* 半透明卡片底：有边界感，又不像分类胶囊那样「重」。
+     65% 是按明暗两套主题折中的值——再淡亮色下就几乎看不出边界了 */
+  background: color-mix(in srgb, var(--card) 65%, transparent);
+  border: none; border-radius: 9px;
+  color: var(--text-dim); font-size: 12px; font-weight: 500;
   text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden;
-  transition: background 0.15s, color 0.15s;
+  transition: background var(--dur-fast), color var(--dur-fast), box-shadow var(--dur-fast);
 }
-/* 主内容行：编号+图标+标题包一层，激活态的粗下划线跟随这层宽度自适应长短
-   （右侧标签徽章不参与，线长只随标题变化） */
+/* 主内容行：编号 + 图标 + 标题 */
 .cat-toc-item .mm {
-  display: inline-flex; align-items: center; gap: 3px;
-  flex: 0 1 auto; min-width: 0; position: relative;
+  display: inline-flex; align-items: center; gap: 4px;
+  flex: 0 1 auto; min-width: 0;
 }
 .cat-toc-item .no {
   flex-shrink: 0; width: 16px; text-align: right;
@@ -424,16 +478,15 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   padding: 1px 6px; border-radius: 6px; font-size: 9px; font-weight: 600;
   color: var(--accent-text); background: var(--accent-bg);
 }
+/* 激活态沿用分类胶囊的配方（橙渐变 + 白字 + 柔光）：一眼定位「当前卡片在哪」，
+   比原来的橙色文字 + 下划线更有分量，也不会和标题栏的下划线语义打架 */
 .cat-toc-item.active {
-  /* 激活态：橙色标题 + 自适应下划线；位置由 .mm::after 粗线标记，无底色无左线 */
-  color: var(--accent-text); font-weight: 600;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  color: #fff; font-weight: 600;
+  box-shadow: var(--accent-glow);
 }
-.cat-toc-item.active .no { color: var(--accent-text); }
-/* 激活项下方的自适应粗下划线：跟随主内容行宽度，与文字留 3px 空气 */
-.cat-toc-item.active .mm::after {
-  content: ''; position: absolute; left: 0; right: 0; bottom: -6px;
-  height: 3px; border-radius: 2px; background: var(--accent);
-}
+.cat-toc-item.active .no { color: rgba(255, 255, 255, 0.72); }
+.cat-toc-item.active .tb { color: #fff; background: rgba(255, 255, 255, 0.22); }
 
 /* ============ Main ============ */
 /* min-height：内容不足一屏时也撑到接近视口高度，保证始终出现滚动条。
@@ -450,8 +503,10 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 /* 与侧栏面板/卡片同一套 Liquid Glass：玻璃底 + 玻璃描边 + 内高光，
    品牌橙只出现在图标块与副标语，数据芯片保持中性玻璃 */
 .hero {
-  display: flex; align-items: flex-start; gap: 14px;
-  margin-bottom: 18px; padding: 18px 20px;
+  display: flex; align-items: stretch; gap: 0;
+  margin-bottom: 18px; padding: 0;
+  /* 裁切右侧天气区：让它顺着 18px 圆角铺满，与左侧文案合成一张整卡 */
+  overflow: hidden;
   background: var(--glass-bg);
   backdrop-filter: blur(28px) saturate(180%); -webkit-backdrop-filter: blur(28px) saturate(180%);
   border: 1px solid var(--glass-border); border-radius: 18px;
@@ -459,6 +514,11 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
     inset 0 1px 0 var(--glass-hi),
     inset 0 -1px 0 var(--glass-lo),
     inset 0 0 24px var(--glass-lo);
+}
+/* Hero 左侧文案区：原 Hero 的内边距移到这里，右侧空间才能完整让给天气区 */
+.hero-main {
+  display: flex; align-items: flex-start; gap: 14px;
+  flex: 1; min-width: 0; padding: 18px 20px;
 }
 /* 图标块：橙渐变圆角方块 + 白色火焰（复用顶栏 logo 图形） */
 .hero-icon {
@@ -484,12 +544,152 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   font-variant-numeric: tabular-nums;
 }
 .hero-chip b { color: var(--text); font-weight: 600; }
+/* 今日天气区（Hero 右侧）：铺满右侧并上下贴边，背景由 JS 按天气写入天空渐变，
+   与左侧玻璃文案区共同构成一张完整的 Hero 卡（圆角与裁切交给 .hero） */
+.hero-weather {
+  position: relative; flex: 0 0 208px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 14px 18px; text-align: center;
+  color: #fff;
+  background: var(--glass-lo);
+  transition: background var(--dur-slow) ease;
+}
+/* hidden 会被上面的 display:flex 覆盖，必须显式兜住（定位失败时整个区不占位） */
+.hero-weather[hidden] { display: none; }
+/* 暗罩：无论天空底色深浅，白字都稳在可读对比度上 */
+.hero-weather::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(12, 20, 38, 0.12), rgba(12, 20, 38, 0.3));
+}
+.hero-weather > * { position: relative; z-index: 1; }
+.hw-city {
+  font-size: 13px; font-weight: 600; letter-spacing: 0.6px;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.22);
+}
+/* 「默认」角标：定位失败、兜底城市时提示用户这不是他所在的城市 */
+.hw-def {
+  margin-left: 4px; padding: 0 4px; border-radius: 4px;
+  font-size: 10px; font-weight: 500; letter-spacing: 0;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* ---- 点击天气区展开「重新定位 / 手动输入城市」编辑层 ---- */
+.hero-weather { cursor: pointer; }
+/* 城市名旁的修改入口（✎）：可悬停设备 hover 才浮现，保持参考图那种干净的展示态；
+   触摸设备没有 hover 语义，常显一档淡色，否则用户不知道这里能点 */
+.hw-tip {
+  margin-left: 5px; font-size: 11px; opacity: 0.55;
+  transition: opacity var(--dur-fast);
+}
+@media (hover: hover) {
+  .hw-tip { opacity: 0; }
+  .hero-weather:hover .hw-tip { opacity: 0.85; }
+}
+.hero-weather.editing .hw-tip { opacity: 0 !important; }
+/* 编辑态抬一点最小高度：移动端天气区是横排的矮条，不撑开会放不下输入框 + 按钮 */
+.hero-weather.editing { min-height: 112px; }
+
+.hw-edit {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; padding: 12px;
+  background: rgba(14, 20, 34, 0.66);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.hw-edit[hidden] { display: none; }
+.hw-input {
+  width: 100%; max-width: 150px; padding: 6px 10px;
+  border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.16); color: #fff;
+  font-size: 13px; text-align: center; outline: none;
+}
+.hw-input::placeholder { color: rgba(255, 255, 255, 0.6); }
+.hw-input:focus { border-color: #fff; background: rgba(255, 255, 255, 0.24); }
+.hw-err { max-width: 160px; font-size: 11px; line-height: 1.3; color: #ffd0cc; text-align: center; }
+.hw-edit-actions { display: flex; gap: 6px; }
+/* 触屏按钮统一口径：屏蔽系统默认高亮（Android 蓝框），按压反馈交给 :active 贴合形状。
+   尺寸在文件末尾的 (pointer: coarse) 块里放大到 44px 触控目标 */
+.hw-btn {
+  padding: 5px 10px; border-radius: 7px; cursor: pointer;
+  font-size: 12px; color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.14);
+  transition: background var(--dur-fast), border-color var(--dur-fast), transform var(--dur-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.hw-btn:active { transform: scale(0.96); background: rgba(255, 255, 255, 0.34); }
+.hw-btn-go {
+  background: rgba(255, 255, 255, 0.92); border-color: transparent;
+  color: #1b2430; font-weight: 600;
+}
+.hw-btn-go:active { background: #fff; }
+.hw-edit-close {
+  position: absolute; top: 5px; right: 7px;
+  width: 22px; height: 22px; border: none; border-radius: 50%;
+  background: transparent; color: rgba(255, 255, 255, 0.8);
+  font-size: 15px; line-height: 1; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.hw-edit-close:active { background: rgba(255, 255, 255, 0.26); }
+/* hover 属「纯增强」：必须包在 (hover:hover) 里——触摸设备没有悬停语义，
+   点完 :hover 会一直粘着不消失（与全站 hover 规则同一约定） */
+@media (hover: hover) {
+  .hw-btn:hover { background: rgba(255, 255, 255, 0.26); border-color: #fff; }
+  .hw-btn-go:hover { background: #fff; }
+  .hw-edit-close:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
+}
+/* 温度与天气描述放在同一个行盒里（inline 混排）：基线天然一致，
+   比 flex 的 baseline 对齐可靠——后者会被行高与 °C 上标影响而错位 */
+.hw-temp {
+  margin: 3px 0 2px;
+  font-size: 44px; font-weight: 800; line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+.hw-unit { font-size: 15px; font-weight: 600; margin-left: 2px; vertical-align: super; opacity: 0.9; }
+.hw-cond {
+  margin-left: 10px;
+  font-size: 19px; font-weight: 600; letter-spacing: 0.5px;
+  /* 汉字的字面高度远低于数字：纯基线对齐虽「数学上齐」，
+     但视觉重心明显偏低，按自身字号上提 0.3em 做视觉校正（移动端会自动等比缩放） */
+  vertical-align: 0.3em;
+  opacity: 0.94; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+}
+.hw-sub {
+  margin-top: 6px; font-size: 11px;
+  opacity: 0.85; font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 @media (max-width: 560px) {
-  .hero { padding: 14px 16px; gap: 12px; margin-bottom: 14px; }
+  /* 竖排：左侧文案在上，天气区通栏铺在下方（两侧贴边由 .hero 的零内边距保证） */
+  .hero { flex-direction: column; margin-bottom: 14px; }
+  .hero-main { padding: 14px 16px; gap: 12px; }
   .hero-icon { width: 40px; height: 40px; border-radius: 11px; }
   .hero-icon svg { width: 26px; height: 26px; }
   .hero-title { font-size: 17px; }
   .hero-desc { font-size: 12px; }
+  /* 天气区改横排一行：竖排三行会吃掉太多首屏高度 */
+  .hero-weather {
+    flex: 0 0 auto; width: 100%;
+    flex-direction: row; gap: 10px; padding: 12px 16px;
+  }
+  .hw-temp { margin: 0; font-size: 26px; }
+  .hw-unit { font-size: 12px; }
+  .hw-cond { margin-left: 8px; font-size: 15px; letter-spacing: 0.3px; }
+  .hw-sub { margin-top: 0; margin-left: auto; }
+}
+
+/* 触摸屏上的天气编辑层：与全站触屏控件同一口径（对齐 .input-row 的 16px / 44px）。
+   最要紧的是输入框必须 ≥16px——iOS Safari 对字号 <16px 的 input 聚焦时会自动放大
+   整个页面且不会自行缩回，用户会被卡在放大后的视角里出不来 */
+@media (pointer: coarse) {
+  .hw-edit { gap: 10px; padding: 14px; }
+  .hw-input { max-width: none; font-size: 16px; padding: 10px 12px; min-height: 44px; }
+  .hw-btn { min-height: 44px; padding: 10px 16px; font-size: 13px; }
+  /* 关闭键桌面 22px 够用，触屏上必须放到 40px 否则根本点不中 */
+  .hw-edit-close { width: 40px; height: 40px; font-size: 20px; top: 2px; right: 4px; }
+  /* 控件放大后要抬高最小高度，否则输入框 + 按钮会被裁掉 */
+  .hero-weather.editing { min-height: 152px; }
 }
 .cat-section { margin-bottom: 32px; }
 /* 分组标题：与卡片同款圆角玻璃横条——18px 圆角、卡片级 Liquid Glass 配方
@@ -533,7 +733,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
     radial-gradient(circle at 30% 26%, rgba(255,255,255,.9) 0 9%, transparent 20%),
     radial-gradient(circle at 66% 78%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 46%),
     radial-gradient(circle at 50% 50%, rgba(255,255,255,.05) 0 52%, rgba(255,255,255,.38) 66%, transparent 74%);
-  display: block; position: absolute; top: 50%; z-index: -1;
+  display: block; position: absolute; top: 50%; left: 0; z-index: -1;
   border-radius: 50%;
   background: var(--bubble-bg);
   animation: titleBubbleFloat 16s linear infinite, titleBubbleBob 5s ease-in-out infinite;
@@ -541,12 +741,16 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .cat-title .bubble:nth-of-type(1) { width: 58px; height: 58px; margin-top: -29px; animation-duration: 15s, 4.6s; animation-delay: -3s, -1.2s; }
 .cat-title .bubble:nth-of-type(2) { width: 34px; height: 34px; margin-top: -17px; animation-duration: 19s, 5.6s; animation-delay: -11s, -2.6s; }
 .cat-title .bubble:nth-of-type(3) { width: 46px; height: 46px; margin-top: -23px; animation-duration: 17.5s, 5.1s; animation-delay: -6.5s, -3.8s; }
-.cat-title .bubble:nth-of-type(4) { width: 22px; height: 22px; margin-top: -11px; animation-duration: 13s, 4.3s; animation-delay: -16s, -0.6s; }
+.cat-title .bubble:nth-of-type(4) { width: 22px; height: 22px; margin-top: -11px; animation-duration: 13s, 4.3s; animation-delay: -16s, -var(--dur-slow); }
+/* 横向位移改用独立的 translate 属性，纵向 bob 继续用 transform ——
+   两者是叠加关系而非互相覆盖（同一个 transform 会被后写的动画吃掉）。
+   关键是横向绝对不能再动 right：right 每帧都要重算布局，
+   4 个泡泡 × 16s 无限循环会让每个分组标题条持续抖动 */
 @keyframes titleBubbleFloat {
-  0%   { right: calc(0% - 90px); opacity: 0; }
+  0%   { translate: -90px 0; opacity: 0; }
   8%   { opacity: .95; }
   92%  { opacity: .95; }
-  100% { right: calc(100% + 10px); opacity: 0; }
+  100% { translate: calc(100vw - 48px) 0; opacity: 0; }
 }
 @keyframes titleBubbleBob {
   0%, 100% { transform: translateY(3px); }
@@ -591,7 +795,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   border: 1px solid var(--glass-border);
   border-radius: 18px; overflow: hidden;
   /* 只过渡必要属性：transition:all 会让无关属性变化也触发样式计算 */
-  transition: border-color 0.2s, box-shadow 0.25s, transform 0.25s;
+  transition: border-color var(--dur-fast), box-shadow var(--dur-base), transform var(--dur-base);
   display: flex; flex-direction: column;
   /* 不做懒渲染（content-visibility:auto）：视口外卡片连玻璃模糊层一起被跳过，
      滚入时合成器重建 backdrop-filter 层的头 1-2 帧模糊未就绪，卡片闪现半透明
@@ -639,10 +843,16 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
       inset 0 -1px 0 var(--glass-lo),
       inset 0 0 36px var(--glass-lo);
   }
-  .cat-row > button:hover { color: var(--accent-text); background: var(--accent-bg); }
-  .cat-row > button:hover .cnt { color: var(--text-dim); }
+  .cat-pills > button:hover { color: var(--accent-text); background: var(--accent-bg); }
+  .cat-pills > button:hover .cnt { color: var(--text-dim); }
   .cat-subitem:hover { color: var(--accent-text); background: var(--accent-bg); }
   .cat-toc-item:hover { color: var(--accent-text); background: var(--accent-bg); }
+  /* 激活项不能被上面的通用 hover 拉回浅橙底——白字会糊在浅底上，
+     这里只做渐变方向的反转，保持「已选中」的同时给一点按压反馈 */
+  .cat-nav .cat-toc-item.active:hover {
+    background: linear-gradient(135deg, var(--accent-light), var(--accent));
+    color: #fff;
+  }
   .clock:hover { border-color: var(--border-light); }
 }
 .card-head {
@@ -663,7 +873,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   width: 28px; height: 28px; border-radius: 6px;
   background: transparent; border: 1px solid var(--border);
   color: var(--text-dim); font-size: 11px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; transition: border-color 0.15s, color 0.15s;
+  display: flex; align-items: center; justify-content: center; transition: border-color var(--dur-fast), color var(--dur-fast);
 }
 .card-actions button:hover { border-color: var(--accent); color: var(--accent); }
 /* ↻ 字形本身偏小，放大一档才与 { }/⛶ 视觉等重 */
@@ -689,7 +899,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .card-tab {
   padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border);
   background: transparent; color: var(--text-dim); font-size: 12px; font-weight: 600;
-  cursor: pointer; transition: color 0.15s, border-color 0.15s, background 0.15s;
+  cursor: pointer; transition: color var(--dur-fast), border-color var(--dur-fast), background var(--dur-fast);
   -webkit-tap-highlight-color: transparent;
 }
 .card-tab:hover { color: var(--accent); border-color: var(--accent); }
@@ -704,13 +914,13 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .input-row input, .input-row select {
   flex: 1; min-width: 60px; padding: 7px 10px;
   background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
-  color: var(--text); font-size: 12px; outline: none; transition: border 0.2s;
+  color: var(--text); font-size: 12px; outline: none; transition: border var(--dur-fast);
 }
 .input-row input:focus { border-color: var(--accent); }
 .input-row .go {
   padding: 7px 16px; background: var(--accent); border: none;
   border-radius: 6px; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer;
-  white-space: nowrap; transition: background 0.2s;
+  white-space: nowrap; transition: background var(--dur-fast);
 }
 .input-row .go:hover { background: var(--accent-light); }
 
@@ -719,7 +929,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   width: 100%; min-height: 80px; resize: vertical; margin-bottom: 12px;
   padding: 10px 12px; background: var(--bg); border: 1px solid var(--border);
   border-radius: 8px; color: var(--text); font-size: 14px; font-family: inherit;
-  outline: none; transition: border 0.2s; line-height: 1.6;
+  outline: none; transition: border var(--dur-fast); line-height: 1.6;
   -webkit-appearance: none; appearance: none;
 }
 .fanyi-textarea:focus { border-color: var(--accent); box-shadow: var(--accent-glow); }
@@ -727,7 +937,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .fanyi-lang-row select {
   flex: 1; min-width: 0; padding: 8px 28px 8px 10px; background: var(--bg);
   border: 1px solid var(--border); border-radius: 8px; color: var(--text);
-  font-size: 13px; outline: none; cursor: pointer; transition: border 0.2s;
+  font-size: 13px; outline: none; cursor: pointer; transition: border var(--dur-fast);
   -webkit-appearance: none; -moz-appearance: none; appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a8094' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 8px center;
@@ -735,13 +945,13 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .fanyi-lang-row select:focus { border-color: var(--accent); }
 .fanyi-lang-row .arrow {
   color: var(--text-dim); font-size: 16px; flex-shrink: 0; user-select: none;
-  cursor: pointer; padding: 4px; border-radius: 4px; transition: color 0.2s, background 0.2s;
+  cursor: pointer; padding: 4px; border-radius: 4px; transition: color var(--dur-fast), background var(--dur-fast);
 }
 .fanyi-lang-row .arrow:hover { color: var(--accent); background: var(--accent-bg); }
 .fanyi-submit {
   width: 100%; padding: 11px 16px; background: var(--accent); border: none;
   border-radius: 8px; color: #fff; font-size: 14px; font-weight: 600;
-  cursor: pointer; transition: background 0.2s, transform 0.2s; margin-bottom: 12px;
+  cursor: pointer; transition: background var(--dur-fast), transform var(--dur-fast); margin-bottom: 12px;
   -webkit-appearance: none; appearance: none; -webkit-tap-highlight-color: transparent;
 }
 .fanyi-submit:hover { background: var(--accent-light); }
@@ -765,23 +975,27 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 /* ============ Skeleton Shimmer ============ */
 .skeleton { padding: 4px 0; }
 .skeleton-line {
+  position: relative; overflow: hidden;
   height: 14px; border-radius: 4px; margin-bottom: 10px;
-  background: linear-gradient(90deg, var(--border) 25%, var(--border-light) 50%, var(--border) 75%);
-  background-size: 200% 100%;
+  background: var(--border);
+}
+/* 扫光交给伪元素的 translateX：background-position 动画每帧都要重绘整条，
+   translateX 只走合成层。骨架屏常常一屏十几条，这个差别很直观 */
+.skeleton-line::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, var(--border-light), transparent);
+  transform: translateX(-100%);
   animation: shimmer 1.5s ease-in-out infinite;
 }
 .skeleton-line-short { width: 60%; }
 .skeleton-line:last-child { margin-bottom: 0; }
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
+@keyframes shimmer { to { transform: translateX(100%); } }
 
 /* ============ Retry Button ============ */
 .retry-btn {
   display: inline-block; margin-left: 6px; padding: 2px 8px;
   background: transparent; border: 1px solid var(--error); border-radius: 4px;
-  color: var(--error); font-size: 11px; cursor: pointer; transition: background 0.2s, color 0.2s;
+  color: var(--error); font-size: 11px; cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast);
 }
 .retry-btn:hover { background: var(--error); color: #fff; }
 
@@ -790,7 +1004,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   display: block; width: 100%; margin-top: 8px; padding: 6px 0;
   background: transparent; border: 1px dashed var(--border); border-radius: 8px;
   color: var(--text-dim); font-size: 12px; cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  transition: color var(--dur-fast), border-color var(--dur-fast);
   -webkit-tap-highlight-color: transparent;
 }
 .list-toggle:hover { color: var(--accent); border-color: var(--accent); }
@@ -942,7 +1156,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   display: block; width: fit-content; margin: 8px auto 0;
   padding: 7px 18px; border-radius: 17px;
   background: var(--accent-bg); color: var(--accent-text); font-size: 12px; font-weight: 600;
-  transition: background 0.2s, color 0.2s;
+  transition: background var(--dur-fast), color var(--dur-fast);
 }
 .qr-download:hover { background: var(--accent); color: #fff; text-decoration: none; }
 
@@ -959,7 +1173,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   flex: 1; min-height: 34px; display: flex; align-items: center; justify-content: center;
   background: var(--card); border: 1px solid var(--border); border-radius: 8px;
   color: var(--text-dim); font-size: 12px; font-weight: 600; cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition: color var(--dur-fast), border-color var(--dur-fast), background var(--dur-fast);
   -webkit-tap-highlight-color: transparent;
 }
 .bing-dl-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-bg); }
@@ -1039,13 +1253,13 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .pwd-copy {
   flex-shrink: 0; padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px;
   background: var(--accent); border-color: var(--accent); color: #fff; font-size: 11px; font-weight: 600;
-  cursor: pointer; transition: background 0.15s; -webkit-tap-highlight-color: transparent;
+  cursor: pointer; transition: background var(--dur-fast); -webkit-tap-highlight-color: transparent;
 }
 .pwd-copy:hover { background: var(--accent-light); }
 .pwd-copy.done { background: var(--success); border-color: var(--success); }
 .pwd-strength { display: flex; align-items: center; gap: 10px; margin: 10px 0 12px; }
 .pwd-strength-bar { flex: 1; height: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
-.pwd-strength-bar i { display: block; height: 100%; border-radius: 4px; transition: width 0.4s; }
+.pwd-strength-bar i { display: block; height: 100%; border-radius: 4px; transition: width var(--dur-slow); }
 .pwd-strength-badge { flex-shrink: 0; min-width: 44px; text-align: center; padding: 3px 12px; border-radius: 10px; color: #fff; font-size: 13px; font-weight: 800; line-height: 1.5; }
 
 /* ============ 密码强度检测 ============ */
@@ -1058,7 +1272,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .pwchk-crack { font-size: 12px; color: var(--text-dim); }
 .pwchk-crack b { color: var(--text); font-weight: 700; }
 .pwchk-bar { height: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; overflow: hidden; margin-bottom: 10px; }
-.pwchk-bar i { display: block; height: 100%; border-radius: 5px; transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+.pwchk-bar i { display: block; height: 100%; border-radius: 5px; transition: width var(--dur-slow) var(--ease); }
 .pwchk-sets { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
 .pwchk-set {
   padding: 3px 10px; border-radius: 12px; font-size: 11px;
@@ -1088,7 +1302,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .clr-row code { flex: 1; min-width: 0; font-family: "SF Mono", Consolas, monospace; font-size: 11.5px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .clr-copy {
   flex-shrink: 0; padding: 3px 9px; border: 1px solid var(--border); border-radius: 6px;
-  background: var(--card); color: var(--text-dim); font-size: 10px; cursor: pointer; transition: color 0.15s, border-color 0.15s;
+  background: var(--card); color: var(--text-dim); font-size: 10px; cursor: pointer; transition: color var(--dur-fast), border-color var(--dur-fast);
 }
 .clr-copy:hover { color: var(--accent); border-color: var(--accent); }
 
@@ -1110,7 +1324,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 .hash-copy {
   flex-shrink: 0; padding: 3px 9px; border: 1px solid var(--border); border-radius: 6px;
-  background: var(--card); color: var(--text-dim); font-size: 10px; cursor: pointer; transition: color 0.15s, border-color 0.15s;
+  background: var(--card); color: var(--text-dim); font-size: 10px; cursor: pointer; transition: color var(--dur-fast), border-color var(--dur-fast);
 }
 .hash-copy:hover { color: var(--accent); border-color: var(--accent); }
 
@@ -1153,7 +1367,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .ip-map {
   display: block; margin-top: 8px; padding: 9px 12px; text-align: center;
   background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--accent-text); font-size: 12px; font-weight: 600; transition: border-color 0.15s;
+  color: var(--accent-text); font-size: 12px; font-weight: 600; transition: border-color var(--dur-fast);
 }
 .ip-map:hover { border-color: var(--accent); text-decoration: none; }
 
@@ -1219,7 +1433,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   letter-spacing: 6px; margin: 6px auto 4px;
   min-height: 150px; display: flex; align-items: center; justify-content: center;
 }
-.ans-ch { display: inline-block; opacity: 0; animation: ansIn 0.45s ease forwards; }
+.ans-ch { display: inline-block; opacity: 0; animation: ansIn var(--dur-slow) ease forwards; }
 @keyframes ansIn {
   from { opacity: 0; transform: translateY(6px); filter: blur(3px); }
   to { opacity: 1; transform: translateY(0); filter: blur(0); }
@@ -1265,7 +1479,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .daily-eng::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% -20%, var(--accent-bg), transparent 65%); pointer-events: none; }
 .de-en { position: relative; font-family: Georgia, "Times New Roman", serif; font-size: 16px; font-weight: 600; color: var(--accent-text); line-height: 1.6; word-break: break-word; }
 .de-zh { position: relative; font-size: 13px; color: var(--text); line-height: 1.8; margin-top: 10px; }
-.de-tts { position: relative; margin-top: 12px; padding: 6px 14px; background: var(--accent); border: none; border-radius: 16px; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.2s, transform 0.2s, box-shadow 0.2s; -webkit-tap-highlight-color: transparent; }
+.de-tts { position: relative; margin-top: 12px; padding: 6px 14px; background: var(--accent); border: none; border-radius: 16px; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; transition: background var(--dur-fast), transform var(--dur-fast), box-shadow var(--dur-fast); -webkit-tap-highlight-color: transparent; }
 .de-tts:hover { background: var(--accent-light); }
 .de-tts:active { transform: scale(0.96); }
 .de-tts.playing { background: var(--accent-light); box-shadow: var(--accent-glow); }
@@ -1301,13 +1515,13 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .ex-calc-row { display: flex; gap: 6px; align-items: stretch; }
 .ex-amount {
   flex: 1; min-width: 0; padding: 7px 10px; background: var(--card); border: 1px solid var(--border);
-  border-radius: 8px; color: var(--text); font-size: 14px; outline: none; transition: border 0.2s;
+  border-radius: 8px; color: var(--text); font-size: 14px; outline: none; transition: border var(--dur-fast);
   font-variant-numeric: tabular-nums; font-weight: 600;
 }
 .ex-amount:focus { border-color: var(--accent); }
 .ex-from, .ex-to {
   flex-shrink: 0; padding: 7px 8px; background: var(--card); border: 1px solid var(--border);
-  border-radius: 8px; color: var(--text); font-size: 12px; outline: none; cursor: pointer; transition: border 0.2s;
+  border-radius: 8px; color: var(--text); font-size: 12px; outline: none; cursor: pointer; transition: border var(--dur-fast);
 }
 .ex-from:focus, .ex-to:focus { border-color: var(--accent); }
 .ex-sym {
@@ -1320,7 +1534,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   margin: 5px auto; width: 30px; height: 30px;
   border: 1px solid var(--border); border-radius: 50%;
   background: var(--accent-bg); color: var(--accent);
-  cursor: pointer; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s, color 0.2s;
+  cursor: pointer; transition: transform var(--dur-base) var(--ease), background var(--dur-fast), color var(--dur-fast);
   -webkit-tap-highlight-color: transparent;
 }
 .ex-swap svg { display: block; }
@@ -1390,7 +1604,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .moyu-progress { margin-top: 9px; }
 .moyu-progress-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-dim); margin-bottom: 4px; font-variant-numeric: tabular-nums; }
 .moyu-progress-bar { height: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
-.moyu-progress-bar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--accent-light)); transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+.moyu-progress-bar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--accent-light)); transition: width var(--dur-slow) var(--ease); }
 .moyu-quote {
   margin-top: 12px; padding: 10px 12px; font-size: 12.5px; line-height: 1.8; color: var(--text-dim);
   background: var(--accent-bg); border-radius: 10px; position: relative;
@@ -1413,7 +1627,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .jsq-copy {
   position: absolute; top: 6px; right: 6px; padding: 2px 9px;
   background: var(--card); border: 1px solid var(--border); border-radius: 6px;
-  color: var(--text-dim); font-size: 10px; cursor: pointer; transition: color 0.15s, border-color 0.15s;
+  color: var(--text-dim); font-size: 10px; cursor: pointer; transition: color var(--dur-fast), border-color var(--dur-fast);
 }
 .jsq-copy:hover { color: var(--accent); border-color: var(--accent); }
 .jsq-opts { display: flex; flex-direction: column; gap: 6px; }
@@ -1421,7 +1635,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   display: flex; align-items: flex-start; gap: 8px; width: 100%; text-align: left;
   padding: 9px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
   color: var(--text); font-size: 12.5px; line-height: 1.6; cursor: pointer;
-  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  transition: border-color var(--dur-fast), background var(--dur-fast), transform var(--dur-fast);
   -webkit-tap-highlight-color: transparent;
 }
 .jsq-opt:hover:not(:disabled) { border-color: var(--accent); }
@@ -1439,7 +1653,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .jsq-opt.correct .jsq-opt-no { background: var(--success); border-color: var(--success); color: #fff; }
 .jsq-opt.wrong {
   background: rgba(248, 113, 113, 0.1); border-color: var(--error); color: var(--error);
-  opacity: 1; animation: jsqShake 0.3s ease;
+  opacity: 1; animation: jsqShake var(--dur-base) ease;
 }
 .jsq-opt.wrong .jsq-opt-no { background: var(--error); border-color: var(--error); color: #fff; }
 @keyframes jsqShake {
@@ -1493,7 +1707,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 
 /* Progress bar (moyu) */
 .progress-bar { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; margin-top: 2px; }
-.progress-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.5s; }
+.progress-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width var(--dur-slow); }
 
 /* Foot */
 /* 壁纸背景上：页脚做成极简一行小字直接落在壁纸上收尾，
@@ -1517,7 +1731,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 .foot a {
   color: inherit; text-decoration: none;
-  padding: 2px 2px; transition: color 0.15s;
+  padding: 2px 2px; transition: color var(--dur-fast);
 }
 .foot a:hover { color: var(--accent-light); }
 /* 分隔点与元信息降为半透明白：主链接纯白，层次拉开后一行也不显挤 */
@@ -1552,7 +1766,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   background: linear-gradient(135deg, var(--success), #10b981);
   color: #fff; font-size: 12px; font-weight: 700; text-decoration: none;
   box-shadow: 0 2px 8px rgba(52, 211, 153, 0.3);
-  transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+  transition: transform var(--dur-fast), box-shadow var(--dur-fast), filter var(--dur-fast);
   -webkit-tap-highlight-color: transparent;
 }
 .game-claim a:hover {
@@ -1675,7 +1889,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.card { animation: fadeIn 0.25s ease both; }
+.card { animation: fadeIn var(--dur-base) ease both; }
 .card.kb-focus { border-color: var(--accent); box-shadow: var(--accent-glow); }
 
 /* ============ 响应式适配（置于末尾以正确覆盖上方规则） ============ */
@@ -1708,7 +1922,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 
   /* 布局纵向：分类栏移到顶部、内容在下方 */
   .layout { flex-direction: column; padding: 0; }
-  /* 移动端分类导航：cat-nav 只是吸顶包装器，cat-row 才是横向滚动 pill 行 */
+  /* 移动端分类导航：cat-nav 只是吸顶包装器，cat-pills 才是横向滚动 pill 行 */
   .cat-nav {
     flex-direction: column; gap: 0; width: 100%;
     /* 移动端吸顶栏与桌面同为 Liquid Glass：玻璃底 + 强饱和/提亮折射 */
@@ -1721,15 +1935,11 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
     backdrop-filter: blur(28px) saturate(180%); -webkit-backdrop-filter: blur(28px) saturate(180%);
     max-height: none; align-self: auto; margin: 0; overflow: visible;
   }
-  .cat-row {
-    display: flex; flex-wrap: nowrap;
-    padding: 6px 12px;
-    overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
-  }
-  .cat-row::-webkit-scrollbar { display: none; }
+  /* pill 行内边距（不换行 / 横向滚动 / 拖拽规则已在基础样式里，桌面移动共用） */
+  .cat-pills { padding: 6px 12px; }
   .cat-sub { display: none !important; }
-  /* 鼠标拖拽横向滚动时禁用文本选择（触摸端原生支持，不受影响） */
-  .cat-row.dragging { user-select: none; -webkit-user-select: none; }
+  /* 触摸设备用原生滑动就够，箭头只服务鼠标场景，隐藏以免占掉本就紧张的行宽 */
+  .cat-nav .cat-arrow { display: none; }
   /* 模块面板：点击已激活分类 pill 开合的悬浮目录（EPS 级，分组成员直达标签页）。
      fixed 挂在 body 下（JS 控制 top 贴吸顶栏底边）——不能做 .cat-nav 的子元素：
      吸顶栏自身带 backdrop-filter 会形成 backdrop root，其后代的毛玻璃只能采样
@@ -1751,7 +1961,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
       inset 0 0 24px var(--glass-lo);
     max-height: min(55vh, 420px); overflow-y: auto; overscroll-behavior: contain;
   }
-  .cat-panel.open { display: grid; animation: fadeIn 0.18s ease; }
+  .cat-panel.open { display: grid; animation: fadeIn var(--dur-fast) ease; }
   .cat-panel .cat-subitem {
     display: flex; align-items: center; min-width: 0; min-height: 40px; padding: 0 12px;
     /* 玻璃面板内的子项：半透明玻璃 chip（不叠 blur，避免多层 backdrop-filter 开销） */
@@ -1766,15 +1976,15 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   }
   /* pill 上的面板开合箭头：只在已激活分类显示，方向约定与桌面一致
      ▸=面板收起、rotate(90°)→▾=面板展开（toc-open） */
-  .cat-row > button.active[data-cat]:not([data-cat="all"])::after {
+  .cat-pills > button.active[data-cat]:not([data-cat="all"])::after {
     content: '▸'; margin-left: 4px; flex-shrink: 0;
     display: inline-flex; align-items: center; justify-content: center;
     font-size: 16px; font-weight: 700; color: #fff;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform var(--dur-base) var(--ease);
     transform: rotate(0deg);
   }
-  .cat-nav.toc-open .cat-row > button.active::after { transform: rotate(90deg); }
-  .cat-row > button {
+  .cat-nav.toc-open .cat-pills > button.active::after { transform: rotate(90deg); }
+  .cat-pills > button {
     /* 固定高度（含上下 border），垂直方向由 flex 居中，与模块 chip 等高 */
     height: 42px; padding: 0 15px; text-align: center; font-size: 13px;
     border-radius: 17px; white-space: nowrap; flex-shrink: 0;
@@ -1782,9 +1992,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
     /* 屏蔽浏览器触屏默认高亮，改用 :active 状态贴合胶囊形状 */
     -webkit-tap-highlight-color: transparent;
   }
-  .cat-row > button:active { background: var(--card); }
-  .cat-row > button.active:active { background: var(--accent-light); }
-  .cat-row > button.active { background: var(--accent); box-shadow: none; }
+  .cat-pills > button:active { background: var(--card); }
+  .cat-pills > button.active:active { background: var(--accent-light); }
+  .cat-pills > button.active { background: var(--accent); box-shadow: none; }
 
   /* 移动端首张卡片需紧贴吸顶分类栏：收紧上内边距（原 14px 在 sticky 导航下显空） */
   .main { padding: 6px 14px 48px; }
@@ -1795,7 +2005,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   /* 展开全部/收起按钮：44px 触控目标，与其余触屏控件一致 */
   .list-toggle { min-height: 44px; padding: 10px 0; }
   /* 计数徽章仅桌面显示：移动 pill 空间优先给名称 */
-  .cat-row > button .cnt { display: none; }
+  .cat-pills > button .cnt { display: none; }
   /* 子菜单定位跳转偏移：吸顶顶栏 + 分类 pill 单行（模块面板是悬浮层不占位） */
   .card { scroll-margin-top: calc(var(--topbar-h, 96px) + 66px); }
   /* 移动端性能：backdrop-filter 逐帧模糊是最大的 GPU 消耗，
@@ -1837,9 +2047,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   .header { padding: 8px 12px; gap: 8px; }
   .search-wrap input { padding: 8px 12px 8px 32px; font-size: 13px; }
   /* cat-nav 不加内边距：吸顶分类栏上缘必须与顶栏底边贴合，
-     行内留白由 cat-row 自身的 padding 提供 */
-  .cat-row { padding: 6px 10px; }
-  .cat-row > button { padding: 0 13px; font-size: 13px; }
+     行内留白由 pill 行自身的 padding 提供 */
+  .cat-pills { padding: 6px 10px; }
+  .cat-pills > button { padding: 0 13px; font-size: 13px; }
   .main { padding: 6px 10px 48px; }
   /* 触控区域加大，防误触 */
   .card-actions button { width: 32px; height: 32px; }
@@ -2071,7 +2281,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .muyu-svg.hit .my-spark { animation: my-spark .5s ease-out backwards; }
 .muyu-svg.hit .my-spark.s2 { animation-delay: .05s; }
 .muyu-svg.hit .my-spark.s3 { animation-delay: .1s; }
-.muyu-svg.hit .my-spark.s4 { animation-delay: .15s; }
+.muyu-svg.hit .my-spark.s4 { animation-delay: var(--dur-fast); }
 @keyframes my-spark {
   0% { opacity: 0; transform: scale(.2) rotate(0deg); }
   30% { opacity: 1; }
@@ -2179,8 +2389,11 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
    旧快照必须保持完全不透明、不做淡出：若新旧同时半透明，合成会出现透明缺口，
    露出文档画布底色（日间 --bg-grad 近白 / 夜间近黑），用户会感知到
    「切换分类全屏闪一下」。只淡入不淡出，视觉等效交叉溶解且无闪帧 */
-::view-transition-new(root) { animation: vtFadeIn .25s ease; }
+::view-transition-new(root) { animation: vtFadeIn var(--dur-base) ease; }
 @keyframes vtFadeIn { from { opacity: 0; } }
+/* VT 生效期间关掉卡片自身的入场上浮：整块快照已经在淡入，
+   卡片再各自 translateY(8px) 淡入属于双重动画，叠加后会互相干扰显得「抖」 */
+.vt-run .card { animation: none; }
 
 /* ============ 顶栏图标按钮（全部刷新） ============ */
 /* 与 theme-toggle 同规格（36px 圆角方块），图标为 SVG，
@@ -2189,7 +2402,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
   background: var(--card); border: 1px solid var(--border);
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s;
+  cursor: pointer; transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
 }
 .icon-btn:hover { border-color: var(--accent); box-shadow: var(--accent-glow); color: var(--accent); }
 /* svg 自带显式 color（.header-right svg），hover 提亮需单独覆盖 */
@@ -2207,7 +2420,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   box-shadow: var(--shadow);
   opacity: 0; pointer-events: none;
   transform: translateY(0);
-  transition: opacity .15s ease;
+  transition: opacity var(--dur-fast) ease;
 }
 .ptr-indicator .ptr-spin {
   width: 16px; height: 16px; border-radius: 50%;
@@ -2231,6 +2444,6 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   margin-top: 4px; padding: 6px 18px; border-radius: 999px;
   background: var(--accent-bg); border: 1px solid var(--accent);
   color: var(--accent-text); font-size: 12px; cursor: pointer;
-  transition: box-shadow .2s, border-color .2s;
+  transition: box-shadow var(--dur-fast), border-color var(--dur-fast);
 }
 .card-unavailable .retry-btn:hover { box-shadow: var(--accent-glow); }

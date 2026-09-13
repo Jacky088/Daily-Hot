@@ -10,6 +10,7 @@ import { blacklist } from './middlewares/blacklist.ts'
 import { rateLimit } from './middlewares/rate-limit.ts'
 import { encoding } from './middlewares/encoding.ts'
 import { forceUpdate } from './middlewares/force-update.ts'
+import { dataUpdated } from './middlewares/data-updated.ts'
 import { handleGlobalError } from './middlewares/handle-global-error.ts'
 import { staticAssets } from './middlewares/static-assets.ts'
 
@@ -17,7 +18,7 @@ export const app = new Application()
 
 app.use(handleGlobalError())
 // forceUpdate 需在业务路由前注册，它把标志写入 AsyncLocalStorage 供缓存层读取
-app.use(blacklist(), debug(), cors(), favicon(), encoding(), forceUpdate(), rateLimit())
+app.use(blacklist(), debug(), cors(), favicon(), encoding(), forceUpdate(), dataUpdated(), rateLimit())
 
 app.use(staticAssets())
 
