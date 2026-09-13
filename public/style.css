@@ -671,6 +671,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   color: #1b2430; font-weight: 600;
 }
 .hw-btn-go:active { background: #fff; }
+/* 「取消」默认隐藏：桌面端空间宽裕，用右上角那个 × 关闭更省地方；
+   触摸端才把它显出来与另两个按钮并排（见文件末尾 pointer:coarse 块） */
+.hw-btn-cancel { display: none; }
 .hw-edit-close {
   position: absolute; top: 5px; right: 7px;
   display: grid; place-items: center; /* 图标改 SVG 后不再靠 line-height 居中，交给 grid 精准定位 */
@@ -762,20 +765,11 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
     background: rgba(255, 255, 255, 0.26);
     box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.14);
   }
-  /* 关闭键 52px 圆形 + SVG 叉号。原先是 46px 方块里塞一个文本「×」，
-     字符字面窄、笔画细，看着又小又廉价；换 SVG 后线条粗细可控、居中精准，
-     圆形也和方形的输入框/按钮区分开，一眼就认得出是「退出」 */
-  .hw-edit-close {
-    order: 2;
-    display: grid; place-items: center;
-    flex: 0 0 52px; width: 52px; height: 52px;
-    border: 1px solid rgba(255, 255, 255, 0.42);
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.18);
-    color: #fff;
-  }
-  .hw-edit-close svg { width: 22px; height: 22px; }
-  .hw-edit-close:active { background: rgba(255, 255, 255, 0.32); transform: scale(0.94); }
+  /* 关闭入口改走第二行的「取消」按钮：原先那个 52px 圆形 × 挤在通栏输入框右侧，
+     两者贴在一起像「输入框里长了个按钮」，视觉重心很乱；
+     并进按钮行之后三个按钮等宽对齐，关系清楚、也更好点 */
+  .hw-edit-close { display: none; }
+  .hw-btn-cancel { display: block; }
   /* 报错占满一行另起一排；正常态不占位，布局仍是两行 */
   .hw-err { order: 3; flex-basis: 100%; max-width: none; margin: 0; }
   /* flex-basis 100% 强制操作行独占第二行（比让浏览器自行折行更稳定），
@@ -2009,20 +2003,14 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
     /* 不收缩也不拉伸：宽度完全由内容决定，放不放得下交给 JS 实测判定 */
     flex: 0 0 auto; min-width: 0;
   }
-  /* 换行档：fitClocks 实测「同行放不下」时加上的类——时间胶囊整块移到独立一行。
-     order 把它排到按钮之后，于是 wrap 时溢出的就是它（换行的是时钟而不是某个按钮）；
-     宽度仍由内容决定（继承上面的 flex: 0 0 auto），这样 fitClocks 才能真实量出
-     「换行后这一行够不够显示完整日期」，进而在完整版/短版之间继续挑选 */
-  .clock-mobile.ck-wrap { order: 2; }
   .header { padding: 10px 14px; flex-wrap: wrap; gap: 10px; }
   .header-left { flex: 1 1 100%; gap: 10px; }
-  /* 第二行 = 时间胶囊 + GitHub/主题/壁纸/刷新 4 按钮：
-     按钮固定尺寸且不收缩（图标不能被压扁变形），时钟宽度由内容决定；
-     够不够放由 fitClocks 实测后决定——够就同行，不够就给时钟加 .ck-wrap 让它换行。
-     所以这里用 wrap 而不是 nowrap：换行能力要留给 flex 去落地 */
+  /* 第二行 = 时间胶囊 + GitHub/主题/壁纸/刷新 4 按钮，必须锁死在同一行：
+     容器 nowrap + 两侧都不收缩，宽度不够时由 fitClocks 把日期降级成短版。
+     这里不能用 wrap —— 一旦允许换行，刷新按钮就会被挤到第三行（已踩过这个坑） */
   .header-right {
     flex: 1 1 100%; justify-content: flex-end;
-    flex-wrap: wrap; gap: 6px; min-width: 0;
+    flex-wrap: nowrap; gap: 6px; min-width: 0;
   }
   .header-right a, .header-right button { width: 32px; height: 32px; flex-shrink: 0; }
   /* 时间不裁：秒数跳动时宽度恒定，优先保证完整可读 */
@@ -2192,6 +2180,15 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   .clock-mobile .clock-dot { width: 5px; height: 5px; }
   .header-right { gap: 4px; }
   .header-right a, .header-right button { width: 30px; height: 30px; }
+}
+
+/* ≤340px：再收紧一档，让 320px 这类小屏也能把「短版日期 + 时间 + 4 按钮」锁在同一行。
+   这里只缩尺寸、绝不隐藏日期——日期始终完整，顶栏永远是两行 */
+@media (max-width: 340px) {
+  .clock-mobile { padding: 4px 6px; font-size: 11.5px; gap: 3px; }
+  .clock-mobile .clock-dot { width: 4px; height: 4px; }
+  .header-right { gap: 3px; }
+  .header-right a, .header-right button { width: 28px; height: 28px; }
 }
 
 /* ============ 万年历（生活信息 / calendar） ============ */

@@ -189,6 +189,7 @@ function heroWeatherHtml(d, editing) {
       <div class="hw-edit-actions">
         <button type="button" class="hw-btn hw-btn-locate">重新定位</button>
         <button type="button" class="hw-btn hw-btn-go">查询</button>
+        <button type="button" class="hw-btn hw-btn-cancel">取消</button>
       </div>
     </div>`;
 }
@@ -236,6 +237,9 @@ function bindHeroWeatherEvents(box) {
     loadHeroWeather({ city: '', force: true });
   };
   closeBtn.onclick = (e) => { e.stopPropagation(); closeHeroWeatherEdit(); };
+  // 触屏端的「取消」与桌面端右上角的 × 是同一个动作
+  const cancelBtn = box.querySelector('.hw-btn-cancel');
+  if (cancelBtn) cancelBtn.onclick = (e) => { e.stopPropagation(); closeHeroWeatherEdit(); };
   input.onclick = (e) => e.stopPropagation();
   input.onkeydown = (e) => {
     e.stopPropagation();
@@ -1499,19 +1503,14 @@ function init() {
       }
     }
 
-    // 移动端时钟：允许换行，四档依次试
-    //   ① 同行 + 完整 ② 同行 + 短版 ③ 换行 + 完整 ④ 换行 + 短版
+    // 移动端时钟：顶栏固定两行（第一行 logo + 搜索框，第二行 时钟 + 4 个按钮），
+    // 时钟不允许换行把按钮挤到第三行去，所以只在「完整版 / 短版」之间降级
     if (dateMobileEl && clockElMobile && clockElMobile.offsetWidth) {
       const row = clockElMobile.parentElement;
-      clockElMobile.classList.remove('ck-wrap');
-      applyDate('mobile', 'full');
-      if (!rowOverflows(row)) return;
-      applyDate('mobile', 'short');
-      if (!rowOverflows(row)) return;
-      clockElMobile.classList.add('ck-wrap');
-      applyDate('mobile', 'full');
-      if (!rowOverflows(row)) return;
-      applyDate('mobile', 'short');
+      for (const m of ['full', 'short']) {
+        applyDate('mobile', m);
+        if (!rowOverflows(row)) break;
+      }
     }
   }
 
