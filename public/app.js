@@ -2,8 +2,10 @@ const API = location.origin;
 
 // 平滑滚动开关：系统开启「减少动态」时退回瞬时跳转。
 // 必须显式传给 scrollTo/scrollBy/scrollIntoView——JS 传的 behavior 优先级高于
-// CSS 的 html{scroll-behavior}，只在 CSS 里降级对这些调用无效
-const SMOOTH = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+// CSS 的 html{scroll-behavior}，只在 CSS 里降级对这些调用无效。
+// 用 'instant' 而不是 'auto'：'auto' 表示「跟随 CSS 的 scroll-behavior」，
+// 一旦哪天那段 CSS 兜底被删掉，这里就会悄悄退回平滑滚动
+const SMOOTH = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth';
 
 // ============ P0: API 响应缓存 ============
 // 缓存优先策略：30 分钟内切换分类/模块直接读缓存不重新请求，
@@ -1086,14 +1088,17 @@ function init() {
   }
 
   // 把元素水平居中到其可滚动容器可视区（分类 pill / 模块 chip 通用）。
-  // 桌面端同样需要：pill 行放不下时靠它把激活分类滚入视野
-  function centerInContainer(container, el) {
+  // 用 clientWidth 而不是 getBoundingClientRect().width：后者含 border，
+  // 在带内边距的容器（移动端 pill 行左右各 12px）上算出的居中是偏的。
+  // instant：定位跳转与页面纵向滚动同时发生，两个平滑动画叠加会让画面「乱窜」，
+  // 所以跳转时要求瞬时对齐，只有用户主动切分类才用平滑滚动
+  function centerInContainer(container, el, instant) {
     if (!container || container.scrollWidth <= container.clientWidth) return;
     const elRect = el.getBoundingClientRect();
     const cRect = container.getBoundingClientRect();
     container.scrollTo({
-      left: container.scrollLeft + (elRect.left - cRect.left) - (cRect.width - elRect.width) / 2,
-      behavior: SMOOTH,
+      left: Math.max(0, container.scrollLeft + (elRect.left - cRect.left) - (container.clientWidth - elRect.width) / 2),
+      behavior: instant ? 'instant' : SMOOTH,
     });
   }
 
@@ -1154,12 +1159,14 @@ function init() {
     const key = GROUP_OF[epId] ? GROUP_OF[epId].id : epId;
     if (!isMobileLayout()) {
       const item = catRow.querySelector(`.cat-toc-item[data-key="${key}"]`);
-      if (item) item.scrollIntoView({ block: 'nearest' });
+      // behavior 显式传：scrollIntoView 的默认 'auto' 会继承 CSS 的 smooth，
+      // 减少动态偏好下就降不下来了
+      if (item) item.scrollIntoView({ block: 'nearest', behavior: SMOOTH });
       return;
     }
     if (!nav.classList.contains('toc-open')) return;
     const chip = catPanel.querySelector(`.cat-subitem[data-ep="${epId}"]`);
-    if (chip) chip.scrollIntoView({ block: 'nearest' });
+    if (chip) chip.scrollIntoView({ block: 'nearest', behavior: SMOOTH });
   }
 
   // 定位校正任务（模块级单例）：分类定位与模块定位共用一个计时器，
@@ -1243,16 +1250,19 @@ function init() {
       const btn = catRow.querySelector(`button[data-cat="${ep.cat}"]`);
       if (btn) {
         btn.classList.add('active');
-        // pill 行放不下时：让选中的分类滚回可视区（内部按宽度判断，够宽时跳过）
-        centerInContainer(catPills, btn);
+        // pill 行放不下时：让选中的分类滚回可视区（内部按宽度判断，够宽时跳过）。
+        // instant：本次是「定位跳转」，紧接着页面会纵跳，横向若同时平滑滑动会互相干扰
+        centerInContainer(catPills, btn, true);
       }
     }
     activeModuleId = ep.id;
     refreshSubs();
     // 窄屏：让选中的模块 chip 在 chips 条内居中（切分类时等 strip 重建后执行）
     if (switched) setTimeout(() => focusSubChip(ep.id), 80); else focusSubChip(ep.id);
-    render();
-    // render() 同步重建 DOM，此时目标卡必然存在。
+    // sync=true：跳过 View Transition，保证 render() 返回时新 DOM 已就绪，
+    // 下面才能量到正确坐标（VT 的回调要等下一帧，量到的会是旧 DOM）
+    render(true);
+    // 此时目标卡必然存在。
     // 不用 scrollIntoView：它会被可滚动祖先截胡且受布局变化影响，
     // 直接计算卡片绝对坐标用 window.scrollTo 定位最可靠。
     // 分组成员：定位目标是所属分组卡片，并激活 ep 对应的标签页
@@ -1391,7 +1401,8 @@ function init() {
       // pill 行放不下时把选中的分类居中（内部按宽度判断，够宽时跳过）
       centerInContainer(catPills, b);
       refreshSubs();
-      render();
+      // sync：scrollToCatTitle 紧接着要测量新渲染出来的分类标题位置
+      render(true);
       scrollToCatTitle(c.id);
     };
     catPills.appendChild(b);
@@ -1483,11 +1494,16 @@ function init() {
 }
 
 // View Transitions：跨视图过渡（分类/搜索切换）。不支持或偏好减少动画时直通渲染。
-// 首次渲染跳过：首屏有 splash 遮罩，再叠过渡是双重动画
+// 首次渲染跳过：首屏有 splash 遮罩，再叠过渡是双重动画。
+//
+// sync：需要「渲染完立刻测量新 DOM」的场景（定位跳转、分类定位）必须传 true。
+// startViewTransition 的回调要等浏览器捕获完旧快照才执行，render() 返回时 DOM 仍是旧的，
+// 此时算出的卡片/标题坐标全部过期——首跳必然偏，只能靠后续轮询校正追回来，
+// 表现就是「先跳到错误位置再慢慢修正」。而跳转本身就是瞬时定位，不需要这段过渡。
 let renderVTReady = false;
-function render() {
+function render(sync) {
   const doRender = () => { renderImpl(); };
-  const okVT = document.startViewTransition && renderVTReady
+  const okVT = !sync && document.startViewTransition && renderVTReady
     && !matchMedia('(prefers-reduced-motion: reduce)').matches;
   renderVTReady = true;
   if (okVT) {

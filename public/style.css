@@ -337,6 +337,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .cat-pills {
   display: flex; flex-wrap: nowrap; gap: 6px;
   flex: 1; min-width: 0;
+  /* 纵向留 6px：overflow 会把超出的 box-shadow 裁掉，
+     不留白激活 pill 的橙色发光会被切平（桌面端原先没有滚动容器，不存在这个问题） */
+  padding: 6px 0;
   overflow-x: auto; overflow-y: hidden;
   scrollbar-width: none; -webkit-overflow-scrolling: touch;
 }
@@ -679,17 +682,27 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   .hw-sub { margin-top: 0; margin-left: auto; }
 }
 
-/* 触摸屏上的天气编辑层：与全站触屏控件同一口径（对齐 .input-row 的 16px / 44px）。
-   最要紧的是输入框必须 ≥16px——iOS Safari 对字号 <16px 的 input 聚焦时会自动放大
-   整个页面且不会自行缩回，用户会被卡在放大后的视角里出不来 */
+/* 触摸屏上的天气编辑层：单行横排。
+   移动端天气区本身就是一条通栏矮条，竖排三个控件会把它撑到 150px 高，
+   展开/收起时高度跳变很突兀；横排则与原高度基本持平。
+   关闭键收起（点天气区外部即可关闭），宽度都让给输入框和两个操作按钮。
+   输入框必须 ≥16px——iOS Safari 对字号 <16px 的 input 聚焦时会自动放大整个页面 */
 @media (pointer: coarse) {
-  .hw-edit { gap: 10px; padding: 14px; }
-  .hw-input { max-width: none; font-size: 16px; padding: 10px 12px; min-height: 44px; }
-  .hw-btn { min-height: 44px; padding: 10px 16px; font-size: 13px; }
-  /* 关闭键桌面 22px 够用，触屏上必须放到 40px 否则根本点不中 */
-  .hw-edit-close { width: 40px; height: 40px; font-size: 20px; top: 2px; right: 4px; }
-  /* 控件放大后要抬高最小高度，否则输入框 + 按钮会被裁掉 */
-  .hero-weather.editing { min-height: 152px; }
+  .hero-weather.editing { min-height: 0; }
+  .hw-edit {
+    flex-direction: row; flex-wrap: wrap;
+    align-items: center; justify-content: center;
+    gap: 8px; padding: 10px 12px;
+  }
+  .hw-edit-close { display: none; }
+  .hw-input {
+    flex: 1; width: auto; max-width: none; min-width: 0;
+    font-size: 16px; padding: 0 12px; min-height: 44px; text-align: left;
+  }
+  .hw-edit-actions { flex-shrink: 0; gap: 8px; }
+  .hw-btn { min-height: 44px; padding: 0 14px; font-size: 13px; flex-shrink: 0; }
+  /* 报错时占满一行另起一排；正常态不占位，保持单行 */
+  .hw-err { flex-basis: 100%; max-width: none; margin-top: 2px; }
 }
 .cat-section { margin-bottom: 32px; }
 /* 分组标题：与卡片同款圆角玻璃横条——18px 圆角、卡片级 Liquid Glass 配方
