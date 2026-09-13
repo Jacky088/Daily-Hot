@@ -74,6 +74,52 @@ function paintRelTimes() {
 setInterval(paintRelTimes, 30 * 1000);
 
 // ============ 页首 Hero 卡（站点简介 + 数据统计） ============
+// 卡片标题品牌 Logo：有官方标识的数据源用品牌图标替换 emoji。
+// 两类来源：simple-icons 官方矢量图（按品牌色上色）与平台官网 favicon，
+// 都落在 /logos/（构建期静态资源，离线可用）。加载失败时 onerror 回退回原 emoji
+const CARD_LOGOS = {
+  weibo: 'sinaweibo.svg',
+  zhihu: 'zhihu.svg',
+  bili: 'bilibili.svg',
+  douyin: 'tiktok.svg',
+  toutiao: 'bytedance.svg',
+  bdhot: 'baidu.svg',
+  bdtieba: 'baidu.svg',
+  bdtv: 'baidu.svg',
+  bdmovie: 'baidu.svg',
+  baike: 'baidu.svg',
+  cnnnews: 'cnn.svg',
+  v2ex: 'v2ex.svg',
+  hn: 'ycombinator.svg',
+  ncm: 'neteasecloudmusic.svg',
+  'ncm-soar': 'neteasecloudmusic.svg',
+  'ncm-acg': 'neteasecloudmusic.svg',
+  epic: 'epicgames.svg',
+  steam: 'steam.svg',
+  douban: 'douban.svg',
+  'douban-tv-cn': 'douban.svg',
+  'douban-tv-global': 'douban.svg',
+  'douban-show-cn': 'douban.svg',
+  'douban-show-global': 'douban.svg',
+  'maoyan-showing': 'maoyan.ico',
+  'maoyan-coming': 'maoyan.ico',
+  maoyan: 'maoyan.ico',
+  '36kr': '36kr.ico',
+  huxiu: 'huxiu.ico',
+  itnews: 'ithome.ico',
+  aljazeera: 'aljazeera.ico',
+  bbcnews: 'bbc.ico',
+  quark: 'quark.ico',
+};
+
+// 卡片标题首图：命中映射用品牌 Logo，否则沿用 emoji；
+// img 装载失败时整只换回 emoji，保证「看起来差一点」好过「显示破图」
+function iconHtml(ep) {
+  const file = CARD_LOGOS[ep.id];
+  if (!file) return ep.icon;
+  return `<img class="card-logo" src="/logos/${file}" alt="" loading="lazy" onerror="this.outerHTML='${ep.icon}'">`;
+}
+
 // 「更新于」与卡片「x 分钟前」同一数据源：取所有已加载卡片时间戳的最大值——
 // 缓存命中显示的是这份数据当初落缓存的时刻、网络加载显示返回时刻，
 // 每次打开页面都如实反映当前所见数据的新鲜度，随卡片陆续就绪自动刷新
@@ -596,7 +642,7 @@ function catTocEntries(catId) {
       out.push({ key: g.id, type: 'group', icon: g.icon, name: g.name, epId: g.tabs[0].ep });
       return;
     }
-    out.push({ key: ep.id, type: 'ep', icon: ep.icon, name: ep.name, epId: ep.id });
+    out.push({ key: ep.id, type: 'ep', icon: iconHtml(ep), name: ep.name, epId: ep.id });
   });
   return out;
 }
@@ -1041,7 +1087,7 @@ function init() {
       item.className = 'cat-subitem';
       item.type = 'button';
       item.dataset.ep = ep.id;
-      item.innerHTML = `<span class="ci">${ep.icon}</span>${esc(ep.name)}`;
+      item.innerHTML = `<span class="ci">${iconHtml(ep)}</span>${esc(ep.name)}`;
       item.title = `定位到「${ep.name}」`;
       item.onclick = () => locateCard(ep);
       container.appendChild(item);
@@ -1642,7 +1688,7 @@ function makeCard(ep) {
   head.className = 'card-head';
   // noapi 纯前端卡（2048/木鱼/翻译类输入卡）没有「数据加载」概念，不显示相对时间
   const showRel = !ep.noapi;
-  head.innerHTML = `<div class="card-title"><span class="icon">${ep.icon}</span>${ep.name}${showRel ? `<span class="rel-time" data-ep-loaded="${ep.id}" hidden></span>` : ''}</div>
+  head.innerHTML = `<div class="card-title"><span class="icon">${iconHtml(ep)}</span>${ep.name}${showRel ? `<span class="rel-time" data-ep-loaded="${ep.id}" hidden></span>` : ''}</div>
     <div class="card-actions">
       ${ep.fs /* fs:1 卡片恒显示全屏按钮，无 Fullscreen API 时由 cardFsToggle 回退伪全屏；
                    全屏按屏幕真实方向自然渲染，✕ 退出还原 */

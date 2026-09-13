@@ -937,7 +937,10 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   flex-shrink: 0;
 }
 .card-title { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 7px; }
-.card-title .icon { font-size: 15px; }
+.card-title .icon { font-size: 15px; display: inline-flex; align-items: center; }
+/* 品牌 Logo（Simple Icons 单色 SVG / 官网 favicon）：与 emoji 字号同高，
+   flex 垂直居中不被基线顶歪；卡片标题与菜单目录/模块子项共用 */
+.card-logo { width: 16px; height: 16px; flex-shrink: 0; }
 /* 相对时间徽标（卡片标题右侧）：浅色小字，与标题拉开层级 */
 .card-title .rel-time {
   font-size: 11px; font-weight: 400; color: var(--text-dimmer);
