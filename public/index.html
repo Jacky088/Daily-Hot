@@ -81,6 +81,8 @@
       <!-- 桌面端时钟：搜索框右侧 -->
       <div class="clock clock-desktop" id="clockDesktop" title="当前时间">
         <div class="clock-fill" data-fill="desktop"></div>
+        <!-- 泡泡层：铺满胶囊，由 CSS clip-path 按今日进度裁出可见区（只活在橙色区间内） -->
+        <div class="clock-bubbles" aria-hidden="true"><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i></div>
         <span class="clock-dot"></span>
         <span class="clock-date" id="clockDateDesktop">今天是 ----年-月-日 周-</span>
         <span class="clock-time" id="clockTimeDesktop">--:--:--</span>
@@ -90,6 +92,7 @@
       <!-- 移动端时钟：github 图标左侧、左对齐 -->
       <div class="clock clock-mobile" id="clockMobile" title="当前时间">
         <div class="clock-fill" data-fill="mobile"></div>
+        <div class="clock-bubbles" aria-hidden="true"><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i></div>
         <span class="clock-dot"></span>
         <span class="clock-date" id="clockDateMobile">今天是 ----年-月-日 周-</span>
         <span class="clock-time" id="clockTimeMobile">--:--:--</span>

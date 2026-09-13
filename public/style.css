@@ -223,6 +223,51 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   transition: transform 1s linear;
 }
 :root[data-theme="light"] .clock-fill { opacity: 0.95; }
+/* ---- 时间胶囊泡泡：与分组标题同款的装饰泡泡，但只活在「今日进度」的橙色区间里 ----
+   进度填充走 scaleX（纯合成、不触发布局），没法直接拿来当裁剪区——泡泡放进去
+   会被横向拉扁。所以泡泡单独铺满一层，再用 clip-path 按同一个进度裁出可见范围：
+   泡泡形状完全不受影响，可见区域又严格等于橙色渐变那块宽度。
+   --day-progress 由 JS 每秒写入（如 72.50%），橙色区随时间变宽，泡泡活动范围同步长大 */
+.clock-bubbles {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  overflow: hidden; border-radius: inherit;
+  clip-path: inset(0 calc(100% - var(--day-progress, 0%)) 0 0);
+  /* 与 .clock-fill 的 transform 过渡同节奏，裁剪边界跟着橙色区平滑推进而不是每秒跳一格 */
+  transition: clip-path 1s linear;
+}
+.clock-bubbles .bubble {
+  --bubble-bg:
+    radial-gradient(circle at 30% 26%, rgba(255,255,255,.9) 0 9%, transparent 20%),
+    radial-gradient(circle at 66% 78%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 46%),
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,.05) 0 52%, rgba(255,255,255,.38) 66%, transparent 74%);
+  display: block; position: absolute; top: 50%; left: 0;
+  border-radius: 50%;
+  background: var(--bubble-bg);
+  animation: clockBubbleFloat 13s linear infinite, clockBubbleBob 4.4s ease-in-out infinite;
+}
+/* 胶囊只有 30 多像素高，整组泡泡比标题条那版缩一档；
+   负延迟让它们开局就分散在途中的不同位置，不必等一轮才铺开 */
+.clock-bubbles .bubble:nth-of-type(1) { width: 22px; height: 22px; margin-top: -11px; animation-duration: 12s, 4.1s; animation-delay: -2s, -1s; }
+.clock-bubbles .bubble:nth-of-type(2) { width: 15px; height: 15px; margin-top: -8px; animation-duration: 15s, 5s; animation-delay: -9s, -2.2s; }
+.clock-bubbles .bubble:nth-of-type(3) { width: 18px; height: 18px; margin-top: -9px; animation-duration: 13.5s, 4.6s; animation-delay: -5s, -3.1s; }
+.clock-bubbles .bubble:nth-of-type(4) { width: 11px; height: 11px; margin-top: -6px; animation-duration: 10.5s, 3.8s; animation-delay: -11s, -1.6s; }
+/* 横向走位用独立的 translate 属性，避免和 transform 抢同一个属性。
+   行程给足 420px：桌面长胶囊、移动短胶囊都够走出橙色区，越界部分由上面的
+   clip-path 裁掉——视觉上就是「从橙色区左端浮现、到右端消失」 */
+@keyframes clockBubbleFloat {
+  0%   { translate: -40px 0; opacity: 0; }
+  10%  { opacity: .9; }
+  90%  { opacity: .9; }
+  100% { translate: 420px 0; opacity: 0; }
+}
+@keyframes clockBubbleBob {
+  0%, 100% { transform: translateY(2px); }
+  50%      { transform: translateY(-3px); }
+}
+/* 减弱动态偏好：静止的泡泡悬在进度条里很突兀，直接不显示 */
+@media (prefers-reduced-motion: reduce) {
+  .clock-bubbles { display: none; }
+}
 .clock-dot {
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--accent); flex-shrink: 0;
@@ -236,11 +281,11 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 .clock .clock-time { color: var(--text); font-weight: 600; }
 .clock .clock-date { color: var(--text-dim); font-weight: 500; }
-.clock-desktop { display: flex; flex-shrink: 1; min-width: 0; overflow: hidden; }
-/* 桌面窄窗口（顶栏有 4 个按钮）时时钟让位：可收缩、日期超出用省略号截断，
-   避免 logo/搜索框/时钟/按钮互相顶出边界；宽屏下宽度充裕，这些规则不产生视觉变化 */
+/* 时钟宽度由内容决定、不参与压缩；日期两态（完整 / 短版）由 JS 按实测宽度切换，
+   任何宽度下都不裁切、不出省略号，所以这里不再有 text-overflow / overflow:hidden */
+.clock-desktop { display: flex; flex-shrink: 0; }
 .clock-desktop .clock-time { flex-shrink: 0; }
-.clock-desktop .clock-date { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.clock-desktop .clock-date { white-space: nowrap; }
 .clock-mobile { display: none; }
 /* 窄屏适配的媒体查询统一放在文件末尾（需覆盖上方桌面规则） */
 
@@ -628,11 +673,13 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .hw-btn-go:active { background: #fff; }
 .hw-edit-close {
   position: absolute; top: 5px; right: 7px;
+  display: grid; place-items: center; /* 图标改 SVG 后不再靠 line-height 居中，交给 grid 精准定位 */
   width: 22px; height: 22px; border: none; border-radius: 50%;
   background: transparent; color: rgba(255, 255, 255, 0.8);
-  font-size: 15px; line-height: 1; cursor: pointer;
+  cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
+.hw-edit-close svg { width: 13px; height: 13px; }
 .hw-edit-close:active { background: rgba(255, 255, 255, 0.26); }
 /* hover 属「纯增强」：必须包在 (hover:hover) 里——触摸设备没有悬停语义，
    点完 :hover 会一直粘着不消失（与全站 hover 规则同一约定） */
@@ -682,27 +729,66 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   .hw-sub { margin-top: 0; margin-left: auto; }
 }
 
-/* 触摸屏上的天气编辑层：单行横排。
-   移动端天气区本身就是一条通栏矮条，竖排三个控件会把它撑到 150px 高，
-   展开/收起时高度跳变很突兀；横排则与原高度基本持平。
-   关闭键收起（点天气区外部即可关闭），宽度都让给输入框和两个操作按钮。
+/* 触摸屏上的天气编辑层：两行「输入框 + 关闭键」/「等宽双按钮」。
+   移动端天气区是通栏矮条，但把三个控件强压进一行会让输入框只剩 ~40% 宽
+   （375px 屏约 190px），长城市名根本看不全，按钮也被挤成贴身小目标；
+   改成两行后每一行都是完整可点区域，触控目标与可视性才都达标。
    输入框必须 ≥16px——iOS Safari 对字号 <16px 的 input 聚焦时会自动放大整个页面 */
 @media (pointer: coarse) {
-  .hero-weather.editing { min-height: 0; }
+  /* 基础态显式给 min-height:0：flex 项默认的 min-height:auto 是关键字、不可插值，
+     从它过渡到具体像素会硬跳一截；0 才能让下面的 min-height 过渡真正生效 */
+  .hero-weather {
+    min-height: 0;
+    transition: background var(--dur-slow) ease, min-height 0.24s ease;
+  }
+  /* 两行 52px 控件所需高度：padding 24 + 52 + 行间距 10 + 52 = 138px，取 140 留余量 */
+  .hero-weather.editing { min-height: 140px; }
   .hw-edit {
     flex-direction: row; flex-wrap: wrap;
-    align-items: center; justify-content: center;
-    gap: 8px; padding: 10px 12px;
+    align-items: center;
+    gap: 10px; padding: 12px 14px;
   }
-  .hw-edit-close { display: none; }
+  /* order 重排：输入框在左、关闭键在右。HTML 里关闭键排在最前，
+     用 order 换位即可，不必为纯视觉顺序去动 DOM（也免得影响桌面端） */
   .hw-input {
-    flex: 1; width: auto; max-width: none; min-width: 0;
-    font-size: 16px; padding: 0 12px; min-height: 44px; text-align: left;
+    order: 1;
+    flex: 1 1 auto; width: auto; max-width: none; min-width: 0;
+    font-size: 16px; padding: 0 16px; min-height: 52px;
+    text-align: left; border-radius: 12px;
   }
-  .hw-edit-actions { flex-shrink: 0; gap: 8px; }
-  .hw-btn { min-height: 44px; padding: 0 14px; font-size: 13px; flex-shrink: 0; }
-  /* 报错时占满一行另起一排；正常态不占位，保持单行 */
-  .hw-err { flex-basis: 100%; max-width: none; margin-top: 2px; }
+  /* 聚焦光晕：移动端输入时页面被键盘顶起，这圈高亮让「光标此刻在哪」一目了然 */
+  .hw-input:focus {
+    border-color: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.26);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.14);
+  }
+  /* 关闭键 52px 圆形 + SVG 叉号。原先是 46px 方块里塞一个文本「×」，
+     字符字面窄、笔画细，看着又小又廉价；换 SVG 后线条粗细可控、居中精准，
+     圆形也和方形的输入框/按钮区分开，一眼就认得出是「退出」 */
+  .hw-edit-close {
+    order: 2;
+    display: grid; place-items: center;
+    flex: 0 0 52px; width: 52px; height: 52px;
+    border: 1px solid rgba(255, 255, 255, 0.42);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+  }
+  .hw-edit-close svg { width: 22px; height: 22px; }
+  .hw-edit-close:active { background: rgba(255, 255, 255, 0.32); transform: scale(0.94); }
+  /* 报错占满一行另起一排；正常态不占位，布局仍是两行 */
+  .hw-err { order: 3; flex-basis: 100%; max-width: none; margin: 0; }
+  /* flex-basis 100% 强制操作行独占第二行（比让浏览器自行折行更稳定），
+     内部再 flex:1 均分——两个按钮等宽，不再一大一小 */
+  .hw-edit-actions {
+    order: 4;
+    flex: 1 1 100%;
+    display: flex; gap: 10px;
+  }
+  .hw-btn {
+    flex: 1 1 0; width: 100%; min-height: 52px;
+    padding: 0 10px; font-size: 15px; border-radius: 12px;
+  }
 }
 .cat-section { margin-bottom: 32px; }
 /* 分组标题：与卡片同款圆角玻璃横条——18px 圆角、卡片级 Liquid Glass 配方
@@ -882,15 +968,22 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 @media (max-width: 480px) { .card-title .rel-time { font-size: 10px; } }
 .card-actions { display: flex; gap: 5px; }
+/* 与顶栏图标按钮（.icon-btn / .header-right button）同款：
+   同款 8px 圆角、同款 card 底 + border 描边、同款 hover 光晕。
+   尺寸仍取 28px 而非顶栏的 36px——卡片头的预算注释写着
+   「头部 = 按钮 28 + 上下内边距 22 ≈ 50」，放大按钮会把每张卡的头部一起撑高，
+   所以统一的是观感，不是尺寸 */
 .card-actions button {
-  width: 28px; height: 28px; border-radius: 6px;
-  background: transparent; border: 1px solid var(--border);
+  width: 28px; height: 28px; border-radius: 8px;
+  background: var(--card); border: 1px solid var(--border);
   color: var(--text-dim); font-size: 11px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; transition: border-color var(--dur-fast), color var(--dur-fast);
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color var(--dur-fast), color var(--dur-fast), box-shadow var(--dur-fast);
 }
-.card-actions button:hover { border-color: var(--accent); color: var(--accent); }
-/* ↻ 字形本身偏小，放大一档才与 { }/⛶ 视觉等重 */
-.card-actions .btn-refresh { font-size: 15px; line-height: 1; }
+.card-actions button:hover { border-color: var(--accent); color: var(--accent); box-shadow: var(--accent-glow); }
+/* 刷新图标已由文本 ↻ 换成与顶栏同款的 SVG：
+   顶栏是 18px 图标配 36px 按钮，这里按同比例取 14px 配 28px */
+.card-actions button svg { width: 14px; height: 14px; flex-shrink: 0; }
 
 /* .card-pane 与 .card-body 共用内容区规则（分组卡片的标签页面板） */
 .card-body, .card-pane {
@@ -1913,23 +2006,30 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   .clock-desktop { display: none; }
   .clock-mobile {
     display: flex; margin-right: auto;
-    /* 单行布局下时钟可收缩：把空间让给右侧 4 个按钮。
-       时钟本体 flex-shrink:0 会让超宽内容直接顶开容器，这里必须放开 */
-    flex: 0 1 auto; min-width: 0; overflow: hidden;
+    /* 不收缩也不拉伸：宽度完全由内容决定，放不放得下交给 JS 实测判定 */
+    flex: 0 0 auto; min-width: 0;
   }
+  /* 换行档：fitClocks 实测「同行放不下」时加上的类——时间胶囊整块移到独立一行。
+     order 把它排到按钮之后，于是 wrap 时溢出的就是它（换行的是时钟而不是某个按钮）；
+     宽度仍由内容决定（继承上面的 flex: 0 0 auto），这样 fitClocks 才能真实量出
+     「换行后这一行够不够显示完整日期」，进而在完整版/短版之间继续挑选 */
+  .clock-mobile.ck-wrap { order: 2; }
   .header { padding: 10px 14px; flex-wrap: wrap; gap: 10px; }
   .header-left { flex: 1 1 100%; gap: 10px; }
-  /* 第二行 = 时间胶囊 + GitHub/主题/壁纸/刷新 4 按钮，窄屏也必须单行：
-     容器不换行、按钮固定 32px 不收缩、时钟吃掉剩余宽度；
-     日期一旦放不下由省略号截断，而不是把按钮挤到下一行 */
+  /* 第二行 = 时间胶囊 + GitHub/主题/壁纸/刷新 4 按钮：
+     按钮固定尺寸且不收缩（图标不能被压扁变形），时钟宽度由内容决定；
+     够不够放由 fitClocks 实测后决定——够就同行，不够就给时钟加 .ck-wrap 让它换行。
+     所以这里用 wrap 而不是 nowrap：换行能力要留给 flex 去落地 */
   .header-right {
     flex: 1 1 100%; justify-content: flex-end;
-    flex-wrap: nowrap; gap: 6px; min-width: 0;
+    flex-wrap: wrap; gap: 6px; min-width: 0;
   }
-  .header-right a, .header-right button { width: 32px; height: 32px; }
+  .header-right a, .header-right button { width: 32px; height: 32px; flex-shrink: 0; }
   /* 时间不裁：秒数跳动时宽度恒定，优先保证完整可读 */
   .clock-mobile .clock-time { flex-shrink: 0; }
-  .clock-mobile .clock-date { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  /* 日期一定完整：显示完整版还是短版由 fitClocks 实测决定，
+     两态都是整段文本，不存在被裁成半截或出现省略号的可能 */
+  .clock-mobile .clock-date { white-space: nowrap; }
   .search-wrap { min-width: 0; max-width: none; }
   .logo .subtitle { display: none; }
 
@@ -2084,9 +2184,14 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   .clock { padding: 7px 10px; font-size: 12.5px; gap: 6px; }
 }
 
-/* 极窄屏（<=360px）：仅保留时间，日期隐藏以避免挤压右侧按钮 */
-@media (max-width: 360px) {
-  .clock-date { display: none; }
+/* ≤380px：控件整体收紧一档，尽量把「日期 + 时间 + 4 按钮」留在同一行。
+   这只是「省出空间」的优化，不是截断开关——真放不下时由 fitClocks
+   把时间胶囊换到独立一行继续显示，日期绝不会被隐藏或截断 */
+@media (max-width: 380px) {
+  .clock-mobile { padding: 5px 8px; font-size: 12px; gap: 4px; }
+  .clock-mobile .clock-dot { width: 5px; height: 5px; }
+  .header-right { gap: 4px; }
+  .header-right a, .header-right button { width: 30px; height: 30px; }
 }
 
 /* ============ 万年历（生活信息 / calendar） ============ */
@@ -2337,9 +2442,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
    非全屏时是普通静态容器，无任何视觉影响 */
 .fs-unit { display: block; }
 /* 全屏通用精简（原生 :fullscreen 与伪全屏共用）：只保留游戏本体 + 侧栏菜单，
-   右上角只留 ✕ 退出、↻ 刷新；标题、{ }、💡提示条一律隐藏 */
+   右上角只留 ✕ 退出、↻ 刷新；标题、💡提示条一律隐藏 */
 .card:fullscreen .card-title, .card.fs-fake .card-title,
-.card:fullscreen .btn-json, .card.fs-fake .btn-json,
 .card:fullscreen .card-body > .news-tip, .card.fs-fake .card-body > .news-tip {
   display: none;
 }

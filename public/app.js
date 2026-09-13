@@ -183,7 +183,7 @@ function heroWeatherHtml(d, editing) {
     <div class="hw-temp">${esc(String(w.temperature ?? '--'))}<span class="hw-unit">°C</span><span class="hw-cond">${esc(w.condition || '')}</span></div>
     ${bits.length ? `<div class="hw-sub">${esc(bits.join(' · '))}</div>` : ''}
     <div class="hw-edit"${editing ? '' : ' hidden'}>
-      <button type="button" class="hw-edit-close" aria-label="关闭">×</button>
+      <button type="button" class="hw-edit-close" aria-label="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       <input class="hw-input" type="text" placeholder="输入城市，如 上海" aria-label="城市名" autocomplete="off" enterkeyhint="search" autocapitalize="off" spellcheck="false">
       <div class="hw-err" hidden></div>
       <div class="hw-edit-actions">
@@ -662,7 +662,6 @@ let curCat = 'all';
 let activeModuleId = null; // 当前高亮的子菜单模块（点击模块菜单后记录）
 let syncSubs = null; // init 内部 refreshSubs 的对外钩子：分组卡片切标签页时同步子菜单高亮
 let centerSubChip = null; // init 内部 focusSubChip 的对外钩子：切标签页时让对应模块 chip 滚入可视区
-let jsonMode = {};
 let fanyiLangs = null;
 
 // ============ Splash 开屏：首批自动加载全部完成后渐隐 ============
@@ -1444,31 +1443,89 @@ function init() {
   $('#search').oninput = () => { syncSearchClear(); render(); };
 
   // 实时时钟（精确到秒）
-  // 桌面 / 移动（>360px）：“今天是 2026年8月28日周五 14:23:45”
-  // 极窄屏（<=360px）：仅 “14:23:45”，日期隐藏由 CSS 控制
+  // 日期文本按可用宽度自适应，任何宽度下都不出现省略号（判定见 fitClocks）：
+  //   完整版「今天是 2026年9月13日 周日」放得下就用完整版，放不下降级短版「9月13日 周日」；
+  //   移动端连短版都放不下时，把时间胶囊整体换到独立一行，再按同一规则重判。
   // 一日进度填充：当前秒数 / 86400 * 100，0:00 起铺满到 24:00
   const timeEls = [$('#clockTimeDesktop'), $('#clockTimeMobile')];
-  // 日期分桌面/移动两版：移动端去掉「今天是」与年份（短一行），
-  // 才能和时间胶囊右侧的 4 个按钮稳定同处一行
   const dateDesktopEl = $('#clockDateDesktop');
   const dateMobileEl = $('#clockDateMobile');
+  const clockElDesktop = $('#clockDesktop');
+  const clockElMobile = $('#clockMobile');
   const fillEls = document.querySelectorAll('.clock-fill');
+  const clockEls = [clockElDesktop, clockElMobile];
   const wdNames = ['日', '一', '二', '三', '四', '五', '六'];
   function pad(n) { return String(n).padStart(2, '0'); }
+  // 当前生效的日期档位，由 fitClocks 实测后写入：'full' 完整版 / 'short' 短版
+  const clockMode = { desktop: 'full', mobile: 'full' };
+  function clockDateText(d, mode) {
+    const md = `${d.getMonth() + 1}月${d.getDate()}日 周${wdNames[d.getDay()]}`;
+    return mode === 'short' ? md : `今天是 ${d.getFullYear()}年${md}`;
+  }
   function tick() {
     const d = new Date();
     const t = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-    const md = `${d.getMonth() + 1}月${d.getDate()}日 周${wdNames[d.getDay()]}`;
-    const ds = `今天是 ${d.getFullYear()}年${md}`;
     timeEls.forEach(el => { if (el) el.textContent = t; });
-    if (dateDesktopEl) dateDesktopEl.textContent = ds;
-    if (dateMobileEl) dateMobileEl.textContent = md;
+    if (dateDesktopEl) dateDesktopEl.textContent = clockDateText(d, clockMode.desktop);
+    if (dateMobileEl) dateMobileEl.textContent = clockDateText(d, clockMode.mobile);
     const pct = ((d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) / 86400) * 100;
     // 配合 CSS 的 scaleX：只改 transform 不触发布局（原来写 width 每秒都要重算 layout）
     fillEls.forEach(el => { if (el) el.style.transform = `scaleX(${pct / 100})`; });
+    // 泡泡层的可见区边界：与进度填充分享同一个百分比。CSS 用 clip-path 消费这个变量，
+    // 于是泡泡的活动范围严格等于橙色渐变那块的宽度，并随时间一起变宽直到铺满全天
+    const dayProgress = `${pct.toFixed(2)}%`;
+    clockEls.forEach(el => { if (el) el.style.setProperty('--day-progress', dayProgress); });
   }
+
+  // 时钟日期自适应：从「最完整」开始逐档试，取第一个放得下的组合，绝不靠省略号收场。
+  // 判据是「这一行有没有横向溢出」——时钟与按钮都不收缩、搜索框有 min-width，
+  // 所以放不下时一定表现为整行溢出，不会靠压缩子项悄悄消化掉。
+  // 不用视口像素阈值：字体、系统语言、浏览器缩放有差异时同样准。
+  function fitClocks() {
+    const d = new Date();
+    const applyDate = (which, mode) => {
+      clockMode[which] = mode;
+      const el = which === 'desktop' ? dateDesktopEl : dateMobileEl;
+      if (el) el.textContent = clockDateText(d, mode);
+    };
+    // scrollWidth 在 overflow:hidden 的元素上同样返回内容真实宽度，因此可以据此判断溢出
+    const rowOverflows = (row) => row.scrollWidth > row.clientWidth + 1;
+
+    // 桌面时钟：所在行是「logo + 搜索框 + 时钟」，这一行没有换行位，只有 完整 / 短版 两档
+    if (dateDesktopEl && clockElDesktop && clockElDesktop.offsetWidth) {
+      for (const m of ['full', 'short']) {
+        applyDate('desktop', m);
+        if (!rowOverflows(clockElDesktop.parentElement)) break;
+      }
+    }
+
+    // 移动端时钟：允许换行，四档依次试
+    //   ① 同行 + 完整 ② 同行 + 短版 ③ 换行 + 完整 ④ 换行 + 短版
+    if (dateMobileEl && clockElMobile && clockElMobile.offsetWidth) {
+      const row = clockElMobile.parentElement;
+      clockElMobile.classList.remove('ck-wrap');
+      applyDate('mobile', 'full');
+      if (!rowOverflows(row)) return;
+      applyDate('mobile', 'short');
+      if (!rowOverflows(row)) return;
+      clockElMobile.classList.add('ck-wrap');
+      applyDate('mobile', 'full');
+      if (!rowOverflows(row)) return;
+      applyDate('mobile', 'short');
+    }
+  }
+
   tick();
   setInterval(tick, 1000);
+  fitClocks();
+  // resize 会重建整页布局，加一点防抖避免拖动窗口时反复测量
+  let clockFitTimer = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(clockFitTimer);
+    clockFitTimer = setTimeout(fitClocks, 120);
+  });
+  // 字体就绪后字宽会变（自定义/系统字体差异），需要再量一次
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitClocks);
 
   // 测量顶栏实际高度，写入 --topbar-h 供移动端分类栏 sticky 吸顶使用。
   // 手机窄屏下 header 会换行成两行，高度不固定，不能用硬编码。
@@ -1621,12 +1678,11 @@ function makeCard(ep) {
   const showRel = !ep.noapi;
   head.innerHTML = `<div class="card-title"><span class="icon">${ep.icon}</span>${ep.name}${showRel ? `<span class="rel-time" data-ep-loaded="${ep.id}" hidden></span>` : ''}</div>
     <div class="card-actions">
-      ${ep.noapi ? '' : '<button class="btn-json" title="查看 JSON" aria-label="查看 JSON">{ }</button>'}
       ${ep.fs /* fs:1 卡片恒显示全屏按钮，无 Fullscreen API 时由 cardFsToggle 回退伪全屏；
                    全屏按屏幕真实方向自然渲染，✕ 退出还原 */
         ? '<button class="btn-fs" type="button" title="全屏" aria-label="全屏">⛶</button><button class="btn-fs-exit" type="button" title="退出全屏" aria-label="退出全屏">✕</button>'
         : ''}
-      <button class="btn-refresh" title="刷新" aria-label="刷新数据">↻</button>
+      <button class="btn-refresh" title="刷新" aria-label="刷新数据"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button>
     </div>`;
   // head 的挂载点在函数末尾：fs:1 卡片会连同 body 一起包进 .fs-unit 布局单元
 
@@ -1767,16 +1823,14 @@ function makeCard(ep) {
     card.appendChild(body);
   }
   card.querySelector('.btn-refresh').onclick = () => load(ep, true);
-  const jsonBtn = card.querySelector('.btn-json');
-  if (jsonBtn) jsonBtn.onclick = () => toggleJson(ep);
 
   return card;
 }
 
 // ============ 分组卡片（标签页整合） ============
-// 多个数据源共用一张卡片，卡片头部的 { }/↻ 作用于当前激活标签页。
+// 多个数据源共用一张卡片，卡片头部的 ↻ 作用于当前激活标签页。
 // 各标签页保留独立的 content-<id> 容器（隐藏≠销毁），因此 load()/30min 缓存/
-// JSON 视图/重试按钮等既有机制按 ep.id 工作无需任何改造。
+// 重试按钮等既有机制按 ep.id 工作无需任何改造。
 // 非激活标签页首次点开时才加载数据（懒加载），已加载过的直接复用 DOM。
 function makeGroupCard(group, eps) {
   const card = document.createElement('div');
@@ -1787,14 +1841,12 @@ function makeGroupCard(group, eps) {
   head.className = 'card-head';
   head.innerHTML = `<div class="card-title"><span class="icon">${group.icon}</span>${group.name}</div>
     <div class="card-actions">
-      <button class="btn-json" title="查看 JSON" aria-label="查看 JSON">{ }</button>
-      <button class="btn-refresh" title="刷新" aria-label="刷新数据">↻</button>
+      <button class="btn-refresh" title="刷新" aria-label="刷新数据"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button>
     </div>`;
   card.appendChild(head);
 
   const activeEp = () => EPS.find(e => e.id === card.dataset.activeEp);
   head.querySelector('.btn-refresh').onclick = () => { const ep = activeEp(); if (ep) load(ep, true); };
-  head.querySelector('.btn-json').onclick = () => { const ep = activeEp(); if (ep) toggleJson(ep); };
 
   const tabBar = document.createElement('div');
   tabBar.className = 'card-tabs';
@@ -1885,9 +1937,8 @@ async function load(ep, forceUpdate = false) {
   const c = document.getElementById('content-' + ep.id);
   if (!c) return;
   // 纯前端卡片（noapi:1）：不发请求、不走缓存，直接渲染（↻ 刷新即重置状态）
-  if (ep.noapi) { jsonMode[ep.id] = false; renderData(ep, null, c); return; }
+  if (ep.noapi) { renderData(ep, null, c); return; }
   c.innerHTML = SKELETON_HTML;
-  jsonMode[ep.id] = false;
 
   let url = API + ep.path;
   const params = new URLSearchParams();
@@ -2058,21 +2109,6 @@ async function fetchWithRetry(ep, url, ck, c, retriesLeft) {
       return fetchWithRetry(ep, url, ck, c, retriesLeft - 1);
     }
     c.innerHTML = unavailableHTML(ep, '网络异常');
-  }
-}
-
-// P0: 后台静默更新 (stale-while-revalidate)
-function toggleJson(ep) {
-  const c = document.getElementById('content-' + ep.id);
-  if (!c) return;
-  if (jsonMode[ep.id]) {
-    jsonMode[ep.id] = false;
-    load(ep);
-  } else {
-    jsonMode[ep.id] = true;
-    fetch(API + ep.path).then(r => r.json()).then(j => {
-      c.innerHTML = `<div class="json-view">${esc(JSON.stringify(j, null, 2))}</div>`;
-    }).catch(() => load(ep));
   }
 }
 
