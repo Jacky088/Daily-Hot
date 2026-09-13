@@ -104,7 +104,6 @@ const CARD_LOGOS = {
   'maoyan-showing': 'maoyan.ico',
   'maoyan-coming': 'maoyan.ico',
   maoyan: 'maoyan.ico',
-  '36kr': '36kr.ico',
   huxiu: 'huxiu.ico',
   itnews: 'ithome.ico',
   aljazeera: 'aljazeera.ico',
@@ -118,6 +117,13 @@ function iconHtml(ep) {
   const file = CARD_LOGOS[ep.id];
   if (!file) return ep.icon;
   return `<img class="card-logo" src="/logos/${file}" alt="" loading="lazy" onerror="this.outerHTML='${ep.icon}'">`;
+}
+
+// 分组卡标题首图：分组本身无品牌属性，用组内首个成员的 Logo
+// （猫眼电影榜 → 猫眼、网易云歌单组 → 网易云、免费游戏组 → Epic）
+function groupIconHtml(group) {
+  const ep = EPS.find(e => e.id === group.tabs[0].ep);
+  return ep ? iconHtml(ep) : group.icon;
 }
 
 // 「更新于」与卡片「x 分钟前」同一数据源：取所有已加载卡片时间戳的最大值——
@@ -639,7 +645,7 @@ function catTocEntries(catId) {
     if (g) {
       if (seen.has(g.id)) return;
       seen.add(g.id);
-      out.push({ key: g.id, type: 'group', icon: g.icon, name: g.name, epId: g.tabs[0].ep });
+      out.push({ key: g.id, type: 'group', icon: groupIconHtml(g), name: g.name, epId: g.tabs[0].ep });
       return;
     }
     out.push({ key: ep.id, type: 'ep', icon: iconHtml(ep), name: ep.name, epId: ep.id });
@@ -1851,7 +1857,7 @@ function makeGroupCard(group, eps) {
 
   const head = document.createElement('div');
   head.className = 'card-head';
-  head.innerHTML = `<div class="card-title"><span class="icon">${group.icon}</span>${group.name}</div>
+  head.innerHTML = `<div class="card-title"><span class="icon">${groupIconHtml(group)}</span>${group.name}</div>
     <div class="card-actions">
       <button class="btn-refresh" title="刷新" aria-label="刷新数据"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button>
     </div>`;
