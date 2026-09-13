@@ -82,7 +82,7 @@ const CARD_LOGOS = {
   zhihu: 'zhihu.svg',
   bili: 'bilibili.svg',
   douyin: 'tiktok.svg',
-  toutiao: 'bytedance.svg',
+  toutiao: 'toutiao.ico',
   bdhot: 'baidu.svg',
   bdtieba: 'baidu.svg',
   bdtv: 'baidu.svg',
@@ -109,6 +109,10 @@ const CARD_LOGOS = {
   aljazeera: 'aljazeera.ico',
   bbcnews: 'bbc.ico',
   quark: 'quark.ico',
+  'simkl-tv': 'netflix.svg',
+  'simkl-movies': 'netflix.svg',
+  fanyi: 'youdao.png',
+  gtranslate: 'googletranslate.svg',
 };
 
 // 卡片标题首图：命中映射用品牌 Logo，否则沿用 emoji；
