@@ -73,12 +73,7 @@
         <span class="text">每日热榜</span>
         <span class="subtitle">一站看完天下事</span>
       </div>
-      <div class="search-wrap">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        <input type="text" id="search" placeholder="搜索接口…" aria-label="搜索接口" autocomplete="off">
-        <button class="search-clear" id="searchClear" type="button" title="清空搜索" aria-label="清空搜索">×</button>
-      </div>
-      <!-- 桌面端时钟：搜索框右侧 -->
+      <!-- 桌面端时钟：坐落在原搜索框的位置，靠右对齐 -->
       <div class="clock clock-desktop" id="clockDesktop" title="当前时间">
         <div class="clock-fill" data-fill="desktop"></div>
         <!-- 泡泡层：铺满胶囊，由 CSS clip-path 按今日进度裁出可见区（只活在橙色区间内） -->
@@ -87,9 +82,7 @@
         <span class="clock-date" id="clockDateDesktop">今天是 ----年-月-日 周-</span>
         <span class="clock-time" id="clockTimeDesktop">--:--:--</span>
       </div>
-    </div>
-    <div class="header-right">
-      <!-- 移动端时钟：github 图标左侧、左对齐 -->
+      <!-- 移动端时钟：与桌面时钟同处「logo 右侧」这一行，同样靠右对齐 -->
       <div class="clock clock-mobile" id="clockMobile" title="当前时间">
         <div class="clock-fill" data-fill="mobile"></div>
         <div class="clock-bubbles" aria-hidden="true"><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i></div>
@@ -97,6 +90,8 @@
         <span class="clock-date" id="clockDateMobile">今天是 ----年-月-日 周-</span>
         <span class="clock-time" id="clockTimeMobile">--:--:--</span>
       </div>
+    </div>
+    <div class="header-right">
       <a href="https://github.com/Jacky088/Daily-Hot" target="_blank" rel="noopener" title="GitHub" class="github-link" aria-label="GitHub 仓库">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
       </a>

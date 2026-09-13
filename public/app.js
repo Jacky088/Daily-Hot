@@ -794,8 +794,9 @@ function safeUrl(u) {
 // P1: 骨架屏 HTML
 const SKELETON_HTML = '<div class="skeleton"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line skeleton-line-short"></div></div>';
 
-// 搜索无结果空态：复用免费游戏空态的视觉语言（图标+主文案+副说明），比一行灰字友好
-const SEARCH_EMPTY_HTML = '<div class="empty-state search-empty"><span class="es-icon">🔍</span><span class="es-text">无匹配接口</span><span class="es-sub">换个关键词试试，支持名称 / 路径搜索</span></div>';
+// 视图空态：复用免费游戏空态的视觉语言（图标+主文案+副说明），比一行灰字友好。
+// 搜索框已移除，这里只在分类数据缺失这类异常情况下兜底
+const EMPTY_HTML = '<div class="empty-state"><span class="es-icon">🍃</span><span class="es-text">这里还没有内容</span><span class="es-sub">换个分类看看吧</span></div>';
 
 // 数据源不可用时的友好提示：不暴露错误码/堆栈，保留重试入口
 function unavailableHTML(ep, detail) {
@@ -978,22 +979,7 @@ function init() {
     };
   }
 
-  // 搜索清除按钮：有输入时出现，一键清空并回到当前分类完整列表
-  const searchInput = $('#search');
-  const searchWrap = searchInput && searchInput.closest('.search-wrap');
-  const searchClear = $('#searchClear');
-  function syncSearchClear() {
-    if (searchWrap) searchWrap.classList.toggle('has-value', !!searchInput.value);
-  }
-  if (searchInput && searchClear) {
-    searchInput.addEventListener('input', syncSearchClear);
-    searchClear.onclick = () => {
-      searchInput.value = '';
-      syncSearchClear();
-      render();
-      searchInput.focus();
-    };
-  }
+
 
   // 从 URL hash 恢复分类状态（刷新不丢失）
   const hash = location.hash.replace('#', '');
@@ -1236,10 +1222,8 @@ function init() {
   centerSubChip = focusSubChip;
   syncSpy = setupScrollSpy;
 
-  // 定位模块卡片：清搜索过滤 → 必要时切分类 → 滚动到卡片并闪烁高亮
+  // 定位模块卡片：必要时切分类 → 滚动到卡片并闪烁高亮
   function locateCard(ep) {
-    const searchInput = $('#search');
-    if (searchInput && searchInput.value.trim()) searchInput.value = '';
     // 移动端模块面板是悬浮层：定位即收起，避免遮住落点卡片
     setCatPanelOpen(false);
     let switched = false;
@@ -1444,8 +1428,6 @@ function init() {
   // 箭头显隐由溢出状态驱动（首帧 + resize + 滚动 + 字体就绪都会重算）
   setupCatArrows(catPills, catArrowPrev, catArrowNext);
 
-  $('#search').oninput = () => { syncSearchClear(); render(); };
-
   // 实时时钟（精确到秒）
   // 日期文本按可用宽度自适应，任何宽度下都不出现省略号（判定见 fitClocks）：
   //   完整版「今天是 2026年9月13日 周日」放得下就用完整版，放不下降级短版「9月13日 周日」；
@@ -1576,19 +1558,17 @@ function render(sync) {
 function renderImpl() {
   const main = $('#main');
   main.innerHTML = '';
-  const kw = ($('#search')?.value || '').trim().toLowerCase();
 
-  // 页首 Hero 卡：正常浏览视图（全部/单分类）显示；搜索结果视图不展示，让位给结果
-  if (!(curCat === 'all' && kw)) {
-    main.appendChild(buildHero());
-    heroRefreshTime();
-    // Hero 重建后回填天气：有内存/本地缓存则立即绘制，否则发起一次请求
-    loadHeroWeather();
-  }
+  // 页首 Hero 卡：搜索框移除后所有视图都显示它
+  main.appendChild(buildHero());
+  heroRefreshTime();
+  // Hero 重建后回填天气：有内存/本地缓存则立即绘制，否则发起一次请求
+  loadHeroWeather();
 
-  if (curCat === 'all' && !kw) {
+  if (curCat === 'all') {
+    // 全部：按分类分组，每类一个带装饰泡泡的标题条
     CATS.filter(c => c.id !== 'all').forEach(c => {
-      const eps = EPS.filter(ep => ep.cat === c.id && matchKw(ep, kw));
+      const eps = EPS.filter(ep => ep.cat === c.id);
       if (eps.length === 0) return;
       const sec = document.createElement('div');
       sec.className = 'cat-section';
@@ -1600,21 +1580,11 @@ function renderImpl() {
       sec.appendChild(grid);
       main.appendChild(sec);
     });
-  } else if (curCat === 'all' && kw) {
-    const eps = EPS.filter(ep => matchKw(ep, kw));
-    if (eps.length === 0) {
-      main.innerHTML = SEARCH_EMPTY_HTML;
-      return;
-    }
-    const grid = document.createElement('div');
-    grid.className = 'grid';
-    appendCards(grid, eps);
-    main.appendChild(grid);
   } else {
     // 只渲染选中的分类
     const selCat = CATS.find(c => c.id === curCat);
     if (selCat) {
-      const eps = EPS.filter(ep => ep.cat === curCat && matchKw(ep, kw));
+      const eps = EPS.filter(ep => ep.cat === curCat);
       if (eps.length > 0) {
         const sec = document.createElement('div');
         sec.className = 'cat-section';
@@ -1630,17 +1600,17 @@ function renderImpl() {
   }
 
   if (main.children.length === 0) {
-    main.innerHTML = SEARCH_EMPTY_HTML;
+    main.innerHTML = EMPTY_HTML;
     return;
   }
 
   // Auto load — 错开请求，避免触发速率限制
   // 分组成员不出现在独立自动加载队列：分组卡片只加载当前激活的标签页，
   // 其余标签页由 activate() 在首次点开时懒加载
-  const autoEps = EPS.filter(ep => ep.auto && matchKw(ep, kw) && (curCat === 'all' || curCat === ep.cat) && !GROUP_OF[ep.id]);
+  const autoEps = EPS.filter(ep => ep.auto && (curCat === 'all' || curCat === ep.cat) && !GROUP_OF[ep.id]);
   document.querySelectorAll('.group-card').forEach(card => {
     const ep = EPS.find(e => e.id === card.dataset.activeEp);
-    if (ep && ep.auto && matchKw(ep, kw)) autoEps.push(ep);
+    if (ep && ep.auto) autoEps.push(ep);
   });
   // 首屏：开屏遮罩等这批自动加载全部完成（或 3.5s 兜底）后再渐隐
   if (!firstRenderDone) {
@@ -1656,10 +1626,7 @@ function renderImpl() {
   if (syncSpy) syncSpy();
 }
 
-function matchKw(ep, kw) {
-  if (!kw) return true;
-  return ep.name.toLowerCase().includes(kw) || ep.id.includes(kw) || ep.path.includes(kw);
-}
+
 
 function makeCard(ep) {
   // 暴露 ep 到 window 供重试按钮使用
@@ -3066,8 +3033,7 @@ function refreshAll() {
   const btn = $('#btnRefreshAll');
   if (btn?.classList.contains('busy')) return;
   if (btn) btn.classList.add('busy');
-  const kw = ($('#search')?.value || '').trim().toLowerCase();
-  const visEps = EPS.filter(ep => matchKw(ep, kw) && (curCat === 'all' || curCat === ep.cat) && !GROUP_OF[ep.id]);
+  const visEps = EPS.filter(ep => (curCat === 'all' || curCat === ep.cat) && !GROUP_OF[ep.id]);
   visEps.forEach((ep, i) => {
     setTimeout(() => load(ep, true).catch(() => {}), i * 60);
   });
@@ -4428,12 +4394,6 @@ function initKeyboardShortcuts() {
       return;
     }
 
-    // 聚焦搜索框
-    if (e.key === '/' && !isInput) {
-      e.preventDefault();
-      $('#search')?.focus();
-      return;
-    }
 
     // 输入框内不触发 j/k/r
     if (isInput) return;

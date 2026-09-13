@@ -2,7 +2,7 @@
 
 > 一站看完天下事 · 基于 [60s API](https://github.com/vikiboss/60s) 构建的一站式热榜聚合面板
 
-[![Version](https://img.shields.io/badge/version-1.6.0-blue) ](./package.json)
+[![Version](https://img.shields.io/badge/version-1.9.0-blue) ](./package.json)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white) ](https://workers.cloudflare.com/)
 [![EdgeOne Pages](https://img.shields.io/badge/EdgeOne%20Pages-0052FF?style=flat) ](https://edgeone.ai/pages)
 [![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white) ](https://docker.com/)
@@ -32,10 +32,13 @@
 
 ### 🎨 体验设计
 
-- **🌙 日间 / 夜间模式** — 默认夜间，一键切换，自动记忆偏好
-- **🖼️ 必应壁纸背景** — 页面背景每日自动获取必应壁纸，桌面/移动端按屏幕方向自适应清晰度，当日缓存不重复请求
+- **🌙 日间 / 夜间模式** — 自动跟随系统明暗，顶栏可手动切换并记忆偏好
+- **⏱️ 实时时钟** — 顶栏秒级时钟，橙色进度随一天推移铺满整条胶囊，进度区间内有流动的玻璃泡泡
+- **🌤️ 本地天气** — 页首 Hero 卡右侧按访客 IP 自动定位城市、展示今日天气，点一下即可重新定位或手动改城市
+- **🖼️ 必应壁纸背景** — 页面背景每日自动获取必应壁纸，桌面/移动端按屏幕方向自适应清晰度，当日缓存不重复请求；默认关闭，顶栏一键开启
 - **📥 壁纸一键下载** — 必应壁纸卡片内置 1080P / 4K 双尺寸下载按钮
-- **📱 移动端适配** — 触屏友好控件，响应式布局，
+- **📱 移动端适配** — 触屏友好控件，响应式布局，顶栏始终两行不溢出
+- **🔄 单卡刷新** — 每张卡片右上角可独立刷新，顶栏按钮一键刷新当前分类全部卡片
 - **🔗 链接可跳转** — 可点击跳转到来源页面，
 - **⚡ 智能加载** — 无参数接口自动加载，有参数接口提供输入控件
 - **🏆 排行榜样式** — 前三名金银铜渐变色块，热度数值高亮
@@ -161,6 +164,9 @@ curl "https://your-domain/v2/weibo"
 
 # 实时天气（query 为城市参数，默认北京）
 curl "https://your-domain/v2/weather/realtime?query=北京"
+
+# 按访问 IP 自动定位的实时天气（页首 Hero 天气卡用的就是这个，也可用 query 覆盖城市）
+curl "https://your-domain/v2/weather/local"
 
 # 万年历（默认当月，支持 year/month 参数）
 curl "https://your-domain/v2/lunar/calendar?year=2026&month=10"

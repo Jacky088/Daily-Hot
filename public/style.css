@@ -173,27 +173,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .logo svg { width: 24px; height: 24px; flex-shrink: 0; filter: drop-shadow(0 0 6px rgba(249,115,22,0.3)); }
 .logo .text { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
 .logo .subtitle { font-size: 12px; font-weight: 400; color: var(--text-dim); letter-spacing: 0; }
-.search-wrap { flex: 1; min-width: 180px; max-width: 360px; position: relative; }
-.search-wrap input {
-  width: 100%; padding: 7px 30px 7px 34px;
-  background: var(--card); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); font-size: 13px; outline: none; transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
-}
-.search-wrap input:focus { border-color: var(--accent); box-shadow: var(--accent-glow); }
-.search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); opacity: 0.4; }
-/* 搜索清除按钮：有输入时出现，一键清空（免全选删除） */
-.search-clear {
-  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
-  width: 22px; height: 22px; border: none; border-radius: 50%;
-  background: transparent; color: var(--text-dim); font-size: 14px; line-height: 1;
-  cursor: pointer; display: none; align-items: center; justify-content: center;
-  transition: color var(--dur-fast), background var(--dur-fast);
-}
-.search-clear:hover { color: var(--text); background: var(--accent-bg); }
-.search-wrap.has-value .search-clear { display: flex; }
-
 /* ============ Clock ============ */
-/* 克制风格：与搜索框同语言——单层 border + card 底，仅保留一颗慢脉冲圆点作为强调色瞬间 */
+/* 克制风格：单层 border + card 底，仅保留一颗慢脉冲圆点作为强调色瞬间 */
 /* 一日进度填充：从 0:00 起随时间铺满，到 24:00 满格；极淡的 accent 渐变，不压低文字对比度 */
 .clock {
   position: relative; overflow: hidden;
@@ -283,7 +264,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .clock .clock-date { color: var(--text-dim); font-weight: 500; }
 /* 时钟宽度由内容决定、不参与压缩；日期两态（完整 / 短版）由 JS 按实测宽度切换，
    任何宽度下都不裁切、不出省略号，所以这里不再有 text-overflow / overflow:hidden */
-.clock-desktop { display: flex; flex-shrink: 0; }
+/* margin-left:auto：搜索框删除后时钟顺势坐进它原来的位置——
+   即 logo 右侧、贴着按钮组那一端，而不是紧跟在 logo 后面 */
+.clock-desktop { display: flex; flex-shrink: 0; margin-left: auto; }
 .clock-desktop .clock-time { flex-shrink: 0; }
 .clock-desktop .clock-date { white-space: nowrap; }
 .clock-mobile { display: none; }
@@ -1999,7 +1982,10 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   /* header：时钟切移动版、布局换行，避免挤压 */
   .clock-desktop { display: none; }
   .clock-mobile {
-    display: flex; margin-right: auto;
+    display: flex;
+    /* margin-left:auto：顶栏去掉搜索框后，时钟落在第一行（logo 右侧）并靠右对齐；
+       原来的 margin-right:auto 属于「时钟在左、按钮在右、二者同行」的旧布局，已不适用 */
+    margin-left: auto;
     /* 不收缩也不拉伸：宽度完全由内容决定，放不放得下交给 JS 实测判定 */
     flex: 0 0 auto; min-width: 0;
   }
@@ -2018,7 +2004,6 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   /* 日期一定完整：显示完整版还是短版由 fitClocks 实测决定，
      两态都是整段文本，不存在被裁成半截或出现省略号的可能 */
   .clock-mobile .clock-date { white-space: nowrap; }
-  .search-wrap { min-width: 0; max-width: none; }
   .logo .subtitle { display: none; }
 
   /* 布局纵向：分类栏移到顶部、内容在下方 */
@@ -2146,7 +2131,6 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 /* 手机小屏：进一步收紧触控与留白 */
 @media (max-width: 480px) {
   .header { padding: 8px 12px; gap: 8px; }
-  .search-wrap input { padding: 8px 12px 8px 32px; font-size: 13px; }
   /* cat-nav 不加内边距：吸顶分类栏上缘必须与顶栏底边贴合，
      行内留白由 pill 行自身的 padding 提供 */
   .cat-pills { padding: 6px 10px; }
