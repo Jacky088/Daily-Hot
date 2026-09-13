@@ -106,6 +106,8 @@ const CARD_LOGOS = {
   maoyan: 'maoyan.ico',
   huxiu: 'huxiu.ico',
   itnews: 'ithome.ico',
+  nodeseek: 'nodeseek.png',
+  let: 'let.png',
   aljazeera: 'aljazeera.ico',
   bbcnews: 'bbc.ico',
   quark: 'quark.ico',
