@@ -7,7 +7,7 @@ const CACHE_TTL = 30 * 60 * 1000;
 
 // 发版时递增：让所有旧的 localStorage 缓存失效，
 // 否则用户在 TTL 内会继续看到上一版缓存下来的渲染结果
-const CACHE_VERSION = 'v10';
+const CACHE_VERSION = 'v11';
 
 // 清理已下线功能的残留键（如编辑布局的收藏/隐藏偏好），避免永久占空间
 try { localStorage.removeItem('ep-pinned'); localStorage.removeItem('ep-hidden'); } catch {}
@@ -541,11 +541,22 @@ function unavailableHTML(ep, detail) {
 }
 
 // ============ 必应每日壁纸背景 ============
+// 壁纸开关：默认关闭（首屏更快也更省流量）；用户手动开启后写入 'wallpaper-off' = '0'——
+// 关闭态既不再请求壁纸，也由 html.wallpaper-off 停掉背景层绘制。
+// 首屏由 index.html 内联脚本提前打上 class，避免壁纸闪一下再消失
+let wallpaperOn = false;
+try { wallpaperOn = localStorage.getItem('wallpaper-off') === '0'; } catch {}
+// 已加载标记：关闭后再开启时直接复用现有背景层，不再重复请求与挂 resize 监听
+let wallpaperBgLoaded = false;
+
 // 取 /v2/bing 当日壁纸：横屏优先 4K（UHD）原图、加载失败逐级回退 1920x1080；
 // 竖屏（含移动端）用必应 th 服务实时派生的 1080x1920 竖版（源图即 UHD，足够清晰）。
 // 缓存日期必须用上海时区：toISOString() 是 UTC 日期，东八区每天 0-8 点仍是「昨天」，
 // 旧缓存会被误判为当日有效，背景比壁纸卡片晚换 8 小时——不跟随每日更换的根因就在这
 async function loadWallpaperBg() {
+  // 已关闭壁纸 / 已加载过：直接返回（重新开启由开关回调负责触发加载）
+  if (!wallpaperOn || wallpaperBgLoaded) return;
+  wallpaperBgLoaded = true;
   try {
     // en-CA 输出 YYYY-MM-DD；与后端 localeDate 的 Asia/Shanghai 日界保持一致
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(new Date());
@@ -644,14 +655,12 @@ function init() {
   cacheClean();
 
   // Theme：优先用用户手动保存的偏好，否则跟随系统日间/夜间模式
-  const saved = localStorage.getItem('theme');
-  if (saved) {
-    document.documentElement.dataset.theme = saved;
-  } else {
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    document.documentElement.dataset.theme = prefersDark ? 'dark' : 'light';
-  }
-  // 主题色跟随：手机浏览器地址栏颜色随主题切换（meta theme-color 静态橙色在夜间刺眼）
+  // （prefers-color-scheme 在桌面 Chrome/Edge/Firefox 与移动端 Safari/Chrome 均已支持）
+  const savedTheme = localStorage.getItem('theme');
+  document.documentElement.dataset.theme = savedTheme === 'dark' || savedTheme === 'light'
+    ? savedTheme
+    : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  // 主题色跟随：手机浏览器地址栏颜色随主题切换（夜间深色 / 日间品牌橙）
   const themeColorMeta = document.querySelector('meta[name="theme-color"]');
   function syncThemeColor() {
     if (!themeColorMeta) return;
@@ -666,13 +675,41 @@ function init() {
     syncThemeColor();
   };
 
-  // 系统主题变化时，若用户未手动设置过主题则自动跟随
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-    if (!localStorage.getItem('theme')) {
-      document.documentElement.dataset.theme = e.matches ? 'dark' : 'light';
-      syncThemeColor();
-    }
-  });
+  // 系统主题跟随：仅在用户没手动切换过主题时生效（手动切换会写入 localStorage，视为固定偏好）。
+  // change 事件覆盖桌面与移动端；iOS 在后台期间系统外观变化时 change 可能漏发，
+  // 回前台再用 visibilitychange 复核一次；旧 WebKit 只实现了已废弃的 addListener，做能力回退
+  const systemDarkMQ = window.matchMedia('(prefers-color-scheme: dark)');
+  function followSystemTheme() {
+    if (localStorage.getItem('theme')) return;
+    const next = systemDarkMQ.matches ? 'dark' : 'light';
+    if (document.documentElement.dataset.theme === next) return;
+    document.documentElement.dataset.theme = next;
+    syncThemeColor();
+  }
+  if (systemDarkMQ.addEventListener) systemDarkMQ.addEventListener('change', followSystemTheme);
+  else if (systemDarkMQ.addListener) systemDarkMQ.addListener(followSystemTheme);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) followSystemTheme(); });
+
+  // 壁纸开关（默认关闭）：开启即拉取并显形，关闭即停掉背景层绘制并记住偏好；
+  // 重新开启时只有「本次会话还没加载过」才去拉取壁纸，否则直接显形
+  const wallpaperBtn = $('#wallpaperToggle');
+  const syncWallpaperBtn = () => {
+    document.documentElement.classList.toggle('wallpaper-off', !wallpaperOn);
+    if (!wallpaperBtn) return;
+    const label = wallpaperOn ? '关闭壁纸' : '开启壁纸';
+    wallpaperBtn.title = label;
+    wallpaperBtn.setAttribute('aria-label', label);
+    wallpaperBtn.setAttribute('aria-pressed', String(wallpaperOn));
+  };
+  syncWallpaperBtn();
+  if (wallpaperBtn) {
+    wallpaperBtn.onclick = () => {
+      wallpaperOn = !wallpaperOn;
+      try { localStorage.setItem('wallpaper-off', wallpaperOn ? '0' : '1'); } catch {}
+      syncWallpaperBtn();
+      if (wallpaperOn) loadWallpaperBg();
+    };
+  }
 
   // 搜索清除按钮：有输入时出现，一键清空并回到当前分类完整列表
   const searchInput = $('#search');
@@ -1096,16 +1133,21 @@ function init() {
   // 极窄屏（<=360px）：仅 “14:23:45”，日期隐藏由 CSS 控制
   // 一日进度填充：当前秒数 / 86400 * 100，0:00 起铺满到 24:00
   const timeEls = [$('#clockTimeDesktop'), $('#clockTimeMobile')];
-  const dateEls = [$('#clockDateDesktop'), $('#clockDateMobile')];
+  // 日期分桌面/移动两版：移动端去掉「今天是」与年份（短一行），
+  // 才能和时间胶囊右侧的 4 个按钮稳定同处一行
+  const dateDesktopEl = $('#clockDateDesktop');
+  const dateMobileEl = $('#clockDateMobile');
   const fillEls = document.querySelectorAll('.clock-fill');
   const wdNames = ['日', '一', '二', '三', '四', '五', '六'];
   function pad(n) { return String(n).padStart(2, '0'); }
   function tick() {
     const d = new Date();
     const t = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-    const ds = `今天是 ${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 周${wdNames[d.getDay()]}`;
+    const md = `${d.getMonth() + 1}月${d.getDate()}日 周${wdNames[d.getDay()]}`;
+    const ds = `今天是 ${d.getFullYear()}年${md}`;
     timeEls.forEach(el => { if (el) el.textContent = t; });
-    dateEls.forEach(el => { if (el) el.textContent = ds; });
+    if (dateDesktopEl) dateDesktopEl.textContent = ds;
+    if (dateMobileEl) dateMobileEl.textContent = md;
     const pct = ((d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) / 86400) * 100;
     fillEls.forEach(el => { if (el) el.style.width = pct + '%'; });
   }

@@ -32,7 +32,11 @@
      blur(28px)+saturate(180%) 的 backdrop-filter 兜底：壁纸被强模糊后亮度
      趋于均匀，正文对比仍稳在 AA 级（正文 #f0e9e2 深玻璃底 ≈ 8:1） */
   --glass-bg: rgba(30, 24, 40, 0.55);
-  --glass-border: rgba(255, 255, 255, 0.14);
+  /* 玻璃描边统一调实：原白 0.14 压在深玻璃 + 模糊壁纸上对比不足，
+     圆角抗锯齿一叠加就「发虚」——顶栏/侧栏/hero/卡片统一用这一档 */
+  --glass-border: rgba(255, 255, 255, 0.24);
+  /* hover / 强调态：比默认再亮一档，边缘更「实」 */
+  --glass-border-strong: rgba(255, 255, 255, 0.4);
   --glass-hi: rgba(255, 255, 255, 0.22);
   --glass-lo: rgba(255, 255, 255, 0.05);
   --border-glass: rgba(255, 255, 255, 0.08);
@@ -66,7 +70,11 @@
   --shadow: 0 2px 14px rgba(150,95,125,0.12);
   /* Liquid Glass 玻璃变量组：亮色玻璃更透更亮（与暗色同步调通透） */
   --glass-bg: rgba(255, 255, 255, 0.4);
-  --glass-border: rgba(255, 255, 255, 0.6);
+  /* 亮色玻璃是白底，白描边（原白 0.6）在浅色壁纸上完全看不见、边缘直接「虚」掉，
+     统一改低透明度深暖色才立得住 */
+  --glass-border: rgba(88, 62, 74, 0.2);
+  /* hover / 强调态：更深一档，边缘更「实」 */
+  --glass-border-strong: rgba(88, 62, 74, 0.38);
   --glass-hi: rgba(255, 255, 255, 0.8);
   --glass-lo: rgba(255, 255, 255, 0.25);
   --border-glass: rgba(255, 255, 255, 0.5);
@@ -108,6 +116,18 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   opacity: 0; transition: opacity 0.8s ease;
 }
 .wallpaper-bg.show { opacity: 1; }
+/* 壁纸关闭态（顶栏壁纸开关）：透明度归零而非 display:none——
+   复用 .wallpaper-bg 自带的 0.8s 过渡，开关都是柔和淡入淡出，不会生硬跳变；
+   特异性高于 .wallpaper-bg.show，无需 !important 也能压住「已显示」态。
+   开关状态由 html.wallpaper-off 驱动，首屏由 index.html 内联脚本提前打上，避免壁纸闪一下再消失 */
+:root.wallpaper-off .wallpaper-bg { opacity: 0; }
+/* 壁纸开关图标两态：关闭后换成带斜线的图标并压暗，一眼看出壁纸已关；
+   只降透明度不改 color，hover 的 accent 高亮仍照常生效 */
+.wallpaper-toggle .wp-off { display: none; }
+:root.wallpaper-off .wallpaper-toggle .wp-on { display: none; }
+:root.wallpaper-off .wallpaper-toggle .wp-off { display: block; }
+:root.wallpaper-off .wallpaper-toggle svg { opacity: 0.55; }
+:root.wallpaper-off .wallpaper-toggle:hover svg { opacity: 1; }
 
 .topbar, .layout, .main, .foot { position: relative; z-index: 1; }
 
@@ -202,7 +222,11 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 .clock .clock-time { color: var(--text); font-weight: 600; }
 .clock .clock-date { color: var(--text-dim); font-weight: 500; }
-.clock-desktop { display: flex; }
+.clock-desktop { display: flex; flex-shrink: 1; min-width: 0; overflow: hidden; }
+/* 桌面窄窗口（顶栏有 4 个按钮）时时钟让位：可收缩、日期超出用省略号截断，
+   避免 logo/搜索框/时钟/按钮互相顶出边界；宽屏下宽度充裕，这些规则不产生视觉变化 */
+.clock-desktop .clock-time { flex-shrink: 0; }
+.clock-desktop .clock-date { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .clock-mobile { display: none; }
 /* 窄屏适配的媒体查询统一放在文件末尾（需覆盖上方桌面规则） */
 
@@ -563,6 +587,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   background: var(--glass-bg);
   backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
   -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+  /* 描边统一走 --glass-border（与顶栏/侧栏/hero 同一档「实边」） */
   border: 1px solid var(--glass-border);
   border-radius: 18px; overflow: hidden;
   /* 只过渡必要属性：transition:all 会让无关属性变化也触发样式计算 */
@@ -606,7 +631,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 @media (hover: hover) {
   .card:hover {
     transform: translateY(-2px);
-    border-color: var(--border-light);
+    /* 悬停加深描边对比（暗色更亮 / 亮色更深），边缘比默认更「实」 */
+    border-color: var(--glass-border-strong);
     box-shadow:
       0 14px 40px rgba(0, 0, 0, 0.14),
       inset 0 1px 0 var(--glass-hi),
@@ -1658,10 +1684,25 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 @media (max-width: 820px), (pointer: coarse) {
   /* header：时钟切移动版、布局换行，避免挤压 */
   .clock-desktop { display: none; }
-  .clock-mobile { display: flex; margin-right: auto; }
+  .clock-mobile {
+    display: flex; margin-right: auto;
+    /* 单行布局下时钟可收缩：把空间让给右侧 4 个按钮。
+       时钟本体 flex-shrink:0 会让超宽内容直接顶开容器，这里必须放开 */
+    flex: 0 1 auto; min-width: 0; overflow: hidden;
+  }
   .header { padding: 10px 14px; flex-wrap: wrap; gap: 10px; }
   .header-left { flex: 1 1 100%; gap: 10px; }
-  .header-right { flex: 1 1 100%; justify-content: flex-end; }
+  /* 第二行 = 时间胶囊 + GitHub/主题/壁纸/刷新 4 按钮，窄屏也必须单行：
+     容器不换行、按钮固定 32px 不收缩、时钟吃掉剩余宽度；
+     日期一旦放不下由省略号截断，而不是把按钮挤到下一行 */
+  .header-right {
+    flex: 1 1 100%; justify-content: flex-end;
+    flex-wrap: nowrap; gap: 6px; min-width: 0;
+  }
+  .header-right a, .header-right button { width: 32px; height: 32px; }
+  /* 时间不裁：秒数跳动时宽度恒定，优先保证完整可读 */
+  .clock-mobile .clock-time { flex-shrink: 0; }
+  .clock-mobile .clock-date { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .search-wrap { min-width: 0; max-width: none; }
   .logo .subtitle { display: none; }
 

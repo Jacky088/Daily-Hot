@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>每日热榜 · 一站看完天下事</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='f' x1='0%25' y1='100%25' x2='0%25' y2='0%25'%3E%3Cstop offset='0%25' stop-color='%23f59e0b'/%3E%3Cstop offset='50%25' stop-color='%23f97316'/%3E%3Cstop offset='100%25' stop-color='%23fb7185'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M12 2c0 0-1.5 2-3 4.5S6.5 11 8 13c-1-.5-2-1.5-2.5-3 0 0-1.5 2-1 4.5C5 17.5 7 20 12 22c5-2 7-4.5 7.5-7.5.5-2.5-1-4.5-1-4.5-.5 1.5-1.5 2.5-2.5 3 1.5-2 1-4.5-.5-7S13.5 4 12 2z' fill='url(%23f)'/%3E%3C/svg%3E" type="image/svg+xml">
-<meta name="theme-color" content="#f97316">
+<meta name="theme-color" content="#14101a">
 <meta name="description" content="每日热榜 — 聚合 40+ 数据源的热榜聚合面板，一站看完天下事">
 <meta property="og:title" content="每日热榜 · 一站看完天下事">
 <meta property="og:description" content="聚合微博、知乎、B站、抖音、Hacker News 等 40+ 数据源的热榜聚合面板">
@@ -17,11 +17,23 @@
 <link rel="manifest" href="/manifest.json">
 <noscript><style>#splash { display: none; }</style></noscript>
 <script>
-// 主题前置：开屏遮罩在 init() 之前渲染，必须提前设置 data-theme，否则主题变量未生效会闪裸色
+// 主题/壁纸前置：开屏遮罩在 init() 之前渲染，必须提前设置 data-theme，否则主题变量未生效会闪裸色；
+// 壁纸关闭态同理要抢在首帧前打上，否则 app.js 执行前壁纸会闪一下再消失。
+// 主题默认跟随系统外观、壁纸默认关闭；两处都只有用户手动切换过的偏好才覆盖默认值
 (function () {
-  var t = localStorage.getItem('theme');
-  if (!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  // 主题：用户手动切换过就用其偏好，否则跟随系统（桌面/移动端同为 prefers-color-scheme）
+  var t = null;
+  try { t = localStorage.getItem('theme'); } catch (e) {}
+  if (t !== 'dark' && t !== 'light') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   document.documentElement.dataset.theme = t;
+  // 地址栏主题色同步：首屏就与主题一致，避免移动端出现一闪而过的异色状态栏
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = t === 'dark' ? '#14101a' : '#f97316';
+  // 默认关闭壁纸：只有显式存过 '0'（用户开启过）才不加关闭类；
+  // localStorage 不可用时同样按默认关闭处理，避免壁纸意外冒出来
+  var wpOff = true;
+  try { wpOff = localStorage.getItem('wallpaper-off') !== '0'; } catch (e) {}
+  if (wpOff) document.documentElement.classList.add('wallpaper-off');
 })();
 </script>
 <link rel="stylesheet" href="/style.css">
@@ -88,6 +100,11 @@
       <button class="theme-toggle" id="themeToggle" title="切换主题" aria-label="切换主题">
         <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+      <!-- 壁纸开关：默认关闭（.wp-off 带斜线图标），点击开启后拉取壁纸并换成 .wp-on 风景图标 -->
+      <button class="icon-btn wallpaper-toggle" id="wallpaperToggle" type="button" title="开启壁纸" aria-label="开启壁纸" aria-pressed="false">
+        <svg class="wp-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        <svg class="wp-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
       </button>
       <button class="icon-btn" id="btnRefreshAll" type="button" title="全部刷新" aria-label="全部刷新"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button>
     </div>
