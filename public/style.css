@@ -532,7 +532,6 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 @media (prefers-reduced-motion: reduce) {
   .cat-title .bubble { display: none; }
 }
-}
 
 /* ============ Grid ============ */
 .grid {
