@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { toChineseCity } from '../data/cn-geo.ts'
 import type { RouterMiddleware } from '@oak/oak'
 
 // 仅放行 IP 字面量：字符集收紧为 [0-9a-fA-F:.]，天然排除 / ? & # 等字符，
@@ -19,10 +20,23 @@ function isValidIPLiteral(value: string): boolean {
 }
 
 class ServiceIP {
+  // 平台注入的客户端 IP 头：由平台在网络层写入，客户端无法伪造，优先使用。
+  //   cf-connecting-ip：Cloudflare Workers / Pages
+  //   eo-connecting-ip / eo-real-ip：腾讯 EdgeOne。该平台只写自己的头，
+  //     不一定回填 x-forwarded-for —— 漏掉它会导致 EdgeOne 部署下取不到访客 IP，
+  //     天气定位因此恒为默认城市
+  //   true-client-ip：部分 CDN（Akamai / Cloudflare Enterprise）
+  private static readonly PLATFORM_IP_HEADERS = ['cf-connecting-ip', 'eo-connecting-ip', 'eo-real-ip', 'true-client-ip']
+
   getClientIP(requestHeaders: Headers): string {
-    // Cloudflare Workers 环境下 cf-connecting-ip 由平台设置，无法被客户端伪造，优先使用
-    const cfIP = requestHeaders.get('cf-connecting-ip')?.trim()
-    if (cfIP) return cfIP
+    for (const field of ServiceIP.PLATFORM_IP_HEADERS) {
+      const value = requestHeaders.get(field)?.trim()
+
+      if (value) {
+        // 取逗号分隔的第一个 IP（EdgeOne / CDN 链路可能带多跳）
+        return value.split(',')[0].trim()
+      }
+    }
 
     // 自托管环境（Node/Bun/Deno）经过反向代理时，转发头作为回退
     // 注意：这些头可被客户端伪造，仅用于日志展示，不可用于安全决策
@@ -136,7 +150,25 @@ class ServiceIP {
     }
   }
 
+  /**
+   * IP → 地理信息。返回前把英文省市归一化成中文（见 data/cn-geo.ts）。
+   *
+   * 为什么必须归一化：ip-api.com 是免费源里唯一直接返回中文省市的，但它只支持 IPv4。
+   * 访客走 IPv6 时会跳过它、落到 ipinfo.io / api.ip.sb，而这两者对中国的城市名一律
+   * 返回拼音（如 Jiangsu / Wuxi）。下游腾讯天气城市库只认中文，拼音名检索失败，
+   * 于是定位结果被一路回退成默认城市——IPv4 访客正常、IPv6 访客永远定位不到，
+   * 就是这条链路造成的。
+   *
+   * 归一化放在这里而不是天气模块，是为了让 /v2/ip 与 /v2/weather/local 口径一致。
+   */
   async fetchIpInfo(ip: string, preferChinese = false): Promise<IpInfo> {
+    const info = await this.fetchIpInfoRaw(ip, preferChinese)
+    const cn = toChineseCity(info.prov, info.city)
+
+    return { ...info, prov: cn.province || info.prov, city: cn.city || info.city }
+  }
+
+  private async fetchIpInfoRaw(ip: string, preferChinese = false): Promise<IpInfo> {
     // 多源回退：ipinfo.io（IPv4+IPv6）→ ip-api.com（IPv4 中文省市）→ ip.sb（兜底）
     const isIPv4 = ip.includes('.') && !ip.includes(':')
 
@@ -145,6 +177,14 @@ class ServiceIP {
     if (preferChinese && isIPv4) {
       const zh = await this.fetchByIpApi(ip)
       if (zh) return zh
+    }
+
+    // IPv6 专属优化：ipinfo 对 IPv6 的中国城市常只给到省级中心——实测该访客在无锡，
+    // ipinfo 返回 Shanghai，而 ip.sb 返回 Wuxi。所以 IPv6 时先问 ip.sb；
+    // 它有限流风险，失败会自动落到下面的 ipinfo 兜底，不会影响可用性
+    if (!isIPv4) {
+      const byIpSb = await this.fetchByIpSb(ip)
+      if (byIpSb) return byIpSb
     }
 
     // 1. 主源：ipinfo.io —— 同时支持 IPv4/IPv6，数据准确
@@ -189,34 +229,8 @@ class ServiceIP {
     }
 
     // 3. 最后兜底：ip.sb
-    try {
-      const res = await fetch(`https://api.ip.sb/geoip/${ip}`, { signal: AbortSignal.timeout(5000) })
-      if (res.ok) {
-        const d = await res.json()
-        if (d && d.ip) {
-          return {
-            ip,
-            continent: d.continent_code || '',
-            country: d.country || '',
-            zipcode: '',
-            timezone: d.timezone || '',
-            accuracy: '',
-            owner: '',
-            isp: d.isp || d.organization || '',
-            source: 'ip.sb',
-            areacode: d.country_code || '',
-            adcode: '',
-            asnumber: String(d.asn || ''),
-            lat: String(d.latitude || ''),
-            lng: String(d.longitude || ''),
-            radius: '',
-            prov: d.region || '',
-            city: d.city || '',
-            district: '',
-          }
-        }
-      }
-    } catch {}
+    const byIpSb = await this.fetchByIpSb(ip)
+    if (byIpSb) return byIpSb
 
     // 全部失败：返回基础信息
     return {
@@ -238,6 +252,42 @@ class ServiceIP {
       prov: '',
       city: '',
       district: '',
+    }
+  }
+
+  // api.ip.sb：IPv4/IPv6 都支持。实测对同一 IPv6 它给出 Wuxi（正确），
+  // 而 ipinfo 给出 Shanghai（省级中心，偏差明显），所以 IPv6 路径优先用它。
+  // 免费调用有频率限制（约 1 次/秒），失败返回 null 由调用方继续回退
+  private async fetchByIpSb(ip: string): Promise<IpInfo | null> {
+    try {
+      const res = await fetch(`https://api.ip.sb/geoip/${ip}`, { signal: AbortSignal.timeout(5000) })
+      if (!res.ok) return null
+
+      const d = await res.json()
+      if (!d || !d.ip) return null
+
+      return {
+        ip,
+        continent: d.continent_code || '',
+        country: d.country || '',
+        zipcode: '',
+        timezone: d.timezone || '',
+        accuracy: '',
+        owner: '',
+        isp: d.isp || d.organization || '',
+        source: 'ip.sb',
+        areacode: d.country_code || '',
+        adcode: '',
+        asnumber: String(d.asn || ''),
+        lat: String(d.latitude || ''),
+        lng: String(d.longitude || ''),
+        radius: '',
+        prov: d.region || '',
+        city: d.city || '',
+        district: '',
+      }
+    } catch {
+      return null
     }
   }
 
