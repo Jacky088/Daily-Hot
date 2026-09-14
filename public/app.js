@@ -228,6 +228,23 @@ function hwSkyGradient(d) {
   return day ? 'linear-gradient(160deg,#587fb0,#88a7cb,#bacde1)' : 'linear-gradient(160deg,#222b45,#343f5e,#4c5a7e)';
 }
 
+// 天气装饰类型：背景渐变只表达「天空的色彩」，这里补上「看得见的天气符号」。
+// 判定沿用与 hwSkyGradient 同一套关键词（比 weather_code 更抗上游编码变化），
+// 并区分昼夜——晴天白天出太阳、夜里出月亮。
+// 顺序即优先级：雷 > 雪 > 雨 > 雾霾 > 多云 > 阴 > 晴
+function hwFxKind(d) {
+  const c = String((d.weather && d.weather.condition) || '');
+  const day = hwIsDay(d);
+  if (/雷/.test(c)) return 'thunder';
+  if (/雪|冰|冻/.test(c)) return 'snow';
+  if (/雨/.test(c)) return 'rain';
+  if (/雾|霾|沙|尘/.test(c)) return 'fog';
+  if (/多云/.test(c)) return 'cloudy';
+  if (/阴/.test(c)) return 'overcast';
+  if (/晴/.test(c)) return day ? 'sun' : 'moon';
+  return day ? 'cloudy' : 'moon';
+}
+
 function heroWeatherHtml(d, editing) {
   const w = d.weather || {};
   const t = d.today || {};
@@ -241,7 +258,8 @@ function heroWeatherHtml(d, editing) {
   if (Number.isFinite(t.min_temperature) && Number.isFinite(t.max_temperature)) bits.push(`${t.min_temperature}° ~ ${t.max_temperature}°`);
   if (a.aqi != null) bits.push(`${a.quality || ''} ${a.aqi}`);
   else if (w.humidity != null) bits.push(`湿度 ${w.humidity}%`);
-  return `<div class="hw-city">${esc(city)}<span class="hw-tip" aria-hidden="true">✎</span>${isDefault ? '<span class="hw-def">默认</span>' : ''}</div>
+  return `<div class="hw-fx hw-fx-${hwFxKind(d)}" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="hw-city">${esc(city)}<span class="hw-tip" aria-hidden="true">✎</span>${isDefault ? '<span class="hw-def">默认</span>' : ''}</div>
     <div class="hw-temp">${esc(String(w.temperature ?? '--'))}<span class="hw-unit">°C</span><span class="hw-cond">${esc(w.condition || '')}</span></div>
     ${bits.length ? `<div class="hw-sub">${esc(bits.join(' · '))}</div>` : ''}
     <div class="hw-edit"${editing ? '' : ' hidden'}>
