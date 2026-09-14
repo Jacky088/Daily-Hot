@@ -727,14 +727,24 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   /* 天气区改横排一行：竖排三行会吃掉太多首屏高度 */
   .hero-weather {
     flex: 0 0 auto; width: 100%;
-    flex-direction: row; gap: 10px; padding: 12px 16px 12px 72px;
+    /* 移动端通栏条不做左缘渐隐：桌面是「天空色紧贴左侧玻璃区」，才需要一条渐变过渡；
+       移动端整条都是天空色、两侧同底，再糊一层淡出只会让左边显脏。
+       渐隐一去掉，为它预留的 72px 左内距也没有存在意义了，改回对称内距让内容真正居中 */
+    -webkit-mask-image: none; mask-image: none;
+    flex-direction: row; flex-wrap: wrap;
+    align-items: baseline; justify-content: center;
+    gap: 4px 8px; padding: 12px 16px;
   }
+  /* 子项不收缩：城市、温度、区间三块各自是完整的不可断行内容，
+     允许收缩只会把它们压得互相重叠并溢出容器，反而不触发 flex-wrap 折行。
+     设成 0 后，排不下就整块折到下一行，始终完整可读 */
+  .hero-weather > * { flex-shrink: 0; }
   .hw-temp { margin: 0; font-size: 30px; }
   .hw-unit { font-size: 14px; }
   .hw-cond { margin-left: 8px; font-size: 17px; letter-spacing: 0.3px; }
-  /* 通栏天气条下不要用 auto 把它推到最右：那样城市温度在左、区间在右，
-     中间空一大块很散。改为紧跟其后（≤430px 时它会被整块隐藏，不会溢出） */
-  .hw-sub { margin-top: 0; margin-left: 14px; font-size: 12px; }
+  /* 气温区间完整显示，并入同一行随城市/温度一起居中；
+     一行排不下时整块折到第二行（flex-wrap），不再用「隐藏」来规避溢出 */
+  .hw-sub { margin: 0; font-size: 12px; line-height: 1.2; }
 }
 
 /* 触摸屏上的天气编辑层：两行「输入框 + 关闭键」/「等宽双按钮」。
@@ -2186,10 +2196,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   .clock { padding: 7px 10px; font-size: 12.5px; gap: 6px; }
 }
 
-/* <=430px: hide hw-sub, keep city+temp */
-@media (max-width: 430px) {
-  .hw-sub { display: none; }
-}
+/* 原「≤430px 隐藏 .hw-sub」已移除：气温区间属于必要信息，
+   窄屏放不下时由 .hero-weather 的 flex-wrap 折到第二行，而不是被隐藏 */
 
 /* ≤380px：控件整体收紧一档，尽量把「日期 + 时间 + 4 按钮」留在同一行。
    这只是「省出空间」的优化，不是截断开关——真放不下时由 fitClocks
