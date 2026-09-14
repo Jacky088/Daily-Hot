@@ -2089,8 +2089,11 @@ html { overflow-x: clip; }
     backdrop-filter: blur(28px) saturate(180%); -webkit-backdrop-filter: blur(28px) saturate(180%);
     max-height: none; align-self: auto; margin: 0; overflow: visible;
   }
-  /* pill 行内边距（不换行 / 横向滚动 / 拖拽规则已在基础样式里，桌面移动共用） */
-  .cat-pills { padding: 6px 12px; }
+  /* pill 行内边距（不换行 / 横向滚动 / 拖拽规则已在基础样式里，桌面移动共用）。
+     横向取 14px 与 .main 的内边距一致（≤480px 时两边同步收成 10px）——
+     移动块也会命中「宽屏触屏」设备，此时 .cat-nav 的 padding 是 0，
+     卡片左边界由 .main 决定，pill 不跟着对齐就会与卡片错开一截 */
+  .cat-pills { padding: 6px 14px; }
   .cat-sub { display: none !important; }
   /* 触摸设备用原生滑动就够，箭头只服务鼠标场景，隐藏以免占掉本就紧张的行宽 */
   .cat-nav .cat-arrow { display: none; }
@@ -2138,11 +2141,6 @@ html { overflow-x: clip; }
     transform: rotate(0deg);
   }
   .cat-nav.toc-open .cat-pills > button.active::after { transform: rotate(90deg); }
-  /* 横向内边距与 .main 的 14px 对齐（≤480px 时两边同步收成 10px）：
-     移动块还会命中「宽屏触屏」设备，此时 .cat-nav 的 padding 是 0，
-     卡片左边界由 .main 的 14px 决定，pill 不补这一档就会从视口最左侧起步、
-     与卡片错开一截 */
-  .cat-pills { padding: 6px 14px; }
   .cat-pills > button {
     /* 固定高度（含上下 border），垂直方向由 flex 居中，与模块 chip 等高 */
     height: 42px; padding: 0 15px; text-align: center; font-size: 13px;
