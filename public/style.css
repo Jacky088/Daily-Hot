@@ -343,7 +343,12 @@ html { overflow-x: clip; }
      这里用 100vw 配合「50% - 50vw」的对称负边距把导航撑出容器边界，
      无论窗口多宽都贴到两侧；内边距 36px = layout 的 12 + main 的 24，
      pill 与下方卡片保持严格左对齐 */
-  width: 100vw; align-self: center;
+  /* 这里绝不能写 align-self: center —— 导航宽 100vw 已超出容器，
+     center 会把「margin box」在容器内居中，再叠加 margin-inline 的负偏移，
+     最终落点 = 容器左 + 负边距偏移 + 正的一半溢出量，位置被推去右边，
+     pill 与卡片就错开了。交给 .layout 的 align-items:stretch（宽度被 width
+     覆盖，项落在交叉轴起点），再由 margin-inline 精确拉出容器才是对的 */
+  width: 100vw;
   /* 左右内边距 = 36px（layout 12 + main 24）+ 半个滚动条宽。
      后者是必需的补偿：100vw 含滚动条宽，导航左右各多出「一半滚动条」，
      只写 36px 的话 pill 会比卡片偏左约 7px。补回这一半后，
@@ -2133,6 +2138,11 @@ html { overflow-x: clip; }
     transform: rotate(0deg);
   }
   .cat-nav.toc-open .cat-pills > button.active::after { transform: rotate(90deg); }
+  /* 横向内边距与 .main 的 14px 对齐（≤480px 时两边同步收成 10px）：
+     移动块还会命中「宽屏触屏」设备，此时 .cat-nav 的 padding 是 0，
+     卡片左边界由 .main 的 14px 决定，pill 不补这一档就会从视口最左侧起步、
+     与卡片错开一截 */
+  .cat-pills { padding: 6px 14px; }
   .cat-pills > button {
     /* 固定高度（含上下 border），垂直方向由 flex 居中，与模块 chip 等高 */
     height: 42px; padding: 0 15px; text-align: center; font-size: 13px;
