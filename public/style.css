@@ -560,10 +560,13 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 /* Hero 左侧文案区：原 Hero 的内边距移到这里，右侧空间才能完整让给天气区。
    min-width 300 是「标题/描述不被挤成竖排」的下限——低于这个宽度，
    28px 的「每日热榜」就会一字一行。给死下限可让 flex 无法再压它，
-   压不下去时改由天气区收缩让路（见 .hero-weather 的 min-width） */
+   压不下去时改由天气区收缩让路（见 .hero-weather 的 min-width）。
+   flex-grow 取 2，与天气区的 1 配对 → 宽屏下右侧约占整卡三分之一，
+   比原先的定宽 312px（约四分之一）更平衡，左侧的留白被利用起来。
+   竖排/移动端由下方媒体查询整体接管，不受这个比例影响 */
 .hero-main {
   display: flex; align-items: flex-start; gap: 14px;
-  flex: 1 1 340px; min-width: 300px; padding: 18px 20px;
+  flex: 2 1 360px; min-width: 300px; padding: 18px 20px;
 }
 /* 图标块：橙渐变圆角方块 + 白色火焰（复用顶栏 logo 图形） */
 /* ⚠️ 预览实验：Hero 图标/标题/副标题同比例放大（46→69 / 30→45 / 19→28 / 12→18），未定稿 */
@@ -594,9 +597,14 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
    与左侧玻璃文案区共同构成一张完整的 Hero 卡（圆角与裁切交给 .hero） */
 .hero-weather {
   position: relative;
-  /* 可收缩（上限 312、下限 240）而不是死宽：中等宽度先把天气区让出来，
-     保住左侧 300px 以上的可读宽度；宽屏时仍是满额 312px，观感不变 */
-  flex: 0 1 312px; min-width: 240px;
+  /* 与左侧文案区按 2:1 分配剩余空间 → 宽屏下约占整卡三分之一。
+     原先固定 312px 只占四分之一，左侧的富余全成了留白；
+     加宽后这块「天空」的视觉分量才撑得住整张卡，装饰（云等）也有舒展空间。
+     max-width 440 防大屏过宽：1600px 卡片下 1/3 会到 533px，
+     而温度只有 50px 字号，会显得空荡荡。
+     min-width 260 是下限，空间不足时先收缩；仍不够则由 .hero 的 flex-wrap 换行接管。
+     竖排/移动端在下方媒体查询里被覆盖为通栏，此处的比例与上限都不生效 */
+  flex: 1 1 300px; min-width: 260px; max-width: 440px;
   /* 左缘渐隐：天空色过渡到左侧玻璃区，避免一条硬边。
      原先是 56px 的纯线性 alpha 渐变，观感偏「硬」：一是距离太短，
      过渡带只占这块宽度的 18%、看得出是「一条带子」；二是线性渐变两端
@@ -705,18 +713,17 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 
 /* ---- 云体：多云 / 阴 / 雨 / 雪 / 雷共用（圆角横条 + 两团凸起） ----
-   桌面天气区只有 312px 宽，而温度（50px 字号）那行几乎横贯整块，
-   所以装饰必须收在右上角约 60×50 的空当里：
-   y 超过 50px 会压到温度，x 小于 250px 会压到城市名那一行。
-   尺寸比初版整体缩了一档就是为此 */
+   天气区加宽到约占整卡 1/3（约 410px）后，右上角的可用空当从 ~60px 变成 ~120px，
+   装饰恢复初版尺寸：温度（50px 字号）那行右边缘约在 315px，云左边缘从 322px 起，
+   不重叠；y 方向仍要避开 50px 以下——那是温度所在的带 */
 .hw-fx-cloudy i:nth-of-type(1),
 .hw-fx-overcast i:nth-of-type(1),
 .hw-fx-rain i:nth-of-type(1),
 .hw-fx-snow i:nth-of-type(1),
 .hw-fx-thunder i:nth-of-type(1) {
-  top: 12px; right: 8px; width: 56px; height: 19px; border-radius: 999px;
+  top: 14px; right: 12px; width: 76px; height: 24px; border-radius: 999px;
   background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 5px 16px rgba(110, 140, 180, 0.3);
+  box-shadow: 0 5px 18px rgba(110, 140, 180, 0.3);
   animation: hwDrift 17s ease-in-out infinite;
 }
 .hw-fx-cloudy i:nth-of-type(1)::before,
@@ -735,12 +742,12 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .hw-fx-overcast i:nth-of-type(1)::before,
 .hw-fx-rain i:nth-of-type(1)::before,
 .hw-fx-snow i:nth-of-type(1)::before,
-.hw-fx-thunder i:nth-of-type(1)::before { left: 10px; top: -10px; width: 24px; height: 24px; }
+.hw-fx-thunder i:nth-of-type(1)::before { left: 13px; top: -13px; width: 31px; height: 31px; }
 .hw-fx-cloudy i:nth-of-type(1)::after,
 .hw-fx-overcast i:nth-of-type(1)::after,
 .hw-fx-rain i:nth-of-type(1)::after,
 .hw-fx-snow i:nth-of-type(1)::after,
-.hw-fx-thunder i:nth-of-type(1)::after { left: 30px; top: -6px; width: 17px; height: 17px; }
+.hw-fx-thunder i:nth-of-type(1)::after { left: 41px; top: -8px; width: 22px; height: 22px; }
 /* 第二朵更小更淡的云，反向漂移做出前后层次。
    它必须待在 y<20 的窄带里——再低就落到温度那一行上了 */
 .hw-fx-cloudy i:nth-of-type(2),
@@ -946,7 +953,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   .hero-desc { font-size: 12px; }
   /* 天气区改横排一行：竖排三行会吃掉太多首屏高度 */
   .hero-weather {
-    flex: 0 0 auto; width: 100%;
+    /* max-width 复位：桌面为「约占 1/3」设的上限在这里必须去掉，
+       否则窄窗口（如 375px）下天气区通栏宽度会被卡在 440px 内 */
+    flex: 0 0 auto; width: 100%; max-width: none;
     /* 移动端通栏条不做左缘渐隐：桌面是「天空色紧贴左侧玻璃区」，才需要一条渐变过渡；
        移动端整条都是天空色、两侧同底，再糊一层淡出只会让左边显脏。
        渐隐一去掉，为它预留的 72px 左内距也没有存在意义了，改回对称内距让内容真正居中 */
