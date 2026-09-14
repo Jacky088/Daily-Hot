@@ -1578,8 +1578,19 @@ function init() {
   function syncTopbarH() {
     if (topbarEl) document.documentElement.style.setProperty('--topbar-h', topbarEl.getBoundingClientRect().height + 'px');
   }
+  // 垂直滚动条实测宽度：分类导航用 100vw 通栏时，vw 会把滚动条宽度也算进去，
+  // 导航因此左右各多出「半个滚动条宽」——pill 会比下方卡片偏左十几像素的一半。
+  // 写入 --sbw 供 CSS 在左右内边距上各补回一半，pill 便与卡片左边缘严格对齐、
+  // 右端也不会越过卡片右边缘
+  function syncScrollbarW() {
+    const w = window.innerWidth - document.documentElement.clientWidth;
+    document.documentElement.style.setProperty('--sbw', (w > 0 ? w : 0) + 'px');
+  }
   syncTopbarH();
-  window.addEventListener('resize', () => { syncTopbarH(); placeCatPanel(); });
+  syncScrollbarW();
+  window.addEventListener('resize', () => { syncTopbarH(); syncScrollbarW(); placeCatPanel(); });
+  // 卡片增删会改变文档高度，滚动条可能在「出现 / 消失」之间切换，宽度随之变化
+  if (window.ResizeObserver) new ResizeObserver(syncScrollbarW).observe(document.documentElement);
   window.addEventListener('load', () => { syncTopbarH(); placeCatPanel(); });
 
   render();
