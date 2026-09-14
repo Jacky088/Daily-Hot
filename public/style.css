@@ -333,26 +333,30 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 /* ============ Category Nav（顶栏分类导航） ============ */
 .cat-nav {
   display: flex; flex-direction: column; gap: 0;
-  /* 通栏宽度：与下方内容区对齐（左右 24px 同 .main 内边距） */
-  width: auto; align-self: stretch; padding: 10px 12px;
-  /* 卡片化底：壁纸上保证菜单文字可读（与 .card 同款毛玻璃语言）
-     注意：不加 backdrop-filter——fixed 滚动容器 + backdrop-filter 会触发
-     Chromium 命中检测与视觉位置不同步的渲染 bug（子菜单展开后下方按钮 hover 失灵），
-     且 0.9 高不透明度下模糊几乎不可见，去掉无视觉损失 */
-  margin: 12px 24px 12px;
+  /* 通栏铺满：左右内边距取 24px 与 .main 对齐，pill 与下方卡片左边缘齐平；
+     背景铺满整宽——内容向上滚到它下沿就被完整遮住，不会从两侧「漏」出来。
+     原先是左右各 24px 外边距的圆角卡片，内容会从两侧与顶部的缝隙里穿过去，
+     一直露到窗口顶端才消失（桌面与移动端行为不一致），这里统一为移动端的做法 */
+  width: auto; align-self: stretch; padding: 10px 36px;
+  /* 纵向 margin 归零 → 紧贴顶栏，中间不再留 12px 缝隙；
+     横向取负值抵消 .layout 的左右 12px 内边距——否则导航背景只铺到 layout
+     内容区边界，两侧那 12px 里内容仍会露出来，通栏就名存实亡。
+     左右内边距相应补回 12+24=36px，pill 与下方卡片依然严格左对齐 */
+  margin: 0 -12px;
   background: var(--glass-bg);
   backdrop-filter: blur(28px) saturate(180%); -webkit-backdrop-filter: blur(28px) saturate(180%);
-  border: 1px solid var(--glass-border); border-radius: 18px;
+  /* 去掉卡片边框与圆角，改为与顶栏同款的底边线：两块玻璃上下相接、连成一片 */
+  border: none; border-bottom: 1px solid var(--glass-border); border-radius: 0;
   box-shadow:
     inset 0 1px 0 var(--glass-hi),
-    inset 0 -1px 0 var(--glass-lo),
-    inset 0 0 24px var(--glass-lo);
+    inset 0 -1px 0 var(--glass-lo);
   /* 显式层叠：高于内容区，低于顶栏（100），避免被任何兄弟层叠上下文遮挡 */
   z-index: 50;
-  /* sticky 固定：吸附在吸顶顶栏下方 12px 处，滚动时分类与模块目录始终可见可切换。
+  /* sticky 紧贴顶栏下沿（原为 +12px）：内容滚到导航下边即被遮住。
      不用 fixed：fixed 脱离文档流需占位、滚到页脚必然重叠、还会引入层叠与命中检测问题 */
-  position: sticky; top: calc(var(--topbar-h, 64px) + 12px);
-  max-height: calc(100vh - var(--topbar-h, 64px) - 24px);
+  position: sticky; top: var(--topbar-h, 64px);
+  /* 上下 margin 已归零，可占高度即视口减去顶栏 */
+  max-height: calc(100vh - var(--topbar-h, 64px));
   overflow-y: auto; scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
