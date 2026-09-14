@@ -108,8 +108,11 @@
     </div>
   </div>
 </div>
+<!-- 分类导航放在 .layout 之外：.layout 有 max-width:1600px 且水平居中，
+     导航若在它内部，即便用 100vw 撑宽也会被容器的居中偏移带跑——
+     窗口越宽偏得越多（2560px 下可达 480px）。独立于容器后宽度直接等于视口 -->
+<nav class="cat-nav" id="catNav"></nav>
 <div class="layout">
-  <nav class="cat-nav" id="catNav"></nav>
   <div class="main" id="main"></div>
 </div>
 <!-- 下拉刷新指示器：手势拖出时跟随，松手回弹/触发刷新 -->

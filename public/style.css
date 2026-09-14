@@ -331,30 +331,17 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 
 /* ============ Category Nav（顶栏分类导航） ============ */
-/* 通栏所需的溢出收敛：导航用 100vw 撑出 .layout 的限宽与内边距，
-   而 100vw 把垂直滚动条宽度也算在内，会多出十几像素。
-   用 overflow-x: clip 收掉——clip 不像 hidden/auto 那样创建滚动容器，
-   因此 .cat-nav / .topbar 的 sticky 吸顶完全不受影响 */
-html { overflow-x: clip; }
+/* 导航已移出 .layout（见 index.html）。原因：.layout 有 max-width:1600px 且水平居中，
+   导航若在它内部，即便用 100vw 撑宽也会被容器的居中偏移带跑——窄窗口下看不出，
+   2560px 这类宽屏下内容会偏出约 480px。独立于容器之后宽度直接等于视口，
+   不再需要任何 vw / 负边距 / 滚动条补偿技巧。
+   内容左边界用 max() 复刻卡片的位置：
+     卡片左 = max(0, (可用宽 - 1600) / 2) + 36，36 = .layout 的 12 + .main 的 24
+   这里用 100% 而不是 100vw——100% 本身就是不含滚动条的可用宽，天然精确，
+   也正因如此不必再引入滚动条宽度变量去补偿 */
 .cat-nav {
   display: flex; flex-direction: column; gap: 0;
-  /* 真正铺满窗口：.layout 有 max-width:1600px + 左右 12px 内边距，
-     只靠负边距只能铺到 layout 内容区，宽屏下两侧仍会留白。
-     这里用 100vw 配合「50% - 50vw」的对称负边距把导航撑出容器边界，
-     无论窗口多宽都贴到两侧；内边距 36px = layout 的 12 + main 的 24，
-     pill 与下方卡片保持严格左对齐 */
-  /* 这里绝不能写 align-self: center —— 导航宽 100vw 已超出容器，
-     center 会把「margin box」在容器内居中，再叠加 margin-inline 的负偏移，
-     最终落点 = 容器左 + 负边距偏移 + 正的一半溢出量，位置被推去右边，
-     pill 与卡片就错开了。交给 .layout 的 align-items:stretch（宽度被 width
-     覆盖，项落在交叉轴起点），再由 margin-inline 精确拉出容器才是对的 */
-  width: 100vw;
-  /* 左右内边距 = 36px（layout 12 + main 24）+ 半个滚动条宽。
-     后者是必需的补偿：100vw 含滚动条宽，导航左右各多出「一半滚动条」，
-     只写 36px 的话 pill 会比卡片偏左约 7px。补回这一半后，
-     pill 左端与卡片左边缘对齐，右端也恰好收在卡片右边缘内（既不偏也不越界） */
-  padding: 0 calc(36px + var(--sbw, 0px) / 2);
-  margin-inline: calc(50% - 50vw);
+  padding: 0 max(36px, calc((100% - 1600px) / 2 + 36px));
   /* 高度与顶栏严格一致：--topbar-h 是 JS 实测的顶栏高度（含底边框），
      内容在其中垂直居中，两块玻璃的上下边线因此完全对齐。
      用 min-height 而非 height——桌面手风琴子菜单展开时导航要能自然变高 */
@@ -2077,10 +2064,11 @@ html { overflow-x: clip; }
     flex-direction: column; gap: 0; width: 100%;
     /* 移动端吸顶栏与桌面同为 Liquid Glass：玻璃底 + 强饱和/提亮折射 */
     margin: 0; padding: 0;
-    /* 复位桌面那两条为「与顶栏等高 / 100vw 通栏」写的规则：
+    /* 复位桌面那两条为「与顶栏等高 / 复刻卡片限宽」写的规则：
        移动端顶栏是两行（明显更高），导航高度该由 pill 行自己决定；
-       宽度也已由 .layout 的零内边距保证铺满，不需要 100vw 那套（反而含滚动条宽） */
-    min-height: 0; margin-inline: 0;
+       内容位置也不必套用限宽公式（移动端 .layout 无内边距，
+       卡片左边界就是 .main 的 14px），交给 pill 行自身的横向内边距承担 */
+    min-height: 0;
     border: none; border-radius: 0; border-bottom: 1px solid var(--glass-border);
     /* 吸顶：紧贴顶栏下方，下滑时分类栏始终可见可切换；
        top 由 JS 按顶栏实际高度设置 --topbar-h，回退值 96px 适配两行 header */
