@@ -691,12 +691,12 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   transform: rotate(-30deg);
 }
 .hw-fx-moon i:nth-of-type(2) {
-  top: 20px; right: 74px; width: 3px; height: 3px; border-radius: 50%;
+  /* 星点必须待在 y<20 的窄带里：再低就压到城市名那一行了 */
+  top: 7px; right: 62px; width: 3px; height: 3px; border-radius: 50%;
   background: #fff;
   box-shadow:
-    16px 24px 0 -0.5px rgba(255, 255, 255, 0.8),
-    32px 6px 0 -0.5px rgba(255, 255, 255, 0.55),
-    6px 40px 0 -0.5px rgba(255, 255, 255, 0.45);
+    10px 12px 0 -0.5px rgba(255, 255, 255, 0.8),
+    20px 3px 0 -0.5px rgba(255, 255, 255, 0.55);
   animation: hwTwinkle 3.8s ease-in-out infinite;
 }
 @keyframes hwTwinkle {
@@ -704,15 +704,19 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   50%      { opacity: 1; }
 }
 
-/* ---- 云体：多云 / 阴 / 雨 / 雪 / 雷共用（圆角横条 + 两团凸起） ---- */
+/* ---- 云体：多云 / 阴 / 雨 / 雪 / 雷共用（圆角横条 + 两团凸起） ----
+   桌面天气区只有 312px 宽，而温度（50px 字号）那行几乎横贯整块，
+   所以装饰必须收在右上角约 60×50 的空当里：
+   y 超过 50px 会压到温度，x 小于 250px 会压到城市名那一行。
+   尺寸比初版整体缩了一档就是为此 */
 .hw-fx-cloudy i:nth-of-type(1),
 .hw-fx-overcast i:nth-of-type(1),
 .hw-fx-rain i:nth-of-type(1),
 .hw-fx-snow i:nth-of-type(1),
 .hw-fx-thunder i:nth-of-type(1) {
-  top: 16px; right: 14px; width: 76px; height: 24px; border-radius: 999px;
+  top: 12px; right: 8px; width: 56px; height: 19px; border-radius: 999px;
   background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 5px 18px rgba(110, 140, 180, 0.3);
+  box-shadow: 0 5px 16px rgba(110, 140, 180, 0.3);
   animation: hwDrift 17s ease-in-out infinite;
 }
 .hw-fx-cloudy i:nth-of-type(1)::before,
@@ -731,16 +735,17 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .hw-fx-overcast i:nth-of-type(1)::before,
 .hw-fx-rain i:nth-of-type(1)::before,
 .hw-fx-snow i:nth-of-type(1)::before,
-.hw-fx-thunder i:nth-of-type(1)::before { left: 13px; top: -13px; width: 31px; height: 31px; }
+.hw-fx-thunder i:nth-of-type(1)::before { left: 10px; top: -10px; width: 24px; height: 24px; }
 .hw-fx-cloudy i:nth-of-type(1)::after,
 .hw-fx-overcast i:nth-of-type(1)::after,
 .hw-fx-rain i:nth-of-type(1)::after,
 .hw-fx-snow i:nth-of-type(1)::after,
-.hw-fx-thunder i:nth-of-type(1)::after { left: 41px; top: -8px; width: 22px; height: 22px; }
-/* 第二朵更小更淡的云，反向漂移做出前后层次 */
+.hw-fx-thunder i:nth-of-type(1)::after { left: 30px; top: -6px; width: 17px; height: 17px; }
+/* 第二朵更小更淡的云，反向漂移做出前后层次。
+   它必须待在 y<20 的窄带里——再低就落到温度那一行上了 */
 .hw-fx-cloudy i:nth-of-type(2),
 .hw-fx-overcast i:nth-of-type(2) {
-  top: 46px; right: 84px; width: 44px; height: 14px; border-radius: 999px;
+  top: 3px; right: 72px; width: 36px; height: 12px; border-radius: 999px;
   background: rgba(255, 255, 255, 0.55);
   animation: hwDrift 23s ease-in-out infinite reverse;
 }
@@ -802,7 +807,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 /* ---- 雷雨：在雨丝之外再加一道偶发的闪电 ---- */
 .hw-fx-thunder i:nth-of-type(1) { background: rgba(206, 218, 234, 0.9); }
 .hw-fx-thunder i:nth-of-type(3) {
-  top: 36px; right: 44px; width: 15px; height: 30px;
+  /* 云底 12+19=31，闪电 28 起、高 20，收在 48px 内；再低就压到温度那一行了 */
+  top: 28px; right: 18px; width: 12px; height: 20px;
   background: #fff8c0;
   clip-path: polygon(58% 0, 10% 57%, 44% 57%, 28% 100%, 90% 41%, 52% 41%);
   filter: drop-shadow(0 0 7px rgba(255, 246, 180, 0.95));
@@ -959,6 +965,43 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   /* 气温区间完整显示，并入同一行随城市/温度一起居中；
      一行排不下时整块折到第二行（flex-wrap），不再用「隐藏」来规避溢出 */
   .hw-sub { margin: 0; font-size: 12px; line-height: 1.2; }
+  /* 装饰层在竖排下要整体缩一档并贴到右上角：这里天气区是一条通栏矮条
+     （实测 375px 视口下只有 58px 高，桌面是 141px），桌面那套按 141px 设计的
+     装饰会直接溢出被裁——第二朵云在 top:46px、闪电在 top:36px+30px 都超出 58px。
+     同时放不下的第二朵云直接隐藏，只保留一朵 */
+  .hw-fx-cloudy i:nth-of-type(2),
+  .hw-fx-overcast i:nth-of-type(2) { display: none; }
+
+  .hw-fx-sun i:nth-of-type(1) { top: 7px; right: 12px; width: 25px; height: 25px; }
+  .hw-fx-sun i:nth-of-type(1)::before { width: 60px; height: 60px; margin: -30px 0 0 -30px; }
+
+  .hw-fx-moon i:nth-of-type(1) { top: 7px; right: 14px; width: 23px; height: 23px; box-shadow: inset -7px -2px 0 0 #fff8dc; }
+  .hw-fx-moon i:nth-of-type(2) { top: 11px; right: 50px; box-shadow: 12px 16px 0 -0.5px rgba(255, 255, 255, 0.8), 24px 4px 0 -0.5px rgba(255, 255, 255, 0.55); }
+
+  .hw-fx-cloudy i:nth-of-type(1),
+  .hw-fx-overcast i:nth-of-type(1),
+  .hw-fx-rain i:nth-of-type(1),
+  .hw-fx-snow i:nth-of-type(1),
+  .hw-fx-thunder i:nth-of-type(1) { top: 7px; right: 10px; width: 58px; height: 19px; }
+  .hw-fx-cloudy i:nth-of-type(1)::before,
+  .hw-fx-overcast i:nth-of-type(1)::before,
+  .hw-fx-rain i:nth-of-type(1)::before,
+  .hw-fx-snow i:nth-of-type(1)::before,
+  .hw-fx-thunder i:nth-of-type(1)::before { left: 10px; top: -10px; width: 24px; height: 24px; }
+  .hw-fx-cloudy i:nth-of-type(1)::after,
+  .hw-fx-overcast i:nth-of-type(1)::after,
+  .hw-fx-rain i:nth-of-type(1)::after,
+  .hw-fx-snow i:nth-of-type(1)::after,
+  .hw-fx-thunder i:nth-of-type(1)::after { left: 31px; top: -6px; width: 17px; height: 17px; }
+
+  /* 闪电落在云的下缘之内：云底 7+19=26，闪电 24 起、高 22，收在 46px 内 */
+  .hw-fx-thunder i:nth-of-type(3) { top: 24px; right: 32px; width: 12px; height: 22px; }
+
+  /* 雾带压薄，三条按矮条高度重新分布 */
+  .hw-fx-fog i { height: 9px; filter: blur(3px); }
+  .hw-fx-fog i:nth-of-type(1) { top: 16%; }
+  .hw-fx-fog i:nth-of-type(2) { top: 45%; height: 11px; }
+  .hw-fx-fog i:nth-of-type(3) { top: 72%; }
 }
 
 /* 触摸屏上的天气编辑层：两行「输入框 + 关闭键」/「等宽双按钮」。
