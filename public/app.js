@@ -258,7 +258,14 @@ function heroWeatherHtml(d, editing) {
   if (Number.isFinite(t.min_temperature) && Number.isFinite(t.max_temperature)) bits.push(`${t.min_temperature}° ~ ${t.max_temperature}°`);
   if (a.aqi != null) bits.push(`${a.quality || ''} ${a.aqi}`);
   else if (w.humidity != null) bits.push(`湿度 ${w.humidity}%`);
-  return `<div class="hw-fx hw-fx-${hwFxKind(d)}" aria-hidden="true"><i></i><i></i><i></i></div>
+  // 槽位约定（六个层，样式见 style.css 的「天气装饰层」）：
+  //   i1 主体：太阳 / 月亮 / 云底
+  //   i2 副体：副云 / 星点 / 月晕
+  //   i3 降水与氛围：雨丝 / 雪点 / 雾带
+  //   i4 闪电
+  //   i5 天光泛白（闪电时整块天空透亮）
+  //   i6 备用
+  return `<div class="hw-fx hw-fx-${hwFxKind(d)}" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="hw-city">${esc(city)}<span class="hw-tip" aria-hidden="true">✎</span>${isDefault ? '<span class="hw-def">默认</span>' : ''}</div>
     <div class="hw-temp">${esc(String(w.temperature ?? '--'))}<span class="hw-unit">°C</span><span class="hw-cond">${esc(w.condition || '')}</span></div>
     ${bits.length ? `<div class="hw-sub">${esc(bits.join(' · '))}</div>` : ''}

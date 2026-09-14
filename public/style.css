@@ -665,161 +665,296 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 /* 编辑态隐藏：编辑层要盖住整块区域，背后有漂移的云会干扰输入 */
 .hero-weather.editing .hw-fx { opacity: 0; }
 
-/* ---- 晴（白天）：右上角太阳，本体呼吸 + conic 光芒慢转 + 多层外发光 ---- */
+/* ---- 晴（白天）：大太阳 + 双层光芒反向旋转 + 光晕呼吸 + 耀斑 ----
+   本体 92px、光芒扫到 ~230px，从右上角「溢出去」一半，
+   构图有张力，这块天空也才真的像晴天 */
 .hw-fx-sun i:nth-of-type(1) {
-  top: 14px; right: 24px; width: 34px; height: 34px; border-radius: 50%;
-  background: radial-gradient(circle at 38% 34%, #fffbe0 0 28%, #ffd95e 64%, #f9b91c 100%);
+  top: -20px; right: -10px; width: 92px; height: 92px; border-radius: 50%;
+  /* 内芯到外缘四段色：白热 → 暖黄 → 金 → 橙，边缘不发灰 */
+  background: radial-gradient(
+    circle at 40% 36%,
+    #fffef6 0 20%, #fff6cf 34%, #ffe083 56%, #fbbf24 78%, #f59e0b 100%
+  );
   box-shadow:
-    0 0 16px rgba(255, 219, 130, 0.9),
-    0 0 44px rgba(255, 198, 74, 0.55),
-    0 0 78px rgba(255, 190, 60, 0.25);
-  animation: hwSunBreath 5.5s ease-in-out infinite;
+    0 0 22px rgba(255, 236, 170, 0.95),
+    0 0 60px rgba(255, 208, 96, 0.6),
+    0 0 120px rgba(251, 191, 36, 0.32);
+  animation: hwSunBreath 6.5s ease-in-out infinite;
 }
-/* 光芒：conic 交替的细扇区，中心用 mask 挖空，只从太阳外缘射出 */
+/* 内层光芒：16 道细扇区，60s 一转；上下两处 mask 收边，只从太阳外缘射出 */
 .hw-fx-sun i:nth-of-type(1)::before {
   content: ''; position: absolute; left: 50%; top: 50%;
-  width: 104px; height: 104px; margin: -52px 0 0 -52px; border-radius: 50%;
-  background: conic-gradient(from 0deg, rgba(255, 240, 190, 0.6) 0 3deg, transparent 3deg 22.5deg);
-  -webkit-mask-image: radial-gradient(circle, transparent 0 30%, #000 44%);
-  mask-image: radial-gradient(circle, transparent 0 30%, #000 44%);
-  animation: hwSpin 40s linear infinite;
+  width: 190px; height: 190px; margin: -95px 0 0 -95px; border-radius: 50%;
+  background: conic-gradient(from 0deg, rgba(255, 244, 200, 0.72) 0 2.2deg, transparent 2.2deg 22.5deg);
+  -webkit-mask-image: radial-gradient(circle, transparent 0 34%, #000 43%, #000 62%, transparent 86%);
+  mask-image: radial-gradient(circle, transparent 0 34%, #000 43%, #000 62%, transparent 86%);
+  animation: hwSpin 60s linear infinite;
+}
+/* 外层光芒：8 道长扇区，反向 95s 慢转、更淡更长，两层错开转速才有「闪耀」感 */
+.hw-fx-sun i:nth-of-type(1)::after {
+  content: ''; position: absolute; left: 50%; top: 50%;
+  width: 232px; height: 232px; margin: -116px 0 0 -116px; border-radius: 50%;
+  background: conic-gradient(from 12deg, rgba(255, 250, 230, 0.5) 0 3.5deg, transparent 3.5deg 45deg);
+  -webkit-mask-image: radial-gradient(circle, transparent 0 40%, #000 50%, #000 66%, transparent 92%);
+  mask-image: radial-gradient(circle, transparent 0 40%, #000 50%, #000 66%, transparent 92%);
+  animation: hwSpin 95s linear infinite reverse;
+}
+/* 耀斑：几个错位的小光点缓慢明灭，模拟镜头光斑 */
+.hw-fx-sun i:nth-of-type(2) {
+  top: 46px; right: 42px; width: 6px; height: 6px; border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 40%, transparent 72%);
+  box-shadow:
+    -30px 34px 0 -1px rgba(255, 255, 255, 0.75),
+    18px 52px 0 -2px rgba(255, 250, 220, 0.6),
+    -52px 12px 0 -2px rgba(255, 255, 255, 0.5);
+  animation: hwTwinkle 5.2s ease-in-out infinite;
 }
 @keyframes hwSunBreath {
   0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.07); }
+  50%      { transform: scale(1.045); }
 }
 @keyframes hwSpin { to { transform: rotate(360deg); } }
 
-/* ---- 晴（夜间）：弯月 + 几点闪烁的星 ---- */
+/* ---- 晴（夜间）：大弯月 + 月晕 + 两簇错落闪烁的星 ---- */
 .hw-fx-moon i:nth-of-type(1) {
-  top: 14px; right: 22px; width: 32px; height: 32px; border-radius: 50%;
-  /* 用内阴影偏移挖出月牙：比叠两个圆省事，也不依赖天空底色 */
-  box-shadow: inset -9px -3px 0 0 #fff8dc;
-  filter: drop-shadow(0 0 9px rgba(255, 246, 205, 0.75));
-  transform: rotate(-30deg);
+  top: -16px; right: -6px; width: 84px; height: 84px; border-radius: 50%;
+  /* 内阴影偏移挖出月牙：比叠两个圆省事，也不依赖天空底色 */
+  box-shadow: inset -23px -8px 0 0 #fff9e2;
+  filter: drop-shadow(0 0 16px rgba(255, 248, 214, 0.8));
+  transform: rotate(-28deg);
 }
+/* 月晕：一圈极淡的大圆，让月亮「发光」而不是贴在天空上 */
+.hw-fx-moon i:nth-of-type(3) {
+  top: -56px; right: -44px; width: 164px; height: 164px; border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 250, 224, 0.32) 0 26%,
+    rgba(255, 250, 224, 0.11) 46%,
+    transparent 70%
+  );
+  animation: hwMoonHalo 8s ease-in-out infinite;
+}
+/* 星：两簇大小不一的点，错开闪烁周期，避免整片同步的机械感 */
 .hw-fx-moon i:nth-of-type(2) {
-  /* 星点必须待在 y<20 的窄带里：再低就压到城市名那一行了 */
-  top: 7px; right: 62px; width: 3px; height: 3px; border-radius: 50%;
+  top: 10px; right: 112px; width: 4px; height: 4px; border-radius: 50%;
   background: #fff;
   box-shadow:
-    10px 12px 0 -0.5px rgba(255, 255, 255, 0.8),
-    20px 3px 0 -0.5px rgba(255, 255, 255, 0.55);
-  animation: hwTwinkle 3.8s ease-in-out infinite;
+    24px 22px 0 -1px rgba(255, 255, 255, 0.85),
+    46px 6px 0 -1.5px rgba(255, 255, 255, 0.6),
+    12px 46px 0 -1.5px rgba(255, 255, 255, 0.5);
+  animation: hwTwinkle 4.6s ease-in-out infinite;
+}
+.hw-fx-moon i:nth-of-type(4) {
+  top: 56px; right: 58px; width: 2.5px; height: 2.5px; border-radius: 50%;
+  background: #fff;
+  box-shadow:
+    16px -36px 0 -0.5px rgba(255, 255, 255, 0.7),
+    -22px 8px 0 -0.5px rgba(255, 255, 255, 0.55);
+  animation: hwTwinkle 6.4s ease-in-out 1.4s infinite;
 }
 @keyframes hwTwinkle {
-  0%, 100% { opacity: 0.35; }
+  0%, 100% { opacity: 0.3; }
   50%      { opacity: 1; }
 }
+@keyframes hwMoonHalo {
+  0%, 100% { opacity: 0.75; transform: scale(1); }
+  50%      { opacity: 1; transform: scale(1.06); }
+}
 
-/* ---- 云体：多云 / 阴 / 雨 / 雪 / 雷共用（圆角横条 + 两团凸起） ----
-   天气区加宽到约占整卡 1/3（约 410px）后，右上角的可用空当从 ~60px 变成 ~120px，
-   装饰恢复初版尺寸：温度（50px 字号）那行右边缘约在 315px，云左边缘从 322px 起，
-   不重叠；y 方向仍要避开 50px 以下——那是温度所在的带 */
+/* ---- 云体：多云 / 阴 / 雨 / 雪 / 雷共用 ----
+   做法：a 本身只当定位容器（透明），云由「一个横向大椭圆 + 三团顶部隆起」叠出。
+   用 border-radius 实心圆而不是 radial-gradient——后者是硬边，
+   放大后边缘发死；实心圆配 drop-shadow 才有蓬松的轮廓。
+   整体 196px 宽、从右上方压过来，占据约半个天气区（这是刻意的，
+   大面积云层比角落一朵小云更能表达「多云」） */
 .hw-fx-cloudy i:nth-of-type(1),
 .hw-fx-overcast i:nth-of-type(1),
 .hw-fx-rain i:nth-of-type(1),
 .hw-fx-snow i:nth-of-type(1),
 .hw-fx-thunder i:nth-of-type(1) {
-  top: 14px; right: 12px; width: 76px; height: 24px; border-radius: 999px;
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 5px 18px rgba(110, 140, 180, 0.3);
-  animation: hwDrift 17s ease-in-out infinite;
+  top: -6px; right: -18px; width: 196px; height: 92px;
+  background: transparent;
+  /* 云压在水滴与雪花（z-index:1）之上：这样雨雪虽然铺满整块、
+     从卡片顶部开始落，视觉上却是「从云后面落下来」，不会穿过云体 */
+  z-index: 2;
+  animation: hwDrift 19s ease-in-out infinite;
 }
+/* 云身：横向大椭圆，上白下灰的竖向渐变给出体积感 */
 .hw-fx-cloudy i:nth-of-type(1)::before,
 .hw-fx-overcast i:nth-of-type(1)::before,
 .hw-fx-rain i:nth-of-type(1)::before,
 .hw-fx-snow i:nth-of-type(1)::before,
-.hw-fx-thunder i:nth-of-type(1)::before,
+.hw-fx-thunder i:nth-of-type(1)::before {
+  content: ''; position: absolute; left: 0; bottom: 0; width: 196px; height: 58px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff 0%, #f4f8fd 58%, #e2eaf4 100%);
+  box-shadow: 0 12px 26px rgba(96, 128, 170, 0.26);
+}
+/* 三团隆起：一圈实心圆 + 两个 box-shadow 偏移圆，做出蓬松的顶 */
 .hw-fx-cloudy i:nth-of-type(1)::after,
 .hw-fx-overcast i:nth-of-type(1)::after,
 .hw-fx-rain i:nth-of-type(1)::after,
 .hw-fx-snow i:nth-of-type(1)::after,
 .hw-fx-thunder i:nth-of-type(1)::after {
-  content: ''; position: absolute; border-radius: 50%; background: inherit;
+  content: ''; position: absolute; left: 24px; bottom: 32px;
+  width: 66px; height: 66px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 34%, #ffffff 0 52%, #f0f5fb 100%);
+  box-shadow:
+    62px 14px 0 -9px #fdfeff,
+    104px 26px 0 -17px #f4f8fc;
 }
-.hw-fx-cloudy i:nth-of-type(1)::before,
-.hw-fx-overcast i:nth-of-type(1)::before,
-.hw-fx-rain i:nth-of-type(1)::before,
-.hw-fx-snow i:nth-of-type(1)::before,
-.hw-fx-thunder i:nth-of-type(1)::before { left: 13px; top: -13px; width: 31px; height: 31px; }
-.hw-fx-cloudy i:nth-of-type(1)::after,
-.hw-fx-overcast i:nth-of-type(1)::after,
-.hw-fx-rain i:nth-of-type(1)::after,
-.hw-fx-snow i:nth-of-type(1)::after,
-.hw-fx-thunder i:nth-of-type(1)::after { left: 41px; top: -8px; width: 22px; height: 22px; }
-/* 第二朵更小更淡的云，反向漂移做出前后层次。
-   它必须待在 y<20 的窄带里——再低就落到温度那一行上了 */
+/* 第二朵更小更淡的云，位于左前方并反向漂移，撑出纵深 */
 .hw-fx-cloudy i:nth-of-type(2),
 .hw-fx-overcast i:nth-of-type(2) {
-  top: 3px; right: 72px; width: 36px; height: 12px; border-radius: 999px;
-  background: rgba(255, 255, 255, 0.55);
-  animation: hwDrift 23s ease-in-out infinite reverse;
+  top: 44px; right: 148px; width: 122px; height: 58px;
+  background: transparent; opacity: 0.74;
+  animation: hwDrift 27s ease-in-out infinite reverse;
 }
 .hw-fx-cloudy i:nth-of-type(2)::before,
 .hw-fx-overcast i:nth-of-type(2)::before {
-  content: ''; position: absolute; left: 9px; top: -8px;
-  width: 20px; height: 20px; border-radius: 50%; background: inherit;
+  content: ''; position: absolute; left: 0; bottom: 0; width: 122px; height: 36px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff 0%, #eaf1f9 100%);
 }
-/* 阴天：云更厚更灰，也没有太阳 */
-.hw-fx-overcast i:nth-of-type(1) { background: rgba(226, 234, 244, 0.78); }
-.hw-fx-overcast i:nth-of-type(2) { background: rgba(226, 234, 244, 0.5); }
+.hw-fx-cloudy i:nth-of-type(2)::after,
+.hw-fx-overcast i:nth-of-type(2)::after {
+  content: ''; position: absolute; left: 16px; bottom: 18px;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 34%, #ffffff 0 52%, #eef4fb 100%);
+  box-shadow: 40px 12px 0 -7px #f8fbfe;
+}
+/* 阴天：云整体转灰、去掉高光，没有太阳 */
+.hw-fx-overcast i:nth-of-type(1)::before { background: linear-gradient(180deg, #eef2f8 0%, #e0e7f0 58%, #ccd6e3 100%); }
+.hw-fx-overcast i:nth-of-type(1)::after {
+  background: radial-gradient(circle at 40% 34%, #f5f8fc 0 52%, #dee6f0 100%);
+  box-shadow: 62px 14px 0 -9px #eaf0f7, 104px 26px 0 -17px #dbe3ee;
+}
+.hw-fx-overcast i:nth-of-type(2) { opacity: 0.62; }
 @keyframes hwDrift {
   0%, 100% { transform: translateX(0); }
-  50%      { transform: translateX(-11px); }
+  50%      { transform: translateX(-13px); }
 }
 
-/* ---- 雨（雨 / 雷共用）：斜向雨丝持续向左下掠过 ---- */
-.hw-fx-rain i:nth-of-type(2),
-.hw-fx-thunder i:nth-of-type(2) {
-  inset: 0;
-  background-image: repeating-linear-gradient(112deg, rgba(255, 255, 255, 0.5) 0 1px, transparent 1px 10px);
-  opacity: 0.55;
-  animation: hwRainFall 0.9s linear infinite;
-}
-@keyframes hwRainFall {
-  from { background-position: 0 0; }
-  to   { background-position: -22px 30px; }
-}
-
-/* ---- 雪：云 + 两层错位的雪点缓慢飘落（横向微移做出「飘」的感觉） ---- */
-.hw-fx-snow i:nth-of-type(2) {
-  inset: 0;
-  background-image:
-    radial-gradient(circle, rgba(255, 255, 255, 0.95) 0 1.7px, transparent 1.8px),
-    radial-gradient(circle, rgba(255, 255, 255, 0.6) 0 1.2px, transparent 1.3px);
-  background-size: 44px 44px, 33px 33px;
-  background-position: 0 0, 15px 12px;
-  opacity: 0.85;
-  animation: hwSnowFall 9s linear infinite;
-}
-@keyframes hwSnowFall {
-  to { background-position: 7px 44px, -11px 45px; }
-}
-
-/* ---- 雾 / 霾 / 沙尘：三条模糊横向雾带缓慢交错平移 ---- */
-.hw-fx-fog i {
-  left: -12%; right: -12%; height: 16px; border-radius: 999px;
-  background: rgba(255, 255, 255, 0.32);
-  filter: blur(5px);
-}
-.hw-fx-fog i:nth-of-type(1) { top: 20%; animation: hwFogShift 13s ease-in-out infinite; }
-.hw-fx-fog i:nth-of-type(2) { top: 48%; height: 21px; background: rgba(255, 255, 255, 0.26); animation: hwFogShift 17s ease-in-out infinite reverse; }
-.hw-fx-fog i:nth-of-type(3) { top: 74%; animation: hwFogShift 15s ease-in-out 1.2s infinite; }
-@keyframes hwFogShift {
-  0%, 100% { transform: translateX(-9px); }
-  50%      { transform: translateX(9px); }
-}
-
-/* ---- 雷雨：在雨丝之外再加一道偶发的闪电 ---- */
-.hw-fx-thunder i:nth-of-type(1) { background: rgba(206, 218, 234, 0.9); }
+/* ---- 雨（雨 / 雷共用）：悬浮的水滴缓慢下落 ----
+   不再用条纹画「线」——那更像斜纹布，也不该从半空起步。
+   改成两层被拉长的椭圆「水滴」，铺满整块、从卡片顶部开始缓缓下沉，
+   位移严格等于 tile 高度以保证无缝循环（纯垂直，水平位移会让 tile 跳）。
+   水滴层 z-index 低于云，于是视觉上是「从云后面落下来」，
+   既铺满整块又不会穿过云体 */
+.hw-fx-rain i:nth-of-type(3),
 .hw-fx-thunder i:nth-of-type(3) {
-  /* 云底 12+19=31，闪电 28 起、高 20，收在 48px 内；再低就压到温度那一行了 */
-  top: 28px; right: 18px; width: 12px; height: 20px;
-  background: #fff8c0;
-  clip-path: polygon(58% 0, 10% 57%, 44% 57%, 28% 100%, 90% 41%, 52% 41%);
-  filter: drop-shadow(0 0 7px rgba(255, 246, 180, 0.95));
+  inset: 0; z-index: 1;
+  background-image: radial-gradient(
+    ellipse 1.7px 5.5px at 50% 50%,
+    rgba(255, 255, 255, 0.85) 0 55%,
+    transparent 100%
+  );
+  background-size: 74px 96px;
+  animation: hwRainDrop 4.2s linear infinite;
+}
+.hw-fx-rain i:nth-of-type(6),
+.hw-fx-thunder i:nth-of-type(6) {
+  inset: 0; z-index: 1;
+  background-image: radial-gradient(
+    ellipse 1.1px 3.4px at 50% 50%,
+    rgba(255, 255, 255, 0.5) 0 55%,
+    transparent 100%
+  );
+  background-size: 51px 68px;
+  background-position: 27px 19px;
+  animation: hwRainDrop2 6.4s linear infinite;
+}
+@keyframes hwRainDrop {
+  from { background-position: 0 0; }
+  to   { background-position: 0 96px; }
+}
+@keyframes hwRainDrop2 {
+  from { background-position: 27px 19px; }
+  to   { background-position: 27px 87px; }
+}
+
+/* ---- 雪：六角雪花缓缓落下 ----
+   原来只是圆点阵，像撒了盐。这里换成内联 SVG 画出的六角雪花
+   （三根过中心的主枝 + 端部小分叉），两层不同大小与速度给出远近层次。
+   位移严格等于 tile 高度，保证无缝循环；同样铺满整块、从顶部开始落 */
+.hw-fx-snow i:nth-of-type(3),
+.hw-fx-snow i:nth-of-type(6) {
+  inset: 0; z-index: 1;
+  background-repeat: repeat;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='-18%20-18%2060%2060'%20fill='none'%20stroke='%23ffffff'%20stroke-width='1.8'%20stroke-linecap='round'%3E%3Cpath%20d='M12%202.2v19.6M3.5%207.1l17%209.8M20.5%207.1l-17%209.8'/%3E%3Cpath%20d='M12%206.1L9.5%203.6M12%206.1l2.5-2.5M12%2017.9l-2.5%202.5M12%2017.9l2.5%202.5'/%3E%3Cpath%20d='M7.3%209.6L3.9%209.1M7.3%209.6l-.3-3.4M16.7%2014.4l3.4.5M16.7%2014.4l.3%203.4'/%3E%3Cpath%20d='M16.7%209.6l3.4-.5M16.7%209.6l.3-3.4M7.3%2014.4l-3.4.5M7.3%2014.4l-.3%203.4'/%3E%3C/svg%3E");
+}
+/* tile 尺寸同时决定「雪花大小」和「间距」，所以不能只放大 tile——
+   那会让雪花跟着变大。这里配合上面的 viewBox 扩边（图形只占画布 40%），
+   放大 tile 只增加间距，雪花本身反而更小更精致。
+   横向 tile 刻意大于纵向：天气区是宽扁的，纵向留 2 行就够，
+   横向拉稀才不会挤成一片（非等比 tile 下 SVG 按 preserveAspectRatio
+   取短边等比缩放并居中，雪花不会被压扁） */
+.hw-fx-snow i:nth-of-type(3) {
+  background-size: 140px 80px;
+  opacity: 0.9;
+  animation: hwSnowDrift 15s linear infinite;
+}
+.hw-fx-snow i:nth-of-type(6) {
+  background-size: 92px 54px;
+  background-position: 23px 15px;
+  opacity: 0.62;
+  animation: hwSnowDrift2 21s linear infinite;
+}
+@keyframes hwSnowDrift {
+  from { background-position: 0 0; }
+  to   { background-position: 0 80px; }
+}
+@keyframes hwSnowDrift2 {
+  from { background-position: 23px 15px; }
+  to   { background-position: 23px 69px; }
+}
+
+/* ---- 雾 / 霾 / 沙尘：四条厚薄不一的雾带缓慢交错平移 ----
+   必须用 :nth-of-type(-n+4) 明确限定四条——通配 i 会把六个槽位都画成雾带 */
+.hw-fx-fog i:nth-of-type(-n+4) {
+  left: -14%; right: -14%; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.3);
+  filter: blur(8px);
+}
+.hw-fx-fog i:nth-of-type(1) { top: 10%; height: 26px; animation: hwFogShift 15s ease-in-out infinite; }
+.hw-fx-fog i:nth-of-type(2) { top: 36%; height: 34px; background: rgba(255, 255, 255, 0.24); animation: hwFogShift 21s ease-in-out infinite reverse; }
+.hw-fx-fog i:nth-of-type(3) { top: 60%; height: 30px; animation: hwFogShift 17s ease-in-out 1.4s infinite; }
+.hw-fx-fog i:nth-of-type(4) { top: 82%; height: 20px; background: rgba(255, 255, 255, 0.2); animation: hwFogShift 25s ease-in-out infinite reverse; }
+@keyframes hwFogShift {
+  0%, 100% { transform: translateX(-14px); }
+  50%      { transform: translateX(14px); }
+}
+
+/* ---- 雷雨：乌云 + 雨丝 + 大闪电 + 天光泛白 ----
+   「打闪」最有说服力的一笔其实不是那条折线，而是天空瞬间透亮 */
+.hw-fx-thunder i:nth-of-type(1)::before {
+  background: linear-gradient(180deg, #d3deed 0%, #bfccde 58%, #a9b8cc 100%);
+}
+.hw-fx-thunder i:nth-of-type(1)::after {
+  background: radial-gradient(circle at 40% 34%, #e6edf6 0 52%, #c3cede 100%);
+  box-shadow: 62px 14px 0 -9px #d8e1ec, 104px 26px 0 -17px #c4cfdf;
+}
+.hw-fx-thunder i:nth-of-type(4) {
+  /* 云底约 52px，闪电 34 起、高 52，向下伸出云外 */
+  top: 34px; right: 34px; width: 26px; height: 52px;
+  background: linear-gradient(180deg, #fffdea 0%, #ffe970 58%, #ffcb1f 100%);
+  clip-path: polygon(58% 0, 8% 54%, 42% 54%, 26% 100%, 94% 40%, 54% 40%);
+  filter:
+    drop-shadow(0 0 9px rgba(255, 248, 190, 0.95))
+    drop-shadow(0 0 26px rgba(255, 226, 120, 0.55));
   animation: hwFlash 7s steps(1, end) infinite;
+}
+/* 天光泛白：闪电瞬间从右上角铺开一层白光，screen 混合只提亮、不遮挡文字 */
+.hw-fx-thunder i:nth-of-type(5) {
+  inset: 0;
+  background: radial-gradient(
+    circle at 74% 18%,
+    rgba(255, 255, 255, 0.85) 0 12%,
+    rgba(255, 255, 255, 0.22) 42%,
+    transparent 72%
+  );
+  opacity: 0; mix-blend-mode: screen;
+  animation: hwSkyFlash 7s steps(1, end) infinite;
 }
 @keyframes hwFlash {
   0%, 86%, 100% { opacity: 0; }
@@ -828,14 +963,33 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   90%           { opacity: 0.85; }
   93%           { opacity: 0; }
 }
+@keyframes hwSkyFlash {
+  0%, 86%, 100% { opacity: 0; }
+  87%           { opacity: 0.8; }
+  88%           { opacity: 0.12; }
+  90%           { opacity: 0.6; }
+  93%           { opacity: 0; }
+}
 
 /* 减弱动态偏好：装饰保留（它承载天气信息）但全部静止 */
 @media (prefers-reduced-motion: reduce) {
   .hw-fx i, .hw-fx i::before { animation: none !important; }
 }
+/* 天气区文字阴影：底色是 JS 按天气写入的天空渐变（浅蓝晴空 / 深蓝夜空 / 灰白阴天），
+   上面还飘着云、雨、雪、雾等装饰层，白字很容易被吃掉。
+   原先一律只有一层大模糊（0.2 不透明度、6~12px）：它只能把背景整体压暗一点，
+   笔画与背景的边界依旧发虚，细笔画的 hw-sub / hw-unit 更是完全没有阴影。
+   改用「近距离小模糊 + 远距离大模糊」双层——前者贴着笔画勾出轮廓、提升边缘分离度，
+   后者负责在明亮天空上压出整体对比。
+   不设在 .hero-weather 上靠继承，是因为编辑层与这些文字类是兄弟节点，
+   设在容器上会被它一并继承，而编辑层自带深色玻璃底、不需要阴影 */
+.hw-city,
+.hw-unit,
+.hw-cond {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.24);
+}
 .hw-city {
   font-size: 15px; font-weight: 600; letter-spacing: 0.6px;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.22);
 }
 /* 「默认」角标：定位失败、兜底城市时提示用户这不是他所在的城市 */
 .hw-def {
@@ -920,7 +1074,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   margin: 3px 0 2px;
   font-size: 50px; font-weight: 800; line-height: 1.1;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  /* 50px 大字笔画粗壮，阴影要同步放大一档：近距离那层 4px 才裹得住笔画，
+     远距离那层拉到 20px，才能在整块天空上压出对比 */
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.34), 0 4px 20px rgba(0, 0, 0, 0.26);
 }
 .hw-unit { font-size: 17px; font-weight: 600; margin-left: 2px; vertical-align: super; opacity: 0.9; }
 .hw-cond {
@@ -929,12 +1085,15 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   /* 汉字的字面高度远低于数字：纯基线对齐虽「数学上齐」，
      但视觉重心明显偏低，按自身字号上提 0.3em 做视觉校正（移动端会自动等比缩放） */
   vertical-align: 0.3em;
-  opacity: 0.94; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+  opacity: 0.94;
 }
 .hw-sub {
   margin-top: 6px; font-size: 13px;
   opacity: 0.85; font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  /* 13px 小字笔画最细，又叠了 .85 的透明度（opacity 会连阴影一起衰减），
+     是整块里最先糊掉的一行，所以给最强的一档：近距离那层提到 0.5 */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 2px 9px rgba(0, 0, 0, 0.3);
 }
 /* Hero 竖排断点与「移动端布局」完全对齐（820px / 触摸设备）。
    原先卡在 560px：640~820px 这段已是移动模式（顶栏两行、无侧栏），
@@ -974,43 +1133,52 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   /* 气温区间完整显示，并入同一行随城市/温度一起居中；
      一行排不下时整块折到第二行（flex-wrap），不再用「隐藏」来规避溢出 */
   .hw-sub { margin: 0; font-size: 12px; line-height: 1.2; }
-  /* 装饰层在竖排下要整体缩一档并贴到右上角：这里天气区是一条通栏矮条
-     （实测 375px 视口下只有 58px 高，桌面是 141px），桌面那套按 141px 设计的
-     装饰会直接溢出被裁——第二朵云在 top:46px、闪电在 top:36px+30px 都超出 58px。
-     同时放不下的第二朵云直接隐藏，只保留一朵 */
+  /* 装饰层在竖排下要整体缩一档并贴到右上角：这里的天气区是一条通栏矮条
+     （实测 375px 视口下只有 58px 高，桌面约 141px），桌面那套「大面积云层 +
+     92px 大太阳」根本放不下，会直接溢出被裁。
+     处理三件事：缩尺寸、隐藏放不下的层（副云 / 耀斑 / 第二簇星）、云改成紧凑形态 */
   .hw-fx-cloudy i:nth-of-type(2),
-  .hw-fx-overcast i:nth-of-type(2) { display: none; }
+  .hw-fx-overcast i:nth-of-type(2),
+  .hw-fx-sun i:nth-of-type(2),
+  .hw-fx-moon i:nth-of-type(4) { display: none; }
 
-  .hw-fx-sun i:nth-of-type(1) { top: 7px; right: 12px; width: 25px; height: 25px; }
-  .hw-fx-sun i:nth-of-type(1)::before { width: 60px; height: 60px; margin: -30px 0 0 -30px; }
+  .hw-fx-sun i:nth-of-type(1) { top: -7px; right: 2px; width: 46px; height: 46px; }
+  .hw-fx-sun i:nth-of-type(1)::before { width: 86px; height: 86px; margin: -43px 0 0 -43px; }
+  .hw-fx-sun i:nth-of-type(1)::after { width: 108px; height: 108px; margin: -54px 0 0 -54px; }
 
-  .hw-fx-moon i:nth-of-type(1) { top: 7px; right: 14px; width: 23px; height: 23px; box-shadow: inset -7px -2px 0 0 #fff8dc; }
-  .hw-fx-moon i:nth-of-type(2) { top: 11px; right: 50px; box-shadow: 12px 16px 0 -0.5px rgba(255, 255, 255, 0.8), 24px 4px 0 -0.5px rgba(255, 255, 255, 0.55); }
+  .hw-fx-moon i:nth-of-type(1) { top: -6px; right: 4px; width: 44px; height: 44px; box-shadow: inset -13px -4px 0 0 #fff9e2; }
+  .hw-fx-moon i:nth-of-type(3) { top: -24px; right: -16px; width: 84px; height: 84px; }
+  .hw-fx-moon i:nth-of-type(2) { top: 5px; right: 64px; box-shadow: 10px 14px 0 -1px rgba(255, 255, 255, 0.8), 22px 3px 0 -1px rgba(255, 255, 255, 0.55); }
 
+  /* 云：容器缩到 96x46，云身与三团隆起同步缩小，紧贴右上角 */
   .hw-fx-cloudy i:nth-of-type(1),
   .hw-fx-overcast i:nth-of-type(1),
   .hw-fx-rain i:nth-of-type(1),
   .hw-fx-snow i:nth-of-type(1),
-  .hw-fx-thunder i:nth-of-type(1) { top: 7px; right: 10px; width: 58px; height: 19px; }
+  .hw-fx-thunder i:nth-of-type(1) { top: -3px; right: -8px; width: 96px; height: 46px; }
   .hw-fx-cloudy i:nth-of-type(1)::before,
   .hw-fx-overcast i:nth-of-type(1)::before,
   .hw-fx-rain i:nth-of-type(1)::before,
   .hw-fx-snow i:nth-of-type(1)::before,
-  .hw-fx-thunder i:nth-of-type(1)::before { left: 10px; top: -10px; width: 24px; height: 24px; }
+  .hw-fx-thunder i:nth-of-type(1)::before { width: 96px; height: 28px; box-shadow: 0 6px 14px rgba(96, 128, 170, 0.24); }
   .hw-fx-cloudy i:nth-of-type(1)::after,
   .hw-fx-overcast i:nth-of-type(1)::after,
   .hw-fx-rain i:nth-of-type(1)::after,
   .hw-fx-snow i:nth-of-type(1)::after,
-  .hw-fx-thunder i:nth-of-type(1)::after { left: 31px; top: -6px; width: 17px; height: 17px; }
+  .hw-fx-thunder i:nth-of-type(1)::after {
+    left: 11px; bottom: 16px; width: 32px; height: 32px;
+    box-shadow: 30px 7px 0 -5px #fdfeff, 52px 13px 0 -9px #f4f8fc;
+  }
 
-  /* 闪电落在云的下缘之内：云底 7+19=26，闪电 24 起、高 22，收在 46px 内 */
-  .hw-fx-thunder i:nth-of-type(3) { top: 24px; right: 32px; width: 12px; height: 22px; }
+  /* 闪电：云底约 25px，闪电 24 起、高 24，收在 48px 内 */
+  .hw-fx-thunder i:nth-of-type(4) { top: 24px; right: 26px; width: 14px; height: 24px; }
 
-  /* 雾带压薄，三条按矮条高度重新分布 */
-  .hw-fx-fog i { height: 9px; filter: blur(3px); }
-  .hw-fx-fog i:nth-of-type(1) { top: 16%; }
-  .hw-fx-fog i:nth-of-type(2) { top: 45%; height: 11px; }
-  .hw-fx-fog i:nth-of-type(3) { top: 72%; }
+  /* 雾带压薄，四条按矮条高度重新分布 */
+  .hw-fx-fog i:nth-of-type(-n+4) { height: 9px; filter: blur(4px); }
+  .hw-fx-fog i:nth-of-type(1) { top: 8%; }
+  .hw-fx-fog i:nth-of-type(2) { top: 34%; height: 12px; }
+  .hw-fx-fog i:nth-of-type(3) { top: 58%; }
+  .hw-fx-fog i:nth-of-type(4) { top: 80%; height: 8px; }
 }
 
 /* 触摸屏上的天气编辑层：两行「输入框 + 关闭键」/「等宽双按钮」。

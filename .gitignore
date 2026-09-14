@@ -18,3 +18,6 @@ sk.json/
 # 本地调试截图（仅供预览核对，不入库）
 preview-*.png
 pv-*.png
+
+# 本地天气装饰预览页（临时；放在 public 下会被一起部署，用完即删）
+public/_preview.html
