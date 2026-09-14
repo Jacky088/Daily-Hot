@@ -597,12 +597,35 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   /* 可收缩（上限 312、下限 240）而不是死宽：中等宽度先把天气区让出来，
      保住左侧 300px 以上的可读宽度；宽屏时仍是满额 312px，观感不变 */
   flex: 0 1 312px; min-width: 240px;
-  /* 左缘渐变淡出：天空色与左侧玻璃区之间不再是一条硬边 */
-  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 56px);
-  mask-image: linear-gradient(90deg, transparent 0, #000 56px);
-  /* 左内边距补回渐变吃掉的 56px：文字在实际可见区域内居中，
-     否则视觉中心会比几何中心偏右，两侧留白看起来不一致 */
-  padding: 14px 18px 14px 74px;
+  /* 左缘渐隐：天空色过渡到左侧玻璃区，避免一条硬边。
+     原先是 56px 的纯线性 alpha 渐变，观感偏「硬」：一是距离太短，
+     过渡带只占这块宽度的 18%、看得出是「一条带子」；二是线性渐变两端
+     斜率突变（0 与 56px 处一阶不连续），再与天空色自身的 160deg 渐变交叉，
+     容易显出几道竖向色带。
+     这里改用 s 形采样并把距离拉长到 104px：两端斜率趋近水平、中间快，
+     过渡被摊得更开更匀。104px 处已完全实色，而文字左边界约在 88px，
+     该处 alpha ≈0.93，视觉上几乎无衰减 */
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    rgba(0, 0, 0, 0.1) 20px,
+    rgba(0, 0, 0, 0.32) 42px,
+    rgba(0, 0, 0, 0.62) 66px,
+    rgba(0, 0, 0, 0.88) 86px,
+    #000 104px
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    rgba(0, 0, 0, 0.1) 20px,
+    rgba(0, 0, 0, 0.32) 42px,
+    rgba(0, 0, 0, 0.62) 66px,
+    rgba(0, 0, 0, 0.88) 86px,
+    #000 104px
+  );
+  /* 左内边距随渐变加长同步上移（74 → 88）：让文字仍落在近乎不透明区，
+     同时把「可见区」的视觉中心维持在原来的位置附近，不至于明显偏右 */
+  padding: 14px 18px 14px 88px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   text-align: center;
   color: #fff;
