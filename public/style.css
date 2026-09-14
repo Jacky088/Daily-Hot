@@ -331,18 +331,28 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 
 /* ============ Category Nav（顶栏分类导航） ============ */
+/* 通栏所需的溢出收敛：导航用 100vw 撑出 .layout 的限宽与内边距，
+   而 100vw 把垂直滚动条宽度也算在内，会多出十几像素。
+   用 overflow-x: clip 收掉——clip 不像 hidden/auto 那样创建滚动容器，
+   因此 .cat-nav / .topbar 的 sticky 吸顶完全不受影响 */
+html { overflow-x: clip; }
 .cat-nav {
   display: flex; flex-direction: column; gap: 0;
-  /* 通栏铺满：左右内边距取 24px 与 .main 对齐，pill 与下方卡片左边缘齐平；
-     背景铺满整宽——内容向上滚到它下沿就被完整遮住，不会从两侧「漏」出来。
-     原先是左右各 24px 外边距的圆角卡片，内容会从两侧与顶部的缝隙里穿过去，
-     一直露到窗口顶端才消失（桌面与移动端行为不一致），这里统一为移动端的做法 */
-  width: auto; align-self: stretch; padding: 10px 36px;
-  /* 纵向 margin 归零 → 紧贴顶栏，中间不再留 12px 缝隙；
-     横向取负值抵消 .layout 的左右 12px 内边距——否则导航背景只铺到 layout
-     内容区边界，两侧那 12px 里内容仍会露出来，通栏就名存实亡。
-     左右内边距相应补回 12+24=36px，pill 与下方卡片依然严格左对齐 */
-  margin: 0 -12px;
+  /* 真正铺满窗口：.layout 有 max-width:1600px + 左右 12px 内边距，
+     只靠负边距只能铺到 layout 内容区，宽屏下两侧仍会留白。
+     这里用 100vw 配合「50% - 50vw」的对称负边距把导航撑出容器边界，
+     无论窗口多宽都贴到两侧；内边距 36px = layout 的 12 + main 的 24，
+     pill 与下方卡片保持严格左对齐 */
+  width: 100vw; align-self: center; padding: 0 36px;
+  margin-inline: calc(50% - 50vw);
+  /* 高度与顶栏严格一致：--topbar-h 是 JS 实测的顶栏高度（含底边框），
+     内容在其中垂直居中，两块玻璃的上下边线因此完全对齐。
+     用 min-height 而非 height——桌面手风琴子菜单展开时导航要能自然变高 */
+  min-height: var(--topbar-h, 61px);
+  /* safe center：折叠态内容比顶栏矮，居中后上下边线自然对齐；
+     展开子菜单内容超高时，「safe」让它退化成 flex-start，
+     否则居中会把顶部内容顶到滚动区之外、怎么滚都看不到 */
+  justify-content: safe center;
   background: var(--glass-bg);
   backdrop-filter: blur(28px) saturate(180%); -webkit-backdrop-filter: blur(28px) saturate(180%);
   /* 去掉卡片边框与圆角，改为与顶栏同款的底边线：两块玻璃上下相接、连成一片 */
@@ -355,7 +365,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   /* sticky 紧贴顶栏下沿（原为 +12px）：内容滚到导航下边即被遮住。
      不用 fixed：fixed 脱离文档流需占位、滚到页脚必然重叠、还会引入层叠与命中检测问题 */
   position: sticky; top: var(--topbar-h, 64px);
-  /* 上下 margin 已归零，可占高度即视口减去顶栏 */
+  /* 展开子菜单时可占高度上限：视口减去顶栏 */
   max-height: calc(100vh - var(--topbar-h, 64px));
   overflow-y: auto; scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
@@ -2057,6 +2067,10 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
     flex-direction: column; gap: 0; width: 100%;
     /* 移动端吸顶栏与桌面同为 Liquid Glass：玻璃底 + 强饱和/提亮折射 */
     margin: 0; padding: 0;
+    /* 复位桌面那两条为「与顶栏等高 / 100vw 通栏」写的规则：
+       移动端顶栏是两行（明显更高），导航高度该由 pill 行自己决定；
+       宽度也已由 .layout 的零内边距保证铺满，不需要 100vw 那套（反而含滚动条宽） */
+    min-height: 0; margin-inline: 0;
     border: none; border-radius: 0; border-bottom: 1px solid var(--glass-border);
     /* 吸顶：紧贴顶栏下方，下滑时分类栏始终可见可切换；
        top 由 JS 按顶栏实际高度设置 --topbar-h，回退值 96px 适配两行 header */
