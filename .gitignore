@@ -14,3 +14,7 @@ sk.json/
 
 # build / deploy logs
 *.log
+
+# 本地调试截图（仅供预览核对，不入库）
+preview-*.png
+pv-*.png

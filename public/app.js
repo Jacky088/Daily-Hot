@@ -109,12 +109,16 @@ const CARD_LOGOS = {
   nodeseek: 'nodeseek.png',
   let: 'let.png',
   aljazeera: 'aljazeera.ico',
-  bbcnews: 'bbc.ico',
+  bbcnews: 'bbcnews.svg',
   quark: 'quark.ico',
   'simkl-tv': 'netflix.svg',
   'simkl-movies': 'netflix.svg',
   fanyi: 'youdao.png',
   gtranslate: 'googletranslate.svg',
+  kuan: 'coolapk.svg',
+  '36kr': '36kr.svg',
+  sspai: 'sspai.svg',
+  gold: 'gold.svg',
 };
 
 // 卡片标题首图：命中映射用品牌 Logo，否则沿用 emoji；
