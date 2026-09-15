@@ -2,7 +2,7 @@
 
 > 一站看完天下事 · 基于 [60s API](https://github.com/vikiboss/60s) 构建的一站式热榜聚合面板
 
-[![Version](https://img.shields.io/badge/version-1.11.0-blue) ](./package.json)
+[![Version](https://img.shields.io/badge/version-1.12.0-blue) ](./package.json)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white) ](https://workers.cloudflare.com/)
 [![EdgeOne Pages](https://img.shields.io/badge/EdgeOne%20Pages-0052FF?style=flat) ](https://edgeone.ai/pages)
 [![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white) ](https://docker.com/)
@@ -36,7 +36,7 @@
 - **⏱️ 实时时钟** — 顶栏秒级时钟，橙色进度随一天推移铺满整条胶囊，进度区间内有流动的玻璃泡泡
 - **🌤️ 本地天气** — 页首 Hero 卡右侧按访客 IP 自动定位城市、展示今日天气，点一下即可重新定位或手动改城市；天空底色随天气与昼夜实时切换，晴出太阳、夜出月亮与星点、雨天落雨丝、雪天飘六角雪花、雷阵雨伴闪电、雾霾起雾带
 - **🖼️ 必应壁纸背景** — 页面背景每日自动获取必应壁纸，桌面/移动端按屏幕方向自适应清晰度，当日缓存不重复请求；默认关闭，顶栏一键开启
-- **📥 壁纸一键下载** — 必应壁纸卡片内置 1080P / 4K 双尺寸下载按钮
+- **📥 壁纸一键下载与往期浏览** — 必应壁纸卡片内置 1080P / 4K 双尺寸下载；点击卡片图片进入独立幻灯片页，可浏览今日及往期最多 7 张壁纸，支持触摸滑动 / 鼠标拖拽 / 键盘方向键切换，竖屏自动改用竖版构图
 - **📱 移动端适配** — 触屏友好控件，响应式布局，顶栏始终两行不溢出
 - **🔄 单卡刷新** — 每张卡片右上角可独立刷新，顶栏按钮一键刷新当前分类全部卡片
 - **🔗 链接可跳转** — 可点击跳转到来源页面，
@@ -209,6 +209,7 @@ curl "https://your-domain/endpoints"
 .
 ├── public/
 │   ├── index.html          # 前端面板（单文件 HTML）
+│   ├── wallpaper.html      # 壁纸幻灯片页（今日及往期）
 │   ├── app.js              # 前端逻辑（EPS 注册 + 渲染器）
 │   ├── style.css           # 样式
 │   ├── manifest.json       # PWA 配置

@@ -1777,8 +1777,11 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
   opacity: 0; transition: opacity var(--dur-fast) var(--ease);
 }
-/* 只在真有悬停能力的设备上淡入；触屏直接点图也能跳转，按下时亮一下作反馈 */
-@media (hover: hover) { .bing-open:hover .bing-open-hint { opacity: 1; } }
+/* 悬停在「整张卡片」上就淡入，而不是只悬停在图片上——提示要传达的是
+   「这张图能点」，而鼠标多半落在卡片任意处。只有壁纸卡带 .bing-open-hint，
+   所以 .card:hover 不会波及别的卡片。
+   触屏没有悬停语义，按下时亮一下作反馈 */
+@media (hover: hover) { .card:hover .bing-open-hint { opacity: 1; } }
 .bing-open:active .bing-open-hint { opacity: 1; }
 
 /* 双尺寸下载按钮：原先两个都是「白底 + 灰边框」的等权外观，在玻璃卡里太素、

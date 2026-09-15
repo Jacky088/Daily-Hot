@@ -3931,8 +3931,9 @@ function rBing(d, c) {
     // 保证「看大图」与「下载 4K」两条路径都能拿到最大尺寸
     const cover4k = d.cover_4k || d.cover.replace('_1920x1080.jpg', '_UHD.jpg');
     // 图片包成新标签链接（而不是挂 click 处理器）：中键/右键「在新标签打开」
-    // 也能用，且 target="_blank" 天然不受弹窗拦截影响
-    h += `<a class="img-wrap ratio-banner bing-open" href="${esc(cover4k)}" target="_blank" rel="noopener noreferrer" title="在新标签页打开 4K 原图"><img src="${esc(d.cover)}" alt="bing" loading="lazy" decoding="async"><span class="bing-open-hint">查看 4K 原图</span></a>`;
+    // 也能用，且 target="_blank" 天然不受弹窗拦截影响。
+    // 目标是独立的幻灯片页（今日 + 往期，可切换），而不是直接甩一张大图
+    h += `<a class="img-wrap ratio-banner bing-open" href="/wallpaper.html" target="_blank" rel="noopener noreferrer" title="点击可查看今日及往期壁纸"><img src="${esc(d.cover)}" alt="bing" loading="lazy" decoding="async"><span class="bing-open-hint">点击可查看今日及往期壁纸</span></a>`;
     h += `<div class="bing-dl">
       <button class="bing-dl-btn" data-url="${esc(d.cover)}">⬇ 1080P 高清</button>
       <button class="bing-dl-btn primary" data-url="${esc(cover4k)}">⬇ 4K 原图</button>

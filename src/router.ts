@@ -103,6 +103,8 @@ appRouter.get('/answer', serviceAnswer.handle())
 appRouter.get('/baike', serviceBaike.handle())
 appRouter.get('/bili', serviceBili.handle())
 appRouter.get('/bing', serviceBing.handle())
+// 往日壁纸列表（含今日）：供 /wallpaper.html 幻灯片页使用
+appRouter.get('/bing/history', serviceBing.handleHistory())
 appRouter.get('/changya', serviceChangYa.handle())
 appRouter.get('/douyin', serviceDouyin.handle())
 appRouter.get('/duanzi', serviceDuanzi.handle())
