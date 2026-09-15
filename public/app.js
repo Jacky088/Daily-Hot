@@ -118,8 +118,55 @@ const CARD_LOGOS = {
   kuan: 'coolapk.png',
   '36kr': '36kr.png',
   sspai: 'sspai.png',
+  bing: 'bing.svg',
   gold: 'gold.svg',
 };
+
+// ============ 顶栏搜索 ============
+// 默认必应，右侧两个图标切换；选择写进 localStorage 记住。
+// 走各家网页版结果页、新标签打开，不离开当前面板
+const SEARCH_ENGINES = {
+  bing: { name: '必应', url: 'https://www.bing.com/search?q=' },
+  google: { name: '谷歌', url: 'https://www.google.com/search?q=' },
+};
+
+function initSiteSearch() {
+  const form = document.getElementById('siteSearch');
+  const input = document.getElementById('ssInput');
+  if (!form || !input) return;
+  const btns = [...form.querySelectorAll('.ss-engine')];
+
+  let engine = 'bing';
+  try {
+    const saved = localStorage.getItem('search-engine');
+    if (saved && SEARCH_ENGINES[saved]) engine = saved;
+  } catch {}
+  // 用 aria-pressed 表达选中态而不是 class：样式（.ss-engine[aria-pressed="true"]）
+  // 与无障碍语义共用同一个开关，不必两处同步。
+  // 提示语跟着当前引擎走（「使用必应/谷歌搜索一下」），所以放在这里一起刷新——
+  // paint 是选中态的唯一写入口，切换与初始化都经过它，不会漏掉某一处
+  const paint = () => {
+    btns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.engine === engine)));
+    input.placeholder = '使用' + SEARCH_ENGINES[engine].name + '搜索一下';
+  };
+  paint();
+
+  btns.forEach(b => {
+    b.onclick = () => {
+      engine = b.dataset.engine;
+      try { localStorage.setItem('search-engine', engine); } catch {}
+      paint();
+      input.focus();   // 切引擎多半是为了接着输入，顺手还焦点
+    };
+  });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();   // 表单本身无 action：拦截后自行拼 URL，避免离开页面
+    const q = input.value.trim();
+    if (!q) { input.focus(); return; }
+    window.open(SEARCH_ENGINES[engine].url + encodeURIComponent(q), '_blank', 'noopener');
+  });
+}
 
 // 卡片标题首图：命中映射用品牌 Logo，否则沿用 emoji；
 // img 装载失败时整只换回 emoji，保证「看起来差一点」好过「显示破图」
@@ -1009,6 +1056,9 @@ function init() {
   // P0: 清理过期缓存
   cacheClean();
 
+  // 顶栏搜索（默认必应，可切谷歌）
+  initSiteSearch();
+
   // Theme：优先用用户手动保存的偏好，否则跟随系统日间/夜间模式
   // （prefers-color-scheme 在桌面 Chrome/Edge/Firefox 与移动端 Safari/Chrome 均已支持）
   const savedTheme = localStorage.getItem('theme');
@@ -1568,10 +1618,21 @@ function init() {
       const el = which === 'desktop' ? dateDesktopEl : dateMobileEl;
       if (el) el.textContent = clockDateText(d, mode);
     };
-    // scrollWidth 在 overflow:hidden 的元素上同样返回内容真实宽度，因此可以据此判断溢出
-    const rowOverflows = (row) => row.scrollWidth > row.clientWidth + 1;
+    // 判据：这一行「首个子元素左边缘 → 末个子元素右边缘」的跨度超过行宽即为溢出。
+    // 不用 scrollWidth —— 行的 justify-content 是 flex-end，放不下时内容朝左溢出，
+    // 而 scrollWidth 只统计朝右的溢出，这个方向下恒等于 clientWidth，「放不下」永远测不出来，
+    // 日期也就永远不降级。改量首尾子元素的实际跨度则与对齐方向无关。
+    // 只统计有宽度的子元素：两个时钟各有一个是 display:none，offsetWidth 为 0 需排除
+    const rowOverflows = (row) => {
+      const kids = [...row.children].filter(el => el.offsetWidth);
+      if (kids.length < 2) return false;
+      const span = kids[kids.length - 1].getBoundingClientRect().right
+                 - kids[0].getBoundingClientRect().left;
+      return span > row.clientWidth + 1;
+    };
 
-    // 桌面时钟：所在行是「logo + 搜索框 + 时钟」，这一行没有换行位，只有 完整 / 短版 两档
+    // 桌面时钟：与按钮同处 .header-right（该容器靠 margin-left:auto 贴向行尾），
+    // 这一行没有换行位，放不下只能降级日期，只有 完整 / 短版 两档
     if (dateDesktopEl && clockElDesktop && clockElDesktop.offsetWidth) {
       for (const m of ['full', 'short']) {
         applyDate('desktop', m);

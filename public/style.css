@@ -154,12 +154,19 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
     inset 0 1px 0 var(--glass-hi),
     inset 0 -1px 0 var(--glass-lo);
 }
+/* wrap：宽度不够时「时钟 + 按钮」整组换到第二行，第一行留给 logo + 搜索框。
+   不换行的后果是实打实的重叠——时钟 flex-shrink:0 不肯缩，而 header-left 的
+   min-width:0 又允许容器缩到比内容更窄，时钟于是越出容器边界、盖在搜索框上 */
 .header {
   padding: 12px 24px;
   display: flex; align-items: center; gap: 16px;
+  flex-wrap: wrap; row-gap: 10px;
 }
-.header-left { display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0; }
-.header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+/* 不再 flex:1：那会让它吃掉全部剩余空间、把搜索框推到最右端，
+   就做不到「搜索框紧跟一站看完天下事」了。现在它只占 logo 自身宽度 */
+.header-left { display: flex; align-items: center; gap: 16px; flex: 0 1 auto; min-width: 0; }
+/* margin-left:auto 把「时钟 + 按钮」整组推到行尾；放不下时这一组整体换到第二行 */
+.header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
 .header-right a, .header-right button {
   width: 36px; height: 36px; border-radius: 8px;
   background: var(--card); border: 1px solid var(--border);
@@ -173,6 +180,52 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .logo svg { width: 24px; height: 24px; flex-shrink: 0; filter: drop-shadow(0 0 6px rgba(249,115,22,0.3)); }
 .logo .text { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
 .logo .subtitle { font-size: 12px; font-weight: 400; color: var(--text-dim); letter-spacing: 0; }
+/* ============ 顶栏搜索 ============ */
+/* 与顶栏图标按钮同一套外壳（card 底 + border 描边 + 8px 圆角），
+   聚焦时整框转 accent 描边 + 光晕，和输入框/下拉框的全站焦点语言一致。
+   紧跟 logo 之后（即「搜索框在前、时钟在后」）。
+   flex-basis 必须是 0 而不是具体宽度：顶栏是 flex-wrap 容器，basis 放不下时浏览器
+   先换行、后收缩，给个 260px 的 basis 会让它宁可独占一行也不肯变窄。
+   basis 0 则永远排得进第一行，宽度全由 grow 分配——宽屏涨到 max-width 为止，
+   窄屏就吃剩下的零头，于是任何宽度下都是「logo + 搜索框」同一行 */
+.site-search {
+  display: flex; align-items: center; gap: 4px;
+  height: 36px; padding: 0 5px 0 11px;
+  border-radius: 8px;
+  background: var(--card); border: 1px solid var(--border);
+  flex: 1 1 0; min-width: 120px; max-width: 420px;
+  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+.site-search:focus-within { border-color: var(--accent); box-shadow: var(--accent-glow); }
+.ss-glass { width: 15px; height: 15px; flex-shrink: 0; color: var(--text-dimmer); }
+.site-search:focus-within .ss-glass { color: var(--accent); }
+.ss-input {
+  flex: 1; min-width: 0; height: 100%; padding: 0;
+  border: none; outline: none; background: transparent;
+  color: var(--text); font-size: 13px; font-family: inherit;
+  -webkit-appearance: none; appearance: none;
+}
+.ss-input::placeholder { color: var(--text-dimmer); }
+/* type=search 自带一个清除叉：在深色玻璃上是个突兀的浅色方块，去掉；
+   要清空直接全选删除即可 */
+.ss-input::-webkit-search-cancel-button,
+.ss-input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; }
+/* 引擎切换图标：未选中只留半透明轮廓，选中态用「card 底 + accent 描边 + 光晕」
+   标出当前引擎——即 .cat-pills > button.active 那套配方的小号版本 */
+.ss-engine {
+  width: 26px; height: 26px; border-radius: 7px; padding: 0; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid transparent; cursor: pointer;
+  opacity: 0.42;
+  transition: opacity var(--dur-fast), background var(--dur-fast), border-color var(--dur-fast), box-shadow var(--dur-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.ss-engine svg { width: 15px; height: 15px; }
+.ss-engine:hover { opacity: 0.82; }
+.ss-engine[aria-pressed="true"] {
+  opacity: 1; background: var(--card);
+  border-color: var(--accent); box-shadow: var(--accent-glow);
+}
 /* ============ Clock ============ */
 /* 克制风格：单层 border + card 底，仅保留一颗慢脉冲圆点作为强调色瞬间 */
 /* 一日进度填充：从 0:00 起随时间铺满，到 24:00 满格；极淡的 accent 渐变，不压低文字对比度 */
@@ -264,9 +317,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .clock .clock-date { color: var(--text-dim); font-weight: 500; }
 /* 时钟宽度由内容决定、不参与压缩；日期两态（完整 / 短版）由 JS 按实测宽度切换，
    任何宽度下都不裁切、不出省略号，所以这里不再有 text-overflow / overflow:hidden */
-/* margin-left:auto：搜索框删除后时钟顺势坐进它原来的位置——
-   即 logo 右侧、贴着按钮组那一端，而不是紧跟在 logo 后面 */
-.clock-desktop { display: flex; flex-shrink: 0; margin-left: auto; }
+/* 时钟现与按钮同住 .header-right：靠行尾由该容器的 margin-left:auto 负责，
+   自己不再需要 margin-left:auto（那会在容器内部把它推到按钮左边） */
+.clock-desktop { display: flex; flex-shrink: 0; }
 .clock-desktop .clock-time { flex-shrink: 0; }
 .clock-desktop .clock-date { white-space: nowrap; }
 .clock-mobile { display: none; }
@@ -2528,14 +2581,21 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   .clock-desktop { display: none; }
   .clock-mobile {
     display: flex;
-    /* margin-left:auto：顶栏去掉搜索框后，时钟落在第一行（logo 右侧）并靠右对齐；
-       原来的 margin-right:auto 属于「时钟在左、按钮在右、二者同行」的旧布局，已不适用 */
-    margin-left: auto;
+    /* 与 4 个按钮同住 .header-right（第二行），靠行尾对齐由该容器的
+       justify-content:flex-end 统一负责；这里不再用 margin-left:auto——
+       那会把它顶到容器最右、把按钮挤到它左边去 */
     /* 不收缩也不拉伸：宽度完全由内容决定，放不放得下交给 JS 实测判定 */
     flex: 0 0 auto; min-width: 0;
   }
   .header { padding: 10px 14px; flex-wrap: wrap; gap: 10px; }
-  .header-left { flex: 1 1 100%; gap: 10px; }
+  /* 第一行 = logo + 搜索框：两者同行，剩余宽度由搜索框吃掉。
+     max-width 放开成 none，否则稍宽的机型上它会停在 420px、右侧空一截 */
+  .header-left { flex: 0 0 auto; gap: 10px; }
+  .site-search { max-width: none; }
+  /* 移动端同样保留搜索框——第一行 logo + 搜索框、第二行 时钟 + 4 按钮，仍是两行。
+     （上一版把它整个隐藏，是因为当时时钟还在第一行、第二行只放按钮；现在时钟已归入
+     .header-right，第二行本来就是它俩。过窄时的时间胶囊降级交给 fitClocks，
+     不靠隐藏控件腾地方） */
   /* 第二行 = 时间胶囊 + GitHub/主题/壁纸/刷新 4 按钮，必须锁死在同一行：
      容器 nowrap + 两侧都不收缩，宽度不够时由 fitClocks 把日期降级成短版。
      这里不能用 wrap —— 一旦允许换行，刷新按钮就会被挤到第三行（已踩过这个坑） */

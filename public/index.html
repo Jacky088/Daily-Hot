@@ -73,7 +73,30 @@
         <span class="text">每日热榜</span>
         <span class="subtitle">一站看完天下事</span>
       </div>
-      <!-- 桌面端时钟：坐落在原搜索框的位置，靠右对齐 -->
+    </div>
+    <!-- 搜索框：右侧两个图标切换搜索引擎（默认必应），回车或点放大镜新标签打开结果页。
+         紧跟 logo 之后（搜索框在前、时钟在后），放不进 .header-right 内部——
+         那里那套 .header-right button 规则（36px 方块）会强行套到引擎按钮上 -->
+    <form class="site-search" id="siteSearch" role="search">
+      <svg class="ss-glass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
+      <input class="ss-input" id="ssInput" type="search" name="q" placeholder="使用必应搜索一下" aria-label="搜索关键词" autocomplete="off" spellcheck="false">
+      <button class="ss-engine" type="button" data-engine="bing" title="用必应搜索" aria-pressed="true">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#258FFA" d="M20.176 15.406a6.48 6.48 0 01-1.736 4.414c1.338-1.47.803-3.869-1.003-4.635-.862-.305-2.488-.85-3.367-1.158a1.834 1.834 0 01-.932-.818c-.381-.975-1.163-2.968-1.548-3.948-.095-.285-.31-.625-.265-.938.046-.598.724-1.003 1.276-.754l3.682 1.888c.621.292 1.305.692 1.796 1.172a6.486 6.486 0 012.097 4.777zm-1.44 1.888c-.264-1.194-1.135-1.744-2.216-2.028-1.527.902-4.853 2.878-6.952 4.13-1.103.68-2.13 1.35-2.919 1.242a2.866 2.866 0 01-2.77-2.325c-.012-.048-.008-.03-.001.01a6.4 6.4 0 00.947 2.653 6.498 6.498 0 005.486 3.022c1.908.062 3.536-1.153 5.099-2.096.292-.188.804-.496 1.332-.831l1.423-1.51c.553-.577.764-1.426.571-2.267zm-12.04 2.97c.422 0 .822-.1 1.173-.29.355-.215.964-.579 1.7-1.018L9.57 4.502c0-.99-.497-1.864-1.257-2.382-.08-.059-2.91-1.901-2.99-1.956-.605-.432-1.523.045-1.5.797v14.887l.417 2.36a2.488 2.488 0 002.455 2.056z"/></svg>
+      </button>
+      <button class="ss-engine" type="button" data-engine="google" title="用谷歌搜索" aria-pressed="false">
+        <svg viewBox="0 0 48 48" aria-hidden="true">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+        </svg>
+      </button>
+    </form>
+    <div class="header-right">
+      <!-- 时钟与按钮同属「右侧容器」：宽屏时搜索框紧跟 logo、时钟在右，
+           窗口放不下时整组一起换行到第二行（第一行留 logo + 搜索框）。
+           clocks 必须是 .header-right 的子元素——fitClocks 正是用
+           clock.parentElement 判断「这一行有没有溢出」来决定日期降不降级 -->
       <div class="clock clock-desktop" id="clockDesktop" title="当前时间">
         <div class="clock-fill" data-fill="desktop"></div>
         <!-- 泡泡层：铺满胶囊，由 CSS clip-path 按今日进度裁出可见区（只活在橙色区间内） -->
@@ -82,7 +105,6 @@
         <span class="clock-date" id="clockDateDesktop">今天是 ----年-月-日 周-</span>
         <span class="clock-time" id="clockTimeDesktop">--:--:--</span>
       </div>
-      <!-- 移动端时钟：与桌面时钟同处「logo 右侧」这一行，同样靠右对齐 -->
       <div class="clock clock-mobile" id="clockMobile" title="当前时间">
         <div class="clock-fill" data-fill="mobile"></div>
         <div class="clock-bubbles" aria-hidden="true"><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i></div>
@@ -90,8 +112,6 @@
         <span class="clock-date" id="clockDateMobile">今天是 ----年-月-日 周-</span>
         <span class="clock-time" id="clockTimeMobile">--:--:--</span>
       </div>
-    </div>
-    <div class="header-right">
       <a href="https://github.com/Jacky088/Daily-Hot" target="_blank" rel="noopener" title="GitHub" class="github-link" aria-label="GitHub 仓库">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
       </a>
