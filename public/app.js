@@ -115,9 +115,9 @@ const CARD_LOGOS = {
   'simkl-movies': 'netflix.svg',
   fanyi: 'youdao.png',
   gtranslate: 'googletranslate.svg',
-  kuan: 'coolapk.svg',
-  '36kr': '36kr.svg',
-  sspai: 'sspai.svg',
+  kuan: 'coolapk.png',
+  '36kr': '36kr.png',
+  sspai: 'sspai.png',
   gold: 'gold.svg',
 };
 
@@ -1419,24 +1419,31 @@ function init() {
     // 首跳 instant：smooth 会被随后的折叠过渡与布局变化打断，精确性优先
     window.scrollTo({ top: absY(), behavior: 'instant' });
 
-    // 轮询校正：卡片异步加载（含图片）会改变上方高度，坐标一变就重新对齐；
-    // 连续 2 次复测不变即认为布局已稳定。用户手动滚动立即让位
-    let stable = 0, lastY = Math.round(absY()), tries = 0;
+    // 轮询校正：卡片异步加载（含图片）会改变上方高度，每轮都按当前坐标重新对齐。
+    // 两个关键点：
+    // ① 必须「未对齐就滚」，而不是「只在坐标变化时才滚」——首跳有可能落在
+    //    render() 刚重建 DOM、布局尚未稳定的瞬间被浏览器钳掉，此时坐标并没有变化，
+    //    旧写法便不再重试，定位就永久偏着（实测偏 35~53px，而 9 秒内只发出过一次 scrollTo）。
+    // ② 收敛判据用「文档高度连续 4 次不变」而不是只看坐标：数据还在陆续回来时，
+    //    坐标可能恰好短暂不变，只按坐标会在 200ms 内就停掉校正，等剩余内容加载完位置就偏了。
+    // 上限 4.5s；用户手动滚动（滚轮/触摸）立即让位。
+    let stableH = 0, lastH = 0, tries = 0;
     const token = startAlign(() => {
-      if (++tries > 15) { stopAlign(); return; }
-      const y = Math.round(absY());
-      if (y === lastY) {
-        if (++stable >= 2) { stopAlign(); return; }
-      } else {
-        stable = 0;
-        window.scrollTo({ top: y, behavior: 'instant' });
+      if (++tries > 45) { stopAlign(); return; }
+      const h = document.documentElement.scrollHeight;
+      stableH = (h === lastH) ? stableH + 1 : 0;
+      lastH = h;
+      const delta = title.getBoundingClientRect().top - scrollDockTop();
+      if (Math.abs(delta) >= 2) {
+        window.scrollTo({ top: Math.max(0, window.scrollY + delta), behavior: 'instant' });
+        return;
       }
-      lastY = y;
+      if (stableH >= 4) stopAlign();
     }, 100);
 
     window.addEventListener('wheel', abortAlign, { once: true, passive: true });
     window.addEventListener('touchmove', abortAlign, { once: true, passive: true });
-    setTimeout(() => stopAlignIfCurrent(token), 2000);
+    setTimeout(() => stopAlignIfCurrent(token), 5000);
   }
 
   CATS.forEach(c => {
@@ -3920,12 +3927,15 @@ function rLunar(d, c) {
 function rBing(d, c) {
   let h = '';
   if (d.cover) {
-    h += `<div class="img-wrap ratio-banner"><img src="${esc(d.cover)}" alt="bing" loading="lazy" decoding="async"></div>`;
-    // 双尺寸下载按钮：cover 为 1920x1080，cover_4k 为 UHD 原图
+    // cover 为 1920x1080，cover_4k 为 UHD 原图；缺字段时按必应命名规则派生，
+    // 保证「看大图」与「下载 4K」两条路径都能拿到最大尺寸
     const cover4k = d.cover_4k || d.cover.replace('_1920x1080.jpg', '_UHD.jpg');
+    // 图片包成新标签链接（而不是挂 click 处理器）：中键/右键「在新标签打开」
+    // 也能用，且 target="_blank" 天然不受弹窗拦截影响
+    h += `<a class="img-wrap ratio-banner bing-open" href="${esc(cover4k)}" target="_blank" rel="noopener noreferrer" title="在新标签页打开 4K 原图"><img src="${esc(d.cover)}" alt="bing" loading="lazy" decoding="async"><span class="bing-open-hint">查看 4K 原图</span></a>`;
     h += `<div class="bing-dl">
       <button class="bing-dl-btn" data-url="${esc(d.cover)}">⬇ 1080P 高清</button>
-      <button class="bing-dl-btn" data-url="${esc(cover4k)}">⬇ 4K 原图</button>
+      <button class="bing-dl-btn primary" data-url="${esc(cover4k)}">⬇ 4K 原图</button>
     </div>`;
   }
   h += '<div class="kv">';

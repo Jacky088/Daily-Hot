@@ -1312,18 +1312,53 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   grid-auto-flow: dense;
 }
 
-/* ============ 锚点卡片跨列（EPS 注册项带 span:2，如 60s 早报 / Hacker News） ============ */
-.card.span-2 { grid-column: span 2; }
-/* 收起态（默认 Top 10）：宽卡片内部双栏排布，充分利用横向空间；
+/* ============ 锚点卡片通栏（EPS 注册项带 span:2，如 60s 早报 / Hacker News） ============ */
+/* 独占整行（原为跨 2 列）：这类卡片的内容区为多栏排布特意不限高，实测高度能到
+   600px 上下，比普通卡片的设计上限（卡片头 + 内容区 460px）高出近百像素。
+   若让它与普通卡片共享一行，grid 会把整行拉高到它的高度，而普通卡片的内容区
+   卡在 460px 上，底部就空出一截（改前「历史上的今天」「微博热搜」下方那 92px）。
+   独占一行后两种卡片互不影响：行内高度一致、底部齐平，卡片内部也没有空白 */
+.card.span-2 { grid-column: 1 / -1; }
+/* 收起态（默认 Top 10）：通栏后按「栏宽」而非「栏数」分栏——column-width 让每栏
+   宽度与普通卡片对齐（约 340px），宽屏自动排成 3~4 栏、窄屏自动回退单栏，
+   不必为每个断点单独指定栏数；
    必须解除 max-height 限高——多列容器若有固定高度，溢出内容会横向生成新列而非纵向滚动 */
 .card.span-2:not(.expanded) .card-body {
   max-height: none; overflow: visible;
-  column-count: 2; column-gap: 28px;
+  column-width: 340px; column-gap: 28px;
 }
 .card.span-2 .item, .card.span-2 .news-item { break-inside: avoid; }
 .card.span-2 .news-header, .card.span-2 .news-tip { column-span: all; }
-/* 展开态：回退与其他卡片一致的单列 + 内部滚动 */
-.card.span-2.expanded .card-body { column-count: 1; }
+/* 展开态：回退与其他卡片一致的单列 + 内部滚动（column-width 需一并复位，
+   否则它会与 column-count: 1 同时生效、把栏数决策交回给宽度） */
+.card.span-2.expanded .card-body { column-count: 1; column-width: auto; }
+
+/* 「60 秒读懂世界」的专属标识（方案②：标题色带）
+   —— 它是唯一一张条目没有外部来源可点、又固定每天第一眼看到的大卡。
+   醒目度靠两处叠加，都取自站内既有的强调语言（.cat-subitem.active 用的是
+   「左侧品牌色竖条 + 淡橙底 + 橙字」）：
+     ① 卡片头一条左浓右淡的橙带，把标题区从玻璃底里托出来；
+     ② 标题文字转 --accent-text（亮色深烧橙、暗色亮橙，两套都为 AA 对比度调过）。
+   只作用于这一张卡（#card-60s），同为锚点卡的 Hacker News 不受影响。
+   渐变终点写成 rgba(橙色, 0) 而不是 transparent：后者在部分浏览器里会被当成
+   「透明黑」，橙→黑→无 的过渡会让色带尾巴发灰 */
+#card-60s .card-head {
+  --c60-rgb: 249, 115, 22; /* 橙 500（品牌色） */
+  --c60-a: 0.24;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--c60-rgb), var(--c60-a)),
+    rgba(var(--c60-rgb), calc(var(--c60-a) * 0.3)) 58%,
+    rgba(var(--c60-rgb), 0)
+  );
+}
+#card-60s .card-title { color: var(--accent-text); }
+/* 暗色下橙 500 叠在深紫玻璃上会偏暗褐，换成更亮的橙 400；
+   浓度也略降——深底对颜色的对比本来就强，不需要那么浓 */
+:root[data-theme="dark"] #card-60s .card-head {
+  --c60-rgb: 251, 146, 60;
+  --c60-a: 0.22;
+}
 
 /* ============ Card（Liquid Glass 液态玻璃） ============ */
 .card {
@@ -1439,6 +1474,11 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   padding: 12px 16px; flex: 1; overflow-y: auto; max-height: 460px;
   scrollbar-width: thin; scrollbar-color: var(--border-light) transparent;
 }
+/* 带标签页的卡片（分组卡片，如猫眼电影榜）：标签页本身占约 40px，内容区相应
+   减去同等高度，让整卡高度与不带标签页的卡片一致。否则两者同行时，grid 会把
+   整行对齐到较高的那个，较矮卡片的内容区到上限就停住、底部空出一小截（实测约 35px）。
+   用 :has() 判断，不支持的旧浏览器会跳过这条规则，效果退化为原来的 35px 空白，无功能影响 */
+.card:has(.card-tabs) .card-body { max-height: 420px; }
 .card-body::-webkit-scrollbar, .card-pane::-webkit-scrollbar { width: 6px; }
 .card-body::-webkit-scrollbar-track, .card-pane::-webkit-scrollbar-track { background: transparent; margin: 4px 0; }
 .card-body::-webkit-scrollbar-thumb, .card-pane::-webkit-scrollbar-thumb {
@@ -1722,20 +1762,48 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .img-wrap.ratio-banner { aspect-ratio: 16 / 9; overflow: hidden; }
 .img-wrap.ratio-banner img { width: 100%; height: 100%; object-fit: cover; }
 
-/* ============ 必应壁纸：双尺寸下载按钮 ============ */
+/* ============ 必应壁纸：看大图 + 双尺寸下载按钮 ============ */
+/* 点图看大图：图片本身是 <a target="_blank">，href 指向 4K 原图。
+   display 必须显式写 block——<a> 默认是 inline，而 .ratio-banner 靠 aspect-ratio
+   占位，inline 下 aspect-ratio 不生效，图片加载完会把下方内容顶下去
+   （子菜单定位也依赖高度稳定）。position: relative 供右下角提示浮层定位 */
+.bing-open { display: block; position: relative; text-decoration: none; cursor: zoom-in; }
+.bing-open-hint {
+  position: absolute; right: 10px; bottom: 10px; pointer-events: none;
+  padding: 5px 11px; border-radius: 999px;
+  background: rgba(12, 20, 38, 0.62); color: #fff;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.2px;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  opacity: 0; transition: opacity var(--dur-fast) var(--ease);
+}
+/* 只在真有悬停能力的设备上淡入；触屏直接点图也能跳转，按下时亮一下作反馈 */
+@media (hover: hover) { .bing-open:hover .bing-open-hint { opacity: 1; } }
+.bing-open:active .bing-open-hint { opacity: 1; }
+
+/* 双尺寸下载按钮：原先两个都是「白底 + 灰边框」的等权外观，在玻璃卡里太素、
+   也分不出主次。改成按用途分档——4K 原图是多数人要的，给品牌橙实底（主），
+   1080P 给橙描边（次），一眼就知道该点哪个 */
 .bing-dl { display: flex; gap: 8px; margin-bottom: 10px; }
 .bing-dl-btn {
-  flex: 1; min-height: 34px; display: flex; align-items: center; justify-content: center;
-  background: var(--card); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text-dim); font-size: 12px; font-weight: 600; cursor: pointer;
-  transition: color var(--dur-fast), border-color var(--dur-fast), background var(--dur-fast);
+  flex: 1; min-height: 38px; display: flex; align-items: center; justify-content: center;
+  border-radius: 9px; font-size: 13px; font-weight: 700; cursor: pointer;
+  border: 1.5px solid var(--accent);
+  background: var(--accent-bg); color: var(--accent-text);
+  transition: transform var(--dur-fast), box-shadow var(--dur-fast), filter var(--dur-fast);
   -webkit-tap-highlight-color: transparent;
 }
-.bing-dl-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-bg); }
-.bing-dl-btn:disabled { opacity: 0.6; cursor: wait; }
+.bing-dl-btn.primary {
+  border-color: transparent; color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  box-shadow: var(--accent-glow);
+}
+.bing-dl-btn:hover { filter: brightness(1.06); box-shadow: 0 3px 14px rgba(249, 115, 22, 0.32); }
+.bing-dl-btn:active { transform: scale(0.98); }
+.bing-dl-btn:disabled { opacity: 0.6; cursor: wait; filter: none; transform: none; }
 /* 移动端触控目标加大，与其余触屏控件一致（窄屏 ≤820 或触摸设备） */
 @media (max-width: 820px), (pointer: coarse) {
-  .bing-dl-btn { min-height: 44px; font-size: 13px; }
+  .bing-dl-btn { min-height: 44px; font-size: 14px; }
 }
 
 /* ============ 工具卡通用：数据瓦片（健康/IP/WHOIS/密码 共用） ============ */
@@ -2569,7 +2637,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   .grid { grid-template-columns: 1fr; gap: 12px; }
   /* 移动端单列：锚点卡片回退通栏，宽卡片内部双栏也回退单列 */
   .card.span-2 { grid-column: span 1; }
-  .card.span-2:not(.expanded) .card-body { column-count: 1; column-gap: normal; }
+  .card.span-2:not(.expanded) .card-body { column-count: 1; column-width: auto; column-gap: normal; }
   /* 展开全部/收起按钮：44px 触控目标，与其余触屏控件一致 */
   .list-toggle { min-height: 44px; padding: 10px 0; }
   /* 计数徽章仅桌面显示：移动 pill 空间优先给名称 */

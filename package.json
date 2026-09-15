@@ -3,7 +3,7 @@
   "type": "module",
   "version": "1.11.0",
   "author": "木木",
-  "updateTime": "2026/09/14 21:26:15",
+  "updateTime": "2026/09/15 12:17:32",
   "packageManager": "pnpm@10.29.2",
   "prettier": {
     "printWidth": 120,
