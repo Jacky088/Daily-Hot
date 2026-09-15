@@ -2,7 +2,7 @@
 
 > 一站看完天下事 · 基于 [60s API](https://github.com/vikiboss/60s) 构建的一站式热榜聚合面板
 
-[![Version](https://img.shields.io/badge/version-1.12.0-blue) ](./package.json)
+[![Version](https://img.shields.io/badge/version-1.13.0-blue) ](./package.json)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white) ](https://workers.cloudflare.com/)
 [![EdgeOne Pages](https://img.shields.io/badge/EdgeOne%20Pages-0052FF?style=flat) ](https://edgeone.ai/pages)
 [![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white) ](https://docker.com/)
@@ -33,6 +33,7 @@
 ### 🎨 体验设计
 
 - **🌙 日间 / 夜间模式** — 自动跟随系统明暗，顶栏可手动切换并记忆偏好
+- **🔍 全网搜索** — 顶栏搜索框，默认必应，右侧图标一键切换谷歌，选择本地记忆；回车或点放大镜新标签打开结果页，不打断当前浏览
 - **⏱️ 实时时钟** — 顶栏秒级时钟，橙色进度随一天推移铺满整条胶囊，进度区间内有流动的玻璃泡泡
 - **🌤️ 本地天气** — 页首 Hero 卡右侧按访客 IP 自动定位城市、展示今日天气，点一下即可重新定位或手动改城市；天空底色随天气与昼夜实时切换，晴出太阳、夜出月亮与星点、雨天落雨丝、雪天飘六角雪花、雷阵雨伴闪电、雾霾起雾带
 - **🖼️ 必应壁纸背景** — 页面背景每日自动获取必应壁纸，桌面/移动端按屏幕方向自适应清晰度，当日缓存不重复请求；默认关闭，顶栏一键开启
