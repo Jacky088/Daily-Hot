@@ -225,6 +225,7 @@ function buildHero() {
 
 // ============ 页首 Hero：今日天气（按访客 IP 自动定位） ============
 // 数据来自 /v2/weather/local：服务端按 IP 定位中文城市后返回「实时天气 + 今日区间」。
+// 服务端主源为 UAPI、腾讯天气兜底，两者字段结构一致，前端无需区分（source.provider 会说明实际生效的一方）。
 // 走 cacheGet/cacheSet 的 30 分钟 TTL——天气变化慢，切分类重渲染也不必重复请求；
 // 请求失败静默隐藏，绝不因天气影响首屏其它内容
 let heroWeather = null;
@@ -340,7 +341,9 @@ function paintHeroWeather() {
     : src.mode === 'default'
       ? `未定位到中国大陆城市（探测 IP：${src.ip || '未知'}），显示默认城市`
       : `根据访问 IP 自动定位${src.ip ? `（${src.ip}）` : ''} · 点击可更换`;
-  box.title = `今日天气 · ${srcText} · 数据源：腾讯天气`;
+  // 实际生效的数据源：主源 UAPI 不可用时会回落到腾讯，这里如实标注，不谎报
+  const provider = src.provider === 'uapi' ? 'UAPI' : '腾讯天气';
+  box.title = `今日天气 · ${srcText} · 数据源：${provider}`;
   box.hidden = false;
   box.classList.toggle('editing', heroWeatherEditing);
   bindHeroWeatherEvents(box);

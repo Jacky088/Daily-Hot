@@ -6,6 +6,21 @@ import type { RouterMiddleware } from '@oak/oak'
 // 无法定位（海外 IP、IP 库全挂）或上游城市库查不到时的兜底城市
 const FALLBACK_CITY = '北京'
 
+/**
+ * 天气主源：UAPI 免费天气接口（返回结构与旧链路不同，由 buildUapiRealtime 归一）。
+ *
+ * ⚠️ IP 透传：该接口**没有 ip 参数，也不认 X-Forwarded-For / X-Real-IP**（已实测），
+ * 它的「自动定位」只认 TCP 连接来源 IP。而本服务部署在 Cloudflare Workers / EdgeOne 上，
+ * 服务端 fetch 出去的出口 IP 是 CDN 机房 IP、并非访客真实 IP——空参调用会把天气定位到
+ * 机房所在地（访客真实信息被掩盖，定位结果完全错误）。
+ *
+ * 因此本项目必须由调用方先把访客 IP 解析成中文城市名（复用 /v2/ip 那条 IP 库链路），
+ * 再以 ?city= 显式传给上游。这一步就是这里说的「IP 透传」。
+ *
+ * 参数优先级：adcode > city > 连接来源 IP 自动定位。
+ */
+const UAPI_WEATHER_URL = 'https://uapis.cn/api/v1/misc/weather'
+
 interface CityInfo {
   name: string
   province: string
@@ -124,6 +139,89 @@ interface WeatherApiResponse {
     rise?: SunRise[]
     air?: AirQuality
   }
+}
+
+// ============ UAPI 主源（uapis.cn）响应结构 ============
+// 字段随请求参数分档返回：基础字段 ≈ observe，extended ≈ air，forecast ≈ 今日区间 / 日出日落，
+// indices ≈ index，alerts ≈ alarm。全部可选，避免上游改档位时直接抛错。
+
+interface UapiAirPollutants {
+  pm25?: number
+  pm10?: number
+  o3?: number
+  no2?: number
+  so2?: number
+  co?: number
+}
+
+interface UapiForecastDay {
+  date: string
+  week?: string
+  temp_max?: number
+  temp_min?: number
+  weather_day?: string
+  weather_night?: string
+  wind_dir_day?: string
+  wind_dir_night?: string
+  wind_scale_day?: string
+  wind_scale_night?: string
+  humidity?: number
+  precip?: number
+  pop?: number
+  cloud?: number
+  uv_index?: number
+  sunrise?: string
+  sunset?: string
+}
+
+interface UapiLifeIndex {
+  level?: string
+  brief?: string
+  advice?: string
+}
+
+interface UapiAlert {
+  title?: string
+  type?: string
+  level?: string
+  text?: string
+  publish_time?: string
+  publisher?: string
+  guidance?: string[]
+}
+
+interface UapiWeatherResponse {
+  province?: string
+  city?: string
+  district?: string
+  adcode?: string
+  weather?: string
+  weather_icon?: string
+  temperature?: number
+  wind_direction?: string
+  wind_power?: string
+  humidity?: number
+  report_time?: string
+  // extended=true
+  feels_like?: number
+  visibility?: number
+  pressure?: number
+  uv?: number
+  precipitation?: number
+  cloud?: number
+  aqi?: number
+  aqi_level?: number
+  aqi_category?: string
+  aqi_primary?: string
+  air_pollutants?: UapiAirPollutants
+  // forecast=true
+  temp_max?: number
+  temp_min?: number
+  forecast?: UapiForecastDay[]
+  // indices=true
+  life_indices?: Record<string, UapiLifeIndex>
+  // 存在有效预警时返回
+  alerts?: UapiAlert[]
 }
 
 class ServiceWeather {
@@ -275,7 +373,10 @@ class ServiceWeather {
   /**
    * 按访客 IP 自动定位的实时天气：供页首 Hero 卡「今日天气」使用。
    * 定位完全复用 /v2/ip 的链路（cf-connecting-ip → 反代转发头 → 公网 IP 兜底），
-   * 得到中文省市后交给天气源换算城市码；定位失败则回退 query 参数或默认城市。
+   * 得到中文省市后直接作为 city 传给天气源；定位失败则回退 query 参数或默认城市。
+   *
+   * 数据源：UAPI 主源 → 腾讯天气兜底。两个源在本服务内被归一成同一套字段结构，
+   * 前端与 text / markdown 输出无感知；实际生效的一方由响应里的 source.provider 标注。
    */
   handleLocal(): RouterMiddleware<'/weather/local'> {
     return async (ctx) => {
@@ -311,31 +412,51 @@ class ServiceWeather {
 
         // 手动指定优先于自动定位（也便于本地开发自测：?query=上海）
         const manual = (await Common.getParam('query', ctx.request)) || ''
-        // 腾讯天气源只覆盖中国大陆：海外 IP（代理、企业出口）按未定位处理，
+        // 天气源只覆盖中国大陆：海外 IP（代理、企业出口）按未定位处理，
         // 否则会拿「新加坡」这类城市名去中文城市库检索，直接报「未找到城市」
         const inChina = geo.countryCode === 'CN'
         const located = inChina && !!(geo.city || geo.province)
         const location = manual || (located ? geo.city || geo.province : '') || FALLBACK_CITY
 
-        // 上游城市库查不到时的兜底：自动定位（海外 IP、生僻地名）宁可退回默认城市，
+        // 主源：UAPI。把上面解析出的中文城市名显式传给它——上游不认转发头，只能这样「透传」IP。
+        // 按城市缓存 15 分钟：上游有 4 QPS 限流，而天气本身变化很慢
+        let realtime: Record<string, unknown> | null = null
+        let provider = 'uapi'
+        let usedFallback = false
+        try {
+          realtime = await cached(`weather:uapi:${location}`, () => this.buildUapiRealtime(location), {
+            ttl: 15 * 60 * 1000,
+            staleTtl: 6 * 60 * 60 * 1000,
+          })
+        } catch {
+          // 上游超时 / 限流 / 城市名它认不出：整体回落到下面的旧链路，前端无感知
+          realtime = null
+        }
+
+        // 兜底：原有腾讯链路。上游城市库查不到时，自动定位（海外 IP、生僻地名）宁可退回默认城市，
         // 也不要让整个接口 500 让前端整块隐藏天气区。
         // 但手动指定的城市是「明确意图」，查不到必须如实报错——
         // 悄悄换成北京会让用户以为自己输对了，前端也就没法提示改错字
-        let cityInfo: CityInfo
-        let usedFallback = false
-        try {
-          cityInfo = await this.getCityInfo(location, geo.city, geo.province)
-        } catch (error) {
-          if (manual || location === FALLBACK_CITY) throw error
-          cityInfo = await this.getCityInfo(FALLBACK_CITY, '', '')
-          usedFallback = true
+        if (!realtime) {
+          provider = 'tencent'
+          let cityInfo: CityInfo
+          try {
+            cityInfo = await this.getCityInfo(location, geo.city, geo.province)
+          } catch (error) {
+            if (manual || location === FALLBACK_CITY) throw error
+            cityInfo = await this.getCityInfo(FALLBACK_CITY, '', '')
+            usedFallback = true
+          }
+          realtime = await this.buildRealtime(cityInfo)
         }
 
         const result = {
-          ...(await this.buildRealtime(cityInfo)),
+          ...realtime,
           // 定位来源：前端据此展示识别到的城市，未定位时标注「默认」并附上探测到的 IP 便于排查
+          // provider：实际生效的数据源，前端据此如实标注（主源失败回落时不至于谎报）
           source: {
             mode: manual ? 'manual' : located && !usedFallback ? 'ip' : 'default',
+            provider,
             province: geo.province,
             city: geo.city,
             ip,
@@ -362,6 +483,242 @@ class ServiceWeather {
         ctx.response.body = Common.buildJson({ error: message }, statusCode)
       }
     }
+  }
+
+  // ============ 主源：UAPI ============
+
+  /**
+   * UAPI 主源抓取。
+   *
+   * 城市名必须由调用方解析好后传进来：上游没有 ip 参数、也不认转发头，
+   * 而本服务跑在 CDN 边缘（Worker / EdgeOne），出口 IP 是机房 IP，
+   * 空参调用只会定位到机房所在地（见 UAPI_WEATHER_URL 的说明）。
+   */
+  private async fetchUapiWeather(location: string): Promise<UapiWeatherResponse> {
+    const city = location.trim()
+    if (!city) throw new Error('未指定城市')
+
+    const url = `${UAPI_WEATHER_URL}?city=${encodeURIComponent(city)}&extended=true&forecast=true&indices=true`
+
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': Common.chromeUA,
+        Accept: 'application/json',
+      },
+      signal: AbortSignal.timeout(5000),
+    })
+
+    // 404：城市名上游认不出。沿用旧链路同一句文案，
+    // 前端的「未找到城市」提示与错误分支无需区分数据源
+    if (response.status === 404) {
+      throw new Error(`未找到城市: ${city}。请检查城市名称拼写是否正确`)
+    }
+
+    if (!response.ok) {
+      throw new Error(`UAPI 天气接口请求失败: ${response.status}`)
+    }
+
+    const data = (await response.json()) as UapiWeatherResponse & { error?: string }
+
+    // 上游异常也可能返回 200 + {error}，一并按失败处理以触发兜底
+    if (!data || data.error || !data.weather) {
+      throw new Error(`UAPI 天气数据异常: ${data?.error || '缺少 weather 字段'}`)
+    }
+
+    return data
+  }
+
+  /**
+   * UAPI 结果组装：字段结构与 buildRealtime 对齐，
+   * 前端渲染、text / markdown 三种输出都无需区分数据源。
+   */
+  private async buildUapiRealtime(location: string) {
+    const data = await this.fetchUapiWeather(location)
+
+    const today = data.forecast?.[0]
+    const pollutants = data.air_pollutants || {}
+    const updated = this.parseUapiReportTime(data.report_time)
+
+    const province = data.province || ''
+    const city = data.city || location
+    const county = data.district || ''
+
+    return {
+      location: {
+        name: `${province}${city}${county}`.replace(/省|市/g, ''),
+        province,
+        city,
+        county,
+      },
+      weather: {
+        condition: data.weather || '',
+        // UAPI 的 weather_icon 是数字图标码（如 "101"），不是图片地址
+        condition_code: data.weather_icon || '',
+        temperature: this.roundTemperature(data.temperature),
+        humidity: this.safeParseInt(String(data.humidity ?? ''), 0),
+        pressure: this.safeParseInt(String(data.pressure ?? ''), 0),
+        precipitation: data.precipitation ?? 0,
+        wind_direction: data.wind_direction || '',
+        wind_power: data.wind_power || '',
+        // 旧链路这里是图标图片地址，UAPI 不提供：Hero 卡按 condition 文本上色，不依赖它
+        weather_icon: '',
+        weather_colors: [] as string[],
+        updated: updated.formatted,
+        updated_at: updated.timestamp,
+      },
+      today: today
+        ? {
+            date: today.date,
+            day_condition: today.weather_day || '',
+            night_condition: today.weather_night || '',
+            // 顶层 temp_max/temp_min 是「今天」的，作为逐日数据缺失时的兜底
+            max_temperature: today.temp_max ?? data.temp_max ?? null,
+            min_temperature: today.temp_min ?? data.temp_min ?? null,
+            day_weather_icon: '',
+            night_weather_icon: '',
+          }
+        : null,
+      air_quality:
+        data.aqi != null
+          ? {
+              aqi: data.aqi,
+              level: data.aqi_level ?? 0,
+              quality: data.aqi_category || '',
+              pm25: pollutants.pm25 ?? 0,
+              pm10: pollutants.pm10 ?? 0,
+              co: pollutants.co ?? 0,
+              no2: pollutants.no2 ?? 0,
+              o3: pollutants.o3 ?? 0,
+              so2: pollutants.so2 ?? 0,
+              // UAPI 不提供全国排名，置 0 表示无数据（markdown 输出会跳过这一段）
+              rank: 0,
+              total_cities: 0,
+              updated: updated.formatted,
+              updated_at: updated.timestamp,
+            }
+          : null,
+      sunrise:
+        today?.sunrise && today?.sunset
+          ? (() => {
+              const sunriseData = this.formatUapiTime(today.date, today.sunrise)
+              const sunsetData = this.formatUapiTime(today.date, today.sunset)
+              return {
+                sunrise: sunriseData.formatted,
+                sunrise_at: sunriseData.timestamp,
+                sunrise_desc: today.sunrise,
+                sunset: sunsetData.formatted,
+                sunset_at: sunsetData.timestamp,
+                sunset_desc: today.sunset,
+              }
+            })()
+          : null,
+      life_indices: this.formatUapiLifeIndices(data.life_indices || {}),
+      alerts: Array.isArray(data.alerts)
+        ? data.alerts.map((alarm) => {
+            const at = alarm.publish_time && dayjs(alarm.publish_time).isValid() ? dayjs(alarm.publish_time) : null
+            return {
+              type: alarm.type || alarm.title || '',
+              level: alarm.level || '',
+              level_code: '',
+              province,
+              city,
+              county,
+              detail: alarm.text || '',
+              updated: at ? at.format('YYYY-MM-DD HH:mm:ss') : updated.formatted,
+              updated_at: at ? at.toDate().getTime() : updated.timestamp,
+            }
+          })
+        : [],
+    }
+  }
+
+  /** UAPI 温度是浮点（国际城市如 Tokyo 21.5），旧链路是整数：统一成整数避免精度/类型不一致 */
+  private roundTemperature(value: number | undefined): number {
+    return Number.isFinite(value) ? Math.round(value as number) : 0
+  }
+
+  /**
+   * UAPI 的 report_time 格式不统一：国内城市是相对时间（"7 分钟前发布"），
+   * 国际城市是绝对时间（"2026-09-16 10:00"），文档写的又是 "2026-02-19 15:25:58"。
+   * 三种都解析成时间戳；认不出就退回当前时刻（宁可显示「刚刚」，也不给出错误时间）。
+   */
+  private parseUapiReportTime(reportTime: string | undefined): { formatted: string; timestamp: number } {
+    const now = dayjs()
+    const format = (d: ReturnType<typeof dayjs>) => ({
+      formatted: d.format('YYYY-MM-DD HH:mm:ss'),
+      timestamp: d.toDate().getTime(),
+    })
+
+    const raw = (reportTime || '').trim()
+
+    if (raw) {
+      const relative = /(\d+)\s*(分钟|小时)前/.exec(raw)
+      if (relative) {
+        const value = Number(relative[1])
+        return format(relative[2] === '小时' ? now.subtract(value, 'hour') : now.subtract(value, 'minute'))
+      }
+
+      if (raw.includes('刚刚')) return format(now)
+
+      const absolute = dayjs(raw)
+      if (absolute.isValid()) return format(absolute)
+    }
+
+    return format(now)
+  }
+
+  /** UAPI 的日期是 '2026-09-16'、时间是 '05:43'（旧链路分别是 '20250908' 与 '05:44'，格式不同） */
+  private formatUapiTime(date: string, time: string): { formatted: string; timestamp: number } {
+    const dateObj = dayjs(`${date} ${time}:00`)
+    return dateObj.isValid()
+      ? { formatted: dateObj.format('YYYY-MM-DD HH:mm:ss'), timestamp: dateObj.toDate().getTime() }
+      : { formatted: '', timestamp: 0 }
+  }
+
+  /**
+   * UAPI 生活指数用英文 key，这里映射成旧链路的 18 项中文名，
+   * 让 text / markdown 输出（按中文名筛选与展示）继续可用。
+   */
+  private static readonly UAPI_INDEX_NAMES: Record<string, string> = {
+    clothing: '穿衣指数',
+    uv: '紫外线指数',
+    car_wash: '洗车指数',
+    drying: '晾晒指数',
+    air_conditioner: '空调指数',
+    cold_risk: '感冒指数',
+    exercise: '运动指数',
+    comfort: '舒适度指数',
+    travel: '出行指数',
+    fishing: '钓鱼指数',
+    allergy: '过敏指数',
+    sunscreen: '防晒指数',
+    mood: '心情指数',
+    beer: '啤酒指数',
+    umbrella: '雨伞指数',
+    traffic: '交通指数',
+    air_purifier: '空气净化指数',
+    pollen: '花粉指数',
+  }
+
+  private formatUapiLifeIndices(
+    indices: Record<string, UapiLifeIndex>,
+  ): { key: string; name: string; level: string; description: string }[] {
+    const result: { key: string; name: string; level: string; description: string }[] = []
+
+    for (const [key, value] of Object.entries(indices)) {
+      const name = ServiceWeather.UAPI_INDEX_NAMES[key]
+      if (!name || !value) continue
+
+      result.push({
+        key,
+        name,
+        // brief 更适合一句话场景（如「很热」），缺失时退回 level
+        level: value.brief || value.level || '',
+        description: value.advice || '',
+      })
+    }
+
+    return result
   }
 
   /**
@@ -741,8 +1098,10 @@ class ServiceWeather {
     if (result.air_quality) {
       const aq = result.air_quality
       const aqiEmoji = aq.aqi <= 50 ? '😊' : aq.aqi <= 100 ? '😐' : aq.aqi <= 150 ? '😟' : aq.aqi <= 200 ? '😷' : '🤢'
+      // 全国排名只有腾讯源提供；UAPI 源置 0，此时整段略去而不是显示 0/0
+      const rank = aq.rank > 0 ? ` (全国排名 ${aq.rank}/${aq.total_cities})` : ''
       sections.push(
-        `## 空气质量 ${aqiEmoji}\n\n**${aq.quality}** AQI: **${aq.aqi}** (全国排名 ${aq.rank}/${aq.total_cities})\n\n| 指标 | 数值 |\n|------|------|\n| PM2.5 | ${aq.pm25} μg/m³ |\n| PM10 | ${aq.pm10} μg/m³ |\n| NO₂ | ${aq.no2} μg/m³ |\n| SO₂ | ${aq.so2} μg/m³ |\n| O₃ | ${aq.o3} μg/m³ |\n| CO | ${aq.co} mg/m³ |\n\n*更新时间: ${aq.updated}*`,
+        `## 空气质量 ${aqiEmoji}\n\n**${aq.quality}** AQI: **${aq.aqi}**${rank}\n\n| 指标 | 数值 |\n|------|------|\n| PM2.5 | ${aq.pm25} μg/m³ |\n| PM10 | ${aq.pm10} μg/m³ |\n| NO₂ | ${aq.no2} μg/m³ |\n| SO₂ | ${aq.so2} μg/m³ |\n| O₃ | ${aq.o3} μg/m³ |\n| CO | ${aq.co} mg/m³ |\n\n*更新时间: ${aq.updated}*`,
       )
     }
 
