@@ -224,7 +224,7 @@ function buildHero() {
 }
 
 // ============ 页首 Hero：今日天气（按访客 IP 自动定位） ============
-// 数据来自 /v2/weather/local：服务端按 IP 定位中文城市后返回「实时天气 + 今日区间」。
+// 数据来自 /v2/weather/local：服务端按 IP 定位城市（含海外城市）后返回「实时天气 + 今日区间」。
 // 服务端主源为 UAPI、腾讯天气兜底，两者字段结构一致，前端无需区分（source.provider 会说明实际生效的一方）。
 // 走 cacheGet/cacheSet 的 30 分钟 TTL——天气变化慢，切分类重渲染也不必重复请求；
 // 请求失败静默隐藏，绝不因天气影响首屏其它内容
@@ -304,7 +304,8 @@ function heroWeatherHtml(d, editing) {
   // 底部一行附加信息：今日区间 + 空气质量（无 AQI 时退回湿度）
   const bits = [];
   if (Number.isFinite(t.min_temperature) && Number.isFinite(t.max_temperature)) bits.push(`${t.min_temperature}° ~ ${t.max_temperature}°`);
-  if (a.aqi != null) bits.push(`${a.quality || ''} ${a.aqi}`);
+  // 海外城市常不返回 AQI 等级文案，此时退化成「AQI 数值」，避免只剩一个孤零零的数字
+  if (a.aqi != null) bits.push(a.quality ? `${a.quality} ${a.aqi}` : `AQI ${a.aqi}`);
   else if (w.humidity != null) bits.push(`湿度 ${w.humidity}%`);
   // 槽位约定（六个层，样式见 style.css 的「天气装饰层」）：
   //   i1 主体：太阳 / 月亮 / 云底
@@ -339,7 +340,7 @@ function paintHeroWeather() {
   const srcText = src.mode === 'manual'
     ? '手动指定城市 · 点击可更换'
     : src.mode === 'default'
-      ? `未定位到中国大陆城市（探测 IP：${src.ip || '未知'}），显示默认城市`
+      ? `未能按 IP 定位到城市（探测 IP：${src.ip || '未知'}），显示默认城市`
       : `根据访问 IP 自动定位${src.ip ? `（${src.ip}）` : ''} · 点击可更换`;
   // 实际生效的数据源：主源 UAPI 不可用时会回落到腾讯，这里如实标注，不谎报
   const provider = src.provider === 'uapi' ? 'UAPI' : '腾讯天气';

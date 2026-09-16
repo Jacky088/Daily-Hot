@@ -1,5 +1,6 @@
 import { Common } from '../common.ts'
 import { toChineseCity } from '../data/cn-geo.ts'
+import { getPlatformIP } from '../platform-ip.ts'
 import type { RouterMiddleware } from '@oak/oak'
 
 // 仅放行 IP 字面量：字符集收紧为 [0-9a-fA-F:.]，天然排除 / ? & # 等字符，
@@ -22,37 +23,73 @@ function isValidIPLiteral(value: string): boolean {
 class ServiceIP {
   // 平台注入的客户端 IP 头：由平台在网络层写入，客户端无法伪造，优先使用。
   //   cf-connecting-ip：Cloudflare Workers / Pages
-  //   eo-connecting-ip / eo-real-ip：腾讯 EdgeOne。该平台只写自己的头，
-  //     不一定回填 x-forwarded-for —— 漏掉它会导致 EdgeOne 部署下取不到访客 IP，
-  //     天气定位因此恒为默认城市
+  //   eo-client-ip：腾讯 EdgeOne 规则引擎「客户端 IP 头部」的默认头名
+  //   eo-connecting-ip / eo-real-ip：EdgeOne 其它接入方式下的变体，一并识别
   //   true-client-ip：部分 CDN（Akamai / Cloudflare Enterprise）
-  private static readonly PLATFORM_IP_HEADERS = ['cf-connecting-ip', 'eo-connecting-ip', 'eo-real-ip', 'true-client-ip']
+  private static readonly PLATFORM_IP_HEADERS = [
+    'cf-connecting-ip',
+    'eo-client-ip',
+    'eo-connecting-ip',
+    'eo-real-ip',
+    'true-client-ip',
+  ]
 
+  // 自托管环境（Node/Bun/Deno）经过反向代理时，转发头作为回退。
+  // 注意：这些头可被客户端伪造，仅用于日志展示，不可用于安全决策
+  private static readonly FORWARDED_IP_HEADERS = ['x-forwarded-for', 'x-real-ip', 'x-client-ip', 'x-real-client-ip']
+
+  /**
+   * 解析访客 IP。优先级：
+   *   1. 平台入口提供的 IP（见 src/platform-ip.ts，如 EdgeOne 的 context.clientIp）——
+   *      它是平台承诺的字段，不依赖「转发头是否被原样透传」这一平台策略
+   *   2. 平台注入头 → 3. 反代转发头
+   */
   getClientIP(requestHeaders: Headers): string {
-    for (const field of ServiceIP.PLATFORM_IP_HEADERS) {
-      const value = requestHeaders.get(field)?.trim()
+    const platformIP = getPlatformIP()
+    if (platformIP) return platformIP
 
-      if (value) {
-        // 取逗号分隔的第一个 IP（EdgeOne / CDN 链路可能带多跳）
-        return value.split(',')[0].trim()
-      }
+    // 内网/本地 IP 先记下继续往后找：高优先级头里出现内网地址（CDN 内部链路常见）时，
+    // 低优先级头里的公网地址更接近访客真实位置。整轮都没有公网 IP 才用它兜底，
+    // 保留本地开发 / 内网自托管下「改用服务器出口 IP 定位」的原有行为。
+    let localFallback = ''
+
+    for (const field of [...ServiceIP.PLATFORM_IP_HEADERS, ...ServiceIP.FORWARDED_IP_HEADERS]) {
+      const value = requestHeaders.get(field)?.trim()
+      if (!value) continue
+
+      const ip = this.pickClientIP(value)
+      if (!ip) continue
+
+      if (!this.isLocalIP(ip)) return ip
+      if (!localFallback) localFallback = ip
     }
 
-    // 自托管环境（Node/Bun/Deno）经过反向代理时，转发头作为回退
-    // 注意：这些头可被客户端伪造，仅用于日志展示，不可用于安全决策
-    const headerFields = ['x-forwarded-for', 'x-real-ip', 'x-client-ip', 'x-real-client-ip']
+    return localFallback
+  }
 
-    for (const field of headerFields) {
-      const value = requestHeaders.get(field)?.trim()
+  /**
+   * 从逗号分隔的多跳 IP 链里挑出客户端 IP。
+   *
+   * 优先取链上第一个「公网 IP」，而不是无条件取链首：CDN 常把内网地址放在链首
+   * （如 "10.0.0.5, 203.0.113.9"），若取到内网地址，上层会判定为「本地/内网访问」，
+   * 转而改用服务器自身出口 IP 去定位——结果是拿机房位置冒充访客位置
+   * （海外机房会让定位一路回退成默认城市），访客真实信息反而被掩盖。
+   *
+   * 整条链都是内网地址时退回链首，保留本地开发 / 内网自托管时的原有兜底行为。
+   */
+  private pickClientIP(chain: string): string {
+    const parts = chain
+      .split(',')
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0)
 
-      if (value) {
-        // 取逗号分隔的第一个 IP，去除空格
-        const firstIP = value.split(',')[0].trim()
-        if (firstIP) return firstIP
-      }
-    }
+    if (!parts.length) return ''
 
-    return ''
+    const publicIP = parts.find((part) => isValidIPLiteral(part) && !this.isLocalIP(part))
+    if (publicIP) return publicIP
+
+    // 没有公网 IP：返回第一个合法的 IP 字面量，都不合法时原样返回链首
+    return parts.find((part) => isValidIPLiteral(part)) || parts[0]
   }
 
   // 检查是否为本地或内网 IP（public：天气等模块用它判断是否需要改用出口公网 IP 定位）

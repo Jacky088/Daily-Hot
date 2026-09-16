@@ -372,11 +372,14 @@ class ServiceWeather {
 
   /**
    * 按访客 IP 自动定位的实时天气：供页首 Hero 卡「今日天气」使用。
-   * 定位完全复用 /v2/ip 的链路（cf-connecting-ip → 反代转发头 → 公网 IP 兜底），
-   * 得到中文省市后直接作为 city 传给天气源；定位失败则回退 query 参数或默认城市。
+   * 定位完全复用 /v2/ip 的链路（平台 clientIp → 平台注入头 → 反代转发头 → 出口公网 IP 兜底），
+   * 得到地名后直接作为 city 传给天气源；定位失败则回退 query 参数或默认城市。
    *
    * 数据源：UAPI 主源 → 腾讯天气兜底。两个源在本服务内被归一成同一套字段结构，
    * 前端与 text / markdown 输出无感知；实际生效的一方由响应里的 source.provider 标注。
+   *
+   * 定位范围：主源覆盖全球城市，因此海外访客显示自己所在的城市；腾讯兜底只覆盖中国大陆，
+   * 走到兜底时海外定位会退回默认城市（source.mode 记为 default，前端据此如实标注）。
    */
   handleLocal(): RouterMiddleware<'/weather/local'> {
     return async (ctx) => {
@@ -412,13 +415,14 @@ class ServiceWeather {
 
         // 手动指定优先于自动定位（也便于本地开发自测：?query=上海）
         const manual = (await Common.getParam('query', ctx.request)) || ''
-        // 天气源只覆盖中国大陆：海外 IP（代理、企业出口）按未定位处理，
-        // 否则会拿「新加坡」这类城市名去中文城市库检索，直接报「未找到城市」
+        // IP 解析出的地名。海外城市同样算数：主源 UAPI 支持国际城市，
+        // 海外访客应当看到自己所在城市，而不是被无差别地回退成默认城市
+        const detected = geo.city || geo.province
+        // 是否为中国大陆定位。只有腾讯兜底链路需要区分——它的城市库仅覆盖中国大陆
         const inChina = geo.countryCode === 'CN'
-        const located = inChina && !!(geo.city || geo.province)
-        const location = manual || (located ? geo.city || geo.province : '') || FALLBACK_CITY
+        const location = manual || detected || FALLBACK_CITY
 
-        // 主源：UAPI。把上面解析出的中文城市名显式传给它——上游不认转发头，只能这样「透传」IP。
+        // 主源：UAPI。把上面解析出的城市名显式传给它——上游不认转发头，只能这样「透传」IP。
         // 按城市缓存 15 分钟：上游有 4 QPS 限流，而天气本身变化很慢
         let realtime: Record<string, unknown> | null = null
         let provider = 'uapi'
@@ -433,17 +437,22 @@ class ServiceWeather {
           realtime = null
         }
 
-        // 兜底：原有腾讯链路。上游城市库查不到时，自动定位（海外 IP、生僻地名）宁可退回默认城市，
-        // 也不要让整个接口 500 让前端整块隐藏天气区。
-        // 但手动指定的城市是「明确意图」，查不到必须如实报错——
-        // 悄悄换成北京会让用户以为自己输对了，前端也就没法提示改错字
+        // 兜底：原有腾讯链路，其城市库只覆盖中国大陆，因此非中国 IP 的自动定位
+        // 直接改用默认城市，不拿海外地名去检索（必然「未找到城市」）
         if (!realtime) {
           provider = 'tencent'
+          const tencentLocation = manual || (inChina ? detected : '') || FALLBACK_CITY
+          if (!manual && !inChina && detected) usedFallback = true
+
+          // 上游城市库查不到时：自动定位（生僻地名）宁可退回默认城市，
+          // 也不要让整个接口 500 让前端整块隐藏天气区。
+          // 但手动指定的城市是「明确意图」，查不到必须如实报错——
+          // 悄悄换成北京会让用户以为自己输对了，前端也就没法提示改错字
           let cityInfo: CityInfo
           try {
-            cityInfo = await this.getCityInfo(location, geo.city, geo.province)
+            cityInfo = await this.getCityInfo(tencentLocation, geo.city, geo.province)
           } catch (error) {
-            if (manual || location === FALLBACK_CITY) throw error
+            if (manual || tencentLocation === FALLBACK_CITY) throw error
             cityInfo = await this.getCityInfo(FALLBACK_CITY, '', '')
             usedFallback = true
           }
@@ -455,7 +464,7 @@ class ServiceWeather {
           // 定位来源：前端据此展示识别到的城市，未定位时标注「默认」并附上探测到的 IP 便于排查
           // provider：实际生效的数据源，前端据此如实标注（主源失败回落时不至于谎报）
           source: {
-            mode: manual ? 'manual' : located && !usedFallback ? 'ip' : 'default',
+            mode: manual ? 'manual' : detected && !usedFallback ? 'ip' : 'default',
             provider,
             province: geo.province,
             city: geo.city,
@@ -543,9 +552,15 @@ class ServiceWeather {
     const city = data.city || location
     const county = data.district || ''
 
+    // 省市同名时不重复拼接：国际城市（Tokyo/Tokyo）与直辖市（北京市/北京）
+    // 直接拼会输出「TokyoTokyo」「北京北京」这类明显异常的地名
+    const bare = (value: string) => value.replace(/[省市]$/, '')
+    const provinceName = bare(province)
+    const cityName = bare(city)
+
     return {
       location: {
-        name: `${province}${city}${county}`.replace(/省|市/g, ''),
+        name: provinceName && provinceName !== cityName ? `${provinceName}${cityName}${county}` : `${cityName}${county}`,
         province,
         city,
         county,
