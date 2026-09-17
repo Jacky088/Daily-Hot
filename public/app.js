@@ -123,7 +123,8 @@ const CARD_LOGOS = {
 };
 
 // ============ 顶栏搜索 ============
-// 默认必应，右侧两个图标切换；选择写进 localStorage 记住。
+// 默认必应：搜索框右侧只露当前引擎的图标，点它在下方弹出候选列表切换
+//（同综合搜索引擎的选法）。选择写进 localStorage 记住。
 // 走各家网页版结果页、新标签打开，不离开当前面板
 const SEARCH_ENGINES = {
   bing: { name: '必应', url: 'https://www.bing.com/search?q=' },
@@ -133,31 +134,72 @@ const SEARCH_ENGINES = {
 function initSiteSearch() {
   const form = document.getElementById('siteSearch');
   const input = document.getElementById('ssInput');
-  if (!form || !input) return;
-  const btns = [...form.querySelectorAll('.ss-engine')];
+  const trigger = document.getElementById('ssEngineBtn');
+  const menu = document.getElementById('ssEngineMenu');
+  if (!form || !input || !trigger || !menu) return;
+  const items = [...menu.querySelectorAll('.ss-item')];
 
   let engine = 'bing';
   try {
     const saved = localStorage.getItem('search-engine');
     if (saved && SEARCH_ENGINES[saved]) engine = saved;
   } catch {}
-  // 用 aria-pressed 表达选中态而不是 class：样式（.ss-engine[aria-pressed="true"]）
-  // 与无障碍语义共用同一个开关，不必两处同步。
-  // 提示语跟着当前引擎走（「使用必应/谷歌搜索一下」），所以放在这里一起刷新——
-  // paint 是选中态的唯一写入口，切换与初始化都经过它，不会漏掉某一处
+
+  // 开合的唯一写入口：菜单显隐 + 按钮的 aria-expanded 共用同一个开关，
+  // 不必两处同步；外点 / Esc 关闭也走它
+  const setOpen = (open) => {
+    menu.classList.toggle('open', open);
+    trigger.setAttribute('aria-expanded', String(open));
+  };
+
+  // 选中态的唯一写入口。三处都要跟着走，所以集中在这里刷新：
+  //   ① 按钮图标：只写 data-engine，由 CSS 决定显示哪只（不重建 DOM，图标不闪）
+  //   ② 列表里的橙字与勾、按钮的无障碍名
+  //   ③ 输入框提示语（「使用必应/谷歌搜索一下」）
   const paint = () => {
-    btns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.engine === engine)));
+    trigger.dataset.engine = engine;
+    trigger.setAttribute('aria-label', '选择搜索引擎，当前为' + SEARCH_ENGINES[engine].name);
+    items.forEach(it => it.setAttribute('aria-selected', String(it.dataset.engine === engine)));
     input.placeholder = '使用' + SEARCH_ENGINES[engine].name + '搜索一下';
   };
   paint();
 
-  btns.forEach(b => {
-    b.onclick = () => {
-      engine = b.dataset.engine;
+  trigger.onclick = () => setOpen(!menu.classList.contains('open'));
+
+  items.forEach(it => {
+    it.onclick = () => {
+      engine = it.dataset.engine;
       try { localStorage.setItem('search-engine', engine); } catch {}
       paint();
-      input.focus();   // 切引擎多半是为了接着输入，顺手还焦点
+      setOpen(false);
+      input.focus();   // 选完引擎多半是为了接着输入，顺手还焦点
     };
+  });
+
+  // 键盘：按钮上按上下键直接进列表；列表内上下键循环移动（Esc 由下面统一关闭）
+  trigger.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    e.preventDefault();
+    setOpen(true);
+    const cur = items.findIndex(it => it.dataset.engine === engine);
+    items[cur > -1 ? cur : 0].focus();
+  });
+  menu.addEventListener('keydown', e => {
+    const i = items.indexOf(document.activeElement);
+    if (i < 0 || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
+    e.preventDefault();
+    items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
+  });
+
+  // 外点关闭：按钮与菜单都在 form 内，点它们不该关（按钮自己负责开合）
+  document.addEventListener('click', e => {
+    if (!form.contains(e.target)) setOpen(false);
+  });
+  // Esc 关闭并把焦点还给输入框：从菜单里退出后不用再点一下才能继续打字
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || !menu.classList.contains('open')) return;
+    setOpen(false);
+    input.focus();
   });
 
   form.addEventListener('submit', (e) => {
@@ -1193,14 +1235,14 @@ function init() {
   // 目录内容是静态的（分类下的卡片集合不变），动态的只有徽章与高亮，故预构建一次
   function buildToc(container, catId) {
     container.innerHTML = '';
-    catTocEntries(catId).forEach((e, i) => {
+    catTocEntries(catId).forEach(e => {
       const item = document.createElement('button');
       item.type = 'button';
       item.className = 'cat-toc-item';
       item.dataset.key = e.key;
       item.dataset.type = e.type;
       item.title = `定位到「${e.name}」`;
-      item.innerHTML = `<span class="mm"><span class="no">${String(i + 1).padStart(2, '0')}</span>` +
+      item.innerHTML = `<span class="mm">` +
         `<span class="ci">${e.icon}</span><span class="nm">${esc(e.name)}</span></span>` +
         (e.type === 'group' ? '<span class="tb"></span>' : '');
       item.onclick = () => {

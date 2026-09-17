@@ -210,21 +210,73 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
    要清空直接全选删除即可 */
 .ss-input::-webkit-search-cancel-button,
 .ss-input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; }
-/* 引擎切换图标：未选中只留半透明轮廓，选中态用「card 底 + accent 描边 + 光晕」
-   标出当前引擎——即 .cat-pills > button.active 那套配方的小号版本 */
+/* ---- 引擎选择：默认只露「当前引擎」一只图标，点开在下方弹出候选列表 ----
+   与综合搜索引擎的选法一致：平时不占地方，要换才展开。
+   .site-search 兼作菜单的定位基准——菜单锚在它的右下角，也就是按钮正下方 */
+.site-search { position: relative; }
 .ss-engine {
-  width: 26px; height: 26px; border-radius: 7px; padding: 0; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: center; gap: 2px; flex-shrink: 0;
+  height: 26px; padding: 0 3px 0 4px; border-radius: 7px;
   background: transparent; border: 1px solid transparent; cursor: pointer;
-  opacity: 0.42;
-  transition: opacity var(--dur-fast), background var(--dur-fast), border-color var(--dur-fast), box-shadow var(--dur-fast);
+  color: var(--text-dimmer);
+  transition: color var(--dur-fast), background var(--dur-fast), border-color var(--dur-fast), box-shadow var(--dur-fast);
   -webkit-tap-highlight-color: transparent;
 }
-.ss-engine svg { width: 15px; height: 15px; }
-.ss-engine:hover { opacity: 0.82; }
-.ss-engine[aria-pressed="true"] {
-  opacity: 1; background: var(--card);
-  border-color: var(--accent); box-shadow: var(--accent-glow);
+/* 图标切换由按钮上的 data-engine 驱动：两只图标都在 DOM 里，只显示当前那只。
+   切换只改一个属性，不重建 DOM，图标不会闪 */
+.ss-engine [data-engine-icon] { display: none; }
+.ss-engine[data-engine="bing"] [data-engine-icon="bing"],
+.ss-engine[data-engine="google"] [data-engine-icon="google"] { display: block; }
+.ss-engine-face { display: flex; align-items: center; }
+.ss-engine-face svg { width: 15px; height: 15px; }
+/* 小箭头：静态的「可以点开」提示，展开时翻转朝上。9px 是「看得见但不跟图标抢」的尺寸 */
+.ss-caret { width: 9px; height: 9px; flex-shrink: 0; opacity: 0.7; transition: transform var(--dur-fast); }
+/* 展开态：沿用输入框/下拉框的全站焦点语言（accent 描边 + 淡橙底），
+   让人一眼看出菜单是从这个按钮出来的 */
+.ss-engine[aria-expanded="true"] {
+  color: var(--accent); background: var(--accent-bg); border-color: var(--accent);
+}
+.ss-engine[aria-expanded="true"] .ss-caret { transform: rotate(180deg); }
+/* 候选列表：与移动端模块面板同款玻璃（壁纸透出的毛玻璃 + 多层内高光）。
+   右对齐是因为按钮永远贴在搜索框右端，左对齐会让菜单在窄屏上顶出视口 */
+.ss-menu {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 10;
+  display: none; flex-direction: column; gap: 2px;
+  min-width: 168px; padding: 6px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+  -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+  border: 1px solid var(--glass-border); border-radius: 12px;
+  box-shadow:
+    0 14px 30px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 var(--glass-hi),
+    inset 0 -1px 0 var(--glass-lo),
+    inset 0 0 24px var(--glass-lo);
+}
+/* 展开动画：从 -4px 落下（fadeIn 是 +8px 上浮，方向反了会像「弹上来」） */
+.ss-menu.open { display: flex; animation: ssMenuIn var(--dur-fast) var(--ease); }
+@keyframes ssMenuIn { from { opacity: 0; transform: translateY(-4px); } }
+.ss-item {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 34px; padding: 0 8px;
+  background: transparent; border: none; border-radius: 8px;
+  color: var(--text-dim); font-size: 13px; font-weight: 600;
+  font-family: inherit; text-align: left; cursor: pointer;
+  transition: color var(--dur-fast), background var(--dur-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.ss-item-icon { display: flex; width: 15px; height: 15px; flex-shrink: 0; }
+.ss-item-icon svg { width: 15px; height: 15px; }
+.ss-item-name { flex: 1; min-width: 0; }
+/* 当前引擎：橙字 + 橙色勾。勾用 opacity 隐显而不是 display，
+   否则选中项比其他项窄一截，切换时整行文字会左右跳 */
+.ss-tick { flex-shrink: 0; color: var(--accent); font-size: 12px; font-weight: 700; opacity: 0; }
+.ss-item[aria-selected="true"] { color: var(--accent-text); }
+.ss-item[aria-selected="true"] .ss-tick { opacity: 1; }
+/* hover 只服务鼠标：触屏没有悬停语义，不包一层会在点完粘住 */
+@media (hover: hover) {
+  .ss-engine:hover { color: var(--accent-text); background: var(--accent-bg); }
+  .ss-item:hover { color: var(--accent-text); background: var(--accent-bg); }
 }
 /* ============ Clock ============ */
 /* 克制风格：单层 border + card 底，仅保留一颗慢脉冲圆点作为强调色瞬间 */
@@ -470,12 +522,19 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   border-color: transparent; color: #fff;
   box-shadow: var(--accent-glow);
 }
-/* 分类按钮右侧的模块计数徽章：提供「这个分类有几张卡」的信息量（移动端隐藏） */
+/* 分类计数徽章：紧跟在分类名之后的小胶囊，配方与下方分组标题条 .cat-title .count
+   完全一致（实心橙渐变 + 白字）——两处说的是同一件事（这个分类有几个热榜模块），
+   风格统一才不会出现两套「数字语言」 */
 .cat-pills > button .cnt {
-  margin-left: auto; font-size: 10px; font-weight: 600;
-  color: var(--text-dimmer); font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  font-size: 10px; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  padding: 2px 8px; border-radius: 8px;
+  font-variant-numeric: tabular-nums;
 }
-.cat-pills > button.active .cnt { color: rgba(255, 255, 255, 0.8); }
+/* 激活分类的 pill 本身就是同一套橙渐变，橙底徽章会糊在一起分不出形：
+   换成白色半透明底（与 pill 右侧开合箭头同配方），保留「徽章」的轮廓 */
+.cat-pills > button.active .cnt { background: rgba(255, 255, 255, 0.25); }
 /* 目录/面板开合箭头：只在已激活分类上显示——未激活分类的点击语义是「切换」，
    不应暗示展开。方向约定：▸=收起，rotate(90°)→▾=展开；手动折叠时回转回 ▸ */
 .cat-pills > button.active[data-cat]:not([data-cat="all"])::after {
@@ -542,7 +601,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
-/* 桌面侧边栏「本页目录」：编号 + 图标 + 卡片名，分组卡合并为单条目并带当前标签页徽章。
+/* 桌面侧边栏「本页目录」：图标 + 卡片名，分组卡合并为单条目并带当前标签页徽章。
    高亮单元是卡片（scroll-spy 与点击定位共用），分组成员归到分组条目 */
 /* 注意：必须用 .cat-nav 前缀提升特异性，否则 .cat-nav button（0,1,1）的
    9px/14px 内边距与 13px 字号会压过这里的紧凑布局 */
@@ -557,14 +616,10 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden;
   transition: background var(--dur-fast), color var(--dur-fast), box-shadow var(--dur-fast);
 }
-/* 主内容行：编号 + 图标 + 标题 */
+/* 主内容行：图标 + 标题 */
 .cat-toc-item .mm {
   display: inline-flex; align-items: center; gap: 4px;
   flex: 0 1 auto; min-width: 0;
-}
-.cat-toc-item .no {
-  flex-shrink: 0; width: 16px; text-align: right;
-  font-size: 10px; color: var(--text-dimmer); font-variant-numeric: tabular-nums;
 }
 .cat-toc-item .ci { flex-shrink: 0; }
 .cat-toc-item .nm { overflow: hidden; text-overflow: ellipsis; }
@@ -580,7 +635,6 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   color: #fff; font-weight: 600;
   box-shadow: var(--accent-glow);
 }
-.cat-toc-item.active .no { color: rgba(255, 255, 255, 0.72); }
 .cat-toc-item.active .tb { color: #fff; background: rgba(255, 255, 255, 0.22); }
 
 /* ============ Main ============ */
@@ -1473,8 +1527,14 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
       inset 0 -1px 0 var(--glass-lo),
       inset 0 0 36px var(--glass-lo);
   }
-  .cat-pills > button:hover { color: var(--accent-text); background: var(--accent-bg); }
-  .cat-pills > button:hover .cnt { color: var(--text-dim); }
+  /* 「:not(.active)」：激活 pill 必须整条排除在通用 hover 之外，两个原因——
+     ① 它自己就是橙渐变 + 白字，紧跟其后的计数徽章与开合箭头也都是「白字 + 白底」，
+        被拉回浅橙底会一起糊掉（亮色模式几乎看不见，暗色下退化成橙字压橙底）；
+     ② pill 正下方就是导航条的毛玻璃，任何背景变化都要连带重算 backdrop-filter。
+        之前给激活项写了「反转移变方向」的 hover（同 .cat-toc-item.active），
+        悬停移开时每帧重画渐变，会肉眼可见地闪一下。
+     激活项本就是「已选中」，不再需要 hover 二次提示，保持零变化最干净 */
+  .cat-pills > button:hover:not(.active) { color: var(--accent-text); background: var(--accent-bg); }
   .cat-subitem:hover { color: var(--accent-text); background: var(--accent-bg); }
   .cat-toc-item:hover { color: var(--accent-text); background: var(--accent-bg); }
   /* 激活项不能被上面的通用 hover 拉回浅橙底——白字会糊在浅底上，
@@ -2592,6 +2652,12 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
      max-width 放开成 none，否则稍宽的机型上它会停在 420px、右侧空一截 */
   .header-left { flex: 0 0 auto; gap: 10px; }
   .site-search { max-width: none; }
+  /* 引擎选择：按钮放大到 30px（仍在 36px 搜索框内），菜单项给足 40px 触控目标；
+     菜单宽一点更好点，右对齐后不会顶出窄屏 */
+  .ss-engine { height: 30px; padding: 0 4px 0 5px; }
+  .ss-engine-face svg, .ss-item-icon svg { width: 16px; height: 16px; }
+  .ss-menu { min-width: 176px; }
+  .ss-item { min-height: 40px; }
   /* 移动端同样保留搜索框——第一行 logo + 搜索框、第二行 时钟 + 4 按钮，仍是两行。
      （上一版把它整个隐藏，是因为当时时钟还在第一行、第二行只放按钮；现在时钟已归入
      .header-right，第二行本来就是它俩。过窄时的时间胶囊降级交给 fitClocks，
