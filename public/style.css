@@ -1587,11 +1587,11 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   padding: 12px 16px; flex: 1; overflow-y: auto; max-height: 460px;
   scrollbar-width: thin; scrollbar-color: var(--border-light) transparent;
 }
-/* 带标签页的卡片（分组卡片，如猫眼电影榜）：标签页本身占约 40px，内容区相应
-   减去同等高度，让整卡高度与不带标签页的卡片一致。否则两者同行时，grid 会把
+/* 带数据源下拉的卡片（分组卡片，如猫眼电影榜）：下拉行本身占约 40px，内容区相应
+   减去同等高度，让整卡高度与不带下拉的卡片一致。否则两者同行时，grid 会把
    整行对齐到较高的那个，较矮卡片的内容区到上限就停住、底部空出一小截（实测约 35px）。
    用 :has() 判断，不支持的旧浏览器会跳过这条规则，效果退化为原来的 35px 空白，无功能影响 */
-.card:has(.card-tabs) .card-body { max-height: 420px; }
+.card:has(.card-select-row) .card-body { max-height: 420px; }
 .card-body::-webkit-scrollbar, .card-pane::-webkit-scrollbar { width: 6px; }
 .card-body::-webkit-scrollbar-track, .card-pane::-webkit-scrollbar-track { background: transparent; margin: 4px 0; }
 .card-body::-webkit-scrollbar-thumb, .card-pane::-webkit-scrollbar-thumb {
@@ -1599,22 +1599,25 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 .card-body::-webkit-scrollbar-thumb:hover, .card-pane::-webkit-scrollbar-thumb:hover { background: var(--border-light); background-clip: padding-box; }
 
-/* ============ 分组卡片标签页 ============ */
-.card-tabs {
-  display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px 0;
+/* ============ 分组卡片：数据源下拉 ============ */
+/* 分组内的数据源从 2 个到 60+ 个不等（网易云榜单有六十多个），胶囊标签行放不下会
+   换行或横向滚动，下拉一屏就能选完，也更省纵向空间 */
+.card-select-row {
+  padding: 10px 16px 0;
   border-bottom: 1px solid var(--border-glass);
 }
-.card-tab {
-  padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border);
-  background: transparent; color: var(--text-dim); font-size: 12px; font-weight: 600;
-  cursor: pointer; transition: color var(--dur-fast), border-color var(--dur-fast), background var(--dur-fast);
-  -webkit-tap-highlight-color: transparent;
+.card-select {
+  width: 100%; padding: 6px 30px 6px 10px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font-size: 12px; font-weight: 600; font-family: inherit;
+  cursor: pointer; outline: none;
+  transition: border-color var(--dur-fast);
+  -webkit-appearance: none; -moz-appearance: none; appearance: none;
+  /* 自绘下拉箭头（与移动端 .input-row select 同款；色值在明暗两套主题下都清晰） */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a8094' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
 }
-.card-tab:hover { color: var(--accent); border-color: var(--accent); }
-.card-tab.active {
-  background: linear-gradient(135deg, var(--accent), var(--accent-light));
-  border-color: transparent; color: #fff;
-}
+.card-select:hover, .card-select:focus { border-color: var(--accent); }
 .card-pane[hidden] { display: none; }
 
 /* Input row */
@@ -2800,9 +2803,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   .input-row .go { min-height: 44px; padding: 10px 18px; font-size: 14px; }
   /* 卡片内部内容不滚动：合并进页面滚动，便于触屏连续阅读 */
   .card-body, .card-pane { max-height: none; overflow-y: visible; }
-  .card-tabs { padding: 10px 14px 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-  .card-tabs::-webkit-scrollbar { display: none; }
-  .card-tab { flex-shrink: 0; min-height: 32px; }
+  /* 数据源下拉：触屏给足触控高度，横向内边距与卡片内容区对齐 */
+  .card-select-row { padding: 10px 14px 0; }
+  .card-select { min-height: 40px; font-size: 13px; }
   .json-view { max-height: none; overflow: visible; }
   .foot { margin: 0; padding: 12px 14px max(12px, env(safe-area-inset-bottom)); }
 }

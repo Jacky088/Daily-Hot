@@ -64,6 +64,13 @@ import { olympicsService } from './modules/olympics/olympics.module.ts'
 import { serviceDoubanWeekly } from './modules/douban-weekly.module.ts'
 import { handleImgProxy } from './modules/img-proxy.module.ts'
 import { serviceITNews } from './modules/it-news.module.ts'
+import { serviceJuejin } from './modules/juejin.module.ts'
+import { serviceGithubTrending } from './modules/github-trending.module.ts'
+import { serviceCTO51 } from './modules/cto51.module.ts'
+import { serviceYoutube } from './modules/youtube.module.ts'
+import { serviceIfeng } from './modules/ifeng.module.ts'
+import { serviceAppleMusic } from './modules/applemusic.module.ts'
+import { serviceQQMusic } from './modules/qqmusic.module.ts'
 
 // import { serviceSlackingCalendar } from './modules/slacking-calendar/slacking-calendar.module.ts'
 
@@ -128,6 +135,17 @@ appRouter.get('/ai-news', serviceAINews.handle())
 appRouter.get('/it-news', serviceITNews.handle())
 appRouter.get('/kuan', serviceKuan.handle())
 appRouter.get('/it-news/rank', serviceITNews.handleRank())
+// 技术社区热榜：掘金（官方 API）、GitHub Trending（抓页 + 搜索接口兜底）、51CTO 博客榜（抓页）
+appRouter.get('/juejin', serviceJuejin.handle())
+appRouter.get('/github-trending', serviceGithubTrending.handle())
+appRouter.get('/51cto', serviceCTO51.handle())
+// YouTube 热榜：官方 API 要 Key，走 Invidious / Piped 社区实例多实例兜底（见模块内注释）
+appRouter.get('/youtube', serviceYoutube.handle())
+// 凤凰热榜：无开放接口，取热榜页内联的 JSON（见模块内注释）
+appRouter.get('/ifeng', serviceIfeng.handle())
+// 音乐榜：Apple Music 官方公开 RSS（免密钥）、QQ 音乐站点榜单接口（免登录，需 Referer）
+appRouter.get('/apple-music', serviceAppleMusic.handle())
+appRouter.get('/qq-music', serviceQQMusic.handle())
 appRouter.get('/awesome-js', serviceAwesomeJs.handle())
 appRouter.get('/qrcode', serviceQRCode.handle())
 appRouter.get('/dad-joke', serviceDadJoke.handle())

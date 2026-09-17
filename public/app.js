@@ -92,8 +92,6 @@ const CARD_LOGOS = {
   v2ex: 'v2ex.svg',
   hn: 'ycombinator.svg',
   ncm: 'neteasecloudmusic.svg',
-  'ncm-soar': 'neteasecloudmusic.svg',
-  'ncm-acg': 'neteasecloudmusic.svg',
   epic: 'epicgames.svg',
   steam: 'steam.svg',
   douban: 'douban.svg',
@@ -105,7 +103,17 @@ const CARD_LOGOS = {
   'maoyan-coming': 'maoyan.ico',
   maoyan: 'maoyan.ico',
   huxiu: 'huxiu.ico',
-  itnews: 'ithome.ico',
+  // 「IT资讯」是 IT之家 RSS 最新资讯，「IT之家热榜」是站内日/周/月排行——同站不同源，
+  // 故前者不用站点 favicon，改用自绘的蓝底 IT 方标，两张卡一眼可分
+  itnews: 'itnews.svg',
+  itrank: 'ithome.ico',
+  juejin: 'juejin.svg',
+  'gh-trending': 'github.svg',
+  cto51: '51cto.png',
+  youtube: 'youtube.svg',
+  ifeng: 'ifeng.png',
+  applemusic: 'applemusic.svg',
+  qqmusic: 'qqmusic.ico',
   nodeseek: 'nodeseek.png',
   let: 'let.png',
   aljazeera: 'aljazeera.ico',
@@ -625,6 +633,7 @@ const EPS = [
   // 持续返回 300013「访问频繁」或空数据，后端 500。恢复需换新数据源。
   // { cat:'news', id:'rednote', name:'小红书热榜', icon:'📕', path:'/v2/rednote', type:'list', auto:1, f:{t:'title',h:'score',l:'link'} },
   { cat:'news', id:'quark', name:'夸克每日资讯', icon:'☁️', path:'/v2/quark', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'summary', p:'cover', ps:1} },
+  { cat:'news', id:'ifeng', name:'凤凰热榜', icon:'🌀', path:'/v2/ifeng', type:'list', auto:1, f:{t:'title',h:'hot_value_desc',l:'link',d:'source',p:'cover',ps:1} },
   { cat:'news', id:'dongchedi', name:'汽车热榜', icon:'🚗', path:'/v2/dongchedi', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'url'} },
 
   // 科技
@@ -638,6 +647,21 @@ const EPS = [
   { cat:'tech', id:'36kr', name:'36氪热榜', icon:'📰', path:'/v2/36kr', type:'36kr', auto:1 },
   { cat:'tech', id:'sspai', name:'少数派热榜', icon:'🎨', path:'/v2/sspai', type:'sspai', auto:1 },
   { cat:'tech', id:'huxiu', name:'虎嗅热榜', icon:'🐯', path:'/v2/huxiu', type:'huxiu', auto:1 },
+  // 技术社区热榜：四张卡都走通用 list 渲染器，靠 f 做字段映射，无需专用 renderer
+  { cat:'tech', id:'juejin', name:'掘金热榜', icon:'💎', path:'/v2/juejin', type:'list', auto:1,
+    inputs:[{ n:'category', sel:[['backend','后端'],['frontend','前端'],['android','Android'],['ios','iOS'],['ai','人工智能'],['tools','开发工具'],['life','代码人生'],['read','阅读']], d:'backend' }],
+    f:{t:'title',h:'hot_value_desc',l:'link',d:'author'} },
+  { cat:'tech', id:'gh-trending', name:'GitHub 热榜', icon:'🐙', path:'/v2/github-trending', type:'list', auto:1,
+    inputs:[{ n:'since', sel:[['daily','今日榜'],['weekly','本周榜'],['monthly','本月榜']], d:'daily' },{ n:'lang', p:'语言，如 python' }],
+    f:{t:'title',h:'hot_value_desc',l:'link',d:'description'},
+    hint:'「语言」填英文名（python / typescript / go …），留空为全语言' },
+  { cat:'tech', id:'cto51', name:'51CTO 博客榜', icon:'📝', path:'/v2/51cto', type:'list', auto:1,
+    inputs:[{ n:'type', sel:[['day','日榜'],['week','周榜']], d:'day' }],
+    f:{t:'title',h:'hot_value_desc',l:'link',d:'author'} },
+  // 与上面的「IT资讯」同源不同榜：那张是 RSS 最新资讯，这张是站内热榜（接口早就有了，一直没接卡片）
+  { cat:'tech', id:'itrank', name:'IT之家热榜', icon:'🏠', path:'/v2/it-news/rank', type:'list', auto:1,
+    inputs:[{ n:'type', sel:[['day','日榜'],['week','周榜'],['month','月榜']], d:'day' }],
+    f:{t:'title',h:null,l:'link'} },
 
   // 娱乐
   // 分组卡片的显示位置由「组内首个成员在本列表中的位置」决定，
@@ -657,10 +681,22 @@ const EPS = [
     inputs:[{ n:'network', sel:['', 'Netflix', 'HBO', 'HBO Max', 'Disney+', 'Prime Video', 'Apple TV', 'Hulu', 'Paramount+'], d:'' }], hint:'可选播出平台过滤，数据来自 SIMKL' },
   { cat:'ent', id:'simkl-movies', name:'流媒体热门电影', icon:'🍿', path:'/v2/simkl-trending', type:'simkl', auto:1,
     inputs:[{ n:'type', sel:['movies', 'anime'], d:'movies' }], hint:'下拉可切换为动画榜；数据来自 SIMKL' },
-  { cat:'ent', id:'ncm', name:'网易云热歌榜', icon:'🎵', path:'/v2/ncm-rank/3778678', type:'ncm', auto:1 },
-  { cat:'ent', id:'ncm-soar', name:'网易云飙升榜', icon:'🚀', path:'/v2/ncm-rank/19723756', type:'ncm', auto:1 },
-  { cat:'ent', id:'ncm-acg', name:'网易云ACG榜', icon:'🌸', path:'/v2/ncm-rank/71385702', type:'ncm', auto:1 },
-  { cat:'ent', id:'billboard', name:'Billboard Hot 100', icon:'🇺🇸', path:'/v2/ncm-rank/60198', type:'ncm', auto:1 },
+  // 官方 Data API 的 chart=mostPopular 需要 API Key，故走 Invidious / Piped 社区实例（多实例兜底，见后端模块注释）；
+  // 榜单固定取「游戏」栏目且滤掉直播——实测默认栏目几乎全是直播，不适合当热榜看
+  { cat:'ent', id:'youtube', name:'YouTube 游戏热榜', icon:'▶️', path:'/v2/youtube', type:'list', auto:1,
+    inputs:[{ n:'region', sel:[['US','美国'],['HK','香港'],['TW','台湾'],['JP','日本'],['KR','韩国'],['GB','英国']], d:'US' }],
+    f:{t:'title',h:null,l:'link',d:'meta',p:'cover',ps:1} },
+  // 网易云音乐榜：不再拆成热歌/飙升/ACG/Billboard 四张卡，合并为一张卡 + 下拉选榜单，
+  // 选项由后端 /v2/ncm-rank/list 给出（官方 60+ 个榜单，有多少个就有多少个选项），默认热歌榜
+  { cat:'ent', id:'ncm', name:'网易云音乐榜', icon:'🎵', path:'/v2/ncm-rank/3778678', type:'ncm', auto:1 },
+  // Apple Music：官方公开的 Marketing Tools RSS，免密钥、支持地区切换
+  { cat:'ent', id:'applemusic', name:'Apple Music 热歌榜', icon:'🎧', path:'/v2/apple-music', type:'list', auto:1,
+    inputs:[{ n:'region', sel:[['cn','中国'],['us','美国'],['jp','日本'],['kr','韩国'],['hk','香港'],['tw','台湾'],['gb','英国']], d:'cn' }],
+    f:{t:'title',h:null,l:'link',d:'meta',p:'cover',ps:1} },
+  // QQ 音乐：站点自有榜单接口，免登录但必须带 Referer（见后端模块注释）
+  { cat:'ent', id:'qqmusic', name:'QQ 音乐热榜', icon:'🎼', path:'/v2/qq-music', type:'list', auto:1,
+    inputs:[{ n:'topid', sel:[['26','热歌榜'],['62','飙升榜'],['27','新歌榜'],['60','抖音热歌榜'],['3','欧美榜'],['17','日本榜'],['16','韩国榜'],['59','香港地区榜'],['61','台湾地区榜']], d:'26' }],
+    f:{t:'title',h:null,l:'link',d:'meta',p:'cover',ps:1} },
   { cat:'ent', id:'epic', name:'Epic免费游戏', icon:'🎮', path:'/v2/epic', type:'epic', auto:1 },
   { cat:'ent', id:'steam', name:'Steam免费游戏', icon:'🎮', path:'/v2/steam', type:'steam', auto:1 },
   { cat:'ent', id:'lyric', name:'歌词搜索', icon:'🎶', path:'/v2/lyric', type:'lyric', auto:0, inputs:[{n:'query',p:'歌名 歌手，如：稻香 周杰伦'}], hint:'精确搜索：使用「歌名 歌手」格式；避免只输入歌词片段' },
@@ -735,11 +771,14 @@ const CARD_GROUPS = [
     { ep: 'simkl-tv', label: '剧集' },
     { ep: 'simkl-movies', label: '电影' },
   ]},
-  { id: 'music-rank', name: '网易云音乐榜', icon: '🎵', tabs: [
-    { ep: 'ncm', label: '热歌' },
-    { ep: 'ncm-soar', label: '飙升' },
-    { ep: 'ncm-acg', label: 'ACG' },
-    { ep: 'billboard', label: 'Billboard' },
+  // 网易云音乐榜：选项不写死，卡片挂载后拉一次后端榜单清单填充下拉
+  // （官方有多少个榜单就有多少个选项）；选中后把榜单 id 拼进详情路径再加载。
+  // tabs 只作为初始「种子项」，同时承担分组定位所需的成员 id
+  { id: 'music-rank', name: '网易云音乐榜', icon: '🎵', dyn: {
+    list: '/v2/ncm-rank/list',
+    detail: '/v2/ncm-rank/',
+  }, tabs: [
+    { ep: 'ncm', label: '热歌榜' },
   ]},
   { id: 'free-games', name: '免费游戏', icon: '🎮', tabs: [
     { ep: 'epic', label: 'Epic' },
@@ -2015,44 +2054,46 @@ function makeGroupCard(group, eps) {
   const activeEp = () => EPS.find(e => e.id === card.dataset.activeEp);
   head.querySelector('.btn-refresh').onclick = () => { const ep = activeEp(); if (ep) load(ep, true); };
 
-  const tabBar = document.createElement('div');
-  tabBar.className = 'card-tabs';
-  // 标签页语义：tablist/tab/tabpanel 让读屏器识别「N 选一」结构
-  tabBar.setAttribute('role', 'tablist');
-  tabBar.setAttribute('aria-label', group.name + ' 标签页');
+  // 数据源选择用下拉，而不是原先的胶囊标签行：
+  // 一个分组内可能只有两项（Epic/Steam），也可能有六十多项（网易云榜单），
+  // 胶囊行放不下会换行或横向滚动，下拉一屏就能选完，也更省纵向空间
+  const selectRow = document.createElement('div');
+  selectRow.className = 'card-select-row';
+  const select = document.createElement('select');
+  select.className = 'card-select';
+  select.setAttribute('aria-label', group.name + ' 数据源');
+  selectRow.appendChild(select);
+  card.appendChild(selectRow);
+
+  const addOption = (value, label) => {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = label;
+    select.appendChild(opt);
+    return opt;
+  };
+
+  // 动态分组（group.dyn）：卡片里只有一个数据源槽位，
+  // 选项在挂载后异步从后端榜单清单拿（有多少个榜单就有多少个选项）
+  const seedEp = group.dyn ? eps[0] : null;
+  if (seedEp) {
+    addOption(seedEp.id, (group.tabs.find(t => t.ep === seedEp.id) || {}).label || seedEp.name);
+  } else {
+    eps.forEach(ep => addOption(ep.id, (group.tabs.find(t => t.ep === ep.id) || {}).label || ep.name));
+  }
+
   const panes = [];
-
   eps.forEach((ep, i) => {
-    const tab = document.createElement('button');
-    tab.type = 'button';
-    tab.className = 'card-tab';
-    tab.textContent = (group.tabs.find(t => t.ep === ep.id) || {}).label || ep.name;
-    tab.setAttribute('role', 'tab');
-    tab.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
-    tab.onclick = () => {
-      card._activateTab(ep.id);
-      // 手动切标签页时同步子菜单高亮（定位跳转路径由 locateCard 自己维护）
-      activeModuleId = ep.id;
-      if (syncSubs) syncSubs();
-      // 双向同步：让对应模块 chip / 侧边栏子项滚入可视区
-      if (centerSubChip) centerSubChip(ep.id);
-    };
-    tabBar.appendChild(tab);
-
     // 复用 makeCard 的 body 构建（输入控件 / hint / content 容器），外壳弃用
     const sub = makeCard(ep);
     const body = sub.querySelector('.card-body');
     const pane = document.createElement('div');
     pane.className = 'card-pane';
     pane.dataset.ep = ep.id;
-    pane.setAttribute('role', 'tabpanel');
-    pane.setAttribute('aria-label', tab.textContent);
     while (body.firstChild) pane.appendChild(body.firstChild);
     if (i > 0) pane.hidden = true;
     panes.push({ ep, pane });
   });
-
-  card.appendChild(tabBar);
   panes.forEach(p => card.appendChild(p.pane));
 
   const loaded = new Set();
@@ -2060,21 +2101,50 @@ function makeGroupCard(group, eps) {
     const idx = panes.findIndex(p => p.ep.id === epId);
     if (idx < 0) return;
     card.dataset.activeEp = panes[idx].ep.id;
-    tabBar.querySelectorAll('.card-tab').forEach((b, j) => {
-      b.classList.toggle('active', j === idx);
-      b.setAttribute('aria-selected', j === idx ? 'true' : 'false');
-    });
+    select.value = panes[idx].ep.id;
     panes.forEach((p, j) => { p.pane.hidden = j !== idx; });
-    // 懒加载：首次激活该标签页且数据源为自动加载类型时才请求
+    // 懒加载：首次激活该数据源且为自动加载类型时才请求
     if (opts.load !== false && panes[idx].ep.auto && !loaded.has(panes[idx].ep.id)) {
       loaded.add(panes[idx].ep.id);
       load(panes[idx].ep);
     }
   }
-  // 初始激活第一个标签页；数据加载由 render() 的自动加载队列统一调度
+  // 初始激活第一个数据源；数据加载由 render() 的自动加载队列统一调度
   activate(eps[0].id, { load: false });
 
-  // 供 locateCard 按 ep 激活对应标签页
+  select.onchange = () => {
+    // 动态分组：换榜单 = 改详情路径后重新加载同一块内容区（缓存键含完整 URL，各榜单互不串数据）
+    if (seedEp) {
+      seedEp.path = group.dyn.detail + select.value;
+      load(seedEp, true);
+      return;
+    }
+    activate(select.value);
+    // 手动切换时同步子菜单高亮（定位跳转路径由 locateCard 自己维护）
+    activeModuleId = select.value;
+    if (syncSubs) syncSubs();
+    // 双向同步：让对应模块 chip / 侧边栏子项滚入可视区
+    if (centerSubChip) centerSubChip(select.value);
+  };
+
+  // 动态分组：拉一次榜单清单把下拉填满；失败就保留种子项，不影响主流程
+  if (seedEp) {
+    fetch(API + group.dyn.list)
+      .then(r => r.json())
+      .then(res => {
+        const list = Array.isArray(res && res.data) ? res.data : [];
+        if (!list.length) return;
+        const current = seedEp.path.split('/').pop();
+        select.innerHTML = '';
+        list.forEach(item => {
+          const opt = addOption(String(item.id), item.name || String(item.id));
+          if (String(item.id) === current) opt.selected = true;
+        });
+      })
+      .catch(() => {});
+  }
+
+  // 供 locateCard 定位到本卡片
   card._activateTab = (epId) => activate(epId);
 
   return card;

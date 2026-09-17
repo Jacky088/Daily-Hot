@@ -2,13 +2,13 @@
 
 > 一站看完天下事 · 基于 [60s API](https://github.com/vikiboss/60s) 构建的一站式热榜聚合面板
 
-[![Version](https://img.shields.io/badge/version-1.13.0-blue) ](./package.json)
+[![Version](https://img.shields.io/badge/version-1.14.0-blue) ](./package.json)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white) ](https://workers.cloudflare.com/)
 [![EdgeOne Pages](https://img.shields.io/badge/EdgeOne%20Pages-0052FF?style=flat) ](https://edgeone.ai/pages)
 [![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white) ](https://docker.com/)
 [![License](https://img.shields.io/badge/license-MIT-green) ](./license)
 
-聚合 60+ 个热门数据源，一个页面看遍全网热点。涵盖新闻资讯、科技资讯、影视娱乐、实用工具、生活信息、趣味内容和翻译，部署即用，支持 Cloudflare Workers、Docker 与 EdgeOne Makers 等多种部署方式。
+聚合 70+ 个热门数据源，一个页面看遍全网热点。涵盖新闻资讯、科技资讯、影视娱乐、实用工具、生活信息、趣味内容和翻译，部署即用，支持 Cloudflare Workers、Docker 与 EdgeOne Makers 等多种部署方式。
 
 ## 界面预览
 
@@ -18,13 +18,13 @@
 
 ### 📰 全网热榜聚合
 
-一个面板覆盖 60+ 个数据源，按 7 大分类组织：
+一个面板覆盖 70+ 个数据源，按 7 大分类组织：
 
 | 分类 | 包含接口 |
 | ---- | -------- |
-| 📰 新闻资讯 | 60 秒读懂世界、微博热搜、知乎热榜、B 站热门、抖音热点、今日头条、百度热搜/电视剧/贴吧、夸克每日资讯、汽车热榜、历史上的今天、Al Jazeera/BBC/CNN 头条 |
-| 💻 科技资讯 | NodeSeek 新帖、V2EX 热帖、LowEndTalk、Hacker News、IT 资讯、酷安热榜、36 氪热榜、Reddit 热帖、少数派热榜、虎嗅热榜 |
-| 🎬 影视娱乐 | 猫眼票房、百度电视剧榜、豆瓣电影/剧集/综艺周榜（华语/全球）、流媒体热门剧集/电影、Epic 免费游戏、Steam 免费游戏、网易云热歌榜/飙升榜/ACG 榜、Billboard Hot 100、歌词搜索、唱鸭 |
+| 📰 新闻资讯 | 60 秒读懂世界、微博热搜、知乎热榜、B 站热门、抖音热点、今日头条、百度热搜/电视剧/贴吧、夸克每日资讯、凤凰热榜、汽车热榜、历史上的今天、Al Jazeera/BBC/CNN 头条 |
+| 💻 科技资讯 | NodeSeek 新帖、V2EX 热帖、LowEndTalk、Hacker News、IT 资讯、IT 之家热榜、掘金热榜、GitHub 热榜、51CTO 博客榜、酷安热榜、36 氪热榜、Reddit 热帖、少数派热榜、虎嗅热榜 |
+| 🎬 影视娱乐 | 猫眼票房、百度电视剧榜、豆瓣电影/剧集/综艺周榜（华语/全球）、流媒体热门剧集/电影、YouTube 游戏热榜、Epic 免费游戏、Steam 免费游戏、网易云音乐榜（60+ 榜单）、QQ 音乐热榜（9 个榜单）、Apple Music 热歌榜（7 个地区）、歌词搜索、唱鸭 |
 | 🛠️ 实用工具 | 百度百科、健康计算器、二维码生成、哈希加密、网页 OG 信息、IP 查询、WHOIS 查询、密码生成/检测、随机颜色、配色方案 |
 | 🌤️ 生活信息 | 实时天气、天气预报、汇率、油价、金价、万年历、农历信息、摸鱼日历 |
 | 🎯 趣味内容 | 段子、冷笑话、一言、KFC 疯狂星期四、发病文案、答案之书、2048 小游戏、必应壁纸、JS 题目、梗百科 |
@@ -33,7 +33,7 @@
 ### 🎨 体验设计
 
 - **🌙 日间 / 夜间模式** — 自动跟随系统明暗，顶栏可手动切换并记忆偏好
-- **🔍 全网搜索** — 顶栏搜索框，默认必应，右侧图标一键切换谷歌，选择本地记忆；回车或点放大镜新标签打开结果页，不打断当前浏览
+- **🔍 全网搜索** — 顶栏搜索框默认必应，右侧只露当前引擎图标，点开在下方下拉切换必应 / 谷歌，选择本地记忆；回车或点放大镜新标签打开结果页，不打断当前浏览
 - **⏱️ 实时时钟** — 顶栏秒级时钟，橙色进度随一天推移铺满整条胶囊，进度区间内有流动的玻璃泡泡
 - **🌤️ 本地天气** — 页首 Hero 卡右侧按访客 IP 自动定位城市、展示今日天气，点一下即可重新定位或手动改城市；天空底色随天气与昼夜实时切换，晴出太阳、夜出月亮与星点、雨天落雨丝、雪天飘六角雪花、雷阵雨伴闪电、雾霾起雾带
 - **🖼️ 必应壁纸背景** — 页面背景每日自动获取必应壁纸，桌面/移动端按屏幕方向自适应清晰度，当日缓存不重复请求；默认关闭，顶栏一键开启
@@ -42,6 +42,7 @@
 - **🔄 单卡刷新** — 每张卡片右上角可独立刷新，顶栏按钮一键刷新当前分类全部卡片
 - **🔗 链接可跳转** — 可点击跳转到来源页面，
 - **⚡ 智能加载** — 无参数接口自动加载，有参数接口提供输入控件
+- **🗂️ 同源榜单合并** — 同一站点的多个榜单合并为一张卡，卡内下拉切换（猫眼 / 豆瓣 / 百度 / 流媒体 / 网易云 / 免费游戏）；其中网易云的候选榜单由后端榜单清单动态生成，官方有多少个榜就有多少个选项
 - **🏆 排行榜样式** — 前三名金银铜渐变色块，热度数值高亮
 - **🖼️ 榜单缩略图** — 知乎/头条/百度/36氪/少数派/虎嗅等带图数据源逐条展示封面，单条无图自动回退纯文本布局
 - **🎮 2048 小游戏** — 鼠标拖拽 / 触屏滑动 / 键盘方向键三合一操控，最高分本地记忆
@@ -172,6 +173,12 @@ curl "https://your-domain/v2/weather/local"
 # 万年历（默认当月，支持 year/month 参数）
 curl "https://your-domain/v2/lunar/calendar?year=2026&month=10"
 
+# 掘金热榜（category：backend / frontend / android / ios / ai / tools / life / read）
+curl "https://your-domain/v2/juejin?category=frontend"
+
+# QQ 音乐热榜（topid：26 热歌 / 62 飙升 / 27 新歌 / 60 抖音热歌 …，见接口内注释）
+curl "https://your-domain/v2/qq-music?topid=62"
+
 # 查看全部接口列表
 curl "https://your-domain/endpoints"
 ```
@@ -201,7 +208,7 @@ curl "https://your-domain/endpoints"
 
 - **后端**：TypeScript + [Oak](https://oakserver.github.io/oak/) 框架
 - **前端**：纯 HTML/CSS/JS，无框架依赖
-- **数据源**：[vikiboss/60s](https://github.com/vikiboss/60s) + [60s-static-host](https://github.com/vikiboss/60s-static-host) + NodeSeek / V2EX / LowEndTalk RSS
+- **数据源**：[vikiboss/60s](https://github.com/vikiboss/60s) + [60s-static-host](https://github.com/vikiboss/60s-static-host) + NodeSeek / V2EX / LowEndTalk RSS + 掘金官方内容 API、Apple Music 官方营销 RSS、QQ 音乐榜单接口 + 凤凰热榜 / 51CTO / IT 之家排行 / GitHub Trending 页面解析 + Invidious / Piped 社区实例（YouTube）
 - **部署**：Cloudflare Workers / Docker / EdgeOne Pages / Node.js / Deno / Bun
 
 ## 📋 项目结构
