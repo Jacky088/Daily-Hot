@@ -60,19 +60,62 @@ class ServiceCTO51 {
     }
   }
 
+  // 取榜单页 HTML。
+  // ⚠️ 上游 blog.51cto.com 挂在腾讯 EdgeOne 后面，带 WAF：
+  //   ① Accept 必须带 */*——带 text/html（哪怕连同 xhtml/xml）会被判成爬虫，
+  //      返回 29KB 的 JS 挑战空壳页（HTTP 仍是 200，页面里没有榜单）；
+  //   ② Cloudflare Workers 的出口同样会被判定为爬虫并拿到挑战页：这一层是出口信誉 /
+  //      TLS 指纹级别的判定，改请求头未必能绕过。所以这里补全一套浏览器指纹头，
+  //      失败再带 cache-buster 重试一次（重新走边缘判定，有概率直接放行），
+  //      两次都拿到挑战页就明确报出来，便于一眼看出是「被风控」而不是「页面改版」
+  async #fetchHtml(type: string): Promise<string> {
+    const reasons: string[] = []
+
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      // 第二次带时间戳：避免反复命中同一个已被标记的边缘缓存
+      const url = `${CTO51_RANK_URL}/${type}${attempt > 1 ? `?_=${Date.now()}` : ''}`
+
+      try {
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': Common.chromeUA,
+            Accept: '*/*',
+            'Accept-Language': 'zh-CN,zh;q=0.9',
+            Referer: 'https://blog.51cto.com/',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'same-origin',
+          },
+          signal: AbortSignal.timeout(12000),
+        })
+
+        if (!response.ok) {
+          reasons.push(`HTTP ${response.status}`)
+          continue
+        }
+
+        const html = await response.text()
+
+        // 挑战空壳页的特征：篇幅只有几十 KB，且没有榜单容器
+        if (!html.includes('ranking-list')) {
+          reasons.push(`第 ${attempt} 次拿到 WAF 挑战页（${html.length} 字节）`)
+          continue
+        }
+
+        return html
+      } catch (e) {
+        reasons.push(`第 ${attempt} 次请求失败：${(e as Error).message}`)
+      }
+    }
+
+    throw new Error(`Failed to fetch 51cto ranking: ${reasons.join(' | ')}`)
+  }
+
   async #fetch(type: string): Promise<CTO51Item[]> {
     // ⚠️ Accept 必须是 */*：带上 text/html（哪怕连同 xhtml/xml）会被站点的 WAF 判定为爬虫，
     // 返回 29KB 的 JS 挑战空壳页（HTTP 仍是 200，页面里没有榜单），实测只有 */* 能拿到真页面
-    const response = await fetch(`${CTO51_RANK_URL}/${type}`, {
-      headers: { 'User-Agent': Common.chromeUA, Accept: '*/*' },
-      signal: AbortSignal.timeout(10000),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch 51cto ranking: HTTP ${response.status}`)
-    }
-
-    const $ = load(await response.text())
+    const $ = load(await this.#fetchHtml(type))
     const items: CTO51Item[] = []
 
     // 榜单结构：ul.ranking-list > li.follow-item
