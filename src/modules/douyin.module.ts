@@ -1,12 +1,18 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { withUapisFallback } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceDouyin {
+  /** 供聚合接口复用，并与 /v2/douyin 共享同一份服务端缓存；主源失效时退回 uapis 备用源 */
+  fetch() {
+    return cached('douyin', () => withUapisFallback('douyin', () => this.#fetch()))
+  }
+
   handle(): RouterMiddleware<'/douyin'> {
     return async (ctx) => {
-      const data = await cached('douyin', () => this.#fetch())
+      const data = await this.fetch()
 
       switch (ctx.state.encoding) {
         case 'text':

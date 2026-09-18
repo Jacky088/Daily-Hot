@@ -27,7 +27,8 @@ class ServiceDailyEng {
 
   // 金山词霸每日一句开放接口，无需 key；date 留空取当日，格式 YYYY-MM-DD
   async #fetch(date?: string): Promise<DailyEngData> {
-    const url = date ? `https://open.iciba.com/dsapi/?date=${date}` : 'https://open.iciba.com/dsapi/'
+    // date 来自 query：编码后 &/? 等分隔符无法再篡改上游的 query 结构
+    const url = date ? `https://open.iciba.com/dsapi/?date=${encodeURIComponent(date)}` : 'https://open.iciba.com/dsapi/'
 
     const response = await fetch(url, {
       headers: { 'User-Agent': Common.chromeUA },

@@ -770,7 +770,7 @@ class ServiceWhois {
       } catch (e: any) {
         console.error('[whois]', e)
         ctx.response.status = 400
-        ctx.response.body = Common.buildJson(null, 400, e.message || 'WHOIS 查询失败')
+        ctx.response.body = Common.buildJson(null, 400, 'WHOIS 查询失败，请确认域名是否正确')
       }
     }
   }

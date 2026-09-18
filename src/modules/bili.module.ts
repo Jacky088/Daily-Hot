@@ -1,11 +1,17 @@
 import { Common } from '../common.ts'
+import { withUapisFallback } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceBili {
+  /** 供聚合接口复用（B 站内部自带 5 分钟内存缓存 + Cache API 兜底）；主源全挂时退回 uapis 备用源 */
+  fetch() {
+    return withUapisFallback('bilibili', () => this.#fetch())
+  }
+
   handle(): RouterMiddleware<'/bili'> {
     return async (ctx) => {
-      const data = await this.#fetch()
+      const data = await this.fetch()
 
       switch (ctx.state.encoding) {
         case 'text':

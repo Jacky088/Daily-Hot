@@ -186,7 +186,8 @@ class ServiceNcm {
       }[]
     }
 
-    const api = `https://music.163.com/api/playlist/detail?id=${id}`
+    // id 来自路由参数 /ncm-rank/:id：编码后无法用 & 篡改上游 query
+    const api = `https://music.163.com/api/playlist/detail?id=${encodeURIComponent(id)}`
     const options = {
       headers: {
         'User-Agent': Common.chromeUA,

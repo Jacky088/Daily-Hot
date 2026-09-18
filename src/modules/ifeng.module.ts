@@ -12,12 +12,17 @@ const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 30
 
 class ServiceIfeng {
+  /** 供聚合接口 /v2/hot/aggregate 复用：与 /v2/ifeng 共享同一份服务端缓存，不重复打上游 */
+  fetch() {
+    return cached('ifeng-rank', () => this.#fetch())
+  }
+
   handle(): RouterMiddleware<'/ifeng'> {
     return async (ctx) => {
       let limit = Number.parseInt(ctx.request.url.searchParams.get('limit') || '') || DEFAULT_LIMIT
       limit = Math.min(limit, MAX_LIMIT)
 
-      const data = (await cached('ifeng-rank', () => this.#fetch())).slice(0, limit)
+      const data = (await this.fetch()).slice(0, limit)
 
       switch (ctx.state.encoding) {
         case 'text': {

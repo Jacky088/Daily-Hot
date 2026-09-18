@@ -75,7 +75,9 @@ class ServiceFanyi {
                   pronounce: responseItems.map((e) => e.tgtPronounce).join('') || '',
                 },
               })
-            : Common.buildJson(null, 500, `翻译服务异常，调试信息: ${JSON.stringify(data)}`)
+            // 原先把整个上游响应对象序列化进错误文案当「调试信息」，等于把上游数据
+            // 原样透出给调用方；真实原因只进服务端日志
+            : Common.buildJson(null, 500, '翻译服务异常，请稍后重试')
           break
       }
     }

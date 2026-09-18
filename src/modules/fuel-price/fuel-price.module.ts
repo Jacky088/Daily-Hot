@@ -162,8 +162,8 @@ class ServiceFuelPrice {
           }
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : '未知错误'
-        ctx.response.body = Common.buildJson({ error: message }, 500, message)
+        console.error('[fuel-price]', error)
+        ctx.response.body = Common.buildJson(null, 500, '油价数据获取失败，请稍后重试')
       }
     }
   }

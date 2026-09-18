@@ -1,5 +1,6 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { withUapisFallback } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -14,9 +15,14 @@ class ServiceWeibo {
     return process.env.WEIBO_COOKIE || FALLBACK_COOKIE
   }
 
+  /** 供聚合接口复用，并与 /v2/weibo 共享同一份服务端缓存；主源失效时退回 uapis 备用源 */
+  fetch() {
+    return cached('weibo', () => withUapisFallback('weibo', () => this.#fetch()))
+  }
+
   handle(): RouterMiddleware<'/weibo'> {
     return async (ctx) => {
-      const data = await cached('weibo', () => this.#fetch())
+      const data = await this.fetch()
 
       switch (ctx.state.encoding) {
         case 'text':

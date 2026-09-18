@@ -71,6 +71,8 @@ import { serviceYoutube } from './modules/youtube.module.ts'
 import { serviceIfeng } from './modules/ifeng.module.ts'
 import { serviceAppleMusic } from './modules/applemusic.module.ts'
 import { serviceQQMusic } from './modules/qqmusic.module.ts'
+import { serviceHotAggregate } from './modules/hot-aggregate.module.ts'
+import { serviceHupu } from './modules/hupu.module.ts'
 
 // import { serviceSlackingCalendar } from './modules/slacking-calendar/slacking-calendar.module.ts'
 
@@ -181,6 +183,12 @@ appRouter.get('/baidu/hot', serviceBaidu.handleHotSearch())
 appRouter.get('/baidu/teleplay', serviceBaidu.handleTeleplay())
 appRouter.get('/baidu/movie', serviceBaidu.handleMovie())
 appRouter.get('/baidu/tieba', serviceBaidu.handleTieba())
+
+// 全网热榜聚合：把微博/知乎/抖音/头条/百度/B站 合并成一条可比榜单（前端「今日热榜」首页）
+appRouter.get('/hot/aggregate', serviceHotAggregate.handle())
+
+// 虎扑热榜：虎扑自身无可用公开接口，走 uapis 聚合源
+appRouter.get('/hupu', serviceHupu.handle())
 
 appRouter.get('/weather/realtime', serviceWeather.handle())
 appRouter.get('/weather/forecast', serviceWeather.handleForecast())

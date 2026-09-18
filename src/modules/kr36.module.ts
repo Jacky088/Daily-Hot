@@ -1,12 +1,14 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { withUapisFallback } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
 class Service36Kr {
   handle(): RouterMiddleware<'/36kr'> {
     return async (ctx) => {
-      const data = await cached('36kr', () => this.#fetch())
+      // 主源失效时退回 uapis 备用源
+      const data = await cached('36kr', () => withUapisFallback('36kr', () => this.#fetch()))
 
       switch (ctx.state.encoding) {
         case 'text':

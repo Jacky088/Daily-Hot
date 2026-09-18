@@ -1,12 +1,18 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { withUapisFallback } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceToutiao {
+  /** 供聚合接口复用，并与 /v2/toutiao 共享同一份服务端缓存；主源失效时退回 uapis 备用源 */
+  fetch() {
+    return cached('toutiao', () => withUapisFallback('toutiao', () => this.#fetch()))
+  }
+
   handle(): RouterMiddleware<'/toutiao'> {
     return async (ctx) => {
-      const data = await cached('toutiao', () => this.#fetch())
+      const data = await this.fetch()
 
       switch (ctx.state.encoding) {
         case 'text':

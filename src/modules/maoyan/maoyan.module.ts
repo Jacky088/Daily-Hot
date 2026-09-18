@@ -211,7 +211,8 @@ class ServiceMaoyan {
     const url =
       type === 'showing'
         ? 'https://m.maoyan.com/ajax/movieOnInfoList'
-        : `https://m.maoyan.com/ajax/comingList?ci=${city || 1}&token=&limit=20`
+        // city 来自 query：编码后无法用 & 追加额外参数
+        : `https://m.maoyan.com/ajax/comingList?ci=${encodeURIComponent(city || 1)}&token=&limit=20`
 
     const res = await fetch(url, { headers })
     const json = (await res.json()) as any

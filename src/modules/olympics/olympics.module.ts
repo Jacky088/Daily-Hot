@@ -157,13 +157,16 @@ ${rows.join('\n')}`
       .join('; ')
       .replace('__sdw-bff=;', '')
 
+    // id 来自 query：编码后才不会把 / 或 ? 带进上游路径
+    //（命名避开下面那个从响应里取出的 eventId，两者含义不同）
+    const encodedId = encodeURIComponent(id)
     const headers = {
       'User-Agent': Common.chromeUA,
-      Referer: `https://www.olympics.com/zh/olympic-games/${id}/medals`,
+      Referer: `https://www.olympics.com/zh/olympic-games/${encodedId}/medals`,
       cookie,
     }
 
-    const response = await fetch(`https://bff-api.olympics.com/bff/api/usdm/v1/competitions/${id}?languageCode=ZH`, {
+    const response = await fetch(`https://bff-api.olympics.com/bff/api/usdm/v1/competitions/${encodedId}?languageCode=ZH`, {
       headers,
     })
 

@@ -47,6 +47,8 @@
   --glass-hi: rgba(255, 255, 255, 0.22);
   --glass-lo: rgba(255, 255, 255, 0.05);
   --border-glass: rgba(255, 255, 255, 0.08);
+  /* 壁纸遮罩：暗色主题压暗（见下方 .wallpaper-bg::after） */
+  --wallpaper-scrim: rgba(12, 9, 16, 0.42);
 }
 :root[data-theme="light"] {
   color-scheme: light;
@@ -83,6 +85,8 @@
   --glass-hi: rgba(255, 255, 255, 0.8);
   --glass-lo: rgba(255, 255, 255, 0.25);
   --border-glass: rgba(255, 255, 255, 0.5);
+  /* 壁纸遮罩：亮色主题提亮（同一层遮罩，方向相反、目的一致） */
+  --wallpaper-scrim: rgba(255, 253, 250, 0.5);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -138,6 +142,38 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 :root.wallpaper-off .wallpaper-toggle .wp-off { display: block; }
 :root.wallpaper-off .wallpaper-toggle svg { opacity: 0.55; }
 :root.wallpaper-off .wallpaper-toggle:hover svg { opacity: 1; }
+
+/* ---- 壁纸下的可读性兜底 ----
+   壁纸是每日必应图，亮度完全不可控（可能是雪原，也可能是夜景）。
+   玻璃底太透时，正文会随当日壁纸明暗漂移；浅色壁纸 + 亮色主题尤其吃亏，
+   底一白，正文和次要文字就一起发灰。这里上两道保险：
+   ① 壁纸层再压一层遮罩，把亮度收进一个稳定区间（暗色压暗、亮色提亮）；
+   ② 玻璃底只在「壁纸开启」时加厚一档——关闭壁纸（默认）仍保持原来的通透观感，
+      只有真压上壁纸了才牺牲一点透明度换对比度。 */
+.wallpaper-bg::after {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none;
+  background: var(--wallpaper-scrim);
+}
+:root[data-theme="dark"]:not(.wallpaper-off) {
+  --glass-bg: rgba(26, 20, 34, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.3);
+  --glass-hi: rgba(255, 255, 255, 0.16);
+}
+:root[data-theme="light"]:not(.wallpaper-off) {
+  --glass-bg: rgba(255, 255, 255, 0.78);
+  --glass-border: rgba(88, 62, 74, 0.26);
+}
+/* 壁纸上的「裸文字」（页脚、分类标题条这些没有玻璃底的）：补一层极淡的
+   方向性阴影把字和背景拉开。幅度刻意做小——只在边缘起作用，不形成描边感 */
+:root:not(.wallpaper-off) .foot,
+:root:not(.wallpaper-off) .cat-title {
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
+}
+:root[data-theme="dark"]:not(.wallpaper-off) .foot,
+:root[data-theme="dark"]:not(.wallpaper-off) .cat-title {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+}
 
 .topbar, .layout, .main, .foot { position: relative; z-index: 1; }
 
@@ -3230,3 +3266,439 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   transition: box-shadow var(--dur-fast), border-color var(--dur-fast);
 }
 .card-unavailable .retry-btn:hover { box-shadow: var(--accent-glow); }
+
+/* ================================================================
+   三栏骨架：左侧固定导航栏 + 中间内容区 + 右侧信息栏
+   ----------------------------------------------------------------
+   排版取向：左侧栏用 position:sticky 做「视觉固定」而不是 overflow 容器滚动，
+   整页滚动机制（window.scrollTo / 下拉刷新 / 卡片定位校正 / scroll-spy）
+   因此完全不受影响——这是这套改版最重要的一条约束。
+   下面所有规则统一带 .app-shell / .sidebar 前缀提升特异性，
+   以便稳定覆盖前面为基础版式写的 .layout / .cat-nav / .main 规则。
+   ================================================================ */
+
+.app-shell { display: flex; align-items: flex-start; min-height: 100vh; }
+.app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+/* ---------------- 左侧导航栏 ---------------- */
+.sidebar {
+  position: sticky; top: 0; z-index: 70;
+  flex: 0 0 232px; width: 232px; height: 100vh;
+  display: flex; flex-direction: column;
+  padding: 16px 10px 14px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border-right: 1px solid var(--glass-border);
+  box-shadow: inset -1px 0 0 var(--glass-lo);
+  overflow-y: auto; overscroll-behavior: contain;
+}
+.sidebar::-webkit-scrollbar { width: 0; height: 0; }
+
+.sb-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 8px 16px; }
+.sidebar .sb-head .logo { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.sidebar .sb-head .logo > svg { width: 26px; height: 26px; flex-shrink: 0; }
+.sb-brand { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.sidebar .sb-head .logo .text { font-size: 16px; font-weight: 800; color: var(--text); letter-spacing: 0.2px; }
+.sidebar .sb-head .logo .subtitle { display: block; font-size: 11px; font-style: normal; color: var(--text-dimmer); }
+
+.sb-close, .sb-toggle {
+  display: none; align-items: center; justify-content: center;
+  width: 34px; height: 34px; flex-shrink: 0; padding: 0;
+  border-radius: 10px; border: 1px solid var(--border);
+  background: var(--card); color: var(--text-dim); cursor: pointer;
+  transition: color var(--dur-fast), border-color var(--dur-fast);
+}
+.sb-close:hover, .sb-toggle:hover { color: var(--accent); border-color: var(--accent); }
+.sb-close svg, .sb-toggle svg { width: 17px; height: 17px; }
+
+/* 侧边栏底部的主题开关与版权 */
+.sb-foot { margin-top: auto; padding: 12px 6px 0; border-top: 1px solid var(--border); }
+.sb-theme {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; height: 40px; padding: 0 10px; margin-bottom: 10px;
+  border: none; border-radius: 11px; background: transparent;
+  color: var(--text-dim); font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: color var(--dur-fast), background var(--dur-fast);
+}
+.sb-theme:hover { color: var(--accent-text); background: var(--accent-bg); }
+.sb-theme svg { width: 17px; height: 17px; flex-shrink: 0; }
+.sb-theme .sun { display: none; }
+:root[data-theme="light"] .sb-theme .moon { display: none; }
+:root[data-theme="light"] .sb-theme .sun { display: block; }
+.sb-theme-label { flex: 1; text-align: left; }
+/* 开关滑块：纯装饰，状态由 data-theme 驱动，避免再维护一套 JS 状态 */
+.sb-switch {
+  flex-shrink: 0; width: 34px; height: 19px; border-radius: 999px;
+  background: var(--border-light); position: relative;
+  transition: background var(--dur-fast);
+}
+.sb-switch::after {
+  content: ''; position: absolute; top: 2.5px; left: 2.5px;
+  width: 14px; height: 14px; border-radius: 50%; background: #fff;
+  transition: transform var(--dur-base) var(--ease);
+}
+:root[data-theme="dark"] .sb-switch { background: var(--accent); }
+:root[data-theme="dark"] .sb-switch::after { transform: translateX(15px); }
+.sb-copy { margin: 0; font-size: 10.5px; line-height: 1.7; color: var(--text-dimmer); text-align: center; }
+
+/* ---------------- 侧边栏内的分类导航：横向 pill 行 → 纵向列表 ---------------- */
+/* JS 逻辑（分类切换 / 手风琴目录 / 定位跳转 / 滚动高亮）原样复用，这里只改排布 */
+.sidebar .cat-nav {
+  display: block; position: static; top: auto; z-index: auto;
+  flex: 0 0 auto; min-height: 0; max-height: none;
+  margin: 0; padding: 0; overflow: visible;
+  background: none; border: none; box-shadow: none;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+.sidebar .cat-row { display: block; flex-wrap: nowrap; gap: 0; padding: 0; }
+.sidebar .cat-scroll { display: block; flex-basis: auto; }
+.sidebar .cat-nav .cat-arrow { display: none; }
+.sidebar .cat-pills {
+  display: flex; flex-direction: column; flex-wrap: nowrap;
+  gap: 2px; padding: 0; flex: none; min-width: 0;
+  overflow: visible;
+}
+.sidebar .cat-nav button {
+  width: 100%; height: 40px; padding: 0 12px;
+  border-radius: 11px; justify-content: flex-start;
+  font-size: 13.5px; white-space: nowrap; overflow: hidden;
+}
+.sidebar .cat-pills > button.active {
+  background: var(--accent-bg); color: var(--accent-text);
+  border-color: transparent; box-shadow: none;
+}
+/* 计数徽章在深色/浅色底上都要低对比：这里从「橙渐变实心」降为「淡底小胶囊」，
+   避免和左侧激活项的浅橙底、以及右侧开合箭头抢视觉。
+   窄屏基础样式为「pill 空间优先给名称」把它整个 display:none 了，但侧边栏抽屉
+   有 264px 宽、放得下，且桌面端本来就显示——这里恢复显示以保持两端一致 */
+.sidebar .cat-pills > button .cnt {
+  display: inline-block;
+  margin-left: auto; padding: 1px 7px; border-radius: 7px;
+  font-size: 10px; color: var(--text-dimmer); background: var(--border);
+}
+.sidebar .cat-pills > button.active .cnt { color: var(--accent-text); background: rgba(249, 115, 22, 0.16); }
+/* 开合箭头：圆角方块 + 紧跟在计数徽章之后（cnt 的 margin-left:auto 负责把这一组推向行尾）。
+   必须把尺寸/底色/圆角一并写全——窄屏基础样式里这条只剩一段内联文字（没有方块底），
+   而且它的旋转由早已废弃的 .toc-open 驱动，在抽屉版式下永远不转，
+   表现就是「箭头贴着文字、点了也没有动画」。这里让两种断点共用同一套状态 */
+.sidebar .cat-pills > button.active[data-cat]:not([data-cat="all"])::after {
+  content: '▸';
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; margin-left: 6px;
+  border-radius: 7px;
+  background: rgba(249, 115, 22, 0.16);
+  color: var(--accent-text);
+  font-size: 13px; font-weight: 700; line-height: 1;
+  transition: transform var(--dur-base) var(--ease);
+  transform: rotate(90deg); /* 默认=展开态 ▾ */
+}
+.sidebar .cat-nav.sub-collapsed .cat-pills > button.active::after { transform: rotate(0deg); }
+
+/* ---- 展开的分类子目录（一级分类下的数据源清单） ----
+   这里必须用 .sidebar .cat-nav .cat-toc-item 三级前缀：基础样式里的
+   .cat-nav button（0,2,1）会把 40px 高、11px 圆角、0 12px 内边距套到子项上，
+   一串看下来就是十几个「小按钮」堆在一起，又重又碎。
+   改成紧凑列表项 + 整块内缩，信息密度提上来、层级也更清楚 */
+.sidebar .cat-sub { margin: 0; padding: 0; border-radius: 10px; }
+.sidebar .cat-sub.open {
+  flex-basis: auto; order: 0;
+  /* 只保留缩进、不加左侧引导线：层级靠内缩本身就看得懂，多一条竖线反而碍眼 */
+  margin: 2px 0 8px 17px; padding: 0 0 0 9px;
+}
+.sidebar .cat-sub.open::before { display: none; }
+.sidebar .cat-sub-inner { flex-direction: column; flex-wrap: nowrap; gap: 1px; }
+.sidebar .cat-nav .cat-toc-item {
+  width: 100%; height: auto; min-height: 30px;
+  padding: 4px 8px; border-radius: 7px;
+  gap: 7px; font-size: 12.5px; font-weight: 500;
+  background: transparent; color: var(--text-dim);
+  transition: color var(--dur-fast), background var(--dur-fast);
+}
+.sidebar .cat-nav .cat-toc-item:hover { background: var(--card-hover); color: var(--text); }
+/* 当前卡片：与父级分类同一套「浅橙底 + 橙字」，但缩进在引导线之内，
+   位置本身就把「这是子项」说清楚了，不必再用橙色实心去加重量 */
+.sidebar .cat-nav .cat-toc-item.active {
+  background: var(--accent-bg); color: var(--accent-text);
+  font-weight: 700; box-shadow: none;
+}
+.sidebar .cat-toc-item .ci { flex-shrink: 0; display: inline-flex; align-items: center; }
+.sidebar .cat-toc-item .ci .card-logo { width: 16px; height: 16px; border-radius: 4px; }
+.sidebar .cat-toc-item .tb { font-size: 9px; padding: 1px 5px; border-radius: 5px; }
+
+/* ---------------- 主区（顶栏 + 内容 + 页脚） ---------------- */
+.app-shell .topbar {
+  position: sticky; top: 0; z-index: 80;
+  background: var(--glass-bg);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border-bottom: 1px solid var(--glass-border);
+}
+/* 顶栏 / 内容区 / 页脚一律铺满可用宽度：
+   三栏版式下左侧栏已经占掉一截，内容再套 max-width 居中就会在左边缘留出
+   一条几十到上百像素的空白带（窗口越宽越明显），这正是「内容没铺满」的来源。
+   这里不再限宽，只保留一圈窄内边距，让卡片从侧边栏右侧直接铺到右栏。 */
+.app-shell .header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 18px;
+}
+
+.app-shell .layout {
+  display: flex; flex-direction: row; align-items: flex-start;
+  gap: 16px; padding: 0 18px;
+  /* 必须显式打掉基础版式留下的 max-width + margin:auto：
+     那是给「顶栏导航 + 通栏内容」写的限宽，三栏下窗口一旦超过
+     （1600 + 侧边栏）就触发居中，左边缘凭空多出几十像素空白带。
+     max-width 只在窄窗口不生效，所以这个问题宽屏才看得见 */
+  max-width: none; margin: 0;
+}
+.app-shell .main { flex: 1; min-width: 0; padding: 16px 0 56px; }
+
+/* 右栏吸顶固定：滚动时右栏留在视口里不动，只有左侧内容滚动。
+   top 取「顶栏高度」而不是「顶栏高度 + 内边距」——sticky 一旦生效，
+   右栏顶边正好贴在顶栏下沿，与它未滚动时的文档流位置完全重合，
+   从静止切到吸顶状态时不会有一下视觉跳动。
+   padding-top 与 .main 的 16px 严格一致，保证未滚动时右栏第一张卡片
+   与左栏头图顶边是齐平的（这是这里要的效果）。
+   注意：sticky 只能保证「初始位置」对齐，一旦滚动，左栏内容上移而右栏停住，
+   两者必然错开——这是吸顶的固有代价，本版式选择接受 */
+.app-shell .rail {
+  flex: 0 0 286px; width: 286px;
+  position: sticky; top: var(--topbar-h, 64px);
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 16px 0 40px;
+}
+.app-shell .rail[hidden] { display: none; }
+
+.app-shell .foot { padding: 18px 18px 32px; }
+
+/* ================================================================
+   「今日热榜」聚合首页
+   ================================================================ */
+
+/* 首页头图已改用分类页那套 Hero 卡（见 app.js 的 buildHome / buildHero）：
+   站点简介 + 数据统计 + 按访客 IP 定位的今日天气。原先的橙色渐变 banner 已退役，
+   样式一并移除，避免留下没人用的死规则 */
+
+/* 平台筛选：一律不换行，放不下就横向滚动 + 两端箭头（与分类 pill 行同口径）。
+   换行会把头图到榜单之间的高度撑成两行甚至三行，列表被推得忽上忽下 */
+.home-filter-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.home-filter {
+  flex: 1; min-width: 0;
+  display: flex; flex-wrap: nowrap; gap: 8px;
+  overflow-x: auto; overflow-y: hidden;
+  /* 纵向留白：overflow 会裁掉激活 pill 的橙色外发光，不留白就被切平 */
+  padding: 4px 0;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.home-filter::-webkit-scrollbar { display: none; }
+.home-filter.dragging { user-select: none; -webkit-user-select: none; cursor: grabbing; }
+
+.hf-arrow {
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 34px; padding: 0;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--card); color: var(--text-dim); cursor: pointer;
+  transition: color var(--dur-fast), border-color var(--dur-fast);
+}
+.hf-arrow:hover { color: var(--accent); border-color: var(--accent); }
+.hf-arrow svg { width: 15px; height: 15px; }
+.hf-arrow[hidden] { display: none; }
+
+.hf-pill {
+  /* 不收缩：pill 被压扁会让文字截断，宁可让容器滚动 */
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 34px; padding: 0 14px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--card);
+  color: var(--text-dim); font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: color var(--dur-fast), background var(--dur-fast), border-color var(--dur-fast);
+}
+.hf-pill:hover { color: var(--accent-text); border-color: var(--accent); }
+.hf-pill.active { background: var(--accent); border-color: transparent; color: #fff; box-shadow: var(--accent-glow); }
+/* 抓取失败的平台：标签保留但降低存在感（悬停有 title 说明），
+   不直接移除——标签行长度随抓取成败变化会让人以为功能坏了 */
+.hf-pill-off { opacity: 0.45; }
+.hf-pill-off:not(.active):hover { border-color: var(--border); color: var(--text-dim); }
+.hf-pill img { width: 16px; height: 16px; border-radius: 4px; }
+
+/* ---- 分类页的数据源便签行（版式与首页平台筛选完全一致） ---- */
+.cat-filter-row { margin-top: 12px; }
+/* 便签里的数据源图标：品牌 logo 用 16px 方图，没有 logo 的数据源退回 emoji 文本 */
+.hf-pill .ci { display: inline-flex; align-items: center; flex-shrink: 0; }
+.hf-pill .ci .card-logo { width: 16px; height: 16px; border-radius: 4px; }
+
+/* 榜单流 */
+.home-list {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 6px 4px;
+}
+/* 统一行高：各平台数据丰俭不一（头条只有标题、百度带摘要），
+   不给下限的话两边的行高会差出一倍，整个列表看着忽松忽紧。
+   min-height + 垂直居中后，有无摘要的行高差被拉平，节奏一致 */
+.hl-item {
+  display: flex; align-items: center; gap: 12px;
+  /* 64px 是「有缩略图」那一档的高度（44 图 + 22 内边距），
+     无图的平台据此对齐，两种行的行高只差 2px，列表节奏不会忽松忽紧 */
+  min-height: 64px; padding: 11px 14px; border-radius: 12px;
+  transition: background var(--dur-fast);
+}
+.hl-item + .hl-item { border-top: 1px solid var(--border); }
+.hl-item:hover { background: var(--card-hover); }
+.hl-rank {
+  flex-shrink: 0; width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px; font-size: 12px; font-weight: 800;
+  color: var(--text-dimmer); font-variant-numeric: tabular-nums;
+}
+.hl-item.top1 .hl-rank { background: linear-gradient(135deg, #ff5a5f, #d92d33); color: #fff; }
+.hl-item.top2 .hl-rank { background: linear-gradient(135deg, #ff9f43, #f76707); color: #fff; }
+.hl-item.top3 .hl-rank { background: linear-gradient(135deg, #ffd43b, #f0a500); color: #fff; }
+/* 榜单缩略图：尺寸写死 + object-fit:cover，各平台给的图比例不一
+   （抖音偏竖、头条/百度偏横），统一裁成同尺寸才不会把行撑得高矮不齐 */
+.hl-thumb {
+  flex-shrink: 0;
+  width: 64px; height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--border);
+}
+.hl-body { flex: 1; min-width: 0; }
+.hl-title {
+  font-size: 15px; font-weight: 700; line-height: 1.45; color: var(--text);
+  /* 知乎这类站内问题标题很长：最多两行，超出省略，保证每条的节奏一致 */
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.hl-title a { color: inherit; text-decoration: none; }
+.hl-title a:hover { color: var(--accent); }
+.hl-tag {
+  display: inline-block; margin-left: 6px; padding: 1px 5px;
+  border-radius: 5px; font-size: 10px; font-weight: 700;
+  vertical-align: 1px; background: rgba(249, 115, 22, 0.16); color: var(--accent-text);
+}
+.hl-desc {
+  margin-top: 3px; font-size: 12.5px; line-height: 1.5; color: var(--text-dimmer);
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical;
+}
+/* 固定宽度的右侧列：来源名长短、热度位数每行都不同，列宽不定就会让标题区
+   逐行左右参差。锁死 176px + 右对齐后，所有行的正文右边界严格落在同一条线上 */
+.hl-meta {
+  flex: 0 0 176px; display: flex; align-items: center;
+  justify-content: flex-end; gap: 12px;
+}
+.hl-source {
+  display: inline-flex; align-items: center; gap: 5px;
+  min-width: 0; overflow: hidden;
+  font-size: 12px; color: var(--text-dimmer); white-space: nowrap;
+}
+.hl-source img { width: 16px; height: 16px; flex-shrink: 0; border-radius: 4px; }
+.hl-hot {
+  flex-shrink: 0; min-width: 70px; text-align: right;
+  font-size: 13px; font-weight: 800;
+  color: var(--accent); font-variant-numeric: tabular-nums;
+}
+.hl-hot::before { content: '🔥'; margin-right: 3px; font-size: 11px; font-weight: 400; }
+/* 折叠/展开：整行宽的按钮，视觉上接在榜单末尾，与「已经到底了」同一位置互换 */
+.hl-toggle {
+  display: block; width: 100%; margin-top: 2px; padding: 12px 0;
+  border: none; border-radius: 10px; background: transparent;
+  color: var(--accent-text); font-size: 12.5px; font-weight: 700;
+  cursor: pointer; transition: background var(--dur-fast), color var(--dur-fast);
+}
+.hl-toggle:hover { background: var(--accent-bg); }
+.hl-end { padding: 18px 0 10px; text-align: center; font-size: 12px; color: var(--text-dimmer); }
+
+/* ---------------- 右侧信息栏 ---------------- */
+.rail-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+.rail-title {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px; font-size: 13px; font-weight: 800; color: var(--text);
+}
+.rail-title .rt-sub { font-size: 11px; font-weight: 500; color: var(--text-dimmer); }
+.rail-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.rail-plat {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 8px 2px; border-radius: 10px; border: 1px solid transparent;
+  background: transparent; cursor: pointer;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+.rail-plat:hover { background: var(--card-hover); }
+.rail-plat.active { border-color: var(--accent); background: var(--accent-bg); }
+.rail-plat img { width: 30px; height: 30px; border-radius: 8px; }
+.rail-plat span { font-size: 10.5px; color: var(--text-dim); white-space: nowrap; }
+.rail-topics { display: flex; flex-direction: column; gap: 1px; }
+.rt-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 6px; border-radius: 8px; text-decoration: none;
+  transition: background var(--dur-fast);
+}
+.rt-item:hover { background: var(--card-hover); }
+.rt-item .hash { flex-shrink: 0; font-weight: 800; color: var(--accent); }
+.rt-item .tt {
+  flex: 1; min-width: 0; font-size: 12.5px; color: var(--text-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rt-item .vv { flex-shrink: 0; font-size: 11.5px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+
+/* 加载骨架（首页复用卡片骨架观感） */
+.home-skeleton { padding: 8px 4px; }
+
+/* 抽屉遮罩：窄屏侧边栏展开时铺满内容区 */
+.sb-mask {
+  position: fixed; inset: 0; z-index: 190;
+  background: rgba(0, 0, 0, 0.45);
+  opacity: 0; transition: opacity var(--dur-base) ease;
+}
+.sb-mask[hidden] { display: none; }
+.sb-mask.show { opacity: 1; }
+body.sb-locked { overflow: hidden; }
+
+/* ================================================================
+   响应式：右栏先收，再收侧边栏（抽屉化）
+   ================================================================ */
+@media (max-width: 1180px) {
+  /* 内容区不够宽时优先保内容：右栏整体隐藏 */
+  .app-shell .rail { display: none; }
+}
+
+@media (max-width: 900px) {
+  /* 侧边栏改为抽屉：默认移出视口，点顶栏 ☰ 展开 */
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 200;
+    width: 264px; flex: none; height: 100dvh;
+    transform: translateX(-100%);
+    transition: transform var(--dur-base) var(--ease);
+    box-shadow: 0 0 42px rgba(0, 0, 0, 0.34);
+    padding-top: max(16px, env(safe-area-inset-top));
+  }
+  .app-shell.sidebar-open .sidebar { transform: none; }
+  .sb-close, .sb-toggle { display: flex; }
+  .app-shell .layout { padding: 0 12px; }
+  .app-shell .main { padding: 12px 0 48px; }
+  /* 顶栏恢复两行版式：第一行 ☰ + 搜索框，第二行 时钟 + 按钮。
+     flex-wrap 必须显式重设——上方 .app-shell .header 的新版式把它覆盖掉了 */
+  .app-shell .header { flex-wrap: wrap; gap: 10px; padding: 10px 14px; }
+  .app-shell .foot { padding: 14px 14px 28px; }
+  /* 抽屉里子项回到 38px 触控目标：桌面那套 30px 的紧凑尺寸对指尖偏小 */
+  .sidebar .cat-nav .cat-toc-item { min-height: 38px; font-size: 13px; }
+}
+
+@media (max-width: 640px) {
+  .hl-item { flex-wrap: wrap; gap: 8px 12px; padding: 12px 12px; }
+  .hl-thumb { width: 56px; height: 40px; }
+  .hl-title { font-size: 14px; }
+  /* 窄屏：右侧列不再固定宽度，整行落到标题下方，两端对齐 */
+  .hl-meta { flex: 1 0 100%; width: auto; justify-content: space-between; padding-left: 34px; }
+  .hl-hot { min-width: 0; }
+  .hf-pill { height: 32px; padding: 0 12px; font-size: 12.5px; }
+  .hf-arrow { width: 28px; height: 32px; }
+  .hf-arrow svg { width: 14px; height: 14px; }
+}
+
+/* 恢复移动端媒体查询里被 !important 关掉的手风琴目录：抽屉内的分类子目录要能展开 */
+@media (max-width: 820px), (pointer: coarse) {
+  .sidebar .cat-sub { display: grid !important; }
+  .sidebar .cat-nav .cat-sub.open { display: grid !important; }
+}

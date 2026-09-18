@@ -6,6 +6,13 @@ const FETCH_TIMEOUT_MS = 5_000 // 单次请求超时，避免慢速响应长期�
 const MAX_HTML_BYTES = 2 * 1024 * 1024 // HTML 最多读取 2MB，防止超大响应体耗尽内存
 const MAX_REDIRECTS = 3 // 最多跟随 3 次重定向，且每一跳都重新做 SSRF 校验
 
+/**
+ * 本模块主动抛出的、可以安全回显给调用方的错误。
+ * 与 fetch 的底层异常区分开：「禁止访问内网地址」这类对调用方有意义，
+ * 而底层异常可能夹带上游地址、库版本等内部信息，不该出现在响应里。
+ */
+class OgError extends Error {}
+
 // 端口白名单：仅放行默认端口与 80/443，阻断内网服务探测（22/3306/6379/8080 等）
 const ALLOWED_PORTS = new Set(['', '80', '443'])
 
@@ -48,7 +55,9 @@ class ServiceOG {
       } catch (e: any) {
         console.error(e)
         ctx.response.status = 400
-        ctx.response.body = Common.buildJson(null, 500, `OG 信息解析失败: ${e.message || e}`)
+        // 只转述本模块主动抛出的校验类错误，底层异常统一换成通用文案
+        const msg = e instanceof OgError ? e.message : 'OG 信息解析失败，请确认链接可公开访问'
+        ctx.response.body = Common.buildJson(null, 500, msg)
       }
     }
   }
@@ -60,7 +69,7 @@ class ServiceOG {
     try {
       _url = new URL(link)
     } catch {
-      throw new Error('无效的 URL')
+      throw new OgError('无效的 URL')
     }
 
     let response: Response | undefined
@@ -86,7 +95,7 @@ class ServiceOG {
       try {
         next = new URL(location, _url)
       } catch {
-        throw new Error('重定向目标不是有效的 URL')
+        throw new OgError('重定向目标不是有效的 URL')
       }
       _url = next
 
@@ -100,7 +109,7 @@ class ServiceOG {
     const isHTML = ['text/html', 'application/xhtml+xml'].some((e) => type.includes(e))
 
     if (!isHTML) {
-      throw new Error('目标 URL 不是一个 HTML 页面，无法解析 OG 信息')
+      throw new OgError('目标 URL 不是一个 HTML 页面，无法解析 OG 信息')
     }
 
     const html = await this.#readTextLimited(response, MAX_HTML_BYTES)
@@ -228,12 +237,12 @@ class ServiceOG {
   #assertSafeUrl(url: URL): void {
     // 1) 协议白名单：阻断 file://、gopher://、dict:// 等
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-      throw new Error('仅支持 http/https 协议')
+      throw new OgError('仅支持 http/https 协议')
     }
 
     // 2) 端口白名单：阻断内网服务探测（22/3306/6379/8080 等）
     if (!ALLOWED_PORTS.has(url.port)) {
-      throw new Error('禁止访问非标准端口')
+      throw new OgError('禁止访问非标准端口')
     }
 
     // 3) 归一化主机名：WHATWG URL 会为 IPv6 保留方括号（如 [::ffff:7f00:1]），先去掉
@@ -241,19 +250,19 @@ class ServiceOG {
 
     // 4) 云厂商元数据等敏感地址
     if (BLOCKED_HOSTS.has(host)) {
-      throw new Error('禁止访问该地址')
+      throw new OgError('禁止访问该地址')
     }
 
     // 5) localhost 及其子域
     if (host === 'localhost' || host.endsWith('.localhost')) {
-      throw new Error('禁止访问内网地址')
+      throw new OgError('禁止访问内网地址')
     }
 
     // 6) IPv4 字面量。URL 规范已把十进制(2130706433)、八进制(0177.0.0.1)、
     //    短式(127.1) 统一归一化为点分十进制，此处只需判定点分十进制。
     if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
       if (this.#isBlockedIPv4(host.split('.').map(Number))) {
-        throw new Error('禁止访问内网地址')
+        throw new OgError('禁止访问内网地址')
       }
       return
     }
@@ -275,7 +284,7 @@ class ServiceOG {
 
       // fc00::/7 唯一本地地址、fe80::/10 链路本地
       if (/^f[cd][0-9a-f]{2}:/.test(host) || /^fe[89ab][0-9a-f]:/.test(host)) {
-        throw new Error('禁止访问内网地址')
+        throw new OgError('禁止访问内网地址')
       }
       return
     }

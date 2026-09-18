@@ -56,9 +56,13 @@
   </svg>
 </div>
 
-<div class="topbar">
-  <div class="header">
-    <div class="header-left">
+<div class="app-shell" id="appShell">
+
+  <!-- 左侧导航栏：桌面常驻固定，窄屏收成抽屉（.sidebar-open 打开）。
+       分类导航 #catNav 整块搬进这里——分类点击、目录手风琴、滚动高亮等既有逻辑
+       全部复用，只是把「横向 pill 行」在样式上改写成「纵向列表」 -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-head">
       <div class="logo">
         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <defs>
@@ -70,106 +74,134 @@
           </defs>
           <path d="M12 2c0 0-1.5 2-3 4.5S6.5 11 8 13c-1-.5-2-1.5-2.5-3 0 0-1.5 2-1 4.5C5 17.5 7 20 12 22c5-2 7-4.5 7.5-7.5.5-2.5-1-4.5-1-4.5-.5 1.5-1.5 2.5-2.5 3 1.5-2 1-4.5-.5-7S13.5 4 12 2z" fill="url(#flame)"/>
         </svg>
-        <span class="text">每日热榜</span>
-        <span class="subtitle">一站看完天下事</span>
-      </div>
-    </div>
-    <!-- 搜索框：右侧只露一个引擎图标——它就是「当前引擎」本身（默认必应），
-         点开在下方弹出候选列表切换，与综合搜索引擎的选法一致。
-         回车或点放大镜新标签打开结果页。
-         紧跟 logo 之后（搜索框在前、时钟在后），放不进 .header-right 内部——
-         那里那套 .header-right button 规则（36px 方块）会强行套到引擎按钮上 -->
-    <form class="site-search" id="siteSearch" role="search">
-      <svg class="ss-glass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
-      <input class="ss-input" id="ssInput" type="search" name="q" placeholder="使用必应搜索一下" aria-label="搜索关键词" autocomplete="off" spellcheck="false">
-      <!-- 引擎按钮：两只图标都在 DOM 里，由按钮上的 data-engine 决定显示哪只
-           （见 style.css 的 .ss-engine [data-engine-icon]）——切换只改一个属性，
-           不重建 DOM，图标也就不会闪。旁边的小箭头是「可以点开」的提示 -->
-      <button class="ss-engine" id="ssEngineBtn" type="button" data-engine="bing"
-              aria-haspopup="listbox" aria-expanded="false" aria-label="选择搜索引擎，当前为必应">
-        <span class="ss-engine-face" aria-hidden="true">
-          <svg data-engine-icon="bing" viewBox="0 0 24 24"><path fill="#258FFA" d="M20.176 15.406a6.48 6.48 0 01-1.736 4.414c1.338-1.47.803-3.869-1.003-4.635-.862-.305-2.488-.85-3.367-1.158a1.834 1.834 0 01-.932-.818c-.381-.975-1.163-2.968-1.548-3.948-.095-.285-.31-.625-.265-.938.046-.598.724-1.003 1.276-.754l3.682 1.888c.621.292 1.305.692 1.796 1.172a6.486 6.486 0 012.097 4.777zm-1.44 1.888c-.264-1.194-1.135-1.744-2.216-2.028-1.527.902-4.853 2.878-6.952 4.13-1.103.68-2.13 1.35-2.919 1.242a2.866 2.866 0 01-2.77-2.325c-.012-.048-.008-.03-.001.01a6.4 6.4 0 00.947 2.653 6.498 6.498 0 005.486 3.022c1.908.062 3.536-1.153 5.099-2.096.292-.188.804-.496 1.332-.831l1.423-1.51c.553-.577.764-1.426.571-2.267zm-12.04 2.97c.422 0 .822-.1 1.173-.29.355-.215.964-.579 1.7-1.018L9.57 4.502c0-.99-.497-1.864-1.257-2.382-.08-.059-2.91-1.901-2.99-1.956-.605-.432-1.523.045-1.5.797v14.887l.417 2.36a2.488 2.488 0 002.455 2.056z"/></svg>
-          <svg data-engine-icon="google" viewBox="0 0 48 48">
-            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-          </svg>
+        <span class="sb-brand">
+          <b class="text">今日热榜</b>
+          <i class="subtitle">聚合全网热点</i>
         </span>
-        <svg class="ss-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <button class="sb-close" id="sbClose" type="button" aria-label="收起菜单">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
-      <!-- 候选引擎列表：锚在搜索框右下角（.site-search 是定位基准）。
-           当前引擎用「橙字 + 橙勾」标出，选择逻辑见 app.js 的 initSiteSearch -->
-      <div class="ss-menu" id="ssEngineMenu" role="listbox" aria-label="搜索引擎">
-        <button class="ss-item" type="button" role="option" data-engine="bing" aria-selected="true">
-          <span class="ss-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="#258FFA" d="M20.176 15.406a6.48 6.48 0 01-1.736 4.414c1.338-1.47.803-3.869-1.003-4.635-.862-.305-2.488-.85-3.367-1.158a1.834 1.834 0 01-.932-.818c-.381-.975-1.163-2.968-1.548-3.948-.095-.285-.31-.625-.265-.938.046-.598.724-1.003 1.276-.754l3.682 1.888c.621.292 1.305.692 1.796 1.172a6.486 6.486 0 012.097 4.777zm-1.44 1.888c-.264-1.194-1.135-1.744-2.216-2.028-1.527.902-4.853 2.878-6.952 4.13-1.103.68-2.13 1.35-2.919 1.242a2.866 2.866 0 01-2.77-2.325c-.012-.048-.008-.03-.001.01a6.4 6.4 0 00.947 2.653 6.498 6.498 0 005.486 3.022c1.908.062 3.536-1.153 5.099-2.096.292-.188.804-.496 1.332-.831l1.423-1.51c.553-.577.764-1.426.571-2.267zm-12.04 2.97c.422 0 .822-.1 1.173-.29.355-.215.964-.579 1.7-1.018L9.57 4.502c0-.99-.497-1.864-1.257-2.382-.08-.059-2.91-1.901-2.99-1.956-.605-.432-1.523.045-1.5.797v14.887l.417 2.36a2.488 2.488 0 002.455 2.056z"/></svg></span>
-          <span class="ss-item-name">必应</span>
-          <span class="ss-tick" aria-hidden="true">✓</span>
-        </button>
-        <button class="ss-item" type="button" role="option" data-engine="google" aria-selected="false">
-          <span class="ss-item-icon" aria-hidden="true"><svg viewBox="0 0 48 48">
-            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-          </svg></span>
-          <span class="ss-item-name">谷歌</span>
-          <span class="ss-tick" aria-hidden="true">✓</span>
-        </button>
-      </div>
-    </form>
-    <div class="header-right">
-      <!-- 时钟与按钮同属「右侧容器」：宽屏时搜索框紧跟 logo、时钟在右，
-           窗口放不下时整组一起换行到第二行（第一行留 logo + 搜索框）。
-           clocks 必须是 .header-right 的子元素——fitClocks 正是用
-           clock.parentElement 判断「这一行有没有溢出」来决定日期降不降级 -->
-      <div class="clock clock-desktop" id="clockDesktop" title="当前时间">
-        <div class="clock-fill" data-fill="desktop"></div>
-        <!-- 泡泡层：铺满胶囊，由 CSS clip-path 按今日进度裁出可见区（只活在橙色区间内） -->
-        <div class="clock-bubbles" aria-hidden="true"><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i></div>
-        <span class="clock-dot"></span>
-        <span class="clock-date" id="clockDateDesktop">今天是 ----年-月-日 周-</span>
-        <span class="clock-time" id="clockTimeDesktop">--:--:--</span>
-      </div>
-      <div class="clock clock-mobile" id="clockMobile" title="当前时间">
-        <div class="clock-fill" data-fill="mobile"></div>
-        <div class="clock-bubbles" aria-hidden="true"><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i></div>
-        <span class="clock-dot"></span>
-        <span class="clock-date" id="clockDateMobile">今天是 ----年-月-日 周-</span>
-        <span class="clock-time" id="clockTimeMobile">--:--:--</span>
-      </div>
-      <a href="https://github.com/Jacky088/Daily-Hot" target="_blank" rel="noopener" title="GitHub" class="github-link" aria-label="GitHub 仓库">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-      </a>
-      <button class="theme-toggle" id="themeToggle" title="切换主题" aria-label="切换主题">
+    </div>
+
+    <nav class="cat-nav" id="catNav"></nav>
+
+    <div class="sb-foot">
+      <button class="sb-theme" id="themeToggle" type="button" title="切换主题" aria-label="切换主题">
         <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <span class="sb-theme-label">深色模式</span>
+        <i class="sb-switch" aria-hidden="true"></i>
       </button>
-      <!-- 壁纸开关：默认关闭（.wp-off 带斜线图标），点击开启后拉取壁纸并换成 .wp-on 风景图标 -->
-      <button class="icon-btn wallpaper-toggle" id="wallpaperToggle" type="button" title="开启壁纸" aria-label="开启壁纸" aria-pressed="false">
-        <svg class="wp-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-        <svg class="wp-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
-      </button>
-      <button class="icon-btn" id="btnRefreshAll" type="button" title="全部刷新" aria-label="全部刷新"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button>
+      <p class="sb-copy">© 2026 今日热榜<br>All rights reserved.</p>
     </div>
+  </aside>
+
+  <div class="app-main">
+    <div class="topbar">
+      <div class="header">
+        <!-- 窄屏专用：展开左侧抽屉 -->
+        <button class="sb-toggle" id="sbToggle" type="button" aria-label="展开菜单" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+        <!-- 搜索框：右侧只露一个引擎图标——它就是「当前引擎」本身（默认必应），
+             点开在下方弹出候选列表切换，与综合搜索引擎的选法一致。
+             回车或点放大镜新标签打开结果页。
+             紧跟 logo 之后（搜索框在前、时钟在后），放不进 .header-right 内部——
+             那里那套 .header-right button 规则（36px 方块）会强行套到引擎按钮上 -->
+        <form class="site-search" id="siteSearch" role="search">
+          <svg class="ss-glass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
+          <input class="ss-input" id="ssInput" type="search" name="q" placeholder="使用必应搜索一下" aria-label="搜索关键词" autocomplete="off" spellcheck="false">
+          <!-- 引擎按钮：两只图标都在 DOM 里，由按钮上的 data-engine 决定显示哪只
+               （见 style.css 的 .ss-engine [data-engine-icon]）——切换只改一个属性，
+               不重建 DOM，图标也就不会闪。旁边的小箭头是「可以点开」的提示 -->
+          <button class="ss-engine" id="ssEngineBtn" type="button" data-engine="bing"
+                  aria-haspopup="listbox" aria-expanded="false" aria-label="选择搜索引擎，当前为必应">
+            <span class="ss-engine-face" aria-hidden="true">
+              <svg data-engine-icon="bing" viewBox="0 0 24 24"><path fill="#258FFA" d="M20.176 15.406a6.48 6.48 0 01-1.736 4.414c1.338-1.47.803-3.869-1.003-4.635-.862-.305-2.488-.85-3.367-1.158a1.834 1.834 0 01-.932-.818c-.381-.975-1.163-2.968-1.548-3.948-.095-.285-.31-.625-.265-.938.046-.598.724-1.003 1.276-.754l3.682 1.888c.621.292 1.305.692 1.796 1.172a6.486 6.486 0 012.097 4.777zm-1.44 1.888c-.264-1.194-1.135-1.744-2.216-2.028-1.527.902-4.853 2.878-6.952 4.13-1.103.68-2.13 1.35-2.919 1.242a2.866 2.866 0 01-2.77-2.325c-.012-.048-.008-.03-.001.01a6.4 6.4 0 00.947 2.653 6.498 6.498 0 005.486 3.022c1.908.062 3.536-1.153 5.099-2.096.292-.188.804-.496 1.332-.831l1.423-1.51c.553-.577.764-1.426.571-2.267zm-12.04 2.97c.422 0 .822-.1 1.173-.29.355-.215.964-.579 1.7-1.018L9.57 4.502c0-.99-.497-1.864-1.257-2.382-.08-.059-2.91-1.901-2.99-1.956-.605-.432-1.523.045-1.5.797v14.887l.417 2.36a2.488 2.488 0 002.455 2.056z"/></svg>
+              <svg data-engine-icon="google" viewBox="0 0 48 48">
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+              </svg>
+            </span>
+            <svg class="ss-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <!-- 候选引擎列表：锚在搜索框右下角（.site-search 是定位基准）。
+               当前引擎用「橙字 + 橙勾」标出，选择逻辑见 app.js 的 initSiteSearch -->
+          <div class="ss-menu" id="ssEngineMenu" role="listbox" aria-label="搜索引擎">
+            <button class="ss-item" type="button" role="option" data-engine="bing" aria-selected="true">
+              <span class="ss-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="#258FFA" d="M20.176 15.406a6.48 6.48 0 01-1.736 4.414c1.338-1.47.803-3.869-1.003-4.635-.862-.305-2.488-.85-3.367-1.158a1.834 1.834 0 01-.932-.818c-.381-.975-1.163-2.968-1.548-3.948-.095-.285-.31-.625-.265-.938.046-.598.724-1.003 1.276-.754l3.682 1.888c.621.292 1.305.692 1.796 1.172a6.486 6.486 0 012.097 4.777zm-1.44 1.888c-.264-1.194-1.135-1.744-2.216-2.028-1.527.902-4.853 2.878-6.952 4.13-1.103.68-2.13 1.35-2.919 1.242a2.866 2.866 0 01-2.77-2.325c-.012-.048-.008-.03-.001.01a6.4 6.4 0 00.947 2.653 6.498 6.498 0 005.486 3.022c1.908.062 3.536-1.153 5.099-2.096.292-.188.804-.496 1.332-.831l1.423-1.51c.553-.577.764-1.426.571-2.267zm-12.04 2.97c.422 0 .822-.1 1.173-.29.355-.215.964-.579 1.7-1.018L9.57 4.502c0-.99-.497-1.864-1.257-2.382-.08-.059-2.91-1.901-2.99-1.956-.605-.432-1.523.045-1.5.797v14.887l.417 2.36a2.488 2.488 0 002.455 2.056z"/></svg></span>
+              <span class="ss-item-name">必应</span>
+              <span class="ss-tick" aria-hidden="true">✓</span>
+            </button>
+            <button class="ss-item" type="button" role="option" data-engine="google" aria-selected="false">
+              <span class="ss-item-icon" aria-hidden="true"><svg viewBox="0 0 48 48">
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+              </svg></span>
+              <span class="ss-item-name">谷歌</span>
+              <span class="ss-tick" aria-hidden="true">✓</span>
+            </button>
+          </div>
+        </form>
+        <div class="header-right">
+          <!-- 时钟与按钮同属「右侧容器」：宽屏时搜索框紧跟 logo、时钟在右，
+               窗口放不下时整组一起换行到第二行（第一行留 logo + 搜索框）。
+               clocks 必须是 .header-right 的子元素——fitClocks 正是用
+               clock.parentElement 判断「这一行有没有溢出」来决定日期降不降级 -->
+          <div class="clock clock-desktop" id="clockDesktop" title="当前时间">
+            <div class="clock-fill" data-fill="desktop"></div>
+            <!-- 泡泡层：铺满胶囊，由 CSS clip-path 按今日进度裁出可见区（只活在橙色区间内） -->
+            <div class="clock-bubbles" aria-hidden="true"><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i></div>
+            <span class="clock-dot"></span>
+            <span class="clock-date" id="clockDateDesktop">今天是 ----年-月-日 周-</span>
+            <span class="clock-time" id="clockTimeDesktop">--:--:--</span>
+          </div>
+          <div class="clock clock-mobile" id="clockMobile" title="当前时间">
+            <div class="clock-fill" data-fill="mobile"></div>
+            <div class="clock-bubbles" aria-hidden="true"><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i></div>
+            <span class="clock-dot"></span>
+            <span class="clock-date" id="clockDateMobile">今天是 ----年-月-日 周-</span>
+            <span class="clock-time" id="clockTimeMobile">--:--:--</span>
+          </div>
+          <a href="https://github.com/Jacky088/Daily-Hot" target="_blank" rel="noopener" title="GitHub" class="github-link" aria-label="GitHub 仓库">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          </a>
+          <!-- 壁纸开关：默认关闭（.wp-off 带斜线图标），点击开启后拉取壁纸并换成 .wp-on 风景图标 -->
+          <button class="icon-btn wallpaper-toggle" id="wallpaperToggle" type="button" title="开启壁纸" aria-label="开启壁纸" aria-pressed="false">
+            <svg class="wp-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            <svg class="wp-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
+          </button>
+          <button class="icon-btn" id="btnRefreshAll" type="button" title="全部刷新" aria-label="全部刷新"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="layout">
+      <div class="main" id="main"></div>
+      <!-- 右侧信息栏：仅「今日热榜」首页显示（热搜平台导航 + 热门话题） -->
+      <aside class="rail" id="rail" hidden></aside>
+    </div>
+
+    <footer class="foot">
+      <a href="https://mmcoo.de" target="_blank" rel="noopener">木木的主页</a>
+      <span class="foot-sep" aria-hidden="true">·</span>
+      <span class="foot-meta">数据来源 <a href="https://github.com/vikiboss/60s" target="_blank">vikiboss/60s</a></span>
+      <span class="foot-sep foot-cf-sep" aria-hidden="true">·</span>
+      <span class="foot-meta foot-cf">Powered by Cloudflare Workers</span>
+    </footer>
   </div>
 </div>
-<!-- 分类导航放在 .layout 之外：.layout 有 max-width:1600px 且水平居中，
-     导航若在它内部，即便用 100vw 撑宽也会被容器的居中偏移带跑——
-     窗口越宽偏得越多（2560px 下可达 480px）。独立于容器后宽度直接等于视口 -->
-<nav class="cat-nav" id="catNav"></nav>
-<div class="layout">
-  <div class="main" id="main"></div>
-</div>
+
+<!-- 抽屉遮罩：窄屏下侧边栏展开时铺满内容区，点击收起 -->
+<div class="sb-mask" id="sbMask" hidden></div>
+
 <!-- 下拉刷新指示器：手势拖出时跟随，松手回弹/触发刷新 -->
 <div class="ptr-indicator" id="ptrIndicator" aria-hidden="true"><span class="ptr-spin"></span></div>
-<footer class="foot">
-  <a href="https://mmcoo.de" target="_blank" rel="noopener">木木的主页</a>
-  <span class="foot-sep" aria-hidden="true">·</span>
-  <span class="foot-meta">数据来源 <a href="https://github.com/vikiboss/60s" target="_blank">vikiboss/60s</a></span>
-  <span class="foot-sep foot-cf-sep" aria-hidden="true">·</span>
-  <span class="foot-meta foot-cf">Powered by Cloudflare Workers</span>
-</footer>
 
 <script src="/app.js"></script>
 </body>

@@ -273,9 +273,15 @@ class ServiceWeather {
             break
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : '未知错误'
-        const statusCode = message.includes('未找到城市') ? 404 : 500
-        ctx.response.body = Common.buildJson({ error: message }, statusCode)
+        console.error('[weather]', error)
+        // 「未找到城市」这条要留着区分 404（对调用方有指导意义），
+        // 其余原始 message 一律不回显——底层异常可能带内部地址与库信息
+        const notFound = error instanceof Error && error.message.includes('未找到城市')
+        ctx.response.body = Common.buildJson(
+          null,
+          notFound ? 404 : 500,
+          notFound ? '未找到该城市' : '天气数据获取失败，请稍后重试',
+        )
       }
     }
   }
@@ -363,9 +369,15 @@ class ServiceWeather {
             break
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : '未知错误'
-        const statusCode = message.includes('未找到城市') ? 404 : 500
-        ctx.response.body = Common.buildJson({ error: message }, statusCode)
+        console.error('[weather]', error)
+        // 「未找到城市」这条要留着区分 404（对调用方有指导意义），
+        // 其余原始 message 一律不回显——底层异常可能带内部地址与库信息
+        const notFound = error instanceof Error && error.message.includes('未找到城市')
+        ctx.response.body = Common.buildJson(
+          null,
+          notFound ? 404 : 500,
+          notFound ? '未找到该城市' : '天气数据获取失败，请稍后重试',
+        )
       }
     }
   }
@@ -487,9 +499,15 @@ class ServiceWeather {
             break
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : '未知错误'
-        const statusCode = message.includes('未找到城市') ? 404 : 500
-        ctx.response.body = Common.buildJson({ error: message }, statusCode)
+        console.error('[weather]', error)
+        // 「未找到城市」这条要留着区分 404（对调用方有指导意义），
+        // 其余原始 message 一律不回显——底层异常可能带内部地址与库信息
+        const notFound = error instanceof Error && error.message.includes('未找到城市')
+        ctx.response.body = Common.buildJson(
+          null,
+          notFound ? 404 : 500,
+          notFound ? '未找到该城市' : '天气数据获取失败，请稍后重试',
+        )
       }
     }
   }

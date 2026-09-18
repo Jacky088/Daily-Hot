@@ -14,7 +14,7 @@ const CACHE_TTL = 30 * 60 * 1000;
 
 // 发版时递增：让所有旧的 localStorage 缓存失效，
 // 否则用户在 TTL 内会继续看到上一版缓存下来的渲染结果
-const CACHE_VERSION = 'v12';
+const CACHE_VERSION = 'v17';
 
 // 清理已下线功能的残留键（如编辑布局的收藏/隐藏偏好），避免永久占空间
 try { localStorage.removeItem('ep-pinned'); localStorage.removeItem('ep-hidden'); } catch {}
@@ -635,6 +635,8 @@ const EPS = [
   { cat:'news', id:'quark', name:'夸克每日资讯', icon:'☁️', path:'/v2/quark', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'summary', p:'cover', ps:1} },
   { cat:'news', id:'ifeng', name:'凤凰热榜', icon:'🌀', path:'/v2/ifeng', type:'list', auto:1, f:{t:'title',h:'hot_value_desc',l:'link',d:'source',p:'cover',ps:1} },
   { cat:'news', id:'dongchedi', name:'汽车热榜', icon:'🚗', path:'/v2/dongchedi', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'url'} },
+  // 虎扑：官方无可用公开接口，数据来自 uapis 聚合源（见 src/modules/hupu.module.ts）
+  { cat:'news', id:'hupu', name:'虎扑热榜', icon:'🏀', path:'/v2/hupu', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
 
   // 科技
   { cat:'tech', id:'nodeseek', name:'NodeSeek新帖', icon:'🌐', path:'/v2/nodeseek', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'description'} },
@@ -797,6 +799,9 @@ CARD_GROUPS.forEach(g => g.tabs.forEach(t => { GROUP_OF[t.ep] = g; }));
 //             手机横屏时宽度常 >820px，靠 (pointer: coarse) 兜住，仍按移动端布局。
 const MQ_TOUCH = window.matchMedia('(pointer: coarse)');
 const MQ_MOBILE = window.matchMedia('(max-width: 820px), (pointer: coarse)');
+// 三栏版式断点：≤900px 左侧栏收成抽屉（与 style.css 的抽屉媒体查询逐字一致）。
+// 不能复用 MQ_MOBILE——它还含 (pointer: coarse)，触摸大屏会被误判成抽屉版式
+const MQ_DRAWER = window.matchMedia('(max-width: 900px)');
 // 移动端布局是否生效：原分散的 window.innerWidth <=/> 820 判断统一改用它，杜绝断点散落
 const isMobileLayout = () => MQ_MOBILE.matches;
 
@@ -825,20 +830,87 @@ function setTocActive(key) {
   document.querySelectorAll('.cat-toc-item').forEach(el => {
     el.classList.toggle('active', !!key && el.dataset.key === key);
   });
+  // 分类页顶部的数据源便签行和侧边栏目录说的是同一件事（当前在看哪张卡），
+  // 一并同步，避免两处高亮各说各话
+  let activePill = null;
+  document.querySelectorAll('.cat-filter-row .hf-pill').forEach(el => {
+    const on = !!key && el.dataset.card === key;
+    el.classList.toggle('active', on);
+    if (on) activePill = el;
+  });
+  // 高亮换了才把它带进视野。侧边栏是纵向列表、条目总在视野里，看不出问题；
+  // 而便签行是横向滚动的，靠后的分类（生活信息、趣味内容这些）滚动到时
+  // 高亮根本不在可视区，等于白高亮。只在「高亮真的变了」时动手，
+  // 否则用户手动横向翻看便签时会被滚动高亮不断拽回去
+  if (key !== lastTocActiveKey) {
+    lastTocActiveKey = key;
+    if (activePill) ensurePillVisible(activePill);
+  }
+}
+
+/** 用最小的横向滚动量把标签带进可视区（区别于点击时的 revealPill：那个会居中） */
+function ensurePillVisible(pill) {
+  if (!pill || !pill.isConnected) return;
+  // 必须延到下一帧：便签行多半是刚重建出来的，此刻浏览器还没做布局，
+  // scrollWidth / clientWidth 都还是 0，「是否溢出」会直接判成不溢出而跳过——
+  // 这正是「点击后标签没滚过去」的原因
+  requestAnimationFrame(() => {
+    const scroller = pill.parentElement;
+    if (!scroller || !pill.isConnected) return;
+    if (scroller.scrollWidth <= scroller.clientWidth) return;
+    const el = pill.getBoundingClientRect();
+    const box = scroller.getBoundingClientRect();
+    if (el.left >= box.left && el.right <= box.right) return;
+    const pad = 12; // 留一点余量，别让标签紧贴边线
+    const delta = el.left < box.left ? el.left - box.left - pad : el.right - box.right + pad;
+    scroller.scrollBy({ left: delta, behavior: SMOOTH });
+  });
 }
 
 // 分组条目上的「当前标签」徽章跟随卡片实际激活页；卡片未渲染时保留旧值，render 后会再同步
 function updateTocBadges() {
-  document.querySelectorAll('.cat-toc-item[data-type="group"]').forEach(el => {
+  document.querySelectorAll('.cat-toc-item').forEach(el => {
     const badge = el.querySelector('.tb');
     if (!badge) return;
-    const card = document.getElementById('card-' + el.dataset.key);
-    const activeEp = card && card.dataset.activeEp;
-    const g = CARD_GROUPS.find(x => x.id === el.dataset.key);
-    const tab = g && activeEp ? g.tabs.find(t => t.ep === activeEp) : null;
-    badge.textContent = tab ? tab.label : '';
-    badge.style.display = tab ? '' : 'none';
+    const label = el.dataset.type === 'group'
+      ? groupBadgeLabel(el.dataset.key)
+      : selectBadgeLabel(el.dataset.key);
+    badge.textContent = label;
+    badge.style.display = label ? '' : 'none';
   });
+}
+
+/** 分组条目：取卡片当前激活的那一页标签（猫眼「在映」、免费游戏「Epic」…） */
+function groupBadgeLabel(key) {
+  const card = document.getElementById('card-' + key);
+  const activeEp = card && card.dataset.activeEp;
+  const g = CARD_GROUPS.find(x => x.id === key);
+  const tab = g && activeEp ? g.tabs.find(t => t.ep === activeEp) : null;
+  return tab ? tab.label : '';
+}
+
+/**
+ * 普通条目：取卡片上那个下拉框当前选中项的显示名。
+ * YouTube / Apple Music 的「地区」、QQ 音乐的「榜单」，和掘金的「分类」、
+ * GitHub 的「时间范围」是同一类东西——卡片顶部摆着个下拉，
+ * 侧边栏就该把「现在选的是哪个」标出来，不然点进去才发现不是想看的那个
+ */
+function selectBadgeLabel(epId) {
+  const ep = EPS.find(x => x.id === epId);
+  const sel = ep && ep.inputs && ep.inputs.find(i => i.sel);
+  if (!sel) return '';
+  const el = document.querySelector(`#card-${epId} select[name="${sel.n}"]`);
+  const value = el ? el.value : sel.d;
+  const opt = sel.sel.find(o => (Array.isArray(o) ? o[0] : o) === value);
+  if (opt === undefined) return '';
+  return Array.isArray(opt) ? opt[1] : String(opt);
+}
+
+/** 条目是否需要「当前选中项」徽章：分组卡片恒有；普通卡片看它带不带下拉 */
+function hasSelectInput(e) {
+  if (e.type === 'group') return true;
+  const ep = EPS.find(x => x.id === e.epId);
+  return !!(ep && ep.inputs && ep.inputs.some(i => i.sel));
 }
 
 // 桌面 scroll-spy：观察当前分类的卡片，视口上部波段内最靠前的卡片即「正在阅读」的条目
@@ -847,8 +919,11 @@ const spyVisible = new Set();
 function setupScrollSpy() {
   if (spyObserver) { spyObserver.disconnect(); spyObserver = null; }
   spyVisible.clear();
-  // 「全部」无目录；移动端目录是呼出面板，跟随滚动高亮没有意义
-  if (curCat === 'all' || isMobileLayout()) return;
+  // 首页没有卡片可观察；「全部」是分类分组长页，目录里没有对应卡片条目。
+  // 这里不再排除窄屏：早先禁掉是因为移动端的模块目录是「呼出面板」，跟随滚动没意义；
+  // 现在内容区顶部也多了一条数据源便签行，它同样是横向滚动的，
+  // 「滚到哪张卡就把哪个标签带进视野」在手机上一样成立
+  if (curView === 'home' || curCat === 'all') return;
   const keys = catTocEntries(curCat).map(e => e.key);
   spyObserver = new IntersectionObserver(entries => {
     for (const en of entries) {
@@ -882,8 +957,21 @@ function setupScrollSpy() {
 MQ_MOBILE.addEventListener('change', () => setupScrollSpy());
 
 let curCat = 'all';
+/**
+ * 顶层视图：'home' = 今日热榜聚合首页（跨平台混排榜单），'cat' = 分类卡片页。
+ * 两者共用 #main 由 renderImpl 分流；右侧信息栏 #rail 只在首页显示。
+ * 默认首页，hash 为某个分类 id 时才落回分类页。
+ */
+let curView = 'home';
+// 首页聚合数据与平台筛选（'all' = 综合）
+let homeData = null;
+let homeFilter = 'all';
+// 首页每个榜单默认展示条数，超出折叠；homeExpanded 只在「当前这一屏」有效，换筛选即复位
+const HOME_COLLAPSE_N = 20;
+let homeExpanded = false;
 let activeModuleId = null; // 当前高亮的子菜单模块（点击模块菜单后记录）
 let syncSubs = null; // init 内部 refreshSubs 的对外钩子：分组卡片切标签页时同步子菜单高亮
+let locateCardFn = null; // init 内部 locateCard 的对外钩子：分类页数据源便签点击定位用
 let centerSubChip = null; // init 内部 focusSubChip 的对外钩子：切标签页时让对应模块 chip 滚入可视区
 let fanyiLangs = null;
 
@@ -968,7 +1056,7 @@ async function loadFanyiLangs() {
 
 function fillFanyiSelects() {
   if (!fanyiLangs || !fanyiLangs.length) return;
-  const opts = fanyiLangs.map(l => `<option value="${l.code}">${l.label}</option>`).join('');
+  const opts = fanyiLangs.map(l => `<option value="${esc(l.code)}">${esc(l.label)}</option>`).join('');
   document.querySelectorAll('select[data-role="fanyi-lang"]').forEach(sel => {
     const cur = sel.value;
     sel.innerHTML = opts;
@@ -1009,6 +1097,40 @@ function safeUrl(u) {
     return '#';
   }
 }
+
+// 鼠标拖拽横向滚动：触摸端原生支持滑动，这里只补鼠标（mousedown/move/up），
+// 不影响触摸手势。仅在「横向位移明显」时才抑制随后的点击，避免拖拽误触发
+// 分类切换 / 平台筛选；纵向移动（如侧边栏列表）因 dx≈0 不滚动也不吞点击。
+//
+// 全局只挂一对 mousemove/mouseup，用共享的 dragState 记录「当前在拖哪个容器」：
+// 首页每次切视图都会重建平台标签行并重新绑定，若按容器各挂一套全局监听，
+// 进一次首页就多两个常驻监听，会越积越多。
+let dragState = null;
+function enableDragScroll(container) {
+  if (!container) return;
+  container.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return; // 仅左键
+    dragState = { container, startX: e.clientX, startLeft: container.scrollLeft, dx: 0 };
+    container.classList.add('dragging');
+    document.body.style.cursor = 'grabbing';
+  });
+}
+window.addEventListener('mousemove', (e) => {
+  if (!dragState) return;
+  dragState.dx = e.clientX - dragState.startX;
+  dragState.container.scrollLeft = dragState.startLeft - dragState.dx;
+});
+window.addEventListener('mouseup', () => {
+  if (!dragState) return;
+  const { container, dx } = dragState;
+  dragState = null;
+  container.classList.remove('dragging');
+  document.body.style.cursor = '';
+  // 发生过横向拖拽则本次点击视为拖拽结束，吞掉以免误触分类/平台筛选
+  if (Math.abs(dx) > 6) {
+    container.addEventListener('click', (ev) => { ev.stopPropagation(); ev.preventDefault(); }, { capture: true, once: true });
+  }
+});
 
 // P1: 骨架屏 HTML
 const SKELETON_HTML = '<div class="skeleton"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line skeleton-line-short"></div></div>';
@@ -1203,9 +1325,10 @@ function init() {
 
 
 
-  // 从 URL hash 恢复分类状态（刷新不丢失）
+  // 从 URL hash 恢复视图状态（刷新不丢失）：#home 回首页，分类 id 回分类页
   const hash = location.hash.replace('#', '');
-  if (hash && CATS.some(c => c.id === hash)) curCat = hash;
+  if (hash === 'home') curView = 'home';
+  else if (hash && CATS.some(c => c.id === hash)) { curCat = hash; curView = 'cat'; }
 
   // 必应每日壁纸背景：异步加载不阻塞首屏
   loadWallpaperBg();
@@ -1283,7 +1406,7 @@ function init() {
       item.title = `定位到「${e.name}」`;
       item.innerHTML = `<span class="mm">` +
         `<span class="ci">${e.icon}</span><span class="nm">${esc(e.name)}</span></span>` +
-        (e.type === 'group' ? '<span class="tb"></span>' : '');
+        (hasSelectInput(e) ? '<span class="tb"></span>' : '');
       item.onclick = () => {
         // 分组条目定位到其当前激活的标签页（卡片未渲染时回退首个标签页）
         let target = EPS.find(x => x.id === e.epId);
@@ -1311,37 +1434,6 @@ function init() {
       left: Math.max(0, container.scrollLeft + (elRect.left - cRect.left) - (container.clientWidth - elRect.width) / 2),
       behavior: instant ? 'instant' : SMOOTH,
     });
-  }
-
-  // 鼠标拖拽横向滚动：触摸端原生支持滑动，这里仅补鼠标（mousedown/move/up），
-  // 不影响触摸手势。仅在「横向位移明显」时才抑制随后的点击，避免拖拽误触发
-  // 分类切换 / 模块定位；纵向移动（如桌面侧边栏）因 dx≈0 不滚动也不吞点击。
-  function enableDragScroll(container) {
-    if (!container) return;
-    let down = false, sx = 0, sl = 0, dx = 0;
-    container.addEventListener('mousedown', e => {
-      if (e.button !== 0) return; // 仅左键
-      down = true; dx = 0; sx = e.clientX; sl = container.scrollLeft;
-      container.classList.add('dragging');
-      document.body.style.cursor = 'grabbing';
-    });
-    window.addEventListener('mousemove', e => {
-      if (!down) return;
-      dx = e.clientX - sx;
-      container.scrollLeft = sl - dx;
-    });
-    const end = () => {
-      if (!down) return;
-      down = false;
-      container.classList.remove('dragging');
-      document.body.style.cursor = '';
-      // 发生过横向拖拽则本次点击视为拖拽结束，吞掉以免误触分类/模块
-      if (Math.abs(dx) > 6) {
-        const suppress = ev => { ev.stopPropagation(); ev.preventDefault(); };
-        container.addEventListener('click', suppress, { capture: true, once: true });
-      }
-    };
-    window.addEventListener('mouseup', end);
   }
 
   // 分类 pill 行左右的箭头：仅在溢出时出现，滚到某一端后该侧箭头隐藏。
@@ -1414,22 +1506,27 @@ function init() {
   // 桌面端分类栏在侧边不遮挡内容、遮挡卡片的是吸顶顶栏——必须分端测量，
   // 否则桌面端会算出负偏移导致根本不滚动。
   function scrollDockTop() {
-    // 吸顶停靠底边 = 分类导航条实时底边（顶栏导航版式下导航条与移动端同为顶部吸顶，
-    // 需把整条导航含目录行都算进避让高度）；导航不存在时退回顶栏底边
+    // 吸顶停靠底边：取决于分类导航此刻是不是「顶部吸顶条」。
+    // 三栏版式下它位于左侧固定栏内（position: static），会遮挡卡片的只有内容区顶栏；
+    // 这里按 computed position 实测判断，而不是按视口宽度猜断点——
+    // 断点一改就失效的口径不要写第二遍。
     const navEl = document.querySelector('.cat-nav');
-    if (navEl) return navEl.getBoundingClientRect().bottom + 12;
+    if (navEl && getComputedStyle(navEl).position === 'sticky') {
+      return navEl.getBoundingClientRect().bottom + 12;
+    }
     const topbar = document.querySelector('.topbar');
     return (topbar ? topbar.getBoundingClientRect().bottom : 0) + 12;
   }
 
   // 刷新菜单与页面状态同步：桌面目录展开/高亮、移动面板 chips、分组卡标签徽章
   function refreshSubs() {
+    // 首页视图没有「当前分类」，目录一律收起
     catRow.querySelectorAll('.cat-sub').forEach(el => {
-      el.classList.toggle('open', el.dataset.for === curCat);
+      el.classList.toggle('open', curView !== 'home' && el.dataset.for === curCat);
     });
     // 移动端面板：EPS 级 chips，分组成员可直达对应标签页
     catPanel.innerHTML = '';
-    if (curCat !== 'all') buildSubItems(catPanel, curCat);
+    if (curView !== 'home' && curCat !== 'all') buildSubItems(catPanel, curCat);
     // 高亮单元是「卡片」：activeModuleId 属于分组成员时归到分组条目
     const key = activeModuleId ? (GROUP_OF[activeModuleId] ? GROUP_OF[activeModuleId].id : activeModuleId) : null;
     setTocActive(key);
@@ -1443,9 +1540,12 @@ function init() {
   syncSubs = refreshSubs;
   centerSubChip = focusSubChip;
   syncSpy = setupScrollSpy;
+  locateCardFn = locateCard;
 
   // 定位模块卡片：必要时切分类 → 滚动到卡片并闪烁高亮
   function locateCard(ep) {
+    // 定位目标只存在于分类页：先确保视图已切回，否则 render 出来的仍是首页
+    curView = 'cat';
     // 移动端模块面板是悬浮层：定位即收起，避免遮住落点卡片
     setCatPanelOpen(false);
     let switched = false;
@@ -1581,12 +1681,43 @@ function init() {
     setTimeout(() => stopAlignIfCurrent(token), 5000);
   }
 
+  // 首页入口：与分类按钮同住 .cat-pills，样式自动一致；点击切到聚合视图
+  const homeBtn = document.createElement('button');
+  homeBtn.type = 'button';
+  homeBtn.dataset.view = 'home';
+  homeBtn.setAttribute('aria-expanded', 'false');
+  homeBtn.textContent = '🔥 今日热榜';
+  homeBtn.onclick = () => switchToHome();
+  catPills.appendChild(homeBtn);
+  if (curView === 'home') homeBtn.classList.add('active');
+
+  // 切回聚合首页：点亮首页入口、熄灭全部分类（含目录展开态），并回到页面顶部
+  function switchToHome() {
+    // 同样不关抽屉：抽屉里的任何一次点击都只负责「切视图」，关不关交给用户自己决定
+    curView = 'home';
+    activeModuleId = null;
+    location.hash = 'home';
+    $$('.cat-pills > button').forEach(x => {
+      x.classList.remove('active');
+      x.setAttribute('aria-expanded', 'false');
+    });
+    homeBtn.classList.add('active');
+    nav.classList.remove('sub-collapsed');
+    refreshSubs();
+    render(true);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+
   CATS.forEach(c => {
+    // 「全部」不再出现在侧边栏菜单里：首页已经是跨平台聚合视图，
+    // 这个「把各分类卡片从头铺一遍」的长页没有额外价值。
+    // 只跳过菜单按钮，curCat==='all' 的渲染分支保留——hash 直接写 #all 时仍能访问
+    if (c.id === 'all') return;
     const b = document.createElement('button');
     b.dataset.cat = c.id;
-    if (c.id === curCat) b.classList.add('active');
+    if (curView === 'cat' && c.id === curCat) b.classList.add('active');
     // aria-expanded：已激活分类的按钮兼有「展开/收起目录」语义（桌面手风琴/移动面板）
-    b.setAttribute('aria-expanded', c.id === curCat && c.id !== 'all' ? 'true' : 'false');
+    b.setAttribute('aria-expanded', curView === 'cat' && c.id === curCat && c.id !== 'all' ? 'true' : 'false');
     // 计数徽章：分类下的模块数（移动端由 CSS 隐藏，pill 空间优先给名称）
     const cnt = document.createElement('span');
     cnt.className = 'cnt';
@@ -1594,11 +1725,15 @@ function init() {
     b.appendChild(document.createTextNode(c.name));
     b.appendChild(cnt);
     b.onclick = () => {
-      // 点击已激活分类：桌面折叠/展开目录手风琴；移动端开合模块面板（「全部」无目录）
-      if (curCat === c.id) {
+      // 从首页切回分类页：哪怕点的是「当前分类」也是一次视图切换，不走下面的开合分支
+      const fromHome = curView === 'home';
+      curView = 'cat';
+      // 这里不关抽屉：抽屉里点分类只是「换个分类继续看」，关掉反而要重新拉开。
+      // 抽屉的关闭只留给点击遮罩 / ✕ 按钮 / Esc（见下面的绑定）
+      if (curCat === c.id && !fromHome) {
         if (c.id === 'all') return;
-        if (isMobileLayout()) setCatPanelOpen(!nav.classList.contains('toc-open'));
-        else nav.classList.toggle('sub-collapsed');
+        // 重复点击当前分类 = 展开/收起它下面的数据源目录（移动端与桌面同一套手风琴）
+        nav.classList.toggle('sub-collapsed');
         b.setAttribute('aria-expanded', nav.classList.contains('sub-collapsed') ? 'false' : 'true');
         return;
       }
@@ -1620,9 +1755,12 @@ function init() {
       // sync：scrollToCatTitle 紧接着要测量新渲染出来的分类标题位置
       render(true);
       scrollToCatTitle(c.id);
+      // 抽屉开着时上面这次定位会被 overflow:hidden 吃掉，标记一下等关抽屉时补做
+      if (appShell && appShell.classList.contains('sidebar-open')) sidebarPendingLocate = true;
     };
     catPills.appendChild(b);
-    // 桌面侧边栏手风琴：卡片目录紧跟所属分类按钮后（display:contents 参与纵向排列）；
+    // 手风琴目录：紧跟所属分类按钮插进 .cat-pills 内部（而不是外层 .cat-row）。
+    // 侧边栏是纵向列表，目录必须与按钮相邻才能「就地展开」；
     // inner 包装层供 grid-template-rows 0fr→1fr 展开动画使用
     if (c.id !== 'all') {
       const sub = document.createElement('div');
@@ -1632,9 +1770,58 @@ function init() {
       inner.className = 'cat-sub-inner';
       buildToc(inner, c.id);
       sub.appendChild(inner);
-      catRow.appendChild(sub);
+      catPills.appendChild(sub);
     }
   });
+
+  // ===== 抽屉式侧边栏（窄屏）=====
+  // 断点与 style.css 的 @media (max-width: 900px) 逐字一致：
+  // 该宽度以下侧边栏是抽屉（点 ☰ 展开），以上常驻——两边共用一个口径，避免各写一套
+  const appShell = $('#appShell');
+  const sbMask = $('#sbMask');
+  const sbToggle = $('#sbToggle');
+  const sbClose = $('#sbClose');
+  let sidebarTimer = 0;
+  // 抽屉打开期间选过分类的标记：见 setSidebarOpen 关闭分支里的补偿定位
+  let sidebarPendingLocate = false;
+
+  function setSidebarOpen(open) {
+    if (!appShell) return;
+    const shouldOpen = !!open && MQ_DRAWER.matches;
+    appShell.classList.toggle('sidebar-open', shouldOpen);
+    if (sbToggle) sbToggle.setAttribute('aria-expanded', String(shouldOpen));
+    // 抽屉展开时锁住页面滚动，避免背后的列表跟着手指跑
+    document.body.classList.toggle('sb-locked', shouldOpen);
+    if (!sbMask) return;
+    clearTimeout(sidebarTimer);
+    if (shouldOpen) {
+      sbMask.hidden = false;
+      requestAnimationFrame(() => sbMask.classList.add('show'));
+    } else {
+      sbMask.classList.remove('show');
+      // 等淡出过渡结束再真正隐藏，否则 display:none 会把过渡掐断
+      sidebarTimer = setTimeout(() => {
+        if (!appShell.classList.contains('sidebar-open')) sbMask.hidden = true;
+      }, 260);
+      // 补偿定位：抽屉开着时 body 是 overflow:hidden，点分类后那次 scrollToCatTitle
+      // 会被吞掉（轮询校正也会因「文档高度连续不变」提前退出）。
+      // 这里在解锁之后补一次，保证关掉抽屉时看到的就是刚选的那个分类
+      if (sidebarPendingLocate) {
+        sidebarPendingLocate = false;
+        scrollToCatTitle(curCat);
+      }
+    }
+  }
+  function closeSidebar() { setSidebarOpen(false); }
+
+  if (sbToggle) sbToggle.onclick = () => setSidebarOpen(!appShell.classList.contains('sidebar-open'));
+  // 抽屉的关闭路径就这三条：✕ 按钮、点遮罩空白处、Esc。
+  // 菜单项自身的点击一律不关（点分类只是切换/展开，点完还想接着点）
+  if (sbClose) sbClose.onclick = closeSidebar;
+  if (sbMask) sbMask.onclick = closeSidebar;
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSidebar(); });
+  // 视口变宽回到桌面版式时收起抽屉，避免 sidebar-open / sb-locked 残留
+  MQ_DRAWER.addEventListener('change', () => { if (!MQ_DRAWER.matches) setSidebarOpen(false); });
 
   nav.appendChild(catRow);
   // 面板挂 body 下而非 nav 内：nav 自身的 backdrop-filter 会成为 backdrop root，
@@ -1798,6 +1985,29 @@ function render(sync) {
 function renderImpl() {
   const main = $('#main');
   main.innerHTML = '';
+  const rail = $('#rail');
+
+  // 聚合首页：跨平台混排榜单 + 右侧信息栏。与分类卡片页共用 #main，靠 curView 分流
+  if (curView === 'home') {
+    if (rail) rail.hidden = false;
+    main.appendChild(buildHome());
+    // Hero 每次重建都要回填天气：缓存命中时同步绘制，否则发起一次请求
+    // （不调 heroRefreshTime——首页没有卡片，时间戳随聚合数据一并由 applyHome 写入）
+    loadHeroWeather();
+    // 首屏：开屏遮罩等聚合结果就绪后渐隐（splash 自身有 3.5s 兜底）
+    if (!firstRenderDone) {
+      firstRenderDone = true;
+      splash.begin(1);
+      loadHome().finally(() => splash.step());
+    } else {
+      loadHome();
+    }
+    if (syncSubs) syncSubs();
+    if (syncSpy) syncSpy();
+    return;
+  }
+
+  if (rail) { rail.hidden = true; rail.innerHTML = ''; }
 
   // 页首 Hero 卡：搜索框移除后所有视图都显示它
   main.appendChild(buildHero());
@@ -1830,6 +2040,9 @@ function renderImpl() {
         sec.className = 'cat-section';
         sec.dataset.cat = curCat; // 供分类导航点击后定位到该分类标题
         sec.innerHTML = `<div class="cat-title">${TITLE_BUBBLES}${selCat.name}<span class="count">${eps.length}</span></div>`;
+        // 数据源便签行：Hero 与卡片之间的一条横向标签，点它筛选本分类的卡片。
+        // 「全部」分类不显示——那个视图本身就是按分类分组的汇总，再列一遍数据源没有意义
+        sec.appendChild(buildCatFilterBar(curCat));
         const grid = document.createElement('div');
         grid.className = 'grid';
         appendCards(grid, eps);
@@ -1932,7 +2145,7 @@ function makeCard(ep) {
         toSel.dataset.role = 'fanyi-lang';
         // 如果语言列表已缓存，直接填充；否则显示加载中
         if (fanyiLangs && fanyiLangs.length) {
-          const opts = fanyiLangs.map(l => `<option value="${l.code}">${l.label}</option>`).join('');
+          const opts = fanyiLangs.map(l => `<option value="${esc(l.code)}">${esc(l.label)}</option>`).join('');
           fromSel.innerHTML = opts;
           toSel.innerHTML = opts;
           fromSel.value = fromDefault;
@@ -1983,8 +2196,8 @@ function makeCard(ep) {
         }
         el.name = inp.n;
         el.value = inp.d || '';
-        // 下拉切换即时生效，无需点查询
-        if (inp.sel) el.onchange = () => load(ep);
+        // 下拉切换即时生效，无需点查询；顺带刷新侧边栏条目上的「当前选中项」徽章
+        if (inp.sel) el.onchange = () => { load(ep); updateTocBadges(); };
         row.appendChild(el);
       });
       const go = document.createElement('button');
@@ -3297,6 +3510,357 @@ document.addEventListener('click', e => {
   if (card) cardFsToggle(card);
 });
 
+// ============ 「今日热榜」聚合首页 ============
+// 数据来自 /v2/hot/aggregate —— 后端已把各平台榜单归一化后混排（见 hot-aggregate.module.ts），
+// 前端只负责渲染与「按平台筛选」：筛选是纯本地过滤，不再打后端。
+const HOME_CACHE_KEY = `cache:${CACHE_VERSION}:hot:aggregate`;
+
+function buildHome() {
+  const wrap = document.createElement('div');
+  wrap.className = 'home';
+  // 页首复用分类页那套 Hero（站点简介 + 数据统计 + 按访客 IP 定位的今日天气）。
+  // 首页不再单独做一张头图：同一张卡只有一份实现，天气/「更新于」的口径也不会两处分叉
+  wrap.appendChild(buildHero());
+  wrap.insertAdjacentHTML('beforeend', `
+    <div class="home-filter-row">
+      <button class="hf-arrow prev" type="button" aria-label="向左查看更多平台" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="home-filter" id="homeFilter"></div>
+      <button class="hf-arrow next" type="button" aria-label="向右查看更多平台" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+    <div class="home-list" id="homeList"></div>`);
+  homeFilterSync = bindPillArrows(
+    wrap.querySelector('#homeFilter'),
+    wrap.querySelector('.hf-arrow.prev'),
+    wrap.querySelector('.hf-arrow.next'),
+  );
+  return wrap;
+}
+
+// ============ 分类页的数据源便签行 ============
+// 版式与首页的平台筛选完全一致（Hero 下方一条横向标签行 + 两端箭头）。
+// 交互是「定位」而不是「筛选」：点便签滚动到对应卡片并高亮，所有卡片始终留在页面上。
+// 一开始做成筛选（其余卡片 hidden），但筛到单个数据源后页面只剩一张卡，
+// 单卡又撑不满中栏，右侧空出一大块，观感反而更差——所以退回「保留全部卡片 + 定位」。
+// 条目走 catTocEntries：它已做过分组合并（猫眼/豆瓣这类同源多榜只算一个），与出卡逻辑同口径
+function buildCatFilterBar(catId) {
+  const wrap = document.createElement('div');
+  wrap.className = 'home-filter-row cat-filter-row';
+  wrap.innerHTML = `
+    <button class="hf-arrow prev" type="button" aria-label="向左查看更多数据源" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="home-filter" id="catFilter"></div>
+    <button class="hf-arrow next" type="button" aria-label="向右查看更多数据源" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>`;
+
+  const box = wrap.querySelector('#catFilter');
+  // 高亮单元与侧边栏目录一致：分组成员归到分组条目
+  const activeKey = activeModuleId
+    ? (GROUP_OF[activeModuleId] ? GROUP_OF[activeModuleId].id : activeModuleId)
+    : null;
+  const pill = (key, epId, icon, name) =>
+    `<button class="hf-pill${key === activeKey ? ' active' : ''}" type="button" data-card="${esc(key)}" data-ep="${esc(epId)}">` +
+    (icon ? `<span class="ci">${icon}</span>` : '') + `${esc(name)}</button>`;
+
+  // 不设「全部」标签：进分类页本来就是全部卡片都在，这个入口没有实际作用
+  box.innerHTML = catTocEntries(catId).map(e => pill(e.key, e.epId, e.icon, e.name)).join('');
+
+  // 便签内容是静态的（每次 render 重建整行），不需要回存 sync 供后续重算
+  bindPillArrows(
+    box,
+    wrap.querySelector('.hf-arrow.prev'),
+    wrap.querySelector('.hf-arrow.next'),
+  );
+  // 整行刚重建、scrollLeft 归零，清掉上次的高亮记录，
+  // 让紧接着的 setTocActive 把当前选中项带进视野（否则会被当成「高亮没变」而跳过）
+  lastTocActiveKey = null;
+  return wrap;
+}
+
+// 便签点击：定位到对应卡片（滚动 + 闪烁高亮），复用侧边栏目录那套 locateCard
+document.addEventListener('click', e => {
+  const pill = e.target.closest('.cat-filter-row .hf-pill');
+  if (!pill) return;
+  revealPill(pill);
+  const ep = EPS.find(x => x.id === pill.dataset.ep);
+  if (ep && locateCardFn) locateCardFn(ep);
+});
+
+// 筛选行的左右箭头：只在溢出时出现，滚到某一端后该侧箭头隐藏。
+// 横向不换行 + 可拖拽 + 两端箭头，首页平台行与分类页数据源行共用这一份实现。
+// 返回 sync，供调用方在标签内容变化后重算箭头显隐
+let homeFilterSync = null;
+// 上一次同步到便签行的卡片 key：用来判断「高亮是否真的变了」，
+// 变了才去滚标签，避免滚动高亮和用户手动横滑互相打架
+let lastTocActiveKey = null;
+// 按容器缓存 ResizeObserver：同一元素重复绑定先断开旧的；
+// 元素随视图重建被丢弃后，WeakMap 条目与 observer 一并回收
+const pillArrowROs = new WeakMap();
+function bindPillArrows(scroller, prev, next) {
+  if (!scroller || !prev || !next) return null;
+
+  const step = () => Math.max(120, Math.round(scroller.clientWidth * 0.7));
+  const sync = () => {
+    const max = scroller.scrollWidth - scroller.clientWidth;
+    const overflow = max > 1;
+    prev.hidden = !overflow || scroller.scrollLeft <= 1;
+    next.hidden = !overflow || scroller.scrollLeft >= max - 1;
+  };
+
+  prev.onclick = () => scroller.scrollBy({ left: -step(), behavior: SMOOTH });
+  next.onclick = () => scroller.scrollBy({ left: step(), behavior: SMOOTH });
+  scroller.addEventListener('scroll', sync, { passive: true });
+  enableDragScroll(scroller);
+
+  // 不挂 window.resize：视图重建后旧元素已丢弃，按元素注册的全局监听会留下悬空引用；
+  // observer 在目标元素移除后自然停止上报，生命周期只跟着这一轮的容器走
+  const old = pillArrowROs.get(scroller);
+  if (old) old.disconnect();
+  const ro = new ResizeObserver(sync);
+  ro.observe(scroller);
+  pillArrowROs.set(scroller, ro);
+
+  requestAnimationFrame(sync);
+  // 字体就绪后标签宽度会变，是否溢出要重算（与分类 pill 行同一处理）
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(sync).catch(() => {});
+  return sync;
+}
+
+async function loadHome(force = false) {
+  const list = $('#homeList');
+  if (!list) return;
+  // 非强制刷新时先吃本地缓存：切视图来回切不必每次重打接口
+  if (!force) {
+    const cached = cacheGetWithTs(HOME_CACHE_KEY);
+    if (cached) { applyHome(cached.data, cached.ts); return; }
+  }
+  list.innerHTML = `<div class="home-skeleton">${SKELETON_HTML}</div>`;
+  try {
+    // limit=20 + per=3：综合榜 6 家各顶 3 席刚好铺满，不必靠回填凑数（回填会让某家前排变多）
+    const res = await fetch(`${API}/v2/hot/aggregate?limit=20&per=3${force ? '&force-update=1' : ''}`);
+    const json = await res.json();
+    const data = json && json.data;
+    if (!data || !Array.isArray(data.items)) throw new Error('bad payload');
+    cacheSet(HOME_CACHE_KEY, data);
+    applyHome(data, Date.now());
+  } catch {
+    // 异步期间可能已切走视图，DOM 不在了就别再落笔
+    if (!$('#homeList')) return;
+    list.innerHTML = `<div class="card-unavailable">
+      <span class="un-icon">📡</span>
+      <span class="un-text">热榜聚合获取失败</span>
+      <span class="un-detail">上游数据源可能被限流，稍后再试</span>
+      <button class="retry-btn" type="button">重试</button>
+    </div>`;
+    const retry = list.querySelector('.retry-btn');
+    if (retry) retry.onclick = () => loadHome(true);
+  }
+}
+
+function applyHome(data, ts) {
+  if (!$('#homeList')) return;
+  homeData = data;
+  // Hero 芯片上的「更新于」直接取聚合数据的时间：首页没有卡片，
+  // epLoadedAt 里没有可用时间戳，走 heroRefreshTime() 只会拿到切过来的旧值
+  const heroTimeEl = $('#heroTime');
+  if (heroTimeEl) heroTimeEl.textContent = fmtFullTime(ts);
+  // 刷新后该平台若缺席，筛选值回落「综合」，避免停在空列表上
+  if (homeFilter !== 'all' && !data.platforms.some(p => p.id === homeFilter && p.ok)) homeFilter = 'all';
+  renderHomeFilter();
+  renderHomeList();
+  renderRail();
+}
+
+/**
+ * 当前筛选下的条目。
+ * 「综合」= 后端跨平台加权混排的结果；单平台 = 该平台自己的完整榜单（原样、不混排、不重排热度）。
+ */
+function filteredItems() {
+  if (!homeData) return [];
+  if (homeFilter === 'all') return homeData.items;
+  const own = homeData.lists && homeData.lists[homeFilter];
+  // lists 缺席时（旧缓存 / 该平台被超时掐掉）退回混排里的该平台条目，至少不空列表
+  return Array.isArray(own) && own.length ? own : homeData.items.filter(it => it.source === homeFilter);
+}
+
+/**
+ * 热度展示文案。
+ * 「综合」用与排序同源的指数（各平台原始热度口径不可比，直接展示会与名次自相矛盾）；
+ * 单平台榜则显示该平台自己的原始热度——此时榜单就是它自己的顺序，口径天然一致。
+ */
+function heatText(it) {
+  if (homeFilter === 'all') return it.hot_index_text || it.hot_text || '';
+  return it.hot_text || it.hot_index_text || '';
+}
+
+function renderHomeFilter() {
+  const box = $('#homeFilter');
+  if (!box || !homeData) return;
+  // 全部平台都出标签，抓取失败的那家置灰保留而不是直接消失：
+  // 标签忽有忽无会让人以为功能坏了，而且每次刷新都可能导致标签行整体位移
+  const pill = (id, name, icon, ok = true) =>
+    `<button class="hf-pill${homeFilter === id ? ' active' : ''}${ok ? '' : ' hf-pill-off'}" type="button"` +
+    ` data-plat="${esc(id)}"${ok ? '' : ' title="该数据源暂时不可用"'} aria-disabled="${ok ? 'false' : 'true'}">` +
+    (icon ? `<img src="${esc(icon)}" alt="" loading="lazy" onerror="this.remove()">` : '') +
+    `${esc(name)}</button>`;
+  box.innerHTML = pill('all', '综合', '') +
+    homeData.platforms.map(p => pill(p.id, p.name, p.icon, p.ok)).join('');
+  // 平台数量或名称变化都会改变总宽，箭头显隐要跟着重算
+  if (homeFilterSync) homeFilterSync();
+}
+
+function renderHomeList() {
+  const list = $('#homeList');
+  if (!list || !homeData) return;
+  const all = filteredItems();
+  if (!all.length) {
+    list.innerHTML = '<div class="empty-state"><span class="es-icon">🍃</span><span class="es-text">暂无热榜数据</span><span class="es-sub">换个平台筛选看看吧</span></div>';
+    return;
+  }
+  // 默认只渲染前 N 条，多出来的折起来（点击展开）；折叠态下不显示「已经到底了」——
+  // 那时候并没有到底，显示出来是误导
+  const collapsible = all.length > HOME_COLLAPSE_N;
+  const collapsed = collapsible && !homeExpanded;
+  const items = collapsed ? all.slice(0, HOME_COLLAPSE_N) : all;
+
+  // 排名按「当前所见顺序」重编：筛选到单平台后原全局名次会跳号
+  list.innerHTML = items.map((it, i) => {
+    const rank = i + 1;
+    const cls = rank <= 3 ? ` top${rank}` : '';
+    const title = it.link
+      ? `<a href="${safeUrl(it.link)}" target="_blank" rel="noopener">${esc(it.title)}</a>`
+      : esc(it.title);
+    const tag = it.tag ? `<span class="hl-tag">${esc(it.tag)}</span>` : '';
+    const desc = it.desc ? `<div class="hl-desc">${esc(it.desc)}</div>` : '';
+    // 缩略图：只有部分平台给图（抖音/头条/百度/知乎/凤凰），没有的自然不占位。
+    // referrerpolicy 必须置空——头条、抖音的图床都做 Referer 防盗链，
+    // 带上来源域会直接 403；onerror 兜底移除，避免留一个破图框
+    const thumb = it.cover
+      ? `<img class="hl-thumb" src="${esc(it.cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`
+      : '';
+    // 综合榜展示指数，该平台原始热度放进悬停提示保留可追溯性；单平台榜直接展示原始热度
+    const hotNum = heatText(it);
+    const hotTip = homeFilter === 'all' && it.hot_text
+      ? ` title="${esc(it.source_name + '原始热度 ' + it.hot_text)}"`
+      : '';
+    const hot = hotNum ? `<span class="hl-hot"${hotTip}>${esc(hotNum)}</span>` : '';
+    return `<div class="hl-item${cls}">
+      <span class="hl-rank">${rank}</span>
+      ${thumb}
+      <div class="hl-body">
+        <div class="hl-title">${title}${tag}</div>
+        ${desc}
+      </div>
+      <div class="hl-meta">
+        <span class="hl-source"><img src="${esc(it.source_icon)}" alt="" loading="lazy" onerror="this.remove()">${esc(it.source_name)}</span>
+        ${hot}
+      </div>
+    </div>`;
+  }).join('')
+    + (collapsed
+        ? `<button class="hl-toggle" type="button">展开全部 ${all.length} 条</button>`
+        : (collapsible
+            ? `<button class="hl-toggle" type="button">收起，仅看前 ${HOME_COLLAPSE_N} 条</button>`
+            : ''))
+    + (collapsed ? '' : '<div class="hl-end">已经到底了</div>');
+}
+
+/** 右侧信息栏：热搜平台九宫格 + 热门话题（都跟随 homeFilter 联动） */
+function renderRail() {
+  const rail = $('#rail');
+  if (!rail || rail.hidden) return;
+  if (!homeData) {
+    rail.innerHTML = '<section class="rail-card"><div class="rail-title">热搜平台</div>' +
+      `<div class="home-skeleton">${SKELETON_HTML}</div></section>`;
+    return;
+  }
+  // 与顶部标签行同口径：抓取失败的平台也保留格子（置灰），不因一次失败就少一格
+  const plats = homeData.platforms;
+  const okCount = plats.filter(p => p.ok).length;
+  rail.innerHTML = `
+    <section class="rail-card">
+      <div class="rail-title">热搜平台<span class="rt-sub">${okCount}/${plats.length} 个来源</span></div>
+      <div class="rail-grid" id="railGrid">
+        ${plats.map(p => `<button class="rail-plat${homeFilter === p.id ? ' active' : ''}${p.ok ? '' : ' hf-pill-off'}" type="button" data-plat="${esc(p.id)}" title="${esc(p.name)}${p.ok ? '' : '（暂时不可用）'}">
+          <img src="${esc(p.icon)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+          <span>${esc(p.name)}</span>
+        </button>`).join('')}
+      </div>
+    </section>
+    <section class="rail-card">
+      <div class="rail-title">热门话题<span class="rt-sub">综合</span></div>
+      <div class="rail-topics" id="railTopics"></div>
+    </section>`;
+  renderRailTopics();
+}
+
+function renderRailTopics() {
+  const box = $('#railTopics');
+  if (!box || !homeData) return;
+  // 固定取「综合」榜前 10 条，不跟随平台筛选：这一栏的定位是「全域热点速览」，
+  // 跟着筛选一起变等于把左侧榜单又抄一遍，反而失去参照价值
+  const items = homeData.items.slice(0, 10);
+  if (!items.length) {
+    box.innerHTML = '<div class="hl-end">暂无话题</div>';
+    return;
+  }
+  box.innerHTML = items.map(it => {
+    const heat = heatText(it);
+    const inner = `<span class="hash">#</span><span class="tt">${esc(it.title)}</span>` +
+      (heat ? `<span class="vv">${esc(heat)}</span>` : '');
+    return it.link
+      ? `<a class="rt-item" href="${safeUrl(it.link)}" target="_blank" rel="noopener">${inner}</a>`
+      : `<div class="rt-item">${inner}</div>`;
+  }).join('');
+}
+
+function setHomeFilter(id) {
+  homeFilter = id;
+  homeExpanded = false; // 换榜单后重新折叠，避免带着上一份榜单的展开态进来
+  let activePill = null;
+  $$('#homeFilter .hf-pill').forEach(b => {
+    const on = b.dataset.plat === id;
+    b.classList.toggle('active', on);
+    if (on) activePill = b;
+  });
+  $$('#railGrid .rail-plat').forEach(b => b.classList.toggle('active', b.dataset.plat === id));
+  // 选中的标签自动滚进可视区：窄窗口下标签行要横向滚动，
+  // 从右栏九宫格点过来的平台很可能停在屏幕外，不拉回来就看不见选中态
+  revealPill(activePill);
+  renderHomeList();
+}
+
+/** 把某个标签滚入可视区（已完整可见则原样不动）。滚动容器即标签的直接父节点 */
+function revealPill(pill) {
+  const scroller = pill && pill.parentElement;
+  if (!scroller || !pill) return;
+  const el = pill.getBoundingClientRect();
+  const box = scroller.getBoundingClientRect();
+  if (el.left >= box.left - 1 && el.right <= box.right + 1) return;
+  // 居中而非「贴边」：贴边只能保证露出，居中才看得出是它被选中
+  const left = scroller.scrollLeft + (el.left - box.left) - (scroller.clientWidth - el.width) / 2;
+  scroller.scrollTo({ left: Math.max(0, left), behavior: SMOOTH });
+}
+
+// 平台筛选的点击统一走事件委托：pill 与九宫格两处入口共用同一状态
+document.addEventListener('click', e => {
+  const el = e.target.closest('.hf-pill, .rail-plat');
+  if (!el || !el.dataset.plat) return;
+  setHomeFilter(el.dataset.plat);
+});
+
+// 榜单折叠/展开：纯本地重渲染，不重新请求
+document.addEventListener('click', e => {
+  if (!e.target.closest('.hl-toggle')) return;
+  homeExpanded = !homeExpanded;
+  renderHomeList();
+});
+
 // ============ 全部刷新 ============
 // 当前视图内所有可见卡片 ↻（noapi 卡走 renderData 重置）。
 // 错峰 60ms/张，避免同时打满上游触发限流；过程中按钮转圈防重复点击
@@ -3304,6 +3868,13 @@ function refreshAll() {
   const btn = $('#btnRefreshAll');
   if (btn?.classList.contains('busy')) return;
   if (btn) btn.classList.add('busy');
+
+  // 首页视图：需要刷新的只有聚合结果，带上 force-update 让后端绕过聚合缓存
+  if (curView === 'home') {
+    loadHome(true).finally(() => { if (btn) btn.classList.remove('busy'); });
+    return;
+  }
+
   const visEps = EPS.filter(ep => (curCat === 'all' || curCat === ep.cat) && !GROUP_OF[ep.id]);
   visEps.forEach((ep, i) => {
     setTimeout(() => load(ep, true).catch(() => {}), i * 60);
@@ -3349,7 +3920,7 @@ document.addEventListener('click', e => {
     if (window.scrollY > 0 || e.touches.length !== 1) { pulling = false; return; }
     // 从游戏卡/输入框/可滚动卡片内容区起手不接管：会跟棋盘滑动、文本选择打架
     const t = e.target;
-    if (t.closest('.g2048, .muyu, .fs-fake, .fanyi-textarea, .input-row, .card-body, .cat-sub, .card-pane')) { pulling = false; return; }
+    if (t.closest('.g2048, .muyu, .fs-fake, .fanyi-textarea, .input-row, .card-body, .cat-sub, .card-pane, .sidebar, .rail')) { pulling = false; return; }
     startY = e.touches[0].clientY;
     pulling = true; dist = 0;
   }, { passive: true });
@@ -4613,14 +5184,14 @@ function rExchange(d, c) {
   h += `<div class="ex-calc">
     <div class="ex-calc-row">
       <input class="ex-amount" type="number" min="0" value="100" inputmode="decimal" aria-label="金额">
-      <select class="ex-from" aria-label="源币种">${allCodes.map(cd => `<option value="${cd}"${cd === base ? ' selected' : ''}>${cd}</option>`).join('')}</select>
+      <select class="ex-from" aria-label="源币种">${allCodes.map(cd => `<option value="${esc(cd)}"${cd === base ? ' selected' : ''}>${esc(cd)}</option>`).join('')}</select>
     </div>
     <button class="ex-swap" type="button" title="交换币种" aria-label="交换币种">
       <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v13"/><path d="M3.5 7.5 7 4l3.5 3.5"/><path d="M17 20V7"/><path d="M13.5 16.5 17 20l3.5-3.5"/></svg>
     </button>
     <div class="ex-calc-row">
       <div class="ex-result">--</div>
-      <select class="ex-to" aria-label="目标币种">${allCodes.map(cd => `<option value="${cd}"${cd === popular[0] ? ' selected' : ''}>${cd}</option>`).join('')}</select>
+      <select class="ex-to" aria-label="目标币种">${allCodes.map(cd => `<option value="${esc(cd)}"${cd === popular[0] ? ' selected' : ''}>${esc(cd)}</option>`).join('')}</select>
     </div>
   </div>`;
 

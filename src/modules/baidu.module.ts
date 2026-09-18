@@ -1,12 +1,18 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { withUapisFallback } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceBaidu {
+  /** 供聚合接口复用，并与 /v2/baidu/hot 共享同一份服务端缓存；主源失效时退回 uapis 备用源 */
+  fetchHot() {
+    return cached('baidu:hot', () => withUapisFallback('baidu', () => this.#fetchRealtimeHot()))
+  }
+
   handleHotSearch(): RouterMiddleware<'/baidu/hot'> {
     return async (ctx) => {
-      const data = await cached('baidu:hot', () => this.#fetchRealtimeHot())
+      const data = await this.fetchHot()
 
       switch (ctx.state.encoding) {
         case 'text':

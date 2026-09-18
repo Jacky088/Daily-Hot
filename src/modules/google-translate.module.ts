@@ -67,12 +67,14 @@ class ServiceGoogleTranslate {
       try {
         await this.#translate(ctx, text, from, to)
       } catch (e: any) {
-        // 上游失败给出真实原因（如 CF 出口被 Google 拦截），不让全局错误处理器掩盖成通用 500
+        // 上游真实原因只进服务端日志：底层异常可能夹带上游响应片段与内部地址，
+        // 不适合回显给调用方
+        console.error('[google-translate]', e)
         ctx.response.status = 502
         ctx.response.body = Common.buildJson(
           null,
           502,
-          `Google 翻译暂不可用：${e?.message || e}；前端会优先浏览器直连 Google，此接口为兜底通道`,
+          'Google 翻译暂不可用；前端会优先浏览器直连 Google，此接口为兜底通道',
         )
       }
     }

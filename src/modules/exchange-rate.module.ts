@@ -43,7 +43,8 @@ class ServiceExRate {
     }
 
     const api = 'https://open.er-api.com/v6/latest'
-    const data = (await (await fetch(`${api}/${currency}`)).json()) as RateResponse
+    // currency 来自 query，必须编码：未编码时用户可塞进 / 或 ? 篡改上游的 path/query
+    const data = (await (await fetch(`${api}/${encodeURIComponent(currency)}`)).json()) as RateResponse
     const { time_last_update_unix, time_next_update_unix, base_code, rates } = data
 
     const rateItem = {

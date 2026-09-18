@@ -39,6 +39,9 @@ class ServiceJuejin {
       let limit = Number.parseInt(ctx.request.url.searchParams.get('limit') || '') || DEFAULT_LIMIT
       limit = Math.min(limit, MAX_LIMIT)
 
+      // 这里**不接** uapis 兜底：掘金按 category 分榜（前端/后端/AI…），
+      // 而备用源不支持该参数、只会返回全站总榜——用户选了「前端」却拿到全站榜，
+      // 比干脆没数据更让人困惑。宁可如实报错，也不给一份对不上的榜单
       const data = (await cached(`juejin-${category}`, () => this.#fetch(category))).slice(0, limit)
 
       switch (ctx.state.encoding) {

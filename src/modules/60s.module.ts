@@ -7,6 +7,9 @@ import { config } from '../config.ts'
 
 const WEEK_DAYS = ['日', '一', '二', '三', '四', '五', '六']
 
+// 图片代理的单张大小上限：每日一图正常几百 KB，超过这个量级不该被当作图片透传
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024
+
 function getDayOfWeek(date?: string) {
   const day = date ? new Date(date) : new Date()
   return `星期${WEEK_DAYS[day.getDay()]}`
@@ -43,13 +46,13 @@ class Service60s {
 
         case 'image': {
           // test image url
-          const response = await fetch(data.image, { method: 'HEAD' })
+          const response = await fetch(data.image, { method: 'HEAD', signal: AbortSignal.timeout(5_000) })
           ctx.response.redirect(response.ok ? data.image : `https://60s-static.viki.moe/images/${data.date}.png`)
           break
         }
 
         case 'image-proxy': {
-          let response: Response | null = await fetch(data.image)
+          let response: Response | null = await fetch(data.image, { signal: AbortSignal.timeout(10_000) })
 
           if (!response.ok) {
             response = await Common.tryRepoUrl({
@@ -60,9 +63,18 @@ class Service60s {
           }
 
           if (response) {
-            ctx.response.headers = response.headers
+            // 只透传展示需要的 Content-Type，不再整包照搬上游 headers：
+            // 照搬会把 set-cookie 一起带到同源响应上（可被上游用来写本站 cookie），
+            // content-length 也可能与实际读到的字节数不一致
+            const size = Number(response.headers.get('content-length') || 0)
+            if (size > MAX_IMAGE_BYTES) {
+              ctx.response.status = 413
+              ctx.response.body = 'Image too large'
+              return
+            }
+            ctx.response.headers.set('Content-Type', response.headers.get('content-type') || 'image/png')
+            ctx.response.headers.set('Cache-Control', 'public, max-age=86400')
             ctx.response.body = response.body
-            ctx.response.type = response.type
             ctx.response.status = response.status
           } else {
             ctx.response.status = 404
@@ -82,12 +94,14 @@ class Service60s {
   }
 
   async tryUrl(date: string) {
+    // date 来自 query，必须编码：否则 / 会原样进路径、../ 可上跳到仓库里其它文件
+    const day = encodeURIComponent(date)
     const response = await Common.tryRepoUrl({
       repo: 'vikiboss/60s-static-host',
-      path: `static/60s/${date}.json`,
+      path: `static/60s/${day}.json`,
       alternatives: [
-        `https://60s-static.viki.moe/60s/${date}.json`,
-        `https://60s-static-host.vercel.app/60s/${date}.json`,
+        `https://60s-static.viki.moe/60s/${day}.json`,
+        `https://60s-static-host.vercel.app/60s/${day}.json`,
       ],
     })
 

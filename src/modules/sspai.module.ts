@@ -1,12 +1,14 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { withUapisFallback } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceSspai {
   handle(): RouterMiddleware<'/sspai'> {
     return async (ctx) => {
-      const data = await cached('sspai', () => this.#fetch(), { ttl: 10 * 60 * 1000 })
+      // 主源失效时退回 uapis 备用源
+      const data = await cached('sspai', () => withUapisFallback('sspai', () => this.#fetch()), { ttl: 10 * 60 * 1000 })
 
       switch (ctx.state.encoding) {
         case 'text':
