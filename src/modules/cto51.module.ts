@@ -1,6 +1,7 @@
 import { load } from 'cheerio'
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { serviceUapis } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -31,7 +32,7 @@ class ServiceCTO51 {
       let limit = Number.parseInt(ctx.request.url.searchParams.get('limit') || '') || DEFAULT_LIMIT
       limit = Math.min(limit, MAX_LIMIT)
 
-      const data = (await cached(`51cto-${type}`, () => this.#fetch(type))).slice(0, limit)
+      const data = (await cached(`51cto-${type}`, () => this.#fetchWithFallback(type))).slice(0, limit)
 
       switch (ctx.state.encoding) {
         case 'text': {
@@ -137,6 +138,7 @@ class ServiceCTO51 {
         author: $(el).find('a.username').first().text().trim(),
         hot,
         hot_value_desc: hot ? `热度 ${hot}` : '',
+        description: '',
       })
     })
 
@@ -146,6 +148,42 @@ class ServiceCTO51 {
     }
 
     return items
+  }
+
+  /**
+   * 取数：主源抓页，失败退到 uapis 聚合源。
+   *
+   * 为什么这里没有直接用通用的 withUapisFallback：兜底源的字段与主源不同名，
+   * 必须顺手归一成 CTO51Item（uapis 没有 author / hot，只有 extra.description），
+   * 否则前端与 text / markdown 输出会按 CTO51Item 的字段名取到一堆 undefined。
+   *
+   * 兜底主要服务 Cloudflare Worker：blog.51cto.com 在腾讯 EdgeOne 后面，
+   * Worker 出口会被判成爬虫、只能拿到 JS 挑战空壳页（详见 #fetchHtml 的注释），
+   * 本地/自建部署则基本都能走通主源。
+   */
+  async #fetchWithFallback(type: string): Promise<CTO51Item[]> {
+    try {
+      return await this.#fetch(type)
+    } catch (e) {
+      const fallback = await serviceUapis.hotboard('51cto').catch(() => [])
+
+      if (fallback.length) {
+        return fallback.map((item, i) => ({
+          rank: i + 1,
+          id: '',
+          title: item.title,
+          link: item.link,
+          author: '',
+          hot: item.hot_value,
+          hot_value_desc: item.hot_value_desc,
+          description: item.description,
+        }))
+      }
+
+      // 两边都拿不到：抛**原始错误**（而不是 uapis 的），缓存层才能按既有逻辑走 stale 兜底，
+      // 报错信息也仍然指向真正的故障源
+      throw e
+    }
   }
 }
 
@@ -157,6 +195,8 @@ interface CTO51Item {
   author: string
   hot: number
   hot_value_desc: string
+  /** 副标题备选：部分源（uapis 兜底）没有作者，但有摘要，供前端 f.d 兜底取值 */
+  description: string
 }
 
 export const serviceCTO51 = new ServiceCTO51()

@@ -117,25 +117,59 @@ class ServiceIP {
     return false
   }
 
-  // 获取本机出口公网 IP（public：本地开发/预览没有访客 IP 时，用它兜底定位）
-  async getPublicIP(): Promise<string> {
-    try {
-      // 使用多个备用服务，提高可靠性
-      const services = ['https://api.ipify.org?format=text', 'https://ifconfig.me/ip', 'https://icanhazip.com']
+  /**
+   * 探测出口公网 IP 的备用服务。数组顺序即优先级，取第一个成功的结果。
+   *
+   * ipip 排在最前是有意的：系统代理/分流环境（Clash 规则模式、公司代理等）下，
+   * 它对国内域名的请求走直连，拿到的是本机真实出口 IP；而 ipify / icanhazip 这些
+   * 海外站点会走代理节点，拿到的是机房 IP（最终把天气定位到香港/新加坡之类的机房城市）。
+   */
+  private static readonly PUBLIC_IP_SERVICES = [
+    'https://myip.ipip.net',
+    'https://api.ipify.org?format=text',
+    'https://ipv4.icanhazip.com',
+    'https://ifconfig.me/ip',
+  ]
 
-      for (const service of services) {
-        try {
-          const response = await fetch(service, { signal: AbortSignal.timeout(1000) })
-          if (response.ok) {
-            const ip = (await response.text()).trim()
-            if (ip && !this.isLocalIP(ip)) return ip
-          }
-        } catch {
-          continue
-        }
+  /**
+   * 获取本机出口公网 IP（public：本地开发/预览没有访客 IP 时，用它兜底定位）。
+   *
+   * 两处与稳定性直接相关的取舍：
+   *   ① 并发探测 + 按固定优先级取结果。串行会让最慢的一家把整体拖到十几秒；
+   *      并发只等最慢的一家。但结果必须按数组顺序挑——谁先返回就用谁的话，
+   *      每次请求可能拿到不同出口 IP（代理与直连混在一起），定位会忽东忽西。
+   *   ② 单次超时给到 2.5s。原来的 1s 只够「已建连」的请求，冷启动首包还要加上
+   *      DNS + TLS 握手（实测首查常在 1s 上下），这正是「本地预览偶尔定位不到、
+   *      退回默认城市」的来源。
+   */
+  async getPublicIP(): Promise<string> {
+    const results = await Promise.allSettled(
+      ServiceIP.PUBLIC_IP_SERVICES.map((service) => this.probePublicIP(service)),
+    )
+
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value) return result.value
+    }
+
+    return '' // 所有服务都失败时返回空字符串，由调用方决定如何降级
+  }
+
+  /** 单个探测服务：异常一律吞掉返回空串，交给 getPublicIP 按优先级挑选 */
+  private async probePublicIP(service: string): Promise<string> {
+    try {
+      const response = await fetch(service, { signal: AbortSignal.timeout(2500) })
+      if (!response.ok) return ''
+
+      // 各家的响应格式并不统一：多数只回一个裸 IP，ipip 回的是
+      // 「当前 IP：1.2.3.4  来自于：中国 江苏 无锡 移动」这种整句。
+      // 统一从文本里挑第一个「合法且非内网」的 IP 字面量，就不必逐家写解析
+      const text = await response.text()
+
+      for (const token of text.match(/[0-9a-fA-F:.]{7,45}/g) || []) {
+        if (isValidIPLiteral(token) && !this.isLocalIP(token)) return token
       }
 
-      return '' // 所有服务都失败时返回空字符串
+      return ''
     } catch {
       return ''
     }
@@ -157,8 +191,8 @@ class ServiceIP {
         ip = inputIp
       }
 
-      // 如果是本地 IP，尝试获取公网 IP
-      if (!inputIp && this.isLocalIP(ip)) {
+      // 本地/内网 IP（含「取不到 IP」）都改用本机出口公网 IP，与 /weather/local 口径一致
+      if (!inputIp && (!ip || this.isLocalIP(ip))) {
         const publicIP = await this.getPublicIP()
 
         if (publicIP) {

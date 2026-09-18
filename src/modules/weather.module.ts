@@ -397,12 +397,18 @@ class ServiceWeather {
     return async (ctx) => {
       try {
         let ip = serviceIP.getClientIP(ctx.request.headers) || ctx.request.ip || ''
-        // 本地/内网 IP（本机预览、无反代的自托管）拿不到归属地：改用服务器出口公网 IP 兜底，
-        // 这样本地开发也能验证整条定位链路。线上 Worker 拿到的是访客真实 IP，不会进这个分支
-        if (ip && serviceIP.isLocalIP(ip)) {
+        // 本地/内网 IP（本机预览、无反代的自托管）拿不到归属地时，改用服务器出口公网 IP 兜底，
+        // 这样本地开发也能验证整条定位链路。线上 Worker 拿到的是访客真实 IP，不会进这个分支。
+        // 注意「取不到 IP」也要走这里：原来的 `ip &&` 会让空 IP 直接跳过兜底，
+        // 只剩「默认城市」一条路——而这恰是本地/自托管最常见的情形，
+        // 表现出来就是「定位突然失效、一直显示默认城市」
+        if (!ip || serviceIP.isLocalIP(ip)) {
           const pub = await cached<string>('weather:public-ip', () => serviceIP.getPublicIP(), {
             ttl: 60 * 60 * 1000,
             staleTtl: 6 * 60 * 60 * 1000,
+            // 探测失败返回空串，空值绝不能进缓存：否则一次瞬时失败会毒化整小时，
+            // 之后每个请求都命中这个空值、一路退回默认城市（"定位失效"的另一半原因）
+            cacheIf: (v) => !!v,
           })
           if (pub) ip = pub
         }

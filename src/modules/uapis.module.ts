@@ -35,6 +35,10 @@ export type UapisBoardType =
   | 'juejin'
   | 'sspai'
   | 'hupu'
+  // V2EX：官方接口已挂在 Cloudflare JS 挑战后面，改用这里的聚合源（见 v2ex.module.ts）
+  | 'v2ex'
+  // 51CTO：主源抓页会被 EdgeOne 的 WAF 拦（见 cto51.module.ts），这里作为兜底
+  | '51cto'
 
 /** 归一化后的条目：字段名对齐项目里既有热榜模块，前端可直接复用通用 list 渲染器 */
 export interface UapisItem {
@@ -46,6 +50,12 @@ export interface UapisItem {
   cover: string
   /** 部分平台带作者/媒体名（少数派等），取不到则为空串 */
   author: string
+  /**
+   * 部分平台带摘要（51CTO 等），取不到则为空串。
+   * 它的作用是给「主源拿不到、只能靠本兜底源出数」的卡片当副标题用
+   * （见 cto51.module.ts：主源有 author、这里只有 description）
+   */
+  description: string
 }
 
 /** 热度文案：与首页聚合榜单保持同一套「万 / 亿」口径 */
@@ -86,6 +96,8 @@ class ServiceUapis {
             pic?: string
             hot_value?: number
             author?: string
+            description?: string
+            desc?: string
           } | null
         }
 
@@ -98,6 +110,7 @@ class ServiceUapis {
           hot_value_desc: formatHot(hot),
           cover: String(item?.extra?.cover || item?.extra?.pic || ''),
           author: String(item?.extra?.author || ''),
+          description: String(item?.extra?.description || item?.extra?.desc || '').trim(),
         }
       })
       .filter((e) => e.title)

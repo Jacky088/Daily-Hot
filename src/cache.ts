@@ -43,9 +43,9 @@ export function getDataTs(): number | null {
 export async function cached<T>(
   key: string,
   loader: () => Promise<T>,
-  opts: { ttl?: number; staleTtl?: number } = {},
+  opts: { ttl?: number; staleTtl?: number; cacheIf?: (data: T) => boolean } = {},
 ): Promise<T> {
-  const { ttl = 5 * 60 * 1000, staleTtl = 2 * 60 * 60 * 1000 } = opts
+  const { ttl = 5 * 60 * 1000, staleTtl = 2 * 60 * 60 * 1000, cacheIf } = opts
   const hit = store.get(key)
   const now = Date.now()
 
@@ -57,6 +57,14 @@ export async function cached<T>(
 
   try {
     const data = await loader()
+    // cacheIf：允许调用方声明「这次的结果不能当缓存用」（典型是探测失败的空结果）。
+    // 不加这道闸的话，一次瞬时失败会被当成正常数据写进缓存、并一直命中到 ttl 结束，
+    // 表现出来就是「某个功能某天突然失效，且要等到缓存过期才自己恢复」。
+    // 不写缓存时旧值仍留在 store 里，下次失败照样能走下面的 stale 兜底
+    if (cacheIf && !cacheIf(data)) {
+      trackDataTs(now)
+      return data
+    }
     // 容量上限：超出时淘汰最早的条目（近似 LRU）
     if (store.size >= MAX_CACHE_SIZE) {
       const firstKey = store.keys().next().value

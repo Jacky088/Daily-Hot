@@ -14,7 +14,9 @@ const CACHE_TTL = 30 * 60 * 1000;
 
 // 发版时递增：让所有旧的 localStorage 缓存失效，
 // 否则用户在 TTL 内会继续看到上一版缓存下来的渲染结果
-const CACHE_VERSION = 'v17';
+// v18：天气定位链路修复（服务端改为按出口公网 IP 定位）。旧的 hero-weather 缓存里
+// 存着「定位失败 → 默认城市」的结果，且要等 30 分钟 TTL 才过期，递增版本号让它立即失效
+const CACHE_VERSION = 'v18';
 
 // 清理已下线功能的残留键（如编辑布局的收藏/隐藏偏好），避免永久占空间
 try { localStorage.removeItem('ep-pinned'); localStorage.removeItem('ep-hidden'); } catch {}
@@ -343,6 +345,29 @@ function hwFxKind(d) {
   return day ? 'cloudy' : 'moon';
 }
 
+// ---- 天气装饰：云 ----
+// 整朵云是**一条闭合路径**（一个轮廓 + 一层竖向渐变），不再用「大椭圆 + 几团实心圆」拼：
+// 拼装版每个圆各带自己的渐变与透明度，交叠处会露出圆与圆的接缝——放大后就是一道硬边，
+// 这正是「云画碎了」的来源。单路径只有一条外轮廓，任何尺寸下都不会有内部拼接痕。
+// viewBox 直接取路径的真实范围（x 0~24、y 4~20），云体贴满整个 box，定位时不必再算内边距。
+const HW_CLOUD_PATH =
+  'M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z';
+// 渐变的三段色写在 CSS（.hw-cloud-s1/2/3）：阴天只要换一套色值，不必准备两份 SVG。
+// 副云复用同一份渐变（paint server 按 id 在文档内共享），因此只有主云里带 <defs>
+// 路径用字符串拼接而不是模板字符串：这段内容是 SVG 标签，里面既有双引号又有 ${
+// 之类的字符，拼接写法读起来最不容易出错，也免得编辑器/格式化工具在反引号上做手脚
+const HW_CLOUD_SHAPE_A = '<path class="hw-cloud-shape" d="' + HW_CLOUD_PATH + '"/>';
+const HW_CLOUD_SVG =
+  '<svg class="hw-cloud hw-cloud-main" viewBox="0 4 24 16" aria-hidden="true">' +
+  '<defs><linearGradient id="hwCloudGrad" x1="0" y1="0" x2="0" y2="1">' +
+  '<stop offset="0" class="hw-cloud-s1"/><stop offset="0.62" class="hw-cloud-s2"/><stop offset="1" class="hw-cloud-s3"/>' +
+  '</linearGradient></defs>' + HW_CLOUD_SHAPE_A + '</svg>' +
+  '<svg class="hw-cloud hw-cloud-sub" viewBox="0 4 24 16" aria-hidden="true">' +
+  HW_CLOUD_SHAPE_A + '</svg>';
+
+// 会出云的天气：多云 / 阴 / 雨 / 雪 / 雷（雾霾走自己的雾带，不叠云）
+const HW_CLOUD_KINDS = new Set(['cloudy', 'overcast', 'rain', 'snow', 'thunder']);
+
 function heroWeatherHtml(d, editing) {
   const w = d.weather || {};
   const t = d.today || {};
@@ -358,13 +383,14 @@ function heroWeatherHtml(d, editing) {
   if (a.aqi != null) bits.push(a.quality ? `${a.quality} ${a.aqi}` : `AQI ${a.aqi}`);
   else if (w.humidity != null) bits.push(`湿度 ${w.humidity}%`);
   // 槽位约定（六个层，样式见 style.css 的「天气装饰层」）：
-  //   i1 主体：太阳 / 月亮 / 云底
-  //   i2 副体：副云 / 星点 / 月晕
+  //   i1 主体：太阳 / 月亮                 （云已改用内联 SVG，见上面的 HW_CLOUD_SVG）
+  //   i2 副体：星点 / 月晕                 （云同上；两朵云各自带漂移动画）
   //   i3 降水与氛围：雨丝 / 雪点 / 雾带
   //   i4 闪电
   //   i5 天光泛白（闪电时整块天空透亮）
   //   i6 备用
-  return `<div class="hw-fx hw-fx-${hwFxKind(d)}" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  const kind = hwFxKind(d);
+  return `<div class="hw-fx hw-fx-${kind}" aria-hidden="true">${HW_CLOUD_KINDS.has(kind) ? HW_CLOUD_SVG : ''}<i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="hw-city">${esc(city)}<span class="hw-tip" aria-hidden="true">✎</span>${isDefault ? '<span class="hw-def">默认</span>' : ''}</div>
     <div class="hw-temp">${esc(String(w.temperature ?? '--'))}<span class="hw-unit">°C</span><span class="hw-cond">${esc(w.condition || '')}</span></div>
     ${bits.length ? `<div class="hw-sub">${esc(bits.join(' · '))}</div>` : ''}
@@ -640,7 +666,9 @@ const EPS = [
 
   // 科技
   { cat:'tech', id:'nodeseek', name:'NodeSeek新帖', icon:'🌐', path:'/v2/nodeseek', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'description'} },
-  { cat:'tech', id:'v2ex', name:'V2EX热帖', icon:'💬', path:'/v2/v2ex', type:'list', auto:1, f:{t:'title',h:'replies',l:'link', d:'node'} },
+  // V2EX 官方接口已被 Cloudflare JS 挑战挡住，改走 uapis 聚合源（见 src/modules/v2ex.module.ts）：
+  // 该源不提供节点名与回复数，副标题因此改用作者（原为 node，会一直是空的）
+  { cat:'tech', id:'v2ex', name:'V2EX热帖', icon:'💬', path:'/v2/v2ex', type:'list', auto:1, f:{t:'title',h:'replies',l:'link', d:'author'} },
   { cat:'tech', id:'let', name:'LowEndTalk', icon:'🖥️', path:'/v2/lowendtalk', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'description'} },
   { cat:'tech', id:'hn', name:'Hacker News', icon:'🟧', path:'/v2/hacker-news/top', type:'list', auto:1, f:{t:'title',h:'score',l:'link'} },
   // 已移除 HN 最新帖：实测 /hacker-news/new 与 /hacker-news/top 返回同一份数据，重复
@@ -657,9 +685,11 @@ const EPS = [
     inputs:[{ n:'since', sel:[['daily','今日榜'],['weekly','本周榜'],['monthly','本月榜']], d:'daily' },{ n:'lang', p:'语言，如 python' }],
     f:{t:'title',h:'hot_value_desc',l:'link',d:'description'},
     hint:'「语言」填英文名（python / typescript / go …），留空为全语言' },
+  // 主源抓页（blog.51cto.com/ranking）在 Worker 上会被 EdgeOne 判成爬虫，
+  // 后端会自动退到 uapis 聚合源；那个源没有作者、只有摘要，所以副标题写成「作者优先、摘要兜底」
   { cat:'tech', id:'cto51', name:'51CTO 博客榜', icon:'📝', path:'/v2/51cto', type:'list', auto:1,
     inputs:[{ n:'type', sel:[['day','日榜'],['week','周榜']], d:'day' }],
-    f:{t:'title',h:'hot_value_desc',l:'link',d:'author'} },
+    f:{t:'title',h:'hot_value_desc',l:'link',d:['author','description']} },
   // 与上面的「IT资讯」同源不同榜：那张是 RSS 最新资讯，这张是站内热榜（接口早就有了，一直没接卡片）
   { cat:'tech', id:'itrank', name:'IT之家热榜', icon:'🏠', path:'/v2/it-news/rank', type:'list', auto:1,
     inputs:[{ n:'type', sel:[['day','日榜'],['week','周榜'],['month','月榜']], d:'day' }],
@@ -1083,6 +1113,16 @@ const $$ = s => document.querySelectorAll(s);
 function esc(s) {
   if (s == null) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// 侧边栏菜单项内容：把「📰 新闻资讯」这类「图标 + 空格 + 名称」拆成两块——
+// 图标单独成一个色块（.mi），名称占满剩余宽度（.mn），
+// 计数徽章与展开箭头才能稳定贴到行尾（见 style.css 的 .sidebar .cat-pills 规则）
+function menuItemHtml(name) {
+  const s = String(name == null ? '' : name).trim();
+  const i = s.indexOf(' ');
+  if (i <= 0) return `<span class="mn">${esc(s)}</span>`;
+  return `<span class="mi">${esc(s.slice(0, i))}</span><span class="mn">${esc(s.slice(i + 1))}</span>`;
 }
 
 // 安全 URL 校验：仅放行 http/https/mailto，其余（javascript:、data: 等）替换为 #
@@ -1686,7 +1726,7 @@ function init() {
   homeBtn.type = 'button';
   homeBtn.dataset.view = 'home';
   homeBtn.setAttribute('aria-expanded', 'false');
-  homeBtn.textContent = '🔥 今日热榜';
+  homeBtn.innerHTML = menuItemHtml('🔥 今日热榜');
   homeBtn.onclick = () => switchToHome();
   catPills.appendChild(homeBtn);
   if (curView === 'home') homeBtn.classList.add('active');
@@ -1722,7 +1762,7 @@ function init() {
     const cnt = document.createElement('span');
     cnt.className = 'cnt';
     cnt.textContent = c.id === 'all' ? EPS.length : EPS.filter(ep => ep.cat === c.id).length;
-    b.appendChild(document.createTextNode(c.name));
+    b.innerHTML = menuItemHtml(c.name);
     b.appendChild(cnt);
     b.onclick = () => {
       // 从首页切回分类页：哪怕点的是「当前分类」也是一次视图切换，不走下面的开合分支
@@ -2615,7 +2655,10 @@ function rList(d, c, ep) {
     const t = it[f.t] || it.title || '';
     const l = it[f.l] || it.link || it.url || '';
     const hot = f.h ? it[f.h] : '';
-    const desc = f.d ? it[f.d] : '';
+    // f.d 支持数组：按顺序取第一个非空字段。主源与兜底源的副标题字段未必同名
+    // （例：51CTO 主源有 author、uapis 兜底只有 description），
+    // 这样同一张卡片就能同时适配两种数据源，不必为兜底另写一套渲染
+    const desc = f.d ? (Array.isArray(f.d) ? f.d : [f.d]).map(k => it[k]).find(Boolean) || '' : '';
     // 仅显式配置 f.p 的榜单启用海报模式，避免数据里带 cover 的模块误显示缩略图；
     // f.ps 为方形缩略图变体（新闻/科技封面多为横图，方形裁切更合适）
     const poster = f.p ? (it[f.p] || '') : '';
@@ -3698,17 +3741,36 @@ function heatText(it) {
   return it.hot_text || it.hot_index_text || '';
 }
 
+/**
+ * 「综合」标签的图标：2×2 四宫格（4 个圆角方块）。
+ * fill 走 currentColor——选中态是橙底白字，图标必须跟着一起变白。
+ * 几何：方块 8.4、间隙 1.2，整体 3→21，四周留 3 的余量。
+ */
+const GRID_SVG = '<svg class="hf-grid" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+  '<rect x="3" y="3" width="8.4" height="8.4" rx="1.8"/>' +
+  '<rect x="12.6" y="3" width="8.4" height="8.4" rx="1.8"/>' +
+  '<rect x="3" y="12.6" width="8.4" height="8.4" rx="1.8"/>' +
+  '<rect x="12.6" y="12.6" width="8.4" height="8.4" rx="1.8"/>' +
+  '</svg>';
+
 function renderHomeFilter() {
   const box = $('#homeFilter');
   if (!box || !homeData) return;
   // 全部平台都出标签，抓取失败的那家置灰保留而不是直接消失：
   // 标签忽有忽无会让人以为功能坏了，而且每次刷新都可能导致标签行整体位移
+  // 图标两种来源：平台给的是图片路径（/logos/xxx.svg → <img>），
+  // 「综合」没有品牌图，直接给一段 SVG 片段——不能塞进 <img src> 里
+  const pillIcon = (icon) => {
+    if (!icon) return '';
+    if (icon.startsWith('<')) return icon;
+    return `<img src="${esc(icon)}" alt="" loading="lazy" onerror="this.remove()">`;
+  };
   const pill = (id, name, icon, ok = true) =>
     `<button class="hf-pill${homeFilter === id ? ' active' : ''}${ok ? '' : ' hf-pill-off'}" type="button"` +
     ` data-plat="${esc(id)}"${ok ? '' : ' title="该数据源暂时不可用"'} aria-disabled="${ok ? 'false' : 'true'}">` +
-    (icon ? `<img src="${esc(icon)}" alt="" loading="lazy" onerror="this.remove()">` : '') +
+    pillIcon(icon) +
     `${esc(name)}</button>`;
-  box.innerHTML = pill('all', '综合', '') +
+  box.innerHTML = pill('all', '综合', GRID_SVG) +
     homeData.platforms.map(p => pill(p.id, p.name, p.icon, p.ok)).join('');
   // 平台数量或名称变化都会改变总宽，箭头显隐要跟着重算
   if (homeFilterSync) homeFilterSync();
@@ -3809,13 +3871,18 @@ function renderRailTopics() {
     box.innerHTML = '<div class="hl-end">暂无话题</div>';
     return;
   }
-  box.innerHTML = items.map(it => {
+  box.innerHTML = items.map((it, i) => {
     const heat = heatText(it);
-    const inner = `<span class="hash">#</span><span class="tt">${esc(it.title)}</span>` +
+    const rank = i + 1;
+    // 前三名带 topN 类，与首页聚合榜、分类页卡片的角标共用同一套配色
+    // （序号角标的样式集中在 style.css 的「名次角标（全站统一）」一处）
+    const cls = `rt-item${rank <= 3 ? ` top${rank}` : ''}`;
+    // 序号而非 # 号：这一栏是「第几条热门」，用名次读起来比 # 更直接
+    const inner = `<span class="rn">${rank}</span><span class="tt">${esc(it.title)}</span>` +
       (heat ? `<span class="vv">${esc(heat)}</span>` : '');
     return it.link
-      ? `<a class="rt-item" href="${safeUrl(it.link)}" target="_blank" rel="noopener">${inner}</a>`
-      : `<div class="rt-item">${inner}</div>`;
+      ? `<a class="${cls}" href="${safeUrl(it.link)}" target="_blank" rel="noopener">${inner}</a>`
+      : `<div class="${cls}">${inner}</div>`;
   }).join('');
 }
 

@@ -905,74 +905,40 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 
 /* ---- 云体：多云 / 阴 / 雨 / 雪 / 雷共用 ----
-   做法：a 本身只当定位容器（透明），云由「一个横向大椭圆 + 三团顶部隆起」叠出。
-   用 border-radius 实心圆而不是 radial-gradient——后者是硬边，
-   放大后边缘发死；实心圆配 drop-shadow 才有蓬松的轮廓。
-   整体 196px 宽、从右上方压过来，占据约半个天气区（这是刻意的，
-   大面积云层比角落一朵小云更能表达「多云」） */
-.hw-fx-cloudy i:nth-of-type(1),
-.hw-fx-overcast i:nth-of-type(1),
-.hw-fx-rain i:nth-of-type(1),
-.hw-fx-snow i:nth-of-type(1),
-.hw-fx-thunder i:nth-of-type(1) {
-  top: -6px; right: -18px; width: 196px; height: 92px;
-  background: transparent;
-  /* 云压在水滴与雪花（z-index:1）之上：这样雨雪虽然铺满整块、
-     从卡片顶部开始落，视觉上却是「从云后面落下来」，不会穿过云体 */
-  z-index: 2;
+   实现是两段内联 SVG（见 app.js 的 HW_CLOUD_SVG）：整朵云只有**一条闭合外轮廓**
+   加一层竖向渐变。旧版是「横向大椭圆 + 三团实心圆」靠 box-shadow 拼的，
+   每团各带自己的渐变与透明度，交叠处会露出圆与圆的接缝，放大后就是一道硬边——
+   「云画碎了」的根源就在这里；单路径没有内部边界，任何尺寸都干净。
+   两朵：主云从右上方压过来（占约半个天气区），副云更小更淡、在左前方反向漂移撑出纵深。
+   z-index 2：压在雨滴 / 雪花（z-index 1）之上，雨雪看起来才是「从云后落下」 */
+.hw-cloud {
+  position: absolute; display: block; z-index: 2;
+  /* SVG 默认按视口裁剪，不放开的话那层柔和投影会被切掉一圈 */
+  overflow: visible;
+  filter: drop-shadow(0 14px 26px rgba(96, 128, 170, 0.26));
+}
+.hw-cloud-shape { fill: url(#hwCloudGrad); }
+/* 云身三段色：止于 CSS，换天气只改色值。白顶 → 冷调中段 → 灰蓝底，给出体积感 */
+.hw-cloud-s1 { stop-color: #ffffff; }
+.hw-cloud-s2 { stop-color: #f4f9fe; }
+.hw-cloud-s3 { stop-color: #dbe7f4; }
+/* 阴天：整体转灰、去掉高光，和「多云」的亮白云拉开区别 */
+.hw-fx-overcast .hw-cloud-s1 { stop-color: #f1f4f9; }
+.hw-fx-overcast .hw-cloud-s2 { stop-color: #e2e9f2; }
+.hw-fx-overcast .hw-cloud-s3 { stop-color: #c9d5e4; }
+/* 主云：190×127 是 viewBox 24×16 的等比尺寸（宽高比必须守住，否则云会被拉变形）。
+   往右上溢出卡片一点，云的底边落在温度文字上沿附近——既不挡住大字，又保持「云从右上方压过来」 */
+.hw-cloud-main {
+  top: -30px; right: -30px; width: 190px; height: 127px;
   animation: hwDrift 19s ease-in-out infinite;
 }
-/* 云身：横向大椭圆，上白下灰的竖向渐变给出体积感 */
-.hw-fx-cloudy i:nth-of-type(1)::before,
-.hw-fx-overcast i:nth-of-type(1)::before,
-.hw-fx-rain i:nth-of-type(1)::before,
-.hw-fx-snow i:nth-of-type(1)::before,
-.hw-fx-thunder i:nth-of-type(1)::before {
-  content: ''; position: absolute; left: 0; bottom: 0; width: 196px; height: 58px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, #ffffff 0%, #f4f8fd 58%, #e2eaf4 100%);
-  box-shadow: 0 12px 26px rgba(96, 128, 170, 0.26);
-}
-/* 三团隆起：一圈实心圆 + 两个 box-shadow 偏移圆，做出蓬松的顶 */
-.hw-fx-cloudy i:nth-of-type(1)::after,
-.hw-fx-overcast i:nth-of-type(1)::after,
-.hw-fx-rain i:nth-of-type(1)::after,
-.hw-fx-snow i:nth-of-type(1)::after,
-.hw-fx-thunder i:nth-of-type(1)::after {
-  content: ''; position: absolute; left: 24px; bottom: 32px;
-  width: 66px; height: 66px; border-radius: 50%;
-  background: radial-gradient(circle at 40% 34%, #ffffff 0 52%, #f0f5fb 100%);
-  box-shadow:
-    62px 14px 0 -9px #fdfeff,
-    104px 26px 0 -17px #f4f8fc;
-}
-/* 第二朵更小更淡的云，位于左前方并反向漂移，撑出纵深 */
-.hw-fx-cloudy i:nth-of-type(2),
-.hw-fx-overcast i:nth-of-type(2) {
-  top: 44px; right: 148px; width: 122px; height: 58px;
-  background: transparent; opacity: 0.74;
+/* 副云：更小更淡，反向漂移，撑出前后两层 */
+.hw-cloud-sub {
+  top: 40px; right: 152px; width: 100px; height: 67px;
+  opacity: 0.78;
   animation: hwDrift 27s ease-in-out infinite reverse;
 }
-.hw-fx-cloudy i:nth-of-type(2)::before,
-.hw-fx-overcast i:nth-of-type(2)::before {
-  content: ''; position: absolute; left: 0; bottom: 0; width: 122px; height: 36px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, #ffffff 0%, #eaf1f9 100%);
-}
-.hw-fx-cloudy i:nth-of-type(2)::after,
-.hw-fx-overcast i:nth-of-type(2)::after {
-  content: ''; position: absolute; left: 16px; bottom: 18px;
-  width: 44px; height: 44px; border-radius: 50%;
-  background: radial-gradient(circle at 40% 34%, #ffffff 0 52%, #eef4fb 100%);
-  box-shadow: 40px 12px 0 -7px #f8fbfe;
-}
-/* 阴天：云整体转灰、去掉高光，没有太阳 */
-.hw-fx-overcast i:nth-of-type(1)::before { background: linear-gradient(180deg, #eef2f8 0%, #e0e7f0 58%, #ccd6e3 100%); }
-.hw-fx-overcast i:nth-of-type(1)::after {
-  background: radial-gradient(circle at 40% 34%, #f5f8fc 0 52%, #dee6f0 100%);
-  box-shadow: 62px 14px 0 -9px #eaf0f7, 104px 26px 0 -17px #dbe3ee;
-}
-.hw-fx-overcast i:nth-of-type(2) { opacity: 0.62; }
+.hw-fx-overcast .hw-cloud-sub { opacity: 0.62; }
 @keyframes hwDrift {
   0%, 100% { transform: translateX(0); }
   50%      { transform: translateX(-13px); }
@@ -1069,14 +1035,11 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 
 /* ---- 雷雨：乌云 + 雨丝 + 大闪电 + 天光泛白 ----
-   「打闪」最有说服力的一笔其实不是那条折线，而是天空瞬间透亮 */
-.hw-fx-thunder i:nth-of-type(1)::before {
-  background: linear-gradient(180deg, #d3deed 0%, #bfccde 58%, #a9b8cc 100%);
-}
-.hw-fx-thunder i:nth-of-type(1)::after {
-  background: radial-gradient(circle at 40% 34%, #e6edf6 0 52%, #c3cede 100%);
-  box-shadow: 62px 14px 0 -9px #d8e1ec, 104px 26px 0 -17px #c4cfdf;
-}
+   「打闪」最有说服力的一笔其实不是那条折线，而是天空瞬间透亮。
+   云体只换渐变的三段色（比阴天更沉、带蓝灰），云形仍是同一条路径 */
+.hw-fx-thunder .hw-cloud-s1 { stop-color: #dbe4f0; }
+.hw-fx-thunder .hw-cloud-s2 { stop-color: #c8d4e4; }
+.hw-fx-thunder .hw-cloud-s3 { stop-color: #a9b8cc; }
 .hw-fx-thunder i:nth-of-type(4) {
   /* 云底约 52px，闪电 34 起、高 52，向下伸出云外 */
   top: 34px; right: 34px; width: 26px; height: 52px;
@@ -1280,10 +1243,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
      （实测 375px 视口下只有 58px 高，桌面约 141px），桌面那套「大面积云层 +
      92px 大太阳」根本放不下，会直接溢出被裁。
      处理三件事：缩尺寸、隐藏放不下的层（副云 / 耀斑 / 第二簇星）、云改成紧凑形态 */
-  .hw-fx-cloudy i:nth-of-type(2),
-  .hw-fx-overcast i:nth-of-type(2),
   .hw-fx-sun i:nth-of-type(2),
-  .hw-fx-moon i:nth-of-type(4) { display: none; }
+  .hw-fx-moon i:nth-of-type(4),
+  .hw-cloud-sub { display: none; }
 
   .hw-fx-sun i:nth-of-type(1) { top: -7px; right: 2px; width: 46px; height: 46px; }
   .hw-fx-sun i:nth-of-type(1)::before { width: 86px; height: 86px; margin: -43px 0 0 -43px; }
@@ -1293,24 +1255,11 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   .hw-fx-moon i:nth-of-type(3) { top: -24px; right: -16px; width: 84px; height: 84px; }
   .hw-fx-moon i:nth-of-type(2) { top: 5px; right: 64px; box-shadow: 10px 14px 0 -1px rgba(255, 255, 255, 0.8), 22px 3px 0 -1px rgba(255, 255, 255, 0.55); }
 
-  /* 云：容器缩到 96x46，云身与三团隆起同步缩小，紧贴右上角 */
-  .hw-fx-cloudy i:nth-of-type(1),
-  .hw-fx-overcast i:nth-of-type(1),
-  .hw-fx-rain i:nth-of-type(1),
-  .hw-fx-snow i:nth-of-type(1),
-  .hw-fx-thunder i:nth-of-type(1) { top: -3px; right: -8px; width: 96px; height: 46px; }
-  .hw-fx-cloudy i:nth-of-type(1)::before,
-  .hw-fx-overcast i:nth-of-type(1)::before,
-  .hw-fx-rain i:nth-of-type(1)::before,
-  .hw-fx-snow i:nth-of-type(1)::before,
-  .hw-fx-thunder i:nth-of-type(1)::before { width: 96px; height: 28px; box-shadow: 0 6px 14px rgba(96, 128, 170, 0.24); }
-  .hw-fx-cloudy i:nth-of-type(1)::after,
-  .hw-fx-overcast i:nth-of-type(1)::after,
-  .hw-fx-rain i:nth-of-type(1)::after,
-  .hw-fx-snow i:nth-of-type(1)::after,
-  .hw-fx-thunder i:nth-of-type(1)::after {
-    left: 11px; bottom: 16px; width: 32px; height: 32px;
-    box-shadow: 30px 7px 0 -5px #fdfeff, 52px 13px 0 -9px #f4f8fc;
+  /* 云：矮条（约 58px 高）放不下桌面那朵 190px 的大云，等比缩到 84×56 并贴紧右上角。
+     宽高比 24:16 必须守住，否则云会被拉变形；投影也一并收小 */
+  .hw-cloud-main {
+    top: -12px; right: -14px; width: 84px; height: 56px;
+    filter: drop-shadow(0 6px 12px rgba(96, 128, 170, 0.24));
   }
 
   /* 闪电：云底约 25px，闪电 24 起、高 24，收在 48px 内 */
@@ -1775,15 +1724,68 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   font-size: 13px;
 }
 .item:last-child { border-bottom: none; }
-.item .rank {
-  min-width: 22px; height: 22px; border-radius: 5px;
-  background: var(--bg); font-size: 11px; font-weight: 600;
+/* ---- 名次角标（全站统一 · 唯一来源） ----
+   所有信息卡片的序号共用同一套形制：22px 圆角方块，前三名是「红 / 橙 / 黄」三色渐变
+   加同色系柔光，第四名起换成浅灰底 + 深灰数字。
+   这一组选择器覆盖全部使用场景——分类页各类榜单（普通行 + 海报行）、流媒体榜、
+   首页聚合榜（.hl-rank）、右侧热门话题（.rt-item .rn）、新闻型卡片（.news-item .num）。
+   此前这几处各写了一套（分类页是「橙→橙→琥珀」实心角标、首页是「红→橙→黄」、
+   新闻卡是橙色纯文字），同一屏里会同时看到好几种编号风格；收到这一处后，
+   换颜色就等于全站换一次「数字语言」。
+
+   注意：新闻卡的序号是「第几条」而不是名次，所以不参与前三名配色，只共用这套形制 */
+.item .rank,
+.item.with-poster .body-wrap .rank,
+.simkl-body .rank,
+.hl-rank,
+.rt-item .rn,
+.news-item .num {
+  flex-shrink: 0;
+  /* 用 min-width 而不是固定 width：三位数序号（展开全部的长榜）能自己撑开，
+     一位数时仍是正方的 22px */
+  min-width: 22px; height: 22px; padding: 0 3px;
   display: flex; align-items: center; justify-content: center;
-  color: var(--text-dimmer); flex-shrink: 0; margin-top: 1px;
+  border-radius: 7px;
+  /* 4 名之后的浅灰底：色调从正文色派生，明暗两套主题各自成立 */
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text-dim);
+  font-size: 12px; font-weight: 800; line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
-.item .rank.top1 { background: linear-gradient(135deg, #fb923c, #ea580c); color: #fff; }
-.item .rank.top2 { background: linear-gradient(135deg, #f97316, #fbbf24); color: #fff; }
-.item .rank.top3 { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #2b1f14; }
+/* 列表行首的角标：flex-start 对齐时数字看着偏高，做一个 1px 的视觉校正 */
+.item .rank { margin-top: 1px; }
+/* 行内形态（海报标题行 / 流媒体榜）：角标跟文字基线走，不再独占一行 */
+.item.with-poster .body-wrap .rank,
+.simkl-body .rank {
+  display: inline-block; width: auto; text-align: center;
+  line-height: 22px; vertical-align: middle; margin-right: 4px;
+}
+/* 前三名：红 / 橙 / 黄，与首页聚合榜、热门话题同一组色值；
+   柔光取同色系低透明度阴影，做出图中那种「浮起来」的角标 */
+.item .rank.top1,
+.item.with-poster .body-wrap .rank.top1,
+.simkl-body .rank.top1,
+.hl-item.top1 .hl-rank,
+.rt-item.top1 .rn {
+  background: linear-gradient(135deg, #ff5a5f, #d92d33); color: #fff;
+  box-shadow: 0 3px 10px -2px rgba(217, 45, 51, 0.55);
+}
+.item .rank.top2,
+.item.with-poster .body-wrap .rank.top2,
+.simkl-body .rank.top2,
+.hl-item.top2 .hl-rank,
+.rt-item.top2 .rn {
+  background: linear-gradient(135deg, #ff9f43, #f76707); color: #fff;
+  box-shadow: 0 3px 10px -2px rgba(247, 103, 7, 0.5);
+}
+.item .rank.top3,
+.item.with-poster .body-wrap .rank.top3,
+.simkl-body .rank.top3,
+.hl-item.top3 .hl-rank,
+.rt-item.top3 .rn {
+  background: linear-gradient(135deg, #ffd43b, #f0a500); color: #fff;
+  box-shadow: 0 3px 10px -2px rgba(240, 165, 0, 0.5);
+}
 .item .body { flex: 1; min-width: 0; }
 .item .body a, .item .body .t {
   color: var(--text); text-decoration: none; display: block; word-break: break-word; line-height: 1.5;
@@ -1804,14 +1806,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   color: var(--text); text-decoration: none; display: block; word-break: break-word; line-height: 1.5;
 }
 .item.with-poster .body-wrap a:hover { color: var(--accent-light); }
-.item.with-poster .body-wrap .rank {
-  display: inline-block; min-width: 20px; height: 20px; line-height: 20px; text-align: center;
-  margin-right: 4px; font-size: 11px; border-radius: 6px; background: var(--card); color: var(--text-dim);
-  vertical-align: middle;
-}
-.item.with-poster .body-wrap .rank.top1 { background: linear-gradient(135deg, #fb923c, #ea580c); color: #fff; }
-.item.with-poster .body-wrap .rank.top2 { background: linear-gradient(135deg, #f97316, #fbbf24); color: #fff; }
-.item.with-poster .body-wrap .rank.top3 { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #2b1f14; }
+/* 海报行里的 .rank 样式见文件开头的「名次角标（全站统一）」 */
 .item.with-poster .body-wrap .meta { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
 .item.with-poster .body-wrap .hot { color: var(--warn); font-weight: 500; }
 .item.with-poster .body-wrap .desc { font-size: 11.5px; color: var(--text-dim); margin-top: 3px; line-height: 1.5; }
@@ -1822,7 +1817,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 /* News (60s) */
 .news-item { padding: 7px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent); font-size: 13px; display: flex; gap: 8px; line-height: 1.6; }
 .news-item:last-child { border: none; }
-.news-item .num { color: var(--accent-text); font-weight: 700; flex-shrink: 0; font-size: 12px; min-width: 18px; }
+/* .news-item .num 的样式见「名次角标（全站统一）」：形状与其它卡片一致，
+   但它表示「第几条」而非名次，因此不带前三名的彩色配色 */
 .news-item a, .news-item .nt { color: var(--text); text-decoration: none; }
 .news-item a:hover { color: var(--accent-light); }
 .news-tip {
@@ -2460,10 +2456,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .simkl-body a, .simkl-body .t { color: var(--text); text-decoration: none; display: block; word-break: break-word; line-height: 1.5; }
 .simkl-body a:hover { color: var(--accent-light); }
 .simkl-body .meta { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
-.simkl-body .rank { display: inline-block; min-width: 20px; height: 20px; line-height: 20px; text-align: center; margin-right: 2px; font-size: 11px; border-radius: 6px; background: var(--card); color: var(--text-dim); }
-.simkl-body .rank.top1 { background: linear-gradient(135deg, #fb923c, #ea580c); color: #fff; }
-.simkl-body .rank.top2 { background: linear-gradient(135deg, #f97316, #fbbf24); color: #fff; }
-.simkl-body .rank.top3 { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #2b1f14; }
+/* 流媒体榜的 .rank 样式见文件开头的「名次角标（全站统一）」 */
 .simkl-badge {
   display: inline-block; margin-top: 4px; padding: 1px 8px; border-radius: 8px;
   font-size: 10px; font-weight: 600; color: var(--accent-text); background: var(--accent-bg);
@@ -2857,7 +2850,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   /* 触控区域加大，防误触 */
   .card-actions button { width: 32px; height: 32px; }
   .item { padding: 11px 0; }
-  .item .rank { min-width: 26px; height: 26px; font-size: 12px; }
+  /* 触屏把角标放大到 26px：字号与圆角一并等比放大，形状比例与桌面一致 */
+  .item .rank { min-width: 26px; height: 26px; font-size: 13px; border-radius: 8px; }
   .card-head { padding: 12px 14px; }
   .card-body, .card-pane { padding: 10px 14px; }
   /* 文字卡片留白收紧 */
@@ -3286,6 +3280,10 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   flex: 0 0 232px; width: 232px; height: 100vh;
   display: flex; flex-direction: column;
   padding: 16px 10px 14px;
+  /* 菜单行的两级灰阶：半透明中性灰，深色主题下是「提亮面板」、
+     浅色主题下是「浅灰底」，一组值同时覆盖明暗两套皮肤 */
+  --sb-menu-bg: rgba(148, 152, 168, 0.10);
+  --sb-menu-bg-hover: rgba(148, 152, 168, 0.18);
   background: var(--glass-bg);
   backdrop-filter: blur(28px) saturate(180%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
@@ -3342,8 +3340,13 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 :root[data-theme="dark"] .sb-switch::after { transform: translateX(15px); }
 .sb-copy { margin: 0; font-size: 10.5px; line-height: 1.7; color: var(--text-dimmer); text-align: center; }
 
-/* ---------------- 侧边栏内的分类导航：横向 pill 行 → 纵向列表 ---------------- */
-/* JS 逻辑（分类切换 / 手风琴目录 / 定位跳转 / 滚动高亮）原样复用，这里只改排布 */
+/* ---------------- 侧边栏内的分类导航：横向 pill 行 → 纵向菜单列表 ----------------
+   JS 逻辑（分类切换 / 手风琴目录 / 定位跳转 / 滚动高亮）原样复用，这里只改排布与皮。
+   视觉取自设计稿：
+     一级菜单 = 浅灰圆角行（左图标色块 + 名称 + 计数徽章 + 展开箭头）
+     子目录   = 缩进的小字列表
+     选中项   = 橙色渐变实心 + 白字（徽章/图标底同步转半透明白）
+   深浅两套主题共用同一组灰阶（半透明中性灰），自动浮在各自底色之上 */
 .sidebar .cat-nav {
   display: block; position: static; top: auto; z-index: auto;
   flex: 0 0 auto; min-height: 0; max-height: none;
@@ -3356,73 +3359,168 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .sidebar .cat-nav .cat-arrow { display: none; }
 .sidebar .cat-pills {
   display: flex; flex-direction: column; flex-wrap: nowrap;
-  gap: 2px; padding: 0; flex: none; min-width: 0;
+  gap: 4px; padding: 0; flex: none; min-width: 0;
   overflow: visible;
 }
+/* 一级菜单行：浅灰圆角块 + 深色粗体名称。
+   尺寸/圆角/内边距必须写全——窄屏那套 42px/17px 的胶囊底（.cat-pills > button）
+   特异性更低但会影响抽屉里的这一份，不写就会被它串味 */
 .sidebar .cat-nav button {
-  width: 100%; height: 40px; padding: 0 12px;
-  border-radius: 11px; justify-content: flex-start;
-  font-size: 13.5px; white-space: nowrap; overflow: hidden;
+  width: 100%; height: 44px; padding: 0 10px;
+  border-radius: 12px; justify-content: flex-start;
+  /* text-align 必须显式写：窄屏那套 pill 样式把它设成了 center，
+     抽屉里照抄就会变成「图标 + 居中标题」的怪样子 */
+  text-align: left;
+  gap: 10px; font-size: 14px; font-weight: 700; color: var(--text);
+  background: var(--sb-menu-bg);
+  white-space: nowrap; overflow: hidden;
 }
-.sidebar .cat-pills > button.active {
-  background: var(--accent-bg); color: var(--accent-text);
-  border-color: transparent; box-shadow: none;
-}
-/* 计数徽章在深色/浅色底上都要低对比：这里从「橙渐变实心」降为「淡底小胶囊」，
-   避免和左侧激活项的浅橙底、以及右侧开合箭头抢视觉。
-   窄屏基础样式为「pill 空间优先给名称」把它整个 display:none 了，但侧边栏抽屉
-   有 264px 宽、放得下，且桌面端本来就显示——这里恢复显示以保持两端一致 */
-.sidebar .cat-pills > button .cnt {
-  display: inline-block;
-  margin-left: auto; padding: 1px 7px; border-radius: 7px;
-  font-size: 10px; color: var(--text-dimmer); background: var(--border);
-}
-.sidebar .cat-pills > button.active .cnt { color: var(--accent-text); background: rgba(249, 115, 22, 0.16); }
-/* 开合箭头：圆角方块 + 紧跟在计数徽章之后（cnt 的 margin-left:auto 负责把这一组推向行尾）。
-   必须把尺寸/底色/圆角一并写全——窄屏基础样式里这条只剩一段内联文字（没有方块底），
-   而且它的旋转由早已废弃的 .toc-open 驱动，在抽屉版式下永远不转，
-   表现就是「箭头贴着文字、点了也没有动画」。这里让两种断点共用同一套状态 */
-.sidebar .cat-pills > button.active[data-cat]:not([data-cat="all"])::after {
-  content: '▸';
+.sidebar .cat-nav button:hover { background: var(--sb-menu-bg-hover); }
+/* 触屏按下反馈（抽屉里 :active 优先于 hover） */
+.sidebar .cat-nav button:active { background: var(--sb-menu-bg-hover); }
+/* 图标色块：emoji 自带颜色，方块底只负责「把图标圈成一个标记」 */
+.sidebar .cat-nav button .mi {
   flex-shrink: 0;
+  width: 26px; height: 26px; border-radius: 8px;
   display: inline-flex; align-items: center; justify-content: center;
-  width: 22px; height: 22px; margin-left: 6px;
-  border-radius: 7px;
-  background: rgba(249, 115, 22, 0.16);
-  color: var(--accent-text);
-  font-size: 13px; font-weight: 700; line-height: 1;
-  transition: transform var(--dur-base) var(--ease);
-  transform: rotate(90deg); /* 默认=展开态 ▾ */
+  font-size: 14px; line-height: 1; background: var(--sb-menu-bg-hover);
 }
-.sidebar .cat-nav.sub-collapsed .cat-pills > button.active::after { transform: rotate(0deg); }
+/* 各分类的图标底给一点区分度（低透明度 pastel，深浅主题都成立） */
+.sidebar .cat-pills > button[data-view="home"] .mi { background: rgba(249, 115, 22, 0.16); }
+.sidebar .cat-pills > button[data-cat="news"] .mi { background: rgba(59, 130, 246, 0.16); }
+.sidebar .cat-pills > button[data-cat="tech"] .mi { background: rgba(139, 92, 246, 0.16); }
+.sidebar .cat-pills > button[data-cat="ent"] .mi { background: rgba(236, 72, 153, 0.16); }
+.sidebar .cat-pills > button[data-cat="tools"] .mi { background: rgba(20, 184, 166, 0.18); }
+.sidebar .cat-pills > button[data-cat="life"] .mi { background: rgba(245, 158, 11, 0.18); }
+.sidebar .cat-pills > button[data-cat="fun"] .mi { background: rgba(132, 204, 22, 0.18); }
+.sidebar .cat-pills > button[data-cat="trans"] .mi { background: rgba(99, 102, 241, 0.16); }
+/* 名称占满中间，把计数徽章与箭头一起推向行尾（长名称省略号收尾） */
+.sidebar .cat-nav button .mn {
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+}
+/* 选中项：橙色渐变实心 + 白字，与全局「选中 = 品牌橙」的语言一致 */
+.sidebar .cat-pills > button.active {
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  color: #fff; border-color: transparent; box-shadow: var(--accent-glow);
+}
+.sidebar .cat-pills > button.active .mi { background: rgba(255, 255, 255, 0.22); }
+/* 计数徽章：行尾的淡橙小胶囊。窄屏基础样式为「pill 空间优先给名称」把它整个
+   display:none 了，但侧边栏抽屉有 264px 宽、放得下，桌面端本来就显示——
+   这里恢复显示，两端保持同一套菜单外观 */
+.sidebar .cat-pills > button .cnt {
+  display: inline-block; flex-shrink: 0;
+  padding: 2px 8px; border-radius: 8px;
+  font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--accent-text); background: var(--accent-bg);
+}
+.sidebar .cat-pills > button.active .cnt { color: #fff; background: rgba(255, 255, 255, 0.26); }
+/* 展开箭头：行尾的 V 形（.mn 的 flex:1 已把它和徽章推到右边），
+   两条 1.8px 描边拼成，跟着 currentColor 走，深浅主题都不用另配颜色。
+   方向约定：∧=子目录已展开、∨=已收起，点已激活分类即可切换 */
+.sidebar .cat-nav .cat-pills > button[data-cat]::before {
+  content: ''; order: 9; flex-shrink: 0; margin-left: 3px;
+  width: 7px; height: 7px; border-radius: 1px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  opacity: 0.5;
+  transform: translateY(-2px) rotate(225deg);
+  transition: transform var(--dur-base) var(--ease), opacity var(--dur-fast);
+}
+.sidebar .cat-nav.sub-collapsed .cat-pills > button[data-cat]::before {
+  transform: translateY(-1px) rotate(45deg);
+}
+/* 悬停与「已展开」都把箭头提到高对比：展开态是白字行，currentColor 即纯白；
+   未展开行同样加浓，让「这一支能点开」这件事一眼可见 */
+.sidebar .cat-pills > button[data-cat]:hover::before,
+.sidebar .cat-pills > button.active[data-cat]::before { opacity: 0.95; }
+/* 基础版式为「只在已激活分类上显示箭头」写了一条 ::after（'▸' 字符箭头 + 白底方块，
+   移动端吸顶分类栏在用），特异性高达 (0,5,1)——侧边栏里必须原样废掉，
+   否则会和上面这枚 V 形箭头叠在一起 */
+.sidebar .cat-nav .cat-pills > button.active[data-cat]:not([data-cat="all"])::after {
+  content: none;
+}
 
 /* ---- 展开的分类子目录（一级分类下的数据源清单） ----
    这里必须用 .sidebar .cat-nav .cat-toc-item 三级前缀：基础样式里的
    .cat-nav button（0,2,1）会把 40px 高、11px 圆角、0 12px 内边距套到子项上，
    一串看下来就是十几个「小按钮」堆在一起，又重又碎。
    改成紧凑列表项 + 整块内缩，信息密度提上来、层级也更清楚 */
-.sidebar .cat-sub { margin: 0; padding: 0; border-radius: 10px; }
-.sidebar .cat-sub.open {
-  flex-basis: auto; order: 0;
-  /* 只保留缩进、不加左侧引导线：层级靠内缩本身就看得懂，多一条竖线反而碍眼 */
-  margin: 2px 0 8px 17px; padding: 0 0 0 9px;
+
+/* 展开/折叠动画：只动高度，元素始终留在文档流里。
+   基础版式为「横向 pill 行」写了一套规避（收起时切 position:absolute + visibility:hidden，
+   因为目录的隐形宽度会把 pill 行挤乱）。但位置切换不可过渡：收起瞬间元素就被移出流，
+   下方内容立刻弹上去，而高度动画还在跑——这就是抽屉里折叠「一顿」的根源。
+   侧边栏是纵向列表，宽度天然由列决定，不需要那套规避，于是这里全部退回纯高度动画。 */
+.sidebar .cat-nav .cat-sub {
+  position: relative; visibility: hidden; opacity: 1;
+  display: grid; grid-template-rows: 0fr;
+  border-radius: 10px;
+  margin: 0 0 0 14px; padding: 0 0 0 8px;
+  /* visibility 不参与视觉过渡，只负责把收回的内容移出焦点链：
+     0s + 延迟到高度收完那一刻才翻成 hidden，所以它不会打断动画；
+     opacity 则完全交给高度——高度已经在做显隐，再叠一层淡入会糊成一团 */
+  transition:
+    grid-template-rows var(--dur-base) var(--ease),
+    margin-top var(--dur-base) var(--ease),
+    margin-bottom var(--dur-base) var(--ease),
+    visibility 0s linear var(--dur-base);
 }
-.sidebar .cat-sub.open::before { display: none; }
-.sidebar .cat-sub-inner { flex-direction: column; flex-wrap: nowrap; gap: 1px; }
+.sidebar .cat-nav .cat-sub.open {
+  flex-basis: auto; order: 0;
+  grid-template-rows: 1fr; visibility: visible;
+  /* 只保留缩进、不加左侧引导线：层级靠内缩本身就看得懂，多一条竖线反而碍眼 */
+  margin-top: 3px; margin-bottom: 7px;
+  transition:
+    grid-template-rows var(--dur-base) var(--ease),
+    margin-top var(--dur-base) var(--ease),
+    margin-bottom var(--dur-base) var(--ease),
+    visibility 0s;
+}
+/* 手动折叠（点已激活分类）与「未展开」是同一状态。
+   必须显式写一遍：基础版式那两条 .cat-nav.sub-collapsed .cat-sub（0,3,0 / .open 0,4,0）
+   会把元素重新拽回 absolute + hidden，动画立刻断掉 */
+.sidebar .cat-nav.sub-collapsed .cat-sub,
+.sidebar .cat-nav.sub-collapsed .cat-sub.open {
+  position: relative; visibility: hidden; opacity: 1;
+  grid-template-rows: 0fr;
+  /* 四边写全：基础版式那条 (.cat-nav.sub-collapsed .cat-sub.open，0,4,0) 用的是
+     margin/padding 简写，只覆盖上下两边的写法会被它把左右也一起改掉，
+     收起过程中整块目录会横移十来像素 */
+  margin: 0 0 0 14px; padding: 0 0 0 8px;
+}
+.sidebar .cat-nav .cat-sub.open::before { display: none; }
+/* 目录项：列布局 + 更紧的行距；内容整体先淡出/后淡入，
+   方向感交给位移（收起时快速淡出，避免文字在收拢过程中被裁切） */
+.sidebar .cat-sub-inner {
+  flex-direction: column; flex-wrap: nowrap; gap: 1px;
+  opacity: 0; transform: translateY(-6px);
+  transition: opacity 120ms ease, transform 140ms var(--ease);
+}
+.sidebar .cat-nav .cat-sub.open .cat-sub-inner {
+  opacity: 1; transform: none;
+  /* 内容比高度晚 60ms 起步：先「拉开抽屉」再「内容落位」，两段动画有先后就顺了 */
+  transition: opacity 200ms ease 60ms, transform 260ms var(--ease) 60ms;
+}
 .sidebar .cat-nav .cat-toc-item {
-  width: 100%; height: auto; min-height: 30px;
-  padding: 4px 8px; border-radius: 7px;
-  gap: 7px; font-size: 12.5px; font-weight: 500;
+  width: 100%; height: auto; min-height: 32px;
+  padding: 4px 8px; border-radius: 8px;
+  gap: 8px; font-size: 12.5px; font-weight: 500;
   background: transparent; color: var(--text-dim);
   transition: color var(--dur-fast), background var(--dur-fast);
 }
-.sidebar .cat-nav .cat-toc-item:hover { background: var(--card-hover); color: var(--text); }
-/* 当前卡片：与父级分类同一套「浅橙底 + 橙字」，但缩进在引导线之内，
-   位置本身就把「这是子项」说清楚了，不必再用橙色实心去加重量 */
+.sidebar .cat-nav .cat-toc-item:hover { background: var(--sb-menu-bg); color: var(--text); }
+/* 当前卡片：与父级分类同为橙色实心。
+   原先的「浅橙底 + 橙字」在玻璃底上太轻，目录一展开几乎看不出现在停在哪张卡；
+   层级改由缩进 + 行高 + 字号三档差来承担（子项更窄、更矮、字更小），
+   两块橙色上下相邻也不会糊成一整块 */
 .sidebar .cat-nav .cat-toc-item.active {
-  background: var(--accent-bg); color: var(--accent-text);
-  font-weight: 700; box-shadow: none;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  color: #fff; font-weight: 700;
+  box-shadow: var(--accent-glow);
 }
+/* 触屏按下反馈：抽屉里没有 hover，靠 :active 给一次即时回执 */
+.sidebar .cat-nav .cat-toc-item:active { background: var(--sb-menu-bg-hover); }
+.sidebar .cat-nav .cat-toc-item.active:active { background: var(--accent-light); }
 .sidebar .cat-toc-item .ci { flex-shrink: 0; display: inline-flex; align-items: center; }
 .sidebar .cat-toc-item .ci .card-logo { width: 16px; height: 16px; border-radius: 4px; }
 .sidebar .cat-toc-item .tb { font-size: 9px; padding: 1px 5px; border-radius: 5px; }
@@ -3523,6 +3621,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .hf-pill-off { opacity: 0.45; }
 .hf-pill-off:not(.active):hover { border-color: var(--border); color: var(--text-dim); }
 .hf-pill img { width: 16px; height: 16px; border-radius: 4px; }
+/* 「综合」标签的2×2四宫格：内联 SVG + fill=currentColor。
+   颜色跟着 pill 的文字走——选中态（橙底白字）自动是白色，不用另配一套图 */
+.hf-pill .hf-grid { width: 15px; height: 15px; flex-shrink: 0; }
 
 /* ---- 分类页的数据源便签行（版式与首页平台筛选完全一致） ---- */
 .cat-filter-row { margin-top: 12px; }
@@ -3547,15 +3648,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 .hl-item + .hl-item { border-top: 1px solid var(--border); }
 .hl-item:hover { background: var(--card-hover); }
-.hl-rank {
-  flex-shrink: 0; width: 22px; height: 22px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 6px; font-size: 12px; font-weight: 800;
-  color: var(--text-dimmer); font-variant-numeric: tabular-nums;
-}
-.hl-item.top1 .hl-rank { background: linear-gradient(135deg, #ff5a5f, #d92d33); color: #fff; }
-.hl-item.top2 .hl-rank { background: linear-gradient(135deg, #ff9f43, #f76707); color: #fff; }
-.hl-item.top3 .hl-rank { background: linear-gradient(135deg, #ffd43b, #f0a500); color: #fff; }
+/* 聚合榜的序号角标 .hl-rank 与前三名配色，全部来自文件开头的「名次角标（全站统一）」 */
 /* 榜单缩略图：尺寸写死 + object-fit:cover，各平台给的图比例不一
    （抖音偏竖、头条/百度偏横），统一裁成同尺寸才不会把行撑得高矮不齐 */
 .hl-thumb {
@@ -3635,7 +3728,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   transition: background var(--dur-fast);
 }
 .rt-item:hover { background: var(--card-hover); }
-.rt-item .hash { flex-shrink: 0; font-weight: 800; color: var(--accent); }
+/* 话题序号角标 .rn（含前三名配色）见文件开头的「名次角标（全站统一）」 */
 .rt-item .tt {
   flex: 1; min-width: 0; font-size: 12.5px; color: var(--text-dim);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -3681,8 +3774,30 @@ body.sb-locked { overflow: hidden; }
      flex-wrap 必须显式重设——上方 .app-shell .header 的新版式把它覆盖掉了 */
   .app-shell .header { flex-wrap: wrap; gap: 10px; padding: 10px 14px; }
   .app-shell .foot { padding: 14px 14px 28px; }
-  /* 抽屉里子项回到 38px 触控目标：桌面那套 30px 的紧凑尺寸对指尖偏小 */
-  .sidebar .cat-nav .cat-toc-item { min-height: 38px; font-size: 13px; }
+  /* 抽屉里的菜单按触屏尺寸整体重排：桌面那套 44/32px 的行高是给鼠标的，
+     指尖点下去容易点偏、误触相邻项。
+     行高取平台下限（iOS 44pt / Android 48dp）：一级行 48px、子项 44px，
+     行间距一并放到 6px，两侧各让出误触缓冲区；图标与徽章同步放大，
+     保证「48px 的行」里视觉重心也够大，不是一行空旷的长条 */
+  .sidebar .cat-pills { gap: 6px; }
+  .sidebar .cat-nav button { height: 48px; gap: 12px; font-size: 14.5px; }
+  .sidebar .cat-nav button .mi { width: 30px; height: 30px; border-radius: 9px; font-size: 16px; }
+  .sidebar .cat-pills > button .cnt { padding: 3px 9px; font-size: 12px; }
+  .sidebar .cat-nav .cat-pills > button[data-cat]::before {
+    width: 8px; height: 8px; margin-left: 4px;
+    border-right-width: 2px; border-bottom-width: 2px;
+  }
+  /* 子目录：行高 44px、行间 2px，父级 48px 的两级节奏在指尖下也不挤。
+     选择器要带 .cat-nav 才够压过桌面那条 (0,4,0)，否则这 4/8px 根本落不下去 */
+  .sidebar .cat-nav .cat-sub.open { margin-top: 4px; margin-bottom: 8px; }
+  .sidebar .cat-sub-inner { gap: 2px; }
+  .sidebar .cat-nav .cat-toc-item {
+    min-height: 44px; padding: 6px 10px; gap: 10px;
+    font-size: 13.5px; border-radius: 10px;
+  }
+  /* 抽屉右上角的关闭按钮同样要够大：34px 在指尖下偏小 */
+  .sb-close { width: 40px; height: 40px; }
+  .sb-close svg { width: 19px; height: 19px; }
 }
 
 @media (max-width: 640px) {
@@ -3697,8 +3812,7 @@ body.sb-locked { overflow: hidden; }
   .hf-arrow svg { width: 14px; height: 14px; }
 }
 
-/* 恢复移动端媒体查询里被 !important 关掉的手风琴目录：抽屉内的分类子目录要能展开 */
-@media (max-width: 820px), (pointer: coarse) {
-  .sidebar .cat-sub { display: grid !important; }
-  .sidebar .cat-nav .cat-sub.open { display: grid !important; }
-}
+/* 恢复被移动端媒体查询用 !important 关掉的手风琴目录。
+   侧边栏（桌面常驻 + 窄屏抽屉）都要能就地展开子目录，与宽度断点无关——
+   原来只在 ≤820px / 粗指针下还原，821~900px 的鼠标窗口打开抽屉会看不到子菜单 */
+.sidebar .cat-sub { display: grid !important; }
