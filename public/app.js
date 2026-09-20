@@ -2483,6 +2483,27 @@ function renderImpl() {
 
 
 
+// ---- 卡片全屏按钮的两个图标（内联 SVG）----
+// 原来用的是字符 ⛶（U+26F6「四角框」）：字形随平台/字体变，13~14px 下笔画细、
+// 四个角还容易和按钮描边糊在一起，辨识度很低（用户直接反馈"不够明显"）。
+// 改成矢量绘制，两态各一个：
+//   · 进入全屏 —— 四支箭头同时指向四个角（arrows-out）。这是"展开/全屏"最通行的
+//     语义，方向和"铺满屏幕"直接对应，比四个角框强得多；
+//     用 stroke 描边 + currentColor，跟着按钮的 --text-dim / hover 变橙自动走色。
+//   · 退出全屏 —— 粗 ✕（两笔）。小尺寸下最清楚，且与"展开"在形状上完全不撞。
+// 两枚都设 stroke-width 2.6：14px 渲染时线宽约 1.5px，比常规 2 更实，不显灰。
+const ICON_FS_ENTER =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" ' +
+  'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M9 3.5H3.5V9"/><path d="M3.5 3.5 10 10"/>' +
+  '<path d="M15 3.5h5.5V9"/><path d="M20.5 3.5 14 10"/>' +
+  '<path d="M20.5 15v5.5H15"/><path d="M20.5 20.5 14 14"/>' +
+  '<path d="M3.5 15v5.5H9"/><path d="M3.5 20.5 10 14"/></svg>';
+const ICON_FS_EXIT =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" ' +
+  'stroke-linecap="round" aria-hidden="true">' +
+  '<path d="M6.5 6.5 17.5 17.5"/><path d="M17.5 6.5 6.5 17.5"/></svg>';
+
 function makeCard(ep) {
   // 暴露 ep 到 window 供重试按钮使用
   window['_ep_' + ep.id] = ep;
@@ -2500,8 +2521,9 @@ function makeCard(ep) {
   head.innerHTML = `<div class="card-title"><span class="icon">${iconHtml(ep)}</span>${ep.name}${showRel ? `<span class="rel-time" data-ep-loaded="${ep.id}" hidden></span>` : ''}</div>
     <div class="card-actions">
       ${ep.fs /* fs:1 卡片恒显示全屏按钮，无 Fullscreen API 时由 cardFsToggle 回退伪全屏；
-                   全屏按屏幕真实方向自然渲染，✕ 退出还原 */
-        ? '<button class="btn-fs" type="button" title="全屏" aria-label="全屏">⛶</button><button class="btn-fs-exit" type="button" title="退出全屏" aria-label="退出全屏">✕</button>'
+                   全屏按屏幕真实方向自然渲染，✕ 退出还原。
+                   两态各一个按钮同占位，由 CSS :fullscreen 驱动显隐（见 style.css） */
+        ? `<button class="btn-fs" type="button" title="全屏" aria-label="全屏">${ICON_FS_ENTER}</button><button class="btn-fs-exit" type="button" title="退出全屏" aria-label="退出全屏">${ICON_FS_EXIT}</button>`
         : ''}
       <button class="btn-refresh" title="刷新" aria-label="刷新数据"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button>
     </div>`;
@@ -3320,7 +3342,7 @@ function rGame2048(_, c, ep) {
       <div class="g2048-side">
         <div class="g2048-scorebox"><span>分数</span><b class="g-sv">0</b></div>
         <div class="g2048-scorebox"><span>最高</span><b class="g-bv">${st.best}</b></div>
-        <button class="g2048-btn" type="button" data-g2048-fs="${id}">⛶ 全屏</button>
+        <button class="g2048-btn" type="button" data-g2048-fs="${id}">${ICON_FS_ENTER} 全屏</button>
         <button class="g2048-btn" type="button" data-g2048-undo="${id}">↶ 撤销</button>
         <button class="g2048-btn" type="button" data-g2048-new="${id}">↻ 重开</button>
       </div>
@@ -3452,7 +3474,7 @@ function g2048Bind(id) {
 }
 
 document.addEventListener('click', e => {
-  // （游戏区内 ⛶/✕ 全屏按钮由底部统一入口处理，这里只管其余按钮）
+  // （游戏区内的全屏 / 退出按钮由底部统一入口处理，这里只管其余按钮）
   const newBtn = e.target.closest('[data-g2048-new]');
   if (newBtn) {
     const id = newBtn.dataset.g2048New;
@@ -3699,7 +3721,7 @@ function rMuyu(_, c, ep) {
         <div class="muyu-scorebox"><span>连击</span><b class="m-combo-b">—</b></div>
         <button class="muyu-btn mt" type="button" data-muyu-mute="${id}">${mute ? '🔇 静音中' : '🔊 音效'}</button>
         <button class="muyu-btn" type="button" data-muyu-reset="${id}">↻ 重置</button>
-        <button class="muyu-btn" type="button" data-muyu-fs="${id}">⛶ 全屏</button>
+        <button class="muyu-btn" type="button" data-muyu-fs="${id}">${ICON_FS_ENTER} 全屏</button>
       </div>
       <div class="muyu-stage" role="button" tabindex="0" aria-label="敲击木鱼，功德加一">
         ${MUYU_SVG}
@@ -3818,7 +3840,7 @@ function cardFsToggle(card) {
       if (p && p.then) {
         let settled = false;
         p.then(() => { settled = true; fsMarkNative(card, prevY); cardFsSync(); })
-         .catch(() => { settled = true; fsEnterFake(card, prevY); }); // 请求被拒：伪全屏兜底，不让 ⛶ 失灵
+         .catch(() => { settled = true; fsEnterFake(card, prevY); }); // 请求被拒：伪全屏兜底，不让全屏按钮失灵
         // 个别内嵌 WebView 的全屏请求无限挂起（既不成功也不失败）：400ms 内
         // 无任何进展（无全屏元素、未进伪全屏）则回退伪全屏
         setTimeout(() => {
@@ -3905,13 +3927,14 @@ function fsRestoreScroll(card, prevScrollY, verifyOnly) {
   if (hiddenAbove || offScreen) window.scrollBy({ top: r.top - dock, behavior: 'instant' });
 }
 
-// 全屏状态变化时，同步游戏区内按钮（⛶ 全屏/✕ 退出）文案
+// 全屏状态变化时，同步游戏区内按钮文案与图标（全屏 / 退出）。
+// 用 innerHTML 而不是 textContent：图标是内联 SVG，文字节点顶不住
 function cardFsSync() {
   const el = cardFsEl();
   const card = el ? (el.classList.contains('card') ? el : el.querySelector('.card'))
                   : document.querySelector('.card.fs-fake');
-  const label = card ? '✕ 退出' : '⛶ 全屏';
-  document.querySelectorAll('[data-g2048-fs], [data-muyu-fs]').forEach(b => { b.textContent = label; });
+  const label = card ? `${ICON_FS_EXIT} 退出` : `${ICON_FS_ENTER} 全屏`;
+  document.querySelectorAll('[data-g2048-fs], [data-muyu-fs]').forEach(b => { b.innerHTML = label; });
 }
 
 // 原生全屏状态变化：进入时落状态骨架（基准由 fsMarkNative 补记）；退出时
@@ -3952,7 +3975,7 @@ function onFsChange() {
 document.addEventListener('fullscreenchange', onFsChange);
 document.addEventListener('webkitfullscreenchange', onFsChange);
 
-// 全屏按钮统一入口：卡片头部 ⛶/✕ 与游戏区内按钮都走这里（↻ 刷新不在此列）
+// 全屏按钮统一入口：卡片头部的全屏 / 退出按钮与游戏区内按钮都走这里（↻ 刷新不在此列）
 document.addEventListener('click', e => {
   const fsBtn = e.target.closest('.btn-fs, .btn-fs-exit, [data-g2048-fs], [data-muyu-fs]');
   if (!fsBtn) return;

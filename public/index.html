@@ -42,6 +42,18 @@
 
 <div class="wallpaper-bg" id="wallpaperBg" aria-hidden="true" hidden></div>
 
+<!-- 氛围背景：壁纸关闭时（默认态）铺在 body 渐变之上的一层「大块流动光」。
+     四颗失焦大光斑在视口里缓慢漂移缩放，给静态底色补上景深与时间感。
+     纯装饰：fixed 不占布局、pointer-events:none 不挡点击、aria-hidden 不进读屏；
+     壁纸开启时整层由 CSS 淡出（壁纸本来就是主角，两套背景叠着只会脏）。
+     光斑位置/尺寸/动画参数全部写在 style.css 的「氛围背景」一节 -->
+<div class="aura" id="aura" aria-hidden="true">
+  <i class="aura-b aura-b1"></i>
+  <i class="aura-b aura-b2"></i>
+  <i class="aura-b aura-b3"></i>
+  <i class="aura-b aura-b4"></i>
+</div>
+
 <!-- 开屏：毛玻璃遮罩 + 居中火焰（尺寸随屏幕自适应），首批数据就绪后由 app.js 渐隐移除 -->
 <div class="splash" id="splash" aria-hidden="true">
   <svg class="splash-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -101,7 +113,7 @@
         <span class="sb-theme-label">深色模式</span>
         <i class="sb-switch" aria-hidden="true"></i>
       </button>
-      <p class="sb-copy">© 2026 今日热榜<br>All rights reserved.</p>
+      <p class="sb-copy">© 2026 今日热榜<br><a href="https://mmcoo.de" target="_blank" rel="noopener">木木的主页</a> · 数据来源 <a href="https://github.com/vikiboss/60s" target="_blank" rel="noopener">vikiboss/60s</a></p>
     </div>
   </aside>
 
@@ -195,13 +207,6 @@
       <aside class="rail" id="rail" hidden></aside>
     </div>
 
-    <footer class="foot">
-      <a href="https://mmcoo.de" target="_blank" rel="noopener">木木的主页</a>
-      <span class="foot-sep" aria-hidden="true">·</span>
-      <span class="foot-meta">数据来源 <a href="https://github.com/vikiboss/60s" target="_blank">vikiboss/60s</a></span>
-      <span class="foot-sep foot-cf-sep" aria-hidden="true">·</span>
-      <span class="foot-meta foot-cf">Powered by Cloudflare Workers</span>
-    </footer>
   </div>
 </div>
 

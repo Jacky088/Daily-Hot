@@ -186,6 +186,107 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 :root.wallpaper-off .wallpaper-toggle svg { opacity: 0.55; }
 :root.wallpaper-off .wallpaper-toggle:hover svg { opacity: 1; }
 
+/* ============ 氛围背景：大块流动光（壁纸关闭时） ============ */
+/* 壁纸关闭是本项目的默认态，此前的背景只有 body 的 --bg-grad：一版静态渐变，
+   全屏铺开非常「平」——底色是有的，但既没有景深，也没有任何时间感，
+   在 2K 宽屏上尤其像一块没画完的底色板。
+   这里补一层独立的氛围层：四颗大尺寸柔光斑在视口里缓慢漂移 + 缩放，
+   背景因此始终在动，玻璃卡（backdrop-filter）后面透出来的光也跟着缓慢变化。
+
+   与壁纸层的关系：壁纸开启时整层淡出。用 opacity 过渡而不是 display:none，
+   和壁纸层同一套 0.8s 节奏，开了壁纸是「流动光让位」，不是硬切；
+   `.aura` 在 DOM 里排在 .wallpaper-bg 之前，两层同 z-index，壁纸天然压在上面。
+
+   性能是这块的主要约束，三条都踩过：
+     ① 只动 transform / opacity —— 合成层动画，不触发重排重绘，
+        动画中的元素加 will-change: transform 提前升层（四颗而已，不会吃爆显存）；
+     ② 光斑用 radial-gradient 的 alpha 收边，**不用 filter: blur()** ——
+        在 inset:0 的全屏元素上挂几十 px 的模糊，低端设备与 Safari 上会稳定掉帧；
+     ③ 尺寸用 vmax 而不是固定 px：手机上光斑不会被压成一条缝，
+        大屏上又跟着放大，「大块」这个观感在任何视口都成立。 */
+.aura {
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none; overflow: hidden;
+  opacity: 1; transition: opacity 0.8s ease;
+}
+/* 壁纸开启 → 整层淡出（特异性高于 .aura，无需 !important） */
+:root:not(.wallpaper-off) .aura { opacity: 0; }
+
+.aura-b {
+  position: absolute; display: block;
+  /* 尺寸封顶：vmax 保证「大屏更大、窄屏不塌成一条」，但 4K 上 68vmax 会到 2600px，
+     四张这么大的合成层纹理要吃掉上百 MB 显存（动画层是位图缓存），所以再压一个
+     min() 上限——1200px 的光斑在 2560/3840 宽屏上依然是「一大块」，观感不变 */
+  width: min(68vmax, 1200px); height: min(68vmax, 1200px); border-radius: 50%;
+  /* 动画参数由各光斑自己给：--dx/--dy 是漂移幅度（百分比相对光斑自身尺寸，
+     所以大屏小屏的「相对走位」一致），--s1/--s2 是中途的两个缩放档 */
+  animation: auraDrift var(--dur, 42s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+  will-change: transform;
+}
+/* 漂移轨迹：出发 → 右上放大 → 左下略收 → 回到出发。
+   三个中间点而不是「左上到右下」的直线往返，是为了让四颗错开相位后
+   永远处于不同的运动方向，整片背景才像在「流」而不是整体平移 */
+@keyframes auraDrift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  30%  { transform: translate3d(var(--dx, 14%), var(--dy, -10%), 0) scale(var(--s1, 1.16)); }
+  62%  { transform: translate3d(calc(var(--dx, 14%) * -0.7), calc(var(--dy, -10%) * -0.6), 0) scale(var(--s2, 0.94)); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+
+/* ---- 亮色主题：冷蓝紫底上的四颗柔光 ----
+   亮色底是 #e4ebf8（偏冷的蓝紫），光斑用「更亮更彩」来表达光：
+   白亮斑负责高光感、蓝紫/粉/暖橙负责色相。
+   透明度刻意给到 0.5 上下 —— 这一版的目标就是「明显」：
+   太淡等于没做（旧版静态球体只有 0.4 且半径 620~700px，全屏看基本读不出来），
+   再浓正文就该被背景抢了。正文与玻璃卡都在 z-index:1 之上，
+   且卡片自身还有 backdrop-filter 与半透明白底兜着，可读性不受影响。 */
+.aura-b1 {
+  top: -24%; left: -18%;
+  background: radial-gradient(circle, rgba(146, 126, 255, 0.52) 0%, rgba(146, 126, 255, 0.3) 42%, rgba(146, 126, 255, 0) 72%);
+  --dx: 16%; --dy: -12%; --s1: 1.18; --s2: 0.92; --dur: 46s; --delay: -6s;
+}
+.aura-b2 {
+  top: -20%; right: -22%;
+  background: radial-gradient(circle, rgba(255, 138, 186, 0.46) 0%, rgba(255, 138, 186, 0.26) 44%, rgba(255, 138, 186, 0) 74%);
+  --dx: -14%; --dy: 14%; --s1: 1.12; --s2: 0.9; --dur: 54s; --delay: -22s;
+}
+.aura-b3 {
+  bottom: -30%; left: 8%;
+  background: radial-gradient(circle, rgba(255, 176, 112, 0.42) 0%, rgba(255, 176, 112, 0.22) 44%, rgba(255, 176, 112, 0) 74%);
+  --dx: 12%; --dy: -16%; --s1: 1.14; --s2: 0.95; --dur: 50s; --delay: -34s;
+}
+/* 白亮斑：压在偏中上、尺寸略小，模拟一团「过曝的白光」，
+   是四颗里唯一不承载色相的，负责把另外三颗的颜色托起来 */
+.aura-b4 {
+  top: 12%; left: 22%; width: min(52vmax, 900px); height: min(52vmax, 900px);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.4) 40%, rgba(255, 255, 255, 0) 70%);
+  --dx: -10%; --dy: 10%; --s1: 1.22; --s2: 0.88; --dur: 38s; --delay: -14s;
+}
+
+/* ---- 暗色主题：同一套位置，换成「深底上的发光」 ----
+   暗底 #14101a 上不能再加白，否则整片背景会发灰；
+   四颗改用高饱和的紫罗兰 / 品红 / 橙 / 青，靠色相而不是明度做「光」。
+   透明度比亮色略低，但暗底对颜色的对比本来就强，实际观感同样明显。 */
+:root[data-theme="dark"] .aura-b1 {
+  background: radial-gradient(circle, rgba(124, 92, 255, 0.5) 0%, rgba(124, 92, 255, 0.26) 44%, rgba(124, 92, 255, 0) 74%);
+}
+:root[data-theme="dark"] .aura-b2 {
+  background: radial-gradient(circle, rgba(219, 76, 155, 0.4) 0%, rgba(219, 76, 155, 0.2) 44%, rgba(219, 76, 155, 0) 74%);
+}
+:root[data-theme="dark"] .aura-b3 {
+  background: radial-gradient(circle, rgba(249, 115, 22, 0.36) 0%, rgba(249, 115, 22, 0.18) 44%, rgba(249, 115, 22, 0) 74%);
+}
+:root[data-theme="dark"] .aura-b4 {
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.28) 0%, rgba(56, 189, 248, 0.14) 44%, rgba(56, 189, 248, 0) 74%);
+}
+
+/* 减弱动态偏好：光斑停在出发点，但保留这层背景（它是「背景」，不是动画特效）；
+   同时去掉 will-change，不让四颗全屏元素长期占着合成层 */
+@media (prefers-reduced-motion: reduce) {
+  .aura-b { animation: none; will-change: auto; }
+}
+
 /* ---- 壁纸下的可读性兜底 ----
    壁纸是每日必应图，亮度完全不可控（可能是雪原，也可能是夜景）。
    玻璃底太透时，正文会随当日壁纸明暗漂移；浅色壁纸 + 亮色主题尤其吃亏，
@@ -209,18 +310,16 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
      白描边依旧看不见，仍需要一个比卡面深的冷调描边才立得住 */
   --glass-border: rgba(120, 138, 178, 0.3);
 }
-/* 壁纸上的「裸文字」（页脚、分类标题条这些没有玻璃底的）：补一层极淡的
+/* 壁纸上的「裸文字」（分类标题条这种没有玻璃底的）：补一层极淡的
    方向性阴影把字和背景拉开。幅度刻意做小——只在边缘起作用，不形成描边感 */
-:root:not(.wallpaper-off) .foot,
 :root:not(.wallpaper-off) .cat-title {
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
 }
-:root[data-theme="dark"]:not(.wallpaper-off) .foot,
 :root[data-theme="dark"]:not(.wallpaper-off) .cat-title {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
 }
 
-.topbar, .layout, .main, .foot { position: relative; z-index: 1; }
+.topbar, .layout, .main { position: relative; z-index: 1; }
 
 /* ============ Header ============ */
 /* 顶栏与卡片同一套 Liquid Glass 语言：玻璃底 + 强饱和/提亮折射 + 内高光，
@@ -726,7 +825,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   flex: 1; min-width: 0;
   /* 顶部 12px 与上方导航条的 margin-bottom 同值，保持垂直节奏一致 */
   padding: 12px 24px 60px;
-  min-height: calc(100vh - var(--topbar-h, 76px) - 100px);
+  /* 扣掉顶栏高度（含它浮起来后多出的 10px 上方走道，见 .app-shell .topbar）
+     与页尾预留，内容不足一屏时也撑到接近视口，保证始终有滚动条 */
+  min-height: calc(100vh - var(--topbar-h, 76px) - 110px);
 }
 
 /* ============ 页首 Hero 卡 ============ */
@@ -1111,6 +1212,89 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   box-shadow: 0 10px 24px rgba(186, 106, 66, 0.22);
 }
 .ha-chart svg { position: absolute; left: -1px; top: -1px; display: block; width: 82.3px; height: 59.15px; }
+
+/* ============ 页首 Hero 卡 · 夜间模式 ============ */
+/* 上面那张卡是「实色柔和渐变」，底色固定为浅色，卡内文字用的是 --hero-* 这组
+   **不随主题翻转**的固定色 —— 白天没问题，夜间就变成一块刺眼的浅色高光块：
+   浅紫粉底压在深紫壁纸上像是漏光的白斑，与周围玻璃卡完全不是一个体系。
+   这里补一套夜间配色，思路是「同色相、压暗提纯」，而不是简单把整块调灰或降低不透明度：
+     · 底：保留「紫 → 玫红 → 烧橙」的横向走向，整体压到 #2a2340 → #63302a，
+       这样它仍是页面里最亮的那块品牌色，但明度落回暗色主题该有的区间；
+     · 装饰斑：白天的橙色带是「加白提亮」，夜间反转为「加纯色提亮」——
+       用低透明度的橙 / 品红 / 紫罗兰径向光斑重新点出来，
+       否则纯压暗会把效果图里那条最有辨识度的橙色带压成一块脏褐；
+     · 卡内固定色：--hero-* 一并换成浅色版，标题近白、副标语用亮橙
+       （纯 #fa3904 压在深紫底上只有 ~2.5:1，小字直接糊掉，必须提亮到 #ff8f5e）。
+   注意 specificity：这组选择器 (0,2,0) 高于上面的 .hero / .hero-chip / .ha-card，
+   所以不依赖书写顺序；但 .ha-flame / .ha-chart 的 background 原写在 .ha-card 之后，
+   被这里的 .ha-card 规则盖住后要各自补回来。 */
+:root[data-theme="dark"] .hero {
+  --hero-ink: #f6eff0;        /* 标题：白天是近纯黑，夜间翻成暖白 */
+  --hero-ink-dim: #c5b6c8;    /* 描述：中段玫红底上 ≈5.5:1，稳在 AA */
+  --hero-accent: #ff8f5e;     /* 副标语：烧橙在深底上不够看，提亮到亮橙 */
+  --hero-chip-ink: #ded6e6;   /* 芯片文字 */
+
+  /* 描边从白 0.62 收到 0.14：白天那圈白边是为了在浅色卡上「立口沿」，
+     夜间底已经足够深，再用 0.62 会白得发虚 */
+  border-color: rgba(255, 255, 255, 0.14);
+  background:
+    /* 右上暖核 */
+    radial-gradient(18% 55% at 77% 2%, rgba(255, 126, 74, 0.42) 0%,
+      rgba(255, 126, 74, 0) 100%),
+    /* 右下暖核 */
+    radial-gradient(20% 60% at 80% 98%, rgba(255, 110, 64, 0.38) 0%,
+      rgba(255, 110, 64, 0) 100%),
+    /* 中段玫红，补上 58%~75% 那段粉色的位置 */
+    radial-gradient(34% 70% at 58% 48%, rgba(226, 110, 150, 0.20) 0%,
+      rgba(226, 110, 150, 0) 100%),
+    /* 左缘冷紫，对应白天那块偏蓝的冷斑 */
+    radial-gradient(14% 60% at 4% 36%, rgba(122, 106, 214, 0.30) 0%,
+      rgba(122, 106, 214, 0) 100%),
+    linear-gradient(180deg, #2a2340 0%, #2f2646 30%, #3f2848 55%,
+      #522c3c 78%, #63302a 100%);
+  /* 白天是带紫的柔和投影；夜间投影只在深底上「压出层次」，颜色去掉以免泛紫 */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.42);
+}
+/* 橙色图标块本身不受主题影响（橙渐变 + 白火焰在深底上更醒目），
+   只把外发光换成一档更亮的橙，免得光晕在小尺寸下糊在暗底上看不见 */
+:root[data-theme="dark"] .hero-icon {
+  box-shadow: 0 7px 22px rgba(249, 96, 16, 0.45);
+}
+/* 芯片：白天是「半透明白药丸」（解出的 α≈0.61），压在深底上会变成三块刺眼的白糖。
+   翻成低透明度白纱——与全站暗色玻璃同一思路，靠描边级的明度差而不是纯白来成形。
+   0.12 是「看得见是颗药丸」与「不抢正文」之间的折中：再低就和底分不开，
+   再高整行会亮成一条白带，把上面的标题都压下去。
+   阴影同步转黑（白天那层 rgba(126,84,92,.12) 是暖灰，深底上等于没有） */
+:root[data-theme="dark"] .hero-chip {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+/* 芯片里的「值」（时间戳 / 数字）：白天是 #212137 深墨，夜间必须是整行最亮的一档 */
+:root[data-theme="dark"] .hero-chip b { color: #fff; }
+/* 芯片内联图标：这两个颜色是 SVG 里写死的（时钟的 stroke #646b84、
+   「大分类」实心块的 fill #646b84），深底上只剩一团灰影，需要各自提亮。
+   两个选择器分开写是因为它们的着色方式不同：
+     · 时钟用 stroke（属性写在 svg 上，CSS 的 stroke 会覆盖表现属性并向下继承），
+       用 svg[stroke] 精确命中，避免误伤两根柱状图标（它们没有 stroke 属性）；
+     · 「大分类」用实心 path 的 fill，同理只取没有 stroke 的那两个图标里的 path
+       ——柱状图标的色块是 rect，不会被这条命中，它们的绿/紫/青在深底上本来就够亮。 */
+:root[data-theme="dark"] .hero-chip svg[stroke] { stroke: #a9b2d0; }
+:root[data-theme="dark"] .hero-chip svg:not([stroke]) path { fill: #b7bdd8; }
+/* 右侧装饰玻璃簇：白天靠「白纱叠在浅色渐变上」成形，夜间同样的白纱会亮成三块塑料板。
+   按全站暗色玻璃的口径换算——底色变深后白纱要降到 0.09 左右才等价，
+   描边同步收一档，投影转黑并加重（暗底上的投影是唯一能拉开前后层次的线索）。
+   三块仍保持「后透前实」的层次：火焰块最透、柱状块最实 */
+:root[data-theme="dark"] .ha-card {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.32);
+}
+:root[data-theme="dark"] .ha-flame { background: rgba(255, 255, 255, 0.04); }
+:root[data-theme="dark"] .ha-chart {
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42);
+}
+
 /* 今日天气卡：右栏第一张卡（>1180px）／左侧抽屉里深色模式开关之上（≤900px）。
    背景由 JS 按天气写入天空渐变，
    圆角/裁切/投影与右栏其它 .rail-card 保持同一档，只是底色换成天空色而非玻璃。
@@ -2789,45 +2973,6 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .progress-bar { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; margin-top: 2px; }
 .progress-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width var(--dur-slow); }
 
-/* Foot */
-/* 页脚：顶栏/卡片同款 Liquid Glass 圆角容器收尾（玻璃底 + 强饱和提亮折射 + 内高光），
-   日/夜主题由 --glass-* 变量组自动切换。
-   文字随之改用主题色——原先「白字 + 多层黑晕」是为直接压在壁纸上做的字幕方案，
-   有了玻璃底就不再需要，可读性由玻璃自己兜住 */
-.foot {
-  text-align: center;
-  /* 与顶栏同构：通栏铺满页面宽度、无圆角，只在朝向内容的那一侧描边。
-     顶栏吸顶用 border-bottom，页脚沉底用 border-top */
-  margin: 0; padding: 14px 24px;
-  /* 刘海屏安全区：viewport-fit=cover 下全面屏手势条会压住页脚，
-     底部内边距取安全区高度与常规值的较大者 */
-  padding-bottom: max(14px, env(safe-area-inset-bottom));
-  background: var(--glass-bg);
-  backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
-  -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
-  border-top: 1px solid var(--glass-border);
-  box-shadow:
-    inset 0 1px 0 var(--glass-hi),
-    inset 0 -1px 0 var(--glass-lo);
-  color: var(--text-dim); font-size: 12px;
-}
-.foot a {
-  color: inherit; text-decoration: none;
-  padding: 2px 2px; transition: color var(--dur-fast);
-}
-.foot a:hover { color: var(--accent-text); }
-/* 分隔点更淡、元信息次之：主链接最亮，一行内也能看出层次 */
-.foot-sep { color: var(--text-dimmer); margin: 0 2px; }
-.foot-meta { color: var(--text-dim); }
-.foot-meta a { color: var(--text-dim); }
-.foot-meta a:hover { color: var(--accent-text); }
-/* 窄屏放不下时 Powered by Cloudflare Workers 整体换行，避免半截截断 */
-.foot-cf-sep, .foot-cf { display: inline; }
-@media (max-width: 480px) {
-  .foot-cf-sep { display: none; }
-  .foot-cf { display: block; margin-top: 4px; }
-}
-
 /* Game card */
 /* 免费游戏卡（Epic / Steam 共用）：字号字重与 .item 系统一，
    描述/截止/原价/领取均用 class 管理而非内联样式（.desc 通用规则只作用于 .item 后代） */
@@ -3129,8 +3274,10 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   .list-toggle { min-height: 44px; padding: 10px 0; }
   /* 计数徽章仅桌面显示：移动 pill 空间优先给名称 */
   .cat-pills > button .cnt { display: none; }
-  /* 子菜单定位跳转偏移：吸顶顶栏 + 分类 pill 单行（模块面板是悬浮层不占位） */
-  .card { scroll-margin-top: calc(var(--topbar-h, 96px) + 66px); }
+  /* 子菜单定位跳转偏移：吸顶顶栏 + 分类 pill 单行（模块面板是悬浮层不占位）。
+     +66 → +76：顶栏浮起来后上方多出 10px 走道（见 .app-shell .topbar），
+     停靠线整体下移，否则定位到的卡片会被顶栏多盖住 10px */
+  .card { scroll-margin-top: calc(var(--topbar-h, 96px) + 76px); }
   /* 移动端性能：backdrop-filter 逐帧模糊是最大的 GPU 消耗，
      单列布局卡片通栏宽，模糊面积巨大——改用高不透明度纯色底，
      视觉上仍保留轻微通透感，合成开销大幅下降 */
@@ -3162,7 +3309,6 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   .card-select-row { padding: 10px 14px 0; }
   .card-select { min-height: 40px; font-size: 13px; }
   .json-view { max-height: none; overflow: visible; }
-  .foot { margin: 0; padding: 12px 14px max(12px, env(safe-area-inset-bottom)); }
 }
 
 /* 手机小屏：进一步收紧触控与留白 */
@@ -3458,10 +3604,21 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   .m-add { font-size: 13px; }
 }
 
-/* ============ 卡片全屏（2048 / 电子木鱼，⛶ 按钮） ============ */
-/* ⛶ 与 ✕ 占同一位置：平时只显示 ⛶，全屏时原位互换为 ✕（纯 CSS :fullscreen 驱动）；
-   全屏按屏幕真实方向自然渲染（竖屏设备竖屏全屏、横屏设备横屏全屏），✕ 退出还原 */
-.card-actions .btn-fs-exit { display: none; font-size: 13px; font-weight: 700; }
+/* ============ 卡片全屏（2048 / 电子木鱼） ============ */
+/* 进入 / 退出两个图标（app.js 的 ICON_FS_ENTER / ICON_FS_EXIT，内联 SVG）同占一个位置：
+   平时只显示「四向展开」，全屏时原位互换为「✕」（纯 CSS :fullscreen 驱动）；
+   全屏按屏幕真实方向自然渲染（竖屏设备竖屏全屏、横屏设备横屏全屏）。
+   尺寸沿用上面 .card-actions button svg 的 14px，颜色走 color/currentColor，
+   所以 hover 变橙、全屏下的配色都和刷新按钮一致。
+   （原来这里是 ⛶ 字符 + font-size/font-weight 两行，换成矢量图标后不再需要字号档） */
+.card-actions .btn-fs-exit { display: none; }
+/* 游戏侧栏按钮（2048 / 木鱼）里的同一枚图标：按钮是 inline 文本流而不是 flex，
+   SVG 得自己跟字号走并用 vertical-align 把基线和「全屏 / 退出」对上。
+   1.1em ≈ 13px，与旁边 12px 的文字同高、不抢行高 */
+.g2048-btn svg, .muyu-btn svg {
+  width: 1.1em; height: 1.1em; flex-shrink: 0;
+  vertical-align: -0.18em;
+}
 /* fs:1 卡片的布局单元：头部（✕/↻）+ 内容区包在一起，全屏时作为 flex 布局宿主；
    非全屏时是普通静态容器，无任何视觉影响 */
 .fs-unit { display: block; }
@@ -3608,13 +3765,44 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
    以便稳定覆盖前面为基础版式写的 .layout / .cat-nav / .main 规则。
    ================================================================ */
 
-.app-shell { display: flex; align-items: flex-start; min-height: 100vh; }
+/* --shell-end-gap：页面滚到底时三块内容的**公共基准线**——
+   侧栏面板底边、主栏最后一张卡底边、右栏最后一张卡底边都停在这条线上
+   （= 页面底边往上 10px），滚动到这里就到底，收尾是齐的。
+   改之前三处各写各的（侧栏 10 / 主栏 56 / 右栏 40），实测滚到底时三条底边
+   分别在 890 / 844 / 860（视口 900），差出十几到四十多像素，看着很散。
+   抽成一个变量，以后要调只改这一处：
+     · 侧栏 —— margin-bottom + height 的扣减；
+     · 主栏 / 右栏 —— 各自的 padding-bottom。 */
+.app-shell {
+  display: flex; align-items: flex-start; min-height: 100vh;
+  --shell-end-gap: 10px;
+}
 .app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
 /* ---------------- 左侧导航栏 ---------------- */
+/* ③ 侧栏卡化：原来是「贴左缘、通高、只在朝内容那侧一条竖线」的玻璃条，
+   与顶栏/页脚相接处必然是直角（用户标注的那两处）。
+   现在改成浮在背景光之上的一张圆角玻璃面板，三块玻璃之间留出 18px 走道，
+   直角从结构上消失，「玻璃浮在光上」的语言也和卡片/hero 统一了。
+
+   ⚠️ 取舍：外缘（左边）也留 18px，而不是只圆个角。
+   18px 是 .app-shell .header / .layout 的内边距，选它当统一走道宽度是为了
+   对齐：面板左缘、顶栏左缘、卡片左缘、页脚文字左缘全部落在同一条竖线上，
+   同时 .app-shell 的可用宽也没变（232 + 18 = 原来的 0 + 232 + 18 卡片左界）。
+
+   ⚠️ top/height：面板与视口等高会把圆角顶出屏幕，所以上下各让 10px
+   （height: calc(100vh - 20px) 配 sticky top: 10px —— 静止与吸顶位置重合，
+   滚动时不会有一下跳动）。
+
+   ⚠️ ≤900px 的抽屉态要把这套改写成「贴左/上/下缘、只圆右侧」：
+   留边会让抽屉看起来没贴边，但圆角本身保留（见文件末尾的媒体查询） */
 .sidebar {
-  position: sticky; top: 0; z-index: 70;
-  flex: 0 0 232px; width: 232px; height: 100vh;
+  position: sticky; top: 10px; z-index: 70;
+  flex: 0 0 232px; width: 232px;
+  /* 高度 = 视口 − 上走道 10 − 下基准 --shell-end-gap：
+     面板底边因此正好停在公共基准线上，它就是「三块底沿平齐」的依据 */
+  height: calc(100vh - 10px - var(--shell-end-gap));
+  margin: 10px 0 var(--shell-end-gap) 18px;
   display: flex; flex-direction: column;
   padding: 16px 10px 14px;
   /* 菜单行的两级灰阶：半透明中性灰，深色主题下是「提亮面板」、
@@ -3624,8 +3812,11 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   background: var(--glass-bg);
   backdrop-filter: blur(28px) saturate(180%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
-  border-right: 1px solid var(--glass-border);
-  box-shadow: inset -1px 0 0 var(--glass-lo);
+  /* 四周同一条描边（原为只在右侧一条竖线——那是通栏贴边的画法）；
+     投影取全站玻璃那一档，面板才浮得起来 */
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-hi);
   overflow-y: auto; overscroll-behavior: contain;
 }
 .sidebar::-webkit-scrollbar { width: 0; height: 0; }
@@ -3688,8 +3879,14 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
    字号取全站最小档，靠 --text-dimmer 压到最淡，不跟菜单项抢注意力；
    行高 1.7 让两行之间松一点，10.5px 的行距否则会挤成一坨。
    .sb-foot 的 margin-top:auto 把它整体推到侧栏底部，
-   .sb-theme 的 margin-bottom:10px 就是它和主题开关之间的那道间距 */
+   .sb-theme 的 margin-bottom:10px 就是它和主题开关之间的那道间距。
+   第二行是「作者主页 · 数据来源」两个外链：原先它们和版权一起躺在页底那条
+   通栏玻璃条（.foot）里，页脚整块删掉后并到这里，所以链接样式也得跟着搬过来——
+   比版权行亮一档（--text-dim vs --text-dimmer）表明可点，hover 走品牌橙
+   （全局 a:hover 的下划线保留，和站内其它链接一致） */
 .sb-copy { margin: 0; font-size: 10.5px; line-height: 1.7; color: var(--text-dimmer); text-align: center; }
+.sb-copy a { color: var(--text-dim); transition: color var(--dur-fast); }
+.sb-copy a:hover { color: var(--accent-text); }
 /* ---- 抽屉里的天气卡（≤900px）：243×96 的紧凑横条 ----
    宿主用 display:contents，卡片因此是 .sidebar 的直接 flex 子项：
    宽度跟菜单自动对齐（两边都靠 stretch 撑满同一栏的 243px，即抽屉 264px 减去
@@ -3709,7 +3906,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   align-items: baseline; align-content: center; justify-content: flex-start;
   gap: 0 6px;
   /* flex-shrink:0 + min-height 必须写死：
-     .sidebar 是 height:100vh 的列向 flex 容器，内容比视口高时（比如分类页
+     .sidebar 是 height:calc(100vh - 20px) 的列向 flex 容器，内容比视口高时（比如分类页
      的子目录列表展开后）flex 项会先压缩、压不动了才触发 overflow 滚动。
      卡片若留着默认的 flex-shrink:1 又带 min-height:0，就会变成唯一能被压扁
      的那一项——实测分类页上被压到 24px。这里把高度锁死，压缩量就落到
@@ -3984,13 +4181,65 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .sidebar .cat-toc-item .tb { font-size: 9px; padding: 1px 5px; border-radius: 5px; }
 
 /* ---------------- 主区（顶栏 + 内容 + 页脚） ---------------- */
+/* ② 顶栏卡化：从「通栏贴边玻璃条」改成浮在背景光上的圆角玻璃条。
+   左侧那 18px 走道就是它与侧栏面板之间的缝——原来顶栏底边与侧栏竖线
+   顶死的那个直角（用户标注的第一处）不复存在。
+
+   sticky 的 top 从 0 改成 10px：浮起来之后圆角上边缘不能再贴视口顶，
+   否则圆角外会漏出背后滚动的卡片。至于走道里穿过的滚动内容——
+   交给下面那条 .app-main::before 顶部遮罩「化掉」，这里只管位置。
+   ⚠️ --topbar-h 由 JS 实测 .topbar 的**高度**（不含 margin），
+   所以按它算吸顶偏移的地方都要 +10：.rail 的 sticky top 与 .card 的
+   scroll-margin-top（移动端）两处，见对应规则 */
 .app-shell .topbar {
-  position: sticky; top: 0; z-index: 80;
+  position: sticky; top: 10px; z-index: 80;
+  /* 上下 10、左右 18：横向走道与 .layout 的内边距同值，
+     顶栏左缘因此与卡片左缘（以及下面页脚的文字）落在同一条竖线上 */
+  margin: 10px 18px 0;
   background: var(--glass-bg);
   backdrop-filter: blur(28px) saturate(180%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
-  border-bottom: 1px solid var(--glass-border);
+  /* 四周一圈描边（覆盖基础版那条 border-bottom）+ 玻璃投影。
+     不能再沿用「只在朝内容那侧描边」的画法——那是通栏条的语言，
+     浮起来之后四边都得有边，否则圆角处会缺一截 */
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 var(--glass-hi),
+    inset 0 -1px 0 var(--glass-lo);
 }
+/* ---- 顶部遮罩：让内容在进顶栏之前就「化掉」 ----
+   顶栏浮起来之后，上方那条 10px 走道（以及顶栏两个 16px 圆角处缺出来的角）
+   会让滚动内容**清晰地**穿过去，比原来的通栏条更脏。做法是压一条通栏遮罩：
+   顶部完全不透明（内容到这里就没了），到底边渐隐，再叠一点 backdrop 模糊
+   让过渡更软——内容不是被硬切，而是「化」进顶栏区域。
+
+   高度 26 = 走道 10 + 顶栏圆角 16，是个常量：
+     · 0~10px 就是那条走道，必须盖住；
+     · 10~26px 是顶栏圆角缺出来的两个角，也得盖住；
+     · 再往下就全在顶栏背后了，那里**不能盖**——内容透在毛玻璃后面是
+       顶栏自己的 backdrop-filter 效果，正是要保留的，所以不需要跟随
+       --topbar-h（跟随反而会把顶栏整块糊死）。
+   层叠取 60：内容层（.layout / .main 是 z-index 1）之上，
+   侧栏 70、顶栏 80 之下 —— 遮罩只压内容，两块玻璃自己的磨砂不受影响
+   （它们照常采样遮罩之下的背景，玻璃该透的还透）。 */
+.app-main::before {
+  content: '';
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 26px;
+  z-index: 60;
+  pointer-events: none;
+  background: var(--bg);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  /* 底边 12px 内淡出，免得在走道两侧留下一条硬边。
+     mask 会把 backdrop-filter 的结果一起渐隐（Chrome / Safari 都支持，
+     也是「渐进模糊」的常规写法），所以模糊与底色是同步收边的 */
+  mask-image: linear-gradient(180deg, #000 0 14px, transparent 26px);
+  -webkit-mask-image: linear-gradient(180deg, #000 0 14px, transparent 26px);
+}
+
 /* 顶栏 / 内容区 / 页脚一律铺满可用宽度：
    三栏版式下左侧栏已经占掉一截，内容再套 max-width 居中就会在左边缘留出
    一条几十到上百像素的空白带（窗口越宽越明显），这正是「内容没铺满」的来源。
@@ -4009,7 +4258,18 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
      max-width 只在窄窗口不生效，所以这个问题宽屏才看得见 */
   max-width: none; margin: 0;
 }
-.app-shell .main { flex: 1; min-width: 0; padding: 16px 0 56px; }
+/* 下内边距 = 公共基准线 --shell-end-gap：这样滚到底时最后一张卡的底边
+   正好与侧栏面板底边（以及右栏最后一张卡，见下）齐平，滚动就此停住。
+   原来是 56px，最后一张卡会比侧栏底边高出 46px，收尾是「断开」的 */
+.app-shell .main { flex: 1; min-width: 0; padding: 16px 0 var(--shell-end-gap); }
+/* 主栏最后一个直接子元素不许带下外边距，否则基准线会被它整体抬起来。
+   踩的就是分类页：每个分组 .cat-section 带 32px 下外边距（分组之间要的间距），
+   但它同时也是最后一个元素——实测 tech 分类滚到底时最后一排卡片底边在 857.5、
+   侧栏底边在 889.5，差的正好是这 32px。
+   首页没有分组（主栏下只有一个 .home 包裹层），所以首页一直是对齐的，
+   这也是「只有首页对齐」的来源。
+   写成 :last-child 而不是写死 .cat-section：以后主栏结尾换成别的容器也一样管用 */
+.main > :last-child { margin-bottom: 0; }
 
 /* 右栏吸顶固定：滚动时右栏留在视口里不动，只有左侧内容滚动。
    top 取「顶栏高度」而不是「顶栏高度 + 内边距」——sticky 一旦生效，
@@ -4021,9 +4281,17 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
    两者必然错开——这是吸顶的固有代价，本版式选择接受 */
 .app-shell .rail {
   flex: 0 0 286px; width: 286px;
-  position: sticky; top: var(--topbar-h, 64px);
+  /* +10 是顶栏浮起来之后多出的那条上方走道：顶栏吸顶在 10px、
+     高度 --topbar-h，右栏要贴在它正下方就得从 10 + topbar-h 起算，
+     这样吸顶后右栏第一张卡片与未吸顶时位置一致，不会有跳动 */
+  position: sticky; top: calc(var(--topbar-h, 64px) + 10px);
   display: flex; flex-direction: column; gap: 14px;
-  padding: 16px 0 40px;
+  /* 下内边距同样取公共基准线：滚到底时右栏最后一张卡的底边与侧栏底边齐平。
+     前提是右栏「够高」——sticky 元素到容器底部时会被顶住（bottom 贴住 .layout
+     的底边），此时卡片底 = 容器底 − 这里的内边距；右栏比视口矮、没被顶到
+     容器底部时（超高的窗口），它的底边会停在半途，这是吸顶的固有代价。
+     实测 900 高视口下正好被顶住（右栏内容 868 + 吸顶线 71 > 900）。 */
+  padding: 16px 0 var(--shell-end-gap);
 }
 .app-shell .rail[hidden] { display: none; }
 /* 天气卡在右栏的宿主。display:contents 让卡片成为 .rail 的直接 flex 子项：
@@ -4031,7 +4299,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
    多算一次，右栏顶部会凭空多出一条空档（display:none 的卡片不占位，但宿主占） */
 .rail-weather-slot { display: contents; }
 
-.app-shell .foot { padding: 18px 18px 32px; }
+/* 页脚（.foot）已整块删除：站点信息收进侧栏底部的版权行（.sb-copy）。
+   原来它作为一条通栏玻璃条沉在页底，卡化之后与顶栏形态重复、
+   又在左下角与侧栏面板形成第二条竖线，不如把这点信息并进侧栏更干净 */
 
 /* ================================================================
    「今日热榜」聚合首页
@@ -4251,10 +4521,20 @@ body.sb-locked { overflow: hidden; }
 }
 
 @media (max-width: 900px) {
-  /* 侧边栏改为抽屉：默认移出视口，点顶栏 ☰ 展开 */
+  /* 侧边栏改为抽屉：默认移出视口，点顶栏 ☰ 展开。
+     桌面那条「浮动面板」的**边距**必须还原：抽屉是从屏幕左缘滑出的整块，
+     留边会让它「没贴边」。但**圆角保留**，只是换成只圆右侧——
+       · 左侧/上/下都要贴屏幕边，圆了会在屏幕边缘露出一道弧形缝；
+       · 朝内容那侧的上下两个角圆成 20px，和顶栏/页脚/卡片的圆角语言统一，
+         收起态 translateX(-100%) 之后整块在屏外，也不会漏出圆角亮边。
+     描边仍只留朝内容侧那一条竖线（贴边的一侧画描边会跟屏幕边缘打架） */
   .sidebar {
     position: fixed; top: 0; left: 0; bottom: 0; z-index: 200;
     width: 264px; flex: none; height: 100dvh;
+    margin: 0;
+    border: none;
+    border-right: 1px solid var(--glass-border);
+    border-radius: 0 20px 20px 0;
     transform: translateX(-100%);
     transition: transform var(--dur-base) var(--ease);
     box-shadow: 0 0 42px rgba(0, 0, 0, 0.34);
@@ -4263,11 +4543,17 @@ body.sb-locked { overflow: hidden; }
   .app-shell.sidebar-open .sidebar { transform: none; }
   .sb-close, .sb-toggle { display: flex; }
   .app-shell .layout { padding: 0 12px; }
-  .app-shell .main { padding: 12px 0 48px; }
+  /* 移动端走道收成 12px：桌面那 18px 是按 .layout 的内边距定的对齐基准，
+     窄屏 .layout 的内边距是 12px，顶栏必须跟着收，否则左缘又会错开 6px */
+  .app-shell .topbar { margin-left: 12px; margin-right: 12px; }
+  /* 抽屉版式下侧栏是浮层，不存在「与它底边对齐」，所以这里不套 --shell-end-gap；
+     但底部安全区得有人接——原来由页脚（.foot）的
+     padding-bottom: max(14px, env(safe-area-inset-bottom)) 负责，页脚删掉后
+     全面屏手势条会压住最后一张卡，挪到这里兜住 */
+  .app-shell .main { padding: 12px 0 max(16px, env(safe-area-inset-bottom)); }
   /* 顶栏恢复两行版式：第一行 ☰ + 搜索框，第二行 时钟 + 按钮。
      flex-wrap 必须显式重设——上方 .app-shell .header 的新版式把它覆盖掉了 */
   .app-shell .header { flex-wrap: wrap; gap: 10px; padding: 10px 14px; }
-  .app-shell .foot { padding: 14px 14px 28px; }
   /* 抽屉里的菜单按触屏尺寸整体重排：桌面那套 44/32px 的行高是给鼠标的，
      指尖点下去容易点偏、误触相邻项。
      行高取平台下限（iOS 44pt / Android 48dp）：一级行 48px、子项 44px，
