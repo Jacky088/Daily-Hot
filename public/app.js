@@ -253,29 +253,124 @@ function heroRefreshTime() {
 // 标题启用 .anim-bubble 时显示；尺寸/时长/相位由 CSS nth-of-type 伪随机错开
 const TITLE_BUBBLES = '<i class="bubble" aria-hidden="true"></i>'.repeat(4);
 
+// ---- Hero 卡里的图形（全部内联 SVG）----
+// 三枚数据芯片原先用 emoji（🕒📊🗂）：字形随平台/字体变、彩色度也压不住灰度，
+// 设计稿里是三个统一口径的小图标，只有换成 SVG 才能和字号、颜色一起控。
+// 火焰形状是从设计稿里「描」出来的，不是抄图标库的：
+// 设计稿那只焰是「中央一根高尖的焰身 + 左右两簇上翘的小火舌」，三个尖顶 + 两个缺口，
+// 比过 Lucide / Heroicons / Phosphor / Tabler 的 flame 都不对（它们要么单尖、要么缺口太浅）。
+// 好在设计稿是 2× 截图、边缘干净，于是直接在图标块内按亮度阈值抠出火焰，
+// 做 Moore 邻域边界追踪 + RDP 简化，得到下面这条 45 点多边形。
+// 客观校验（光栅化后与参考遮罩比）：IoU 0.969、面积比 1.006，差异只剩 1px 抗锯齿边——
+// 而它显示时是 28.5×37.5 CSS px（2× 下正好 57×75 设备像素，与原图同分辨率），所以是像素级还原。
+const HERO_FLAME_PATH =
+  'M12.15 0.60 12.15 0.90 15.50 4.86 17.02 8.20 17.02 10.94 16.10 12.76 16.71 13.37 ' +
+  '17.93 12.76 18.84 11.85 19.45 10.63 19.45 10.02 20.36 11.85 20.36 15.80 18.84 18.84 ' +
+  '16.71 20.97 13.37 22.79 12.76 22.79 12.46 23.10 10.94 23.10 6.98 20.97 4.86 18.84 ' +
+  '3.64 16.71 3.64 15.80 3.34 15.50 3.34 12.46 3.64 12.15 3.64 11.24 3.94 10.94 4.25 9.72 ' +
+  '4.25 10.63 4.55 11.24 6.38 13.06 6.98 13.06 7.29 12.76 7.29 12.15 6.98 11.85 6.98 9.11 ' +
+  '7.29 8.81 7.29 7.90 7.90 6.68 8.50 6.07 8.50 5.46 10.63 2.73 11.24 1.51 11.54 1.51Z';
+// 时钟图标：形状和效果图一致（圆环 + 指针），只把颜色从 currentColor 换成实测的蓝灰。
+// 效果图里芯片图标整体比标签文字更偏蓝更亮（实心堆叠块的腐蚀核心实测 #697085，
+// 而标签文字的等效墨色要灰得多），所以单独给色而不是跟着 currentColor。
+const HERO_ICON_CLOCK =
+  '<svg class="hc-i" viewBox="0 0 24 24" fill="none" stroke="#646b84" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.1"/><path d="M12 7.1V12l3.1 1.9"/></svg>';
+// 「热榜模块」：三根实心圆头柱，绿→品红→青三色，右高左低，底边齐平。
+// 几何是量出来的（把效果图芯片2 的图标区做「彩度掩码」逐列扫描）：
+//   柱宽 2.5 / 2.5 / 3.0 CSS，缝 0.5 CSS，高 8.5 / 9.0 / 9.5 CSS，底边同在 CSS y99.25。
+//   柱心主色分别 #87d3b3（薄荷绿）/ #c66ee7（兰紫）/ #19b9ea（青）。
+// 注意：这里**不是**一根线性彩虹渐变。若是线性渐变，柱1 的中心只能拿到「绿到品红的 22%」，
+// 会是灰蓝 (158,169,200)，而实测柱心是饱和的 (131,211,180)。所以是三块纯色，不是渐变。
+// 原来画的是四根细紫柱（各 4/24 宽、分离），与效果图的三根粗柱完全不同。
+// 图标盒是 10.5 CSS，24 单位 viewBox → 1 CSS = 2.2857 单位。
+const HERO_ICON_BARS =
+  '<svg class="hc-i" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+  '<rect x="3.40" y="4.27" width="5.70" height="18.86" rx="2.6" fill="#87d3b3"/>' +
+  '<rect x="10.20" y="3.70" width="5.70" height="19.43" rx="2.6" fill="#c66ee7"/>' +
+  '<rect x="17.00" y="1.99" width="6.90" height="21.14" rx="2.6" fill="#19b9ea"/></svg>';
+// 「大分类」：实心堆叠（一块宽底板 + 顶部小块 + 底边中央一个小 V 缺口）。
+// 形状同样是量出来的：把效果图芯片3 的图标区按暗度掩码打成 device 分辨率的 ASCII 图，
+// 得到 —— 底板 device x675..690 / y185..196（16×12）、顶块 x680..684 / y182..185（5×3）、
+// 缺口在底边中央 y194..196 处宽 1~2 device px。整体 7.5 CSS 见方。
+// 原来画的是「菱形 + 两道细 V 描边」的线稿图标，缩小到 7.5 CSS 后会散成三条，
+// 而效果图里是一整块实心——这是芯片3 最明显的差异。
+const HERO_ICON_LAYERS =
+  '<svg class="hc-i" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+  '<path d="M5.6 6.7 L9.0 6.7 L9.0 4.6 Q9.0 3.3 10.3 3.3 L13.7 3.3 Q14.7 3.3 14.7 4.6 ' +
+  'L14.7 6.7 L18.4 6.7 Q20.7 6.7 20.7 9.0 L20.7 18.4 Q20.7 20.7 18.4 20.7 ' +
+  'L13.1 20.7 L12.0 18.4 L10.9 20.7 L5.6 20.7 Q3.3 20.7 3.3 18.4 L3.3 9.0 ' +
+  'Q3.3 6.7 5.6 6.7 Z" fill="#646b84"/></svg>';
+// 右侧装饰：三块磨砂玻璃面板（火焰 / 上扬箭头 / 柱状图）
+//
+// 这两张 SVG 的坐标系 = 面板自身坐标系（1 单位 = 1 CSS px，左上角为原点），
+// 数值全部来自 2× 参考图：先把面板逆旋转成轴对齐，再按颜色阈值量内部图形。
+//   上扬箭头（面板 63.5×62）：箭身中线 (41.5,36.25)→(52,27.25)，线宽 ≈2.9；
+//     箭头是个 V 形，顶点 (62.25,13.5)，两个倒钩 (61.3,23.7) / (53.6,19.1)；
+//     箭身是「尾巴透明 → 头部实心」的渐变，实心 #f07128。
+//   柱状图（面板 82.3×59.15）：4 根胶囊柱，宽 8.6、柱心距 13、底边齐平于 y=45.25，
+//     高分别 22 / 31.5 / 27 / 21；柱底下方 y=49.5 有一条白色虚线基线。
+//     底边 44.25 → 45.25、基线 49 → 49.5 是后来校正的：把面板逆旋转成轴对齐后，
+//     用 (B-G)>22 取柱掩码，效果图柱底在面板内 y77、实现在 y75，即实现整体高了
+//     2 面板px（=1.0 CSS）；虚线峰值同样高了 1 面板px（=0.5 CSS）。
+//     柱 2 / 柱 3 的高度也一起修了：校正后第 1、4 根高度与效果图完全一致（41 / 38 面板px），
+//     但第 2 根只有 55（效果图 58）、第 3 根 49（效果图 50），所以 30 → 31.5、26 → 26.5；
+//     复测后第 3 根仍差 1 面板px，再 26.5 → 27（y 18.75 → 18.25，底边仍 45.25）。
+//     最后收窄了柱宽 9.25 → 8.6：逆旋转后同一掩码下效果图柱宽 17/18/17/15 面板px，
+//     实现是 19，明显偏胖；柱心距（13 CSS）两边一致，所以只改宽度不动 x。
+const HERO_ART_TREND =
+  '<svg viewBox="0 0 63.5 62" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+  '<defs><linearGradient id="heroTrendGrad" gradientUnits="userSpaceOnUse" x1="38" y1="38" x2="57.5" y2="21">' +
+  '<stop offset="0" stop-color="#f07128" stop-opacity="0"/>' +
+  '<stop offset=".45" stop-color="#f07128" stop-opacity=".4"/>' +
+  '<stop offset="1" stop-color="#f07128" stop-opacity="1"/></linearGradient></defs>' +
+  '<path d="M38.2 37.8Q48.6 35.2 56.8 21.6" fill="none" stroke="url(#heroTrendGrad)" ' +
+  'stroke-width="2.9" stroke-linecap="round"/>' +
+  '<path d="M62.25 13.5 61.34 23.71 53.64 19.05Z" fill="#f07128"/></svg>';
+const HERO_ART_CHART =
+  '<svg viewBox="0 0 82.3 59.15" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+  '<rect x="14.5" y="23.25" width="8.6" height="22" rx="4.3" fill="#b0bdea"/>' +
+  '<rect x="27.5" y="13.75" width="8.6" height="31.5" rx="4.3" fill="#aec1ef"/>' +
+  '<rect x="40.5" y="18.25" width="8.6" height="27" rx="4.3" fill="#adbdec"/>' +
+  '<rect x="53.5" y="24.25" width="8.6" height="21" rx="4.3" fill="#cbb5d8"/>' +
+  '<path d="M14.5 49.5h46.5" stroke="rgba(255,255,255,.78)" stroke-width="1.5" ' +
+  'stroke-dasharray="10.5 2.5"/></svg>';
+
 function buildHero() {
   const el = document.createElement('section');
   el.className = 'hero';
   el.innerHTML = `
     <div class="hero-main">
       <div class="hero-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2c0 0-1.5 2-3 4.5S6.5 11 8 13c-1-.5-2-1.5-2.5-3 0 0-1.5 2-1 4.5C5 17.5 7 20 12 22c5-2 7-4.5 7.5-7.5.5-2.5-1-4.5-1-4.5-.5 1.5-1.5 2.5-2.5 3 1.5-2 1-4.5-.5-7S13.5 4 12 2z" fill="#fff"/></svg>
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="${HERO_FLAME_PATH}" fill="#fff"/></svg>
       </div>
       <div class="hero-body">
         <div class="hero-title">每日热榜<span class="hero-sub">一站看完天下事</span></div>
-        <p class="hero-desc">聚合微博、知乎、B站、抖音等主流平台实时热点，热榜动态实时更新，一站式掌握全网热门话题</p>
+        <p class="hero-desc">聚合微博、知乎、B站、抖音等主流平台实时热点，热榜动态实时更新</p>
         <div class="hero-stats">
-          <span class="hero-chip">🕒 更新于 <b id="heroTime">获取中…</b></span>
-          <span class="hero-chip">📊 ${EPS.length} 个热榜模块</span>
-          <span class="hero-chip">🗂 ${CATS.length - 1} 大分类</span>
+          <!-- 每颗芯片都是「图标 + 一段文案」，文案必须包在同一个元素里：
+               芯片是 inline-flex，gap 会作用在任意两个 flex 子元素之间。
+               不包的话 chip1 会变成 [图标, "更新于 ", <b>时间戳</b>] 三个 flex 项，
+               「更新于」与时间戳之间会多出一个 flex gap，而效果图那里只有空格本身的宽度。 -->
+          <!-- 数字都要包 <b>：效果图里三颗芯片的「值」都是粗体深色，
+               而「更新于 / 个热榜模块 / 大分类」是常规字重的中灰。
+               之前只有 chip1 有时间戳的 <b>，chip2/chip3 的数字是普通文本，看着就"塌"了一档。 -->
+          <span class="hero-chip">${HERO_ICON_CLOCK}<span>更新于 <b id="heroTime">获取中…</b></span></span>
+          <span class="hero-chip">${HERO_ICON_BARS}<span><b>${EPS.length}</b> 个热榜模块</span></span>
+          <span class="hero-chip">${HERO_ICON_LAYERS}<span><b>${CATS.length - 1}</b> 大分类</span></span>
         </div>
       </div>
     </div>
-    <aside class="hero-weather" id="heroWeather" hidden></aside>`;
+    <!-- 右侧装饰：三块磨砂玻璃面板呈扇形叠放（火焰在左后、上扬折线在右后、柱状图在最前）。
+         纯装饰，aria-hidden；窄屏由 CSS 整块隐藏，不参与布局也不占位 -->
+    <div class="hero-art" aria-hidden="true">
+      <span class="ha-card ha-flame"><svg viewBox="3.34 0.6 17.02 22.5" preserveAspectRatio="none"><path d="${HERO_FLAME_PATH}" fill="#fff"/></svg></span>
+      <span class="ha-card ha-trend">${HERO_ART_TREND}</span>
+      <span class="ha-card ha-chart">${HERO_ART_CHART}</span>
+    </div>`;
   return el;
 }
 
-// ============ 页首 Hero：今日天气（按访客 IP 自动定位） ============
+// ============ 天气卡（右栏顶部 · 按访客 IP 自动定位） ============
 // 数据来自 /v2/weather/local：服务端按 IP 定位城市（含海外城市）后返回「实时天气 + 今日区间」。
 // 服务端主源为 UAPI、腾讯天气兜底，两者字段结构一致，前端无需区分（source.provider 会说明实际生效的一方）。
 // 走 cacheGet/cacheSet 的 30 分钟 TTL——天气变化慢，切分类重渲染也不必重复请求；
@@ -284,10 +379,60 @@ let heroWeather = null;
 // 当前数据对应的缓存 key：手动指定城市与 IP 自动定位分开缓存，互不污染
 let heroWeatherKey = '';
 let heroWeatherLoading = false;
+// 天气卡的渲染状态：'idle' | 'loading' | 'ready' | 'failed'。
+// 卡片会在右栏与抽屉之间被搬来搬去，宿主重建时节点也可能被连带清掉；
+// 重建后必须按当前状态把卡补画回去，否则「定位中…」会一直挂着、
+// 或者已经失败的卡又诈尸成加载态。状态与 DOM 分离才不会有这个歧义。
+let heroWeatherState = 'idle';
 // 失败静默期：天气失败不打扰用户，也避免快速切分类时反复重试打上游
 let heroWeatherRetryAt = 0;
 // 编辑态：点击天气区展开「重新定位 / 手动输入城市」浮层
 let heroWeatherEditing = false;
+
+// ---- 卡片落点：>1180px 在右栏，≤900px 在左侧抽屉，中间那段不显示 ----
+// 卡片是**单例节点**，在两个宿主之间搬家，同一时刻只存在于一处。
+// 不复制成两份：两份 DOM 会撞同一个 id，而且上面那套状态机只认一个节点。
+// 也不写进任何会被 innerHTML 重建的模板里（renderRail 每次都重建右栏），
+// 否则重建时节点连同降水动画的相位一起被丢掉。
+// 两个宿主都用 display:contents：卡片不在时宿主不产生盒子，
+// 不会在菜单与深色模式之间、或右栏卡片之间留下空档。
+const HW_RAIL_MIN_WIDTH = 1180; // 大于这个宽度右栏才存在
+const HW_DRAWER_MAX_WIDTH = 900; // 小于等于这个宽度侧栏才收成抽屉
+let heroWeatherEl = null;
+
+function heroWeatherNode() {
+  if (!heroWeatherEl) {
+    heroWeatherEl = document.createElement('aside');
+    heroWeatherEl.className = 'hero-weather';
+    heroWeatherEl.id = 'heroWeather';
+    heroWeatherEl.hidden = true;
+  }
+  return heroWeatherEl;
+}
+
+// 当前视口下卡片该待在哪个宿主；null = 这段宽度两端都没有它的位置
+function weatherHost() {
+  const w = window.innerWidth;
+  if (w > HW_RAIL_MIN_WIDTH) return document.getElementById('railWeather');
+  if (w <= HW_DRAWER_MAX_WIDTH) return document.getElementById('sbWeather');
+  return null;
+}
+
+// 把卡片搬进当前宿主，返回它此刻是否落在页面里。
+// 同宿主重复调用是空操作（appendChild 到自己已有的父节点下不会改变顺序），
+// 只有跨断点时才会真的换父节点——所以可以在 renderRail 里放心地每次调用
+function placeWeatherCard() {
+  const host = weatherHost();
+  const node = heroWeatherNode();
+  if (!host) {
+    // 900~1180：右栏没了、抽屉还没出来。节点只是脱离文档，
+    // 内容和状态都留着，回到有效区间时由 restoreHeroWeather 原样贴回
+    if (node.parentNode) node.remove();
+    return false;
+  }
+  if (node.parentNode !== host) host.appendChild(node);
+  return true;
+}
 
 // 手动指定的城市偏好：一旦设定就一直沿用它（跨刷新），点「重新定位」清除后回到 IP 定位
 function heroCityPref() {
@@ -343,6 +488,165 @@ function hwFxKind(d) {
   if (/阴/.test(c)) return 'overcast';
   if (/晴/.test(c)) return day ? 'sun' : 'moon';
   return day ? 'cloudy' : 'moon';
+}
+
+// ---- 降水强度分档（1 小 / 2 中 / 3 大 / 4 暴）----
+// 只影响雨滴、雪花的疏密与大小，不参与天气类型判定。
+// 判定优先看描述文案：它和卡片上显示的那行字同源，
+// 不会出现「写着小雨、雨却下成暴雨」这种自相矛盾的画面。
+// 文案笼统到判不出来（只写「雨」）时，才退回用降水量 precipitation 分档。
+// 阈值按中国气象局的**小时**降水量口径：小雨 ≤2.5 / 中雨 2.5~8 / 大雨 8~16 / 暴雨 >16（毫米）
+function hwPrecipLevel(d, kind) {
+  const w = d.weather || {};
+  const c = String(w.condition || '');
+  if (kind === 'snow') {
+    if (/暴雪|大暴雪/.test(c)) return 4;
+    if (/大雪/.test(c)) return 3;
+    if (/中雪|雨夹雪|雨雪/.test(c)) return 2;
+    if (/小雪|阵雪|零星|飘雪|米雪/.test(c)) return 1;
+    // 雪没有可用的数值口径（上游给的是水当量，和积雪深度差着一个量级），按中等处理
+    return 2;
+  }
+  if (/特大暴雨|大暴雨|暴雨/.test(c)) return 4;
+  if (/大雨/.test(c)) return 3;
+  if (/中雨/.test(c)) return 2;
+  // 雷阵雨的雨势按大雨一档——「阵」字说明它是短时强降水，画面该是密的
+  if (/雷/.test(c)) return 3;
+  if (/小雨|阵雨|毛毛雨|细雨|微雨|零星/.test(c)) return 1;
+  const p = w.precipitation;
+  if (Number.isFinite(p)) {
+    if (p >= 16) return 4;
+    if (p >= 8) return 3;
+    if (p >= 2.5) return 2;
+    if (p > 0) return 1;
+  }
+  return 2;
+}
+
+// ---- 降水层：雨滴 / 雪花的随机分布图块 ----
+// 为什么不用 CSS 的 radial-gradient 平铺：那是「每格一颗」的规则点阵，
+// 相邻两格间距完全一致，放大看就是印刷网点，不像下雨/下雪。
+// 这里改成用 JS 生成一张随机分布的 SVG 图块、再交给 CSS 平铺——
+// 随机性来自每颗自己的坐标，平铺只负责铺满整块天空。
+//
+// 两条硬约束：
+// 1) 图块要比可见区域大（360×240 / 300×200；桌面卡只有 286×148、手机横条 351×81），
+//    这样平铺的周期性完全看不出来——图块比视野小的话，同一簇雨滴会按周期反复出现；
+// 2) 每颗都约束在图块内、绝不越界，这样下落循环点上不会出现「半颗雨滴」。
+//    下落位移严格等于图块高度，图块正好走一个周期。
+//
+// n = 图块内的颗数（下标 = 档位-1）；rx / s = 大小范围；op = 不透明度范围。
+// 前后两层：front 近处（大、亮、快），back 远处（小、淡、慢），叠出纵深。
+// 两层的图块面积不同（360×240 vs 300×200），所以「同面积里的颗数」才是真实密度——
+// 后层 n 更小，视觉上才真的更稀。
+// 画布尺寸的取法（两处都不能随便改）：
+// · 高 160 —— 必须大于桌面天气卡的高度（148px），否则图块会在卡内纵向平铺、
+//   同一簇雨滴上下重复出现；同时 160 也是「横条（高 81px）能看到一半」的上限，
+//   再高横条里就只剩三分之一，小雨会空到看不出在下雨；
+// · 宽 360 / 300 —— 大于 375px 视口下的横条宽度（351px），
+//   两层宽度取 6:5（360:300）让它们的平铺周期错开，合成后的重复周期拉到 1800px，
+//   宽屏横条上不会看到「同一簇雨滴又出现一次」。
+// 颗数怎么定：横条只露出图块的 160 分之 81（约一半），所以卡里真正看到的颗数
+// 只有图块颗数的一半左右，且随机落点会让这个数在整周期里上下浮动。
+// 第一版按 10/18/30/46 配，结果小雨最稀的那一帧只剩 2 颗、小雪只剩 1 颗
+// （远景层甚至 0），读起来就是「雨停了」——下限比均值更要紧，所以按
+// 「最稀的一帧也还看得出在下」反推基数，再让档位往上翻：
+// 相邻档位差约 1.4~1.5 倍、首尾差约 3.2 倍，截图里一眼能分出小雨和暴雨
+const HW_PRECIP = {
+  rain: {
+    front: { w: 360, h: 160, n: [15, 21, 32, 48], rx: [1.2, 2.0], op: [0.5, 0.95] },
+    back: { w: 300, h: 160, n: [8, 11, 17, 26], rx: [0.85, 1.35], op: [0.26, 0.58] },
+  },
+  snow: {
+    front: { w: 360, h: 160, n: [10, 15, 22, 32], s: [0.85, 1.5], op: [0.55, 0.95] },
+    back: { w: 300, h: 160, n: [5, 8, 12, 17], s: [0.6, 1.0], op: [0.3, 0.6] },
+  },
+};
+// 下落速度：沿用改造前那套动画的实测速度，保证「快慢手感」不变，只是图块变高了
+// 雨：前层 96px/4.2s ≈ 23 px/s，后层 68px/6.4s ≈ 10.6 px/s
+// 雪：前层 80px/15s ≈ 5.3 px/s，后层 54px/21s ≈ 2.6 px/s
+// 档位倍率：雨越大落得越快，雪同理（暴雪比小雪急）
+const HW_PRECIP_SPEED = { rain: { front: 23, back: 10.6 }, snow: { front: 5.3, back: 2.6 } };
+const HW_PRECIP_RATE = [0.87, 1, 1.16, 1.39];
+
+// 图块按 种类:层:档位 缓存。天气卡每次重绘都会重建 DOM，
+// 不缓存的话每次重绘所有雨滴都会瞬移一次（切视图回来能看到画面「抖一下」）
+const HW_TILE_CACHE = new Map();
+
+function hwPrecipTile(kind, layer, level) {
+  const key = `${kind}:${layer}:${level}`;
+  const cached = HW_TILE_CACHE.get(key);
+  if (cached) return cached;
+
+  const cfg = HW_PRECIP[kind][layer];
+  const count = cfg.n[level - 1];
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const parts = [];
+
+  if (kind === 'rain') {
+    for (let i = 0; i < count; i++) {
+      const rx = rnd(cfg.rx[0], cfg.rx[1]);
+      // 长宽比随机：真实的雨丝不会一般长，3 倍上下浮动最像「雨」
+      const ry = rx * rnd(2.7, 3.8);
+      // 内缩 2px：保证整颗雨滴落在图块内（见上面第 2 条约束）
+      const cx = rnd(rx + 2, cfg.w - rx - 2);
+      const cy = rnd(ry + 2, cfg.h - ry - 2);
+      parts.push(
+        `<ellipse cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" rx="${rx.toFixed(2)}" ry="${ry.toFixed(2)}"`
+        + ` fill="#fff" fill-opacity="${rnd(cfg.op[0], cfg.op[1]).toFixed(2)}"/>`,
+      );
+    }
+  } else {
+    // 雪花只在 defs 里画一次，其余全靠 <use> 引用——26 朵各写一遍路径太浪费
+    parts.push(
+      '<defs><g id="f" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round">'
+      + '<path d="M8 1.4v13.2M2.28 4.7l11.44 6.6M13.72 4.7L2.28 11.3"/>'
+      + '<path d="M8 3.6L6.2 1.8M8 3.6l1.8-1.8M8 12.4l-1.8 1.8M8 12.4l1.8 1.8"/>'
+      + '</g></defs>',
+    );
+    for (let i = 0; i < count; i++) {
+      const s = rnd(cfg.s[0], cfg.s[1]);
+      const half = 9 * s; // 雪花臂展约 ±9（局部坐标 8±7.4），按缩放后的半径留边
+      const x = rnd(half + 2, cfg.w - half - 2);
+      const y = rnd(half + 2, cfg.h - half - 2);
+      // 雪花中心在局部坐标 (8,8)：先平移到目标位置、再缩放，所以平移量要减掉 8s
+      parts.push(
+        `<use href="#f" opacity="${rnd(cfg.op[0], cfg.op[1]).toFixed(2)}"`
+        + ` transform="translate(${(x - 8 * s).toFixed(1)} ${(y - 8 * s).toFixed(1)}) scale(${s.toFixed(2)})`
+        + ` rotate(${Math.round(rnd(0, 60))} 8 8)"/>`,
+      );
+    }
+  }
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${cfg.w} ${cfg.h}">${parts.join('')}</svg>`;
+  const uri = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  HW_TILE_CACHE.set(key, uri);
+  return uri;
+}
+
+// 把图块落到 DOM 上。CSS 只写了平铺尺寸与下落动画，图块内容在这里注入——
+// 布局（尺寸/位移）留在 CSS 里，内容和密度归 JS，两边各管各的才不会互相打架。
+// 槽位沿用天气装饰层的约定：i3 = 近处，i6 = 远处
+function applyHeroWeatherFx(box) {
+  if (!box || !heroWeather) return;
+  const fx = box.querySelector('.hw-fx');
+  if (!fx) return;
+  const kind = hwFxKind(heroWeather);
+  // 雷雨的降水层与「雨」共用同一套雨滴图块
+  const pk = kind === 'snow' ? 'snow' : (kind === 'rain' || kind === 'thunder') ? 'rain' : null;
+  if (!pk) return;
+  const level = hwPrecipLevel(heroWeather, pk);
+  const rate = HW_PRECIP_RATE[level - 1];
+  [[3, 'front'], [6, 'back']].forEach(([slot, layer]) => {
+    const el = fx.querySelector(`i:nth-of-type(${slot})`);
+    if (!el) return;
+    el.style.backgroundImage = `url("${hwPrecipTile(pk, layer, level)}")`;
+    // 时长 = 图块高度 ÷ (基准速度 × 档位倍率)。
+    // 这里的高度、CSS 的 background-size 高度、keyframes 的位移量**必须三处一致**：
+    // 位移量比图块高度小一截，循环接缝处就会「跳一下」；比它大则每次循环漏掉一段。
+    // 改任一处都要同时改另外两处（tilecheck / raincheck 会校验这一点）。
+    el.style.animationDuration = `${(HW_PRECIP[pk][layer].h / (HW_PRECIP_SPEED[pk][layer] * rate)).toFixed(1)}s`;
+  });
 }
 
 // ---- 天气装饰：云 ----
@@ -407,10 +711,18 @@ function heroWeatherHtml(d, editing) {
 }
 
 function paintHeroWeather() {
-  const box = document.getElementById('heroWeather');
-  if (!box || !heroWeather) return;
+  if (!heroWeather) return;
+  // 状态先落定、再找节点：loadHeroWeather() 可能早于 renderRail()，
+  // 那次绘制会落在一个还没入住的宿主上；但状态已经记下，
+  // 宿主就绪后由 restoreHeroWeather() 重新贴回，不会丢
+  heroWeatherState = 'ready';
+  const box = heroWeatherNode();
   box.innerHTML = heroWeatherHtml(heroWeather, heroWeatherEditing);
   box.style.background = hwSkyGradient(heroWeather);
+  // 雨滴 / 雪花的随机图块必须赶在绘制之后、绑定之前注入：
+  // 它们不在 heroWeatherHtml 的模板里（那张图块是几百个字符的 data URI，
+  // 塞进模板会让 HTML 字符串没法读），而是渲染完再按天气类型和强度算出来贴上去
+  applyHeroWeatherFx(box);
   // 悬浮提示里交代清楚定位依据：定位成功显示探测到的 IP，失败则说明用的是默认城市
   const src = heroWeather.source || {};
   const srcText = src.mode === 'manual'
@@ -468,9 +780,10 @@ function bindHeroWeatherEvents(box) {
 }
 
 // prefill：手动指定失败时把用户刚输入的城市带回来，方便改错字
+// 注意统一走 heroWeatherNode() 而不是 getElementById：卡片在 900~1180px
+// 这段是脱离文档的，按 id 查会落空，编辑层就打不开了
 function openHeroWeatherEdit(prefill) {
-  const box = document.getElementById('heroWeather');
-  if (!box) return;
+  const box = heroWeatherNode();
   heroWeatherEditing = true;
   box.classList.add('editing');
   const layer = box.querySelector('.hw-edit');
@@ -485,8 +798,7 @@ function openHeroWeatherEdit(prefill) {
 
 function closeHeroWeatherEdit() {
   heroWeatherEditing = false;
-  const box = document.getElementById('heroWeather');
-  if (!box) return;
+  const box = heroWeatherNode();
   box.classList.remove('editing');
   const layer = box.querySelector('.hw-edit');
   if (layer) layer.hidden = true;
@@ -495,8 +807,7 @@ function closeHeroWeatherEdit() {
 // 手动指定的城市查不到时：撤销偏好、展开编辑层并就地提示，避免用户反复踩同一个错
 function showHeroWeatherError(msg, city) {
   setHeroCityPref('');
-  const box = document.getElementById('heroWeather');
-  if (!box) return;
+  const box = heroWeatherNode();
   if (heroWeather) paintHeroWeather();
   openHeroWeatherEdit(city);
   const err = box.querySelector('.hw-err');
@@ -509,26 +820,49 @@ function showHeroWeatherError(msg, city) {
 // 点击天气区以外 / Esc：收起编辑层
 document.addEventListener('click', (e) => {
   if (!heroWeatherEditing) return;
-  const box = document.getElementById('heroWeather');
-  if (box && !box.contains(e.target)) closeHeroWeatherEdit();
+  const box = heroWeatherNode();
+  if (!box.contains(e.target)) closeHeroWeatherEdit();
 });
 document.addEventListener('keydown', (e) => {
   if (heroWeatherEditing && e.key === 'Escape') closeHeroWeatherEdit();
 });
 
-// 占位骨架：天气区一出现就会压缩左侧文案宽度，先占好位避免文字重排跳动
+// 占位骨架：先占好位避免天气卡落点的高度跳一下
 function paintHeroWeatherLoading() {
-  const box = document.getElementById('heroWeather');
-  if (!box || heroWeather) return;
+  if (heroWeather) return;
+  heroWeatherState = 'loading';
+  const box = heroWeatherNode();
   box.innerHTML = '<div class="hw-city">定位中…</div><div class="hw-temp">--<span class="hw-unit">°C</span></div>';
   box.style.background = HW_SKY_LOADING;
   box.hidden = false;
 }
 
 function hideHeroWeather() {
-  const box = document.getElementById('heroWeather');
-  if (box && !heroWeather) box.hidden = true;
+  if (heroWeather) return;
+  heroWeatherState = 'failed';
+  heroWeatherNode().hidden = true;
 }
+
+// 宿主重建 / 视口跨断点后，把天气卡按当前状态重新安置并补画回去
+// （见 heroWeatherState 与 placeWeatherCard 的注释）
+function restoreHeroWeather() {
+  if (!placeWeatherCard()) return;
+  if (heroWeatherState === 'ready') paintHeroWeather();
+  else if (heroWeatherState === 'loading') paintHeroWeatherLoading();
+  else if (heroWeatherState === 'failed') hideHeroWeather();
+  // 'idle'：首次加载还没开始，节点保持 hidden，交给 loadHeroWeather 接管
+}
+
+// 视口跨过 900 / 1180 时卡片要换宿主。用 matchMedia 而不是 resize 监听：
+// resize 在拖拽窗口时每帧都触发，而真正需要搬家的只有跨过这两条线的那一瞬间。
+// 两条查询都要挂——1181 那条负责「回到右栏」，900 那条负责「进抽屉」，
+// 中间区间的进出正好由它们各自的一次触发覆盖
+['(min-width: 1181px)', '(max-width: 900px)'].forEach((q) => {
+  const mq = window.matchMedia(q);
+  const onChange = () => restoreHeroWeather();
+  if (mq.addEventListener) mq.addEventListener('change', onChange);
+  else if (mq.addListener) mq.addListener(onChange); // 老 Safari 只认 addListener
+});
 
 async function loadHeroWeather(opts = {}) {
   // city：显式传入优先生效（含空串=清除手动偏好回到 IP 定位）；否则读本地偏好
@@ -989,7 +1323,8 @@ MQ_MOBILE.addEventListener('change', () => setupScrollSpy());
 let curCat = 'all';
 /**
  * 顶层视图：'home' = 今日热榜聚合首页（跨平台混排榜单），'cat' = 分类卡片页。
- * 两者共用 #main 由 renderImpl 分流；右侧信息栏 #rail 只在首页显示。
+ * 两者共用 #main 由 renderImpl 分流；右侧信息栏 #rail 在桌面端**所有视图**都显示
+ * （>1180px 由 CSS 控制，≤1180px 整栏 display:none），装的都是与视图无关的全局信息。
  * 默认首页，hash 为某个分类 id 时才落回分类页。
  */
 let curView = 'home';
@@ -1742,7 +2077,11 @@ function init() {
       x.setAttribute('aria-expanded', 'false');
     });
     homeBtn.classList.add('active');
-    nav.classList.remove('sub-collapsed');
+    // 回首页 = 没有任何分类目录是展开的，所以这里要**加上** sub-collapsed 而不是移除。
+    // 原来写成 remove：虽然首页本来就没有 .open 的目录、看不出区别，但箭头朝向是靠
+    // sub-collapsed 推出来的，状态说反了就会在下次展开时丢掉动画（见 style.css 里
+    // .cat-pills > button[data-cat]::before 的注释）。
+    nav.classList.add('sub-collapsed');
     refreshSubs();
     render(true);
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -2031,6 +2370,10 @@ function renderImpl() {
   if (curView === 'home') {
     if (rail) rail.hidden = false;
     main.appendChild(buildHome());
+    // 右栏先立骨架（含天气卡占位），再取天气：天气卡现在住在右栏里，
+    // 若等 applyHome 才建右栏，首屏这段时间右栏是一片空白、天气也没地方落。
+    // 建完由 restoreHeroWeather 按当前状态补画（首次为 idle，交给 loadHeroWeather）
+    renderRail();
     // Hero 每次重建都要回填天气：缓存命中时同步绘制，否则发起一次请求
     // （不调 heroRefreshTime——首页没有卡片，时间戳随聚合数据一并由 applyHome 写入）
     loadHeroWeather();
@@ -2047,7 +2390,26 @@ function renderImpl() {
     return;
   }
 
-  if (rail) { rail.hidden = true; rail.innerHTML = ''; }
+  // 右栏在桌面端「所有页面常显」，不再随视图清空。
+  // 理由有两层：
+  //   ① 它装的是与当前视图无关的全局信息（今日天气 / 热搜平台 / 热门话题），
+  //      本来就没有「只在首页才有意义」的内容；
+  //   ② 留着它，Hero 卡在首页与分类页的宽度就是同一个值——1210px 视口下都是 640。
+  //      之前一进分类页右栏就没了，主栏从 640 跳到 942，Hero 跟着横向拉伸，
+  //      与「高度固定」放在一起看就更刺眼（一张卡只有高度稳定、宽度在跳）。
+  // ≤1180px 由 CSS 的 .app-shell .rail{display:none} 负责隐藏，这里不用再管。
+  // 数据可能还没到（直接深链到 #news 时 homeData 是空的）：先出骨架，
+  // ensureRailData() 会补一次聚合请求再重画。
+  if (rail) {
+    rail.hidden = false;
+    // renderRail 内部会调 restoreHeroWeather()，天气卡若此刻住在右栏里会被
+    // 连带摘出文档，正好由它重新安置（≤900px 时搬进抽屉），
+    // 否则窄屏在分类页切来切去会把天气卡丢在文档外
+    renderRail();
+    ensureRailData();
+  } else {
+    restoreHeroWeather();
+  }
 
   // 页首 Hero 卡：搜索框移除后所有视图都显示它
   main.appendChild(buildHero());
@@ -3371,6 +3733,21 @@ function rMuyu(_, c, ep) {
   };
 }
 
+// 卡片入场动画（CSS 的 .card { animation: fadeIn ... both }）跑完就摘掉。
+// 写成内联 animation:none，两个目的：
+//   ① 结束态不再被 fill 永久覆盖 —— 否则 .card:hover 的 translateY(-2px) 抬升被压死；
+//   ② 任何把 animation 置回 none 的规则（.card:fullscreen / .card.fs-fake /
+//      .vt-run .card）都不会再「销毁 + 重建」这条动画。带 fill-mode:both 与正的
+//      内联 animation-delay 时，重建会回到 before-phase：先渲染 from 帧
+//      （opacity:0 + translateY(8px)），等完延迟再淡入 250ms。
+//      退出全屏时就是「闪一下 + 整卡上滑 8px」，即用户报的抖动。
+// 用委托而不是逐个卡片绑：卡片在每次 render 时整体重建，绑在 document 上一次就够。
+document.addEventListener('animationend', e => {
+  if (e.animationName !== 'fadeIn') return;
+  const card = e.target;
+  if (card && card.classList && card.classList.contains('card')) card.style.animation = 'none';
+});
+
 // ============ 卡片全屏（2048 / 电子木鱼，EPS 注册项带 fs:1） ============
 // 桌面 / Android 走 Fullscreen API（全屏对象是整张卡片）；iOS Safari 无该 API、
 // 或全屏请求被拒/挂起（内嵌 WebView）时回退 .fs-fake 固定定位模拟全屏，两种模式
@@ -3481,21 +3858,51 @@ function fsExitCard(card) {
 // 分类导航下方（偏差 >60px 用 scrollBy 精确补正——scrollIntoView 会把卡片顶到
 // 视口最顶端被 sticky 元素遮住一截，弃用）。verifyOnly：只做停靠校验不回滚
 // （横屏锁退出的二次校验用，避免覆盖用户在补正窗口期内的手动滚动）
+//
+// ⚠️ 停靠线必须由「真的贴在视口顶部的横条」算出来，不能按版式分支硬编码元素。
+// 原来写成 isMobileLayout() ? .cat-nav.bottom : .topbar.bottom，但 .cat-nav 在
+// **任何**宽度下都是 position:static 的**竖向**导航（实测 243×984），它属于侧栏 /
+// 抽屉，永远不是顶部横条。≤820px 时 isMobileLayout() 为真，于是停靠线被算成
+// 1168 + 12 = 1180 —— 比视口高度（820）还大，任何卡片都满足 r.top < 1180 − 8，
+// 被判定成「被顶栏压住了」，接着 scrollBy(r.top − 1180) ≈ −941，退出全屏那一下
+// 页面就往下猛跳 941px。这就是 620 / 375 宽度下退出全屏抖动的原因。
+// 现在改为扫描候选元素、只认「横向 + 贴顶 + 可见」的那些（判据见下），
+// 竖向侧栏/抽屉的 nav 会被 width 那一关直接筛掉，不再依赖版式分支。
 function fsDockTop() {
-  if (isMobileLayout()) {
-    const navEl = document.querySelector('.cat-nav');
-    return (navEl ? navEl.getBoundingClientRect().bottom : 0) + 12;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight || document.documentElement.clientHeight;
+  let bottom = 0;
+  for (const el of document.querySelectorAll('.topbar, .cat-nav')) {
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+    // 只有 sticky / fixed 才可能悬在内容之上；static 的竖向导航不参与
+    if (cs.position !== 'sticky' && cs.position !== 'fixed') continue;
+    const r = el.getBoundingClientRect();
+    if (r.height <= 0 || r.width <= 0) continue;
+    // 横条判据：宽度占视口一半以上，且纵向停在视口上半部
+    if (r.width < vw * 0.5) continue;
+    if (r.bottom <= 0 || r.top >= vh * 0.5) continue;
+    bottom = Math.max(bottom, r.bottom);
   }
-  const topbar = document.querySelector('.topbar');
-  return (topbar ? topbar.getBoundingClientRect().bottom : 0) + 12;
+  return bottom + 12;
 }
 
 function fsRestoreScroll(card, prevScrollY, verifyOnly) {
   if (!verifyOnly && typeof prevScrollY === 'number' && prevScrollY >= 0) {
     window.scrollTo({ top: prevScrollY, behavior: 'instant' });
   }
-  const delta = card.getBoundingClientRect().top - fsDockTop();
-  if (Math.abs(delta) > 60) window.scrollBy({ top: delta, behavior: 'instant' });
+  // 只在「卡片确实不可见」时补正，两种情况：
+  //   · 被 sticky 顶栏 / 分类导航压住（top 跑到停靠线上方）
+  //   · 整块落到视口外（滚动恢复失败，bottom 在停靠线之上 或 top 在视口之下）
+  // 原来只判断 |top − 停靠线| > 60，会把一张停在视口中部的卡片强行吸到顶部：
+  // 实测从卡片中部进入全屏、退出时页面被多滚 222px，那一下就是用户看到的抖动。
+  // 卡片本来完整可见时必须一个像素都不动。
+  const r = card.getBoundingClientRect();
+  const dock = fsDockTop();
+  const vh = window.innerHeight || document.documentElement.clientHeight;
+  const hiddenAbove = r.top < dock - 8;
+  const offScreen = r.bottom < dock + 8 || r.top > vh - 24;
+  if (hiddenAbove || offScreen) window.scrollBy({ top: r.top - dock, behavior: 'instant' });
 }
 
 // 全屏状态变化时，同步游戏区内按钮（⛶ 全屏/✕ 退出）文案
@@ -3832,19 +4239,59 @@ function renderHomeList() {
     + (collapsed ? '' : '<div class="hl-end">已经到底了</div>');
 }
 
-/** 右侧信息栏：热搜平台九宫格 + 热门话题（都跟随 homeFilter 联动） */
+/** 右侧信息栏：天气卡 + 热搜平台九宫格 + 热门话题（后两者跟随 homeFilter 联动） */
+// 天气卡的宿主占位。卡片本身不写在这里，而是由 placeWeatherCard() 按视口宽度
+// 搬进来（>1180px）或搬进抽屉的 #sbWeather（≤900px）。
+// 宿主用 display:contents，卡片直接成为 .rail 的 flex 子项——若宿主自己也是一个
+// flex 项，卡片 hidden 时 .rail 的 gap 会在它身上多算一次，右栏顶部会多出一条空档
+const RAIL_WEATHER_SLOT_HTML = '<div class="rail-weather-slot" id="railWeather"></div>';
+
+// 右栏现在所有页面都显示，但分类页上 homeData 可能是空的——直接深链到 #news 时
+// 从没走过首页那条加载路径。loadHome() 不能复用：它开头就 `if (!$('#homeList')) return`，
+// 而 #homeList 只有首页才有。所以这里单开一条「只为右栏取数」的路径：
+// 内存 → 本地缓存 → 接口，拿到只调 renderRail()。
+// 不担心与首页打架：applyHome 只认 #homeList，首页自己会重画一遍；
+// 反过来这里补的数据也让首页切回去时能直接命中内存。
+let railDataPending = false;
+async function ensureRailData(force = false) {
+  if (homeData && !force) { renderRail(); return; }
+  if (railDataPending) return;
+  if (!force) {
+    const cached = cacheGetWithTs(HOME_CACHE_KEY);
+    if (cached) { homeData = cached.data; renderRail(); return; }
+  }
+  railDataPending = true;
+  try {
+    const res = await fetch(`${API}/v2/hot/aggregate?limit=20&per=3${force ? '&force-update=1' : ''}`);
+    const json = await res.json();
+    const data = json && json.data;
+    if (!data || !Array.isArray(data.items)) throw new Error('bad payload');
+    cacheSet(HOME_CACHE_KEY, data);
+    homeData = data;
+    // 期间可能已经切回首页：那边有自己的加载流程在画，别抢着落笔
+    if (curView !== 'home' && $('#rail')) renderRail();
+  } catch {
+    // 取不到就维持骨架，不影响正文。右栏不是主内容，不值得为它弹错误态
+  } finally {
+    railDataPending = false;
+  }
+}
+
 function renderRail() {
   const rail = $('#rail');
   if (!rail || rail.hidden) return;
   if (!homeData) {
-    rail.innerHTML = '<section class="rail-card"><div class="rail-title">热搜平台</div>' +
+    rail.innerHTML = RAIL_WEATHER_SLOT_HTML +
+      '<section class="rail-card"><div class="rail-title">热搜平台</div>' +
       `<div class="home-skeleton">${SKELETON_HTML}</div></section>`;
+    // innerHTML 重建把宿主换成了新节点，必须重新安置并补画卡片
+    restoreHeroWeather();
     return;
   }
   // 与顶部标签行同口径：抓取失败的平台也保留格子（置灰），不因一次失败就少一格
   const plats = homeData.platforms;
   const okCount = plats.filter(p => p.ok).length;
-  rail.innerHTML = `
+  rail.innerHTML = RAIL_WEATHER_SLOT_HTML + `
     <section class="rail-card">
       <div class="rail-title">热搜平台<span class="rt-sub">${okCount}/${plats.length} 个来源</span></div>
       <div class="rail-grid" id="railGrid">
@@ -3859,6 +4306,8 @@ function renderRail() {
       <div class="rail-topics" id="railTopics"></div>
     </section>`;
   renderRailTopics();
+  // innerHTML 重建把宿主换成了新节点，必须重新安置并补画卡片
+  restoreHeroWeather();
 }
 
 function renderRailTopics() {
@@ -3918,7 +4367,17 @@ function revealPill(pill) {
 document.addEventListener('click', e => {
   const el = e.target.closest('.hf-pill, .rail-plat');
   if (!el || !el.dataset.plat) return;
-  setHomeFilter(el.dataset.plat);
+  // 先取出平台 id：切首页会把右栏整块重建，el 随即脱离文档，之后就读不到了
+  const plat = el.dataset.plat;
+  // 右栏九宫格在所有页面都在，但榜单只有首页有。从分类页点平台要先回首页，
+  // 否则筛选值改了、renderHomeList() 却因为 #homeList 不在而静默 no-op，
+  // 用户看到的是「点了没反应」。走首页入口按钮而不是直接改 curView，
+  // 是为了复用它的整套副作用（hash、pill 高亮、手风琴复位、回到顶部）
+  if (curView !== 'home' && el.classList.contains('rail-plat')) {
+    const homeBtn = document.querySelector('.cat-pills > button[data-view="home"]');
+    if (homeBtn) homeBtn.click();
+  }
+  setHomeFilter(plat);
 });
 
 // 榜单折叠/展开：纯本地重渲染，不重新请求
@@ -3946,6 +4405,9 @@ function refreshAll() {
   visEps.forEach((ep, i) => {
     setTimeout(() => load(ep, true).catch(() => {}), i * 60);
   });
+  // 右栏现在所有页面常显，它的聚合数据也得跟着「全部刷新」一起刷，
+  // 否则正文刷新了、右栏还停在上一次的热搜平台与话题上
+  ensureRailData(true);
   const done = () => { if (btn) btn.classList.remove('busy'); };
   setTimeout(done, Math.max(600, visEps.length * 60 + 400));
 }

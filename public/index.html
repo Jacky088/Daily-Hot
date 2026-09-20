@@ -84,6 +84,14 @@
       </button>
     </div>
 
+    <!-- 天气卡的落点之一：抽屉里品牌文字（「聚合全网热点」）之下、菜单之上。
+         卡片本身不写在这里——它由 app.js 按视口宽度在右栏(#railWeather)与这里之间搬运，
+         同一时刻只存在于一个宿主里（见 placeWeatherCard）。
+         >1180 它在右栏；900~1180 右栏已消失、抽屉还没出现，两端都没有它的位置，整段不显示。
+         宿主用 display:contents，所以卡片是 .sidebar 的直接 flex 子项：
+         宽度自动跟菜单对齐（两边都是 stretch 撑满同一栏），卡片不在时也不占位 -->
+    <div class="sb-weather" id="sbWeather"></div>
+
     <nav class="cat-nav" id="catNav"></nav>
 
     <div class="sb-foot">

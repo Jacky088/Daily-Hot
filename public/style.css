@@ -34,6 +34,10 @@
   --warn: #fbbf24;
   --error: #f87171;
   --shadow: 0 4px 24px rgba(0,0,0,0.3);
+  /* 玻璃投影（与亮色同一组变量，两套主题各自给值）。暗色下刻意贴近改版前的
+     0.1 / 0.14——深底上投影本来就几乎不可见，加太重只会把玻璃面压成一团黑 */
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
+  --glass-shadow-hover: 0 14px 40px rgba(0, 0, 0, 0.2);
   /* Liquid Glass 玻璃变量组：暗色下玻璃更暗更收敛。
      底色不透明度（用户要求更通透）：0.82→0.68，壁纸透出 32%——文字对比度由
      blur(28px)+saturate(180%) 的 backdrop-filter 兜底：壁纸被强模糊后亮度
@@ -52,16 +56,41 @@
 }
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f9f4fb;
-  --bg-grad: radial-gradient(ellipse at top, #ffffff 0%, #fdecf1 40%, #f0eafb 85%);
-  --card: #ffffff;
-  --card-hover: #ffffff;
-  --border: #f0e4f3;
-  --border-light: #e0d0ea;
-  --text: #2b1f14;
-  /* 次要文字加深到 AA 级：原来 --text-dimmer 在白底仅约 2.7:1，偏灰发虚 */
-  --text-dim: #7d6349;
-  --text-dimmer: #846d52;
+  /* 底色与背景：浅蓝紫底 + 几颗**大球体**（对齐效果图局部截图）。
+     效果图里不是「一团团亮斑」，而是几颗很大的柔和球体，最可辨的特征是
+     **球面那道弧形亮边**。所以单靠 `0% → 透明` 的实心光斑做不出来，必须给
+     球面描一圈亮边，五段式才能同时表达「球内雾感」和「球面弧线」：
+       0%   中心打底（球内略亮）
+       72%  球内一路平缓，制造雾感
+       88%  亮度抬起来 —— 弧线开始出现
+       95%  弧线最亮处
+       99%  快速收边（不能直接归零，否则是一道硬边而不是柔和的球面）
+     透明度刻意压在 0.4 上下：效果图那张局部截图整片是**低对比的雾**，
+     球面弧线只是隐约浮出来。第一版按 0.66 做，几颗球叠在一起又亮又乱，
+     完全不是那个味道。
+     半径取 620~700px、只放 3 颗：太多太小会退化成散景光点，也撑不出球面曲率。
+     由 body 的 background-attachment: fixed 钉在视口上，滚动时氛围不跟着跑 */
+  --bg: #e4ebf8;
+  --bg-grad:
+    radial-gradient(circle 700px at 6% 8%, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.16) 72%, rgba(255, 255, 255, 0.38) 88%, rgba(255, 255, 255, 0.42) 95%, rgba(255, 255, 255, 0.12) 99%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(circle 620px at 104% 34%, rgba(240, 246, 255, 0.26) 0%, rgba(240, 246, 255, 0.15) 72%, rgba(250, 252, 255, 0.38) 88%, rgba(255, 255, 255, 0.42) 95%, rgba(255, 255, 255, 0.12) 99%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(circle 680px at 20% 104%, rgba(255, 252, 248, 0.24) 0%, rgba(255, 252, 248, 0.14) 72%, rgba(255, 254, 251, 0.36) 88%, rgba(255, 255, 255, 0.4) 95%, rgba(255, 255, 255, 0.1) 99%, rgba(255, 255, 255, 0) 100%),
+    linear-gradient(180deg, #e8eefb 0%, #dee6f6 52%, #e4ebf9 100%);
+  /* 卡片底改半透明白：底色能透出球体，配合 backdrop-filter 才成立「毛玻璃」。
+     原来是不透明纯白，球体再好看也穿不过去，卡片只会是一块死白。
+     0.52 是「透」与「可读」的折中：再往上球面弧线就被压没了，
+     再往下正文对比度开始吃紧（底色 #e0e7f6 上正文仍有 ~13:1，稳在 AAA） */
+  --card: rgba(255, 255, 255, 0.52);
+  --card-hover: rgba(255, 255, 255, 0.8);
+  /* 描边走低透明度冷灰蓝：亮色玻璃是白底，纯白描边在白卡上完全看不见、边缘直接
+     「虚」掉；冷灰蓝既立得住，也和蓝紫底同色系 */
+  --border: rgba(146, 163, 199, 0.22);
+  --border-light: rgba(146, 163, 199, 0.34);
+  /* 正文与次要文字转冷调石板色（原来是暖棕，压在蓝紫底上发脏）。
+     三档都按 AA 校准：正文 ≈13:1、次要 ≈5.4:1、更次要 ≈4.6:1（白卡底） */
+  --text: #1c2438;
+  --text-dim: #525d7a;
+  --text-dimmer: #6a7591;
   --accent: #f97316;
   --accent-light: #ea580c;
   --accent-bg: rgba(249,115,22,0.1);
@@ -74,17 +103,24 @@
   --success-text: #047857;
   --warn: #d97706;
   --error: #dc2626;
-  --shadow: 0 2px 14px rgba(150,95,125,0.12);
-  /* Liquid Glass 玻璃变量组：亮色玻璃更透更亮（与暗色同步调通透） */
-  --glass-bg: rgba(255, 255, 255, 0.4);
-  /* 亮色玻璃是白底，白描边（原白 0.6）在浅色壁纸上完全看不见、边缘直接「虚」掉，
-     统一改低透明度深暖色才立得住 */
-  --glass-border: rgba(88, 62, 74, 0.2);
-  /* hover / 强调态：更深一档，边缘更「实」 */
-  --glass-border-strong: rgba(88, 62, 74, 0.38);
-  --glass-hi: rgba(255, 255, 255, 0.8);
-  --glass-lo: rgba(255, 255, 255, 0.25);
+  /* 阴影转冷：原来偏玫瑰灰，落在蓝紫底上显脏；冷灰蓝 + 更大扩散更接近效果图的柔和悬浮感 */
+  --shadow: 0 10px 30px rgba(74, 96, 150, 0.10);
+  /* Liquid Glass 玻璃变量组：亮色玻璃定在 0.46。这版刻意比上一版更透——
+     效果图局部截图里卡片是能看见背景球面弧线穿过去的，0.58 那档太厚、
+     球体透上来只剩一层灰雾。0.46 配上 28px 强模糊，既有通透感又不会让正文发虚 */
+  --glass-bg: rgba(255, 255, 255, 0.46);
+  /* 玻璃描边给白：卡面是半透明白叠在蓝紫底上、实际呈冷白，纯白描边比它更亮，
+     于是边缘形成一圈「玻璃口沿」的高光，正是效果图里那种通透感 */
+  --glass-border: rgba(255, 255, 255, 0.7);
+  /* hover / 强调态：描边再提亮一档，边缘像被光扫了一下 */
+  --glass-border-strong: rgba(255, 255, 255, 0.95);
+  --glass-hi: rgba(255, 255, 255, 0.9);
+  --glass-lo: rgba(255, 255, 255, 0.24);
   --border-glass: rgba(255, 255, 255, 0.5);
+  /* 玻璃投影：原来在 .card 里写死 rgba(0,0,0,...)，亮色下是一层灰雾、暗色下偏死黑。
+     抽成变量后两套主题各给各的冷调/深调扩散 */
+  --glass-shadow: 0 12px 34px rgba(74, 96, 150, 0.11);
+  --glass-shadow-hover: 0 18px 44px rgba(74, 96, 150, 0.17);
   /* 壁纸遮罩：亮色主题提亮（同一层遮罩，方向相反、目的一致） */
   --wallpaper-scrim: rgba(255, 253, 250, 0.5);
 }
@@ -96,7 +132,14 @@ html { scroll-behavior: smooth; }
   html { scroll-behavior: auto; }
 }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  /* 字体栈里为什么要在 PingFang 与雅黑之间插一个 "Noto Sans SC"：
+     效果图是 macOS 上截的，中文走 PingFang SC；Windows 上 PingFang 缺失会落到微软雅黑，
+     而雅黑的字面明显更重（同一段「每日热榜」23px：雅黑 Bold 墨量 4460、竖笔中位 7.0，
+     PingFang Semibold 是 3909 / 6.0）。Noto Sans SC 是 PingFang 最接近的开源替身，
+     实测同口径 3736 / 6.0，几乎逐项吻合，所以插在雅黑前面。
+     拉丁字符仍由 Segoe UI 负责（Segoe 无 CJK 字形，中文会自动往后落）。 */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", sans-serif;
   background: var(--bg);
   background-image: var(--bg-grad);
   background-attachment: fixed;
@@ -162,7 +205,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 :root[data-theme="light"]:not(.wallpaper-off) {
   --glass-bg: rgba(255, 255, 255, 0.78);
-  --glass-border: rgba(88, 62, 74, 0.26);
+  /* 描边同步转冷灰蓝（原为暖棕 rgba(88,62,74,...)）：壁纸开启态下玻璃底更厚、
+     白描边依旧看不见，仍需要一个比卡面深的冷调描边才立得住 */
+  --glass-border: rgba(120, 138, 178, 0.3);
 }
 /* 壁纸上的「裸文字」（页脚、分类标题条这些没有玻璃底的）：补一层极淡的
    方向性阴影把字和背景拉开。幅度刻意做小——只在边缘起作用，不形成描边感 */
@@ -685,98 +730,408 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 
 /* ============ 页首 Hero 卡 ============ */
-/* 与侧栏面板/卡片同一套 Liquid Glass：玻璃底 + 玻璃描边 + 内高光，
-   品牌橙只出现在图标块与副标语，数据芯片保持中性玻璃 */
+/* 这张卡按效果图改成了「实色柔和渐变」，不再走 Liquid Glass：
+   效果图里它是一整块淡紫 → 粉 → 橙的品牌色底，背景球体并不透上来，
+   和右栏/列表那些玻璃卡是两种材质，这是刻意的（Hero 做成实色高亮块）。
+   副作用：卡内文字不能再用 --text / --text-dim——它们会随主题翻转，
+   而这张卡的底色永远是浅色，深色模式下一翻就看不见了。
+   所以下面用一组 --hero-* 卡内固定色，两套主题共用。
+
+   尺寸换算：效果图是 2× 截图。判据是卡片那条 1px 浅色描边——垂直剖面
+   实测亮带 2 个设备像素、文字笔画也 ~2px；1× 截图只会是 1px。
+   因此效果图像素 ÷ 2 = CSS px。卡片 1278×251 → 639×125.5。 */
 .hero {
-  display: flex; align-items: stretch; gap: 0;
+  /* 取色前必须先做白点归一化：效果图整张有一个 ×0.965 的色阶压缩——
+     全图最白的像素只有 (246,246,246)，橙色图标块里火焰的纯白也是 246，
+     而 PNG 里没有 gAMA/sRGB 块，所以这就是图像本身的属性，不是解码问题。
+     不归一化的话所有亮色都会系统性偏暗 3.5%（副标语会被读成 #f13704，真值 #fa3904）。
+     归一化系数 K = 255/246 = 1.0366；对深色影响很小（0→0，11→11），对亮色影响明显。
+     取法：原生分辨率上取「最暗 1.5% 像素的中位色」，再乘 K。
+     这个估计量在实现端精确无偏（拿已知的 #4c495a / #15151e / #ef4205 去测逐位相同）。 */
+  --hero-ink: #00000b;        /* 标题：效果图实测就是近纯黑，带一点蓝 */
+  --hero-ink-dim: #8a8495;    /* 描述 */
+  --hero-accent: #fa3904;     /* 副标语 */
+  --hero-chip-ink: #545365;   /* 芯片内文字（时间戳那一段更深，单独给值） */
+
+  position: relative;
   margin-bottom: 18px; padding: 0;
-  /* 裁切右侧天气区：让它顺着 18px 圆角铺满，与左侧文案合成一张整卡 */
+  /* ── 高度：固定 148px，不随窗口宽度变 ──
+     2026-09-20 第二次修正。上一版用了 aspect-ratio 让高度跟着卡片宽度走，
+     出发点是「卡片变宽就不那么扁」，但结果是**拖窗口时高度一直在变**：
+       1600→196  1300→166  1210→148  1181→148   ← 右栏还在，越窄越矮
+       1180→196  1080→185   900→196   700→154   ← 右栏消失后卡片突然变宽，高度又跳上去
+     用户实测到的正是「从高变低、再从高到低」这两段。装饰性的比例好看，但不能拿
+     布局稳定性去换，所以彻底去掉 aspect-ratio / max-height，只留一个固定下限。
+     为什么是 148：右栏天气卡就是 148（min-height + 纵向居中），两张卡顶边都在 y=74.5，
+     等高才对得齐。桌面端文案区实测 139.4~141.4 高，永远小于 146 的内容盒，所以
+     148 就是恒定值，窗口怎么拖都不动。
+     min-height 而不是 height：移动端（≤820px）描述会折成两行、芯片折成两行，
+     内容真的会超过 148，这时让它自然长高（详见文末移动端媒体查询）。 */
+  /* width: 100% 不能省：`.main` 是 shrink-to-fit 容器，`.hero` 的 width 默认是 auto。
+     写成确定值，块向尺寸才只由 min-height 和内容决定。 */
+  /* container-type 是为了让装饰簇能按「卡片自己的宽度」决定缩不缩。
+     不能挂视口断点：右栏 >1180px 才出现，所以 1181~1270 这段主栏反而最窄
+     （611~700），而 ≤1180 时右栏消失、卡片反而宽到 876~912 —— 视口宽度和
+     卡片宽度是反着走的，写视口断点会得到完全错误的区间。 */
+  container-type: inline-size;
+  width: 100%;
+  min-height: 148px;
+  display: flex; flex-direction: column; justify-content: center;
+  /* 裁切：图标块外发光与右侧装饰面板都要被圆角切住 */
   overflow: hidden;
-  background: var(--glass-bg);
-  backdrop-filter: blur(28px) saturate(180%); -webkit-backdrop-filter: blur(28px) saturate(180%);
-  border: 1px solid var(--glass-border); border-radius: 18px;
-  box-shadow:
-    inset 0 1px 0 var(--glass-hi),
-    inset 0 -1px 0 var(--glass-lo),
-    inset 0 0 24px var(--glass-lo);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  /* 这张卡的底不是目视调的，是量出来的。做法：
+     ① 把图标块 / 三行文字 / 芯片行 / 三块装饰面板全部遮掉（面板按拟合出的旋转矩形遮，
+        外扩 5px），再腐蚀 3px 让抗锯齿不污染，剩下的像素就是纯渐变底；
+     ② 逐行取 x15%~45% 的中位色当「竖向底色」，写成 8 个停靠点的 linear-gradient；
+     ③ 在底色上按 12×6 网格算残差，残差里剩下的横向结构用径向斑补。
+     补的时候用了一个「恒定 RGB + alpha 斜坡」的约束：CSS 渐变色标是在预乘 alpha 空间插值的，
+     如果两个色标的 RGB 不同，预乘插值和不预乘结果不一样，手写模拟器容易和 Chrome 差一点；
+     让每个斑的 RGB 恒定、只让 alpha 变化，两种插值就等价了，拟合参数搬到 CSS 能逐位复现。
+     （为此先在 Python 里写了个渐变模拟器，拿「只有底色」的实测渲染给它定标，
+      偏差 |Δ| = 2.85，之后的参数都在这上面调，改一次几秒，不用每轮都开浏览器。）
+
+     量出来的结构是：
+       · 底色：顶部紫蓝 #c6c6ee → 中段粉 #efd5dc → y58 #f8dbdb → y75 反而偏橙粉 #fad4cb
+         （G 比上下都低）→ 底部奶油 #f9e1dd。所以是 8 个停靠点，不是单调的几段。
+       · 右侧 x62%~95% 有一条橙带，最饱和处在 x≈76%，而且**上下两端浓、中间被冲淡**：
+         x79 一列从上到下是 (251,145,105) → (249,182,164) → (248,136,101)，
+         中间那段 G 高了 37 级。单层径向做不出「两头浓中间淡」，所以拆成上下两个橙核。
+       · 橙带左右两翼还有更淡的鲑色（x62 y8 是 (241,189,186)），以及右缘 y58 更饱和的一段
+         （x95 y58 是 (244,173,122)），各给一团。
+       · 左缘 x0%~5% 在中上部偏冷（x4 y25 是 (200,201,243)，B 比 R 还高），
+         x12 一列则整体偏暖偏亮 —— 是两个独立的斑，不是一个。
+     最终整卡背景的 |Δ|（24×8 密集网格，Δ=实现−效果图）从原来的 11.1 降到 6.5。
+
+     注意：这张卡是**实色**底，不走 Liquid Glass，背景球体不透上来（刻意如此）。 */
+  background:
+    /* 橙核上 */
+    radial-gradient(15% 50% at 76% 2%, rgba(251, 145, 105, 1.00) 0%,
+      rgba(251, 145, 105, 0.65) 50%, rgba(251, 145, 105, 0) 100%),
+    /* 橙核下 */
+    radial-gradient(15% 55% at 76% 98%, rgba(248, 136, 101, 1.00) 0%,
+      rgba(248, 136, 101, 0.65) 50%, rgba(248, 136, 101, 0) 100%),
+    /* 淡鲑柱 */
+    radial-gradient(12% 120% at 65% 50%, rgba(246, 191, 164, 0.72) 0%,
+      rgba(246, 191, 164, 0.47) 50%, rgba(246, 191, 164, 0) 100%),
+    /* 右上角 */
+    radial-gradient(13% 36% at 89% 5%, rgba(249, 191, 160, 0.95) 0%,
+      rgba(249, 191, 160, 0.62) 50%, rgba(249, 191, 160, 0) 100%),
+    /* 右下角 */
+    radial-gradient(11% 40% at 88% 95%, rgba(248, 177, 132, 1.00) 0%,
+      rgba(248, 177, 132, 0.65) 50%, rgba(248, 177, 132, 0) 100%),
+    /* 右中橙 */
+    radial-gradient(12% 60% at 95% 56%, rgba(244, 173, 122, 1.00) 0%,
+      rgba(244, 173, 122, 0.65) 50%, rgba(244, 173, 122, 0) 100%),
+    /* 左冷斑 */
+    radial-gradient(5% 40% at 0% 34%, rgba(170, 182, 251, 0.75) 0%,
+      rgba(170, 182, 251, 0.49) 50%, rgba(170, 182, 251, 0) 100%),
+    /* 左暖柱 */
+    radial-gradient(8% 110% at 12% 50%, rgba(243, 206, 194, 0.60) 0%,
+      rgba(243, 206, 194, 0.39) 50%, rgba(243, 206, 194, 0) 100%),
+    /* 左上亮 */
+    radial-gradient(5% 14% at 12% 7%, rgba(226, 213, 232, 0.85) 0%,
+      rgba(226, 213, 232, 0.55) 50%, rgba(226, 213, 232, 0) 100%),
+    /* 中上亮 */
+    radial-gradient(9% 26% at 48% 3%, rgba(224, 220, 238, 0.70) 0%,
+      rgba(224, 220, 238, 0.45) 50%, rgba(224, 220, 238, 0) 100%),
+    linear-gradient(180deg, #c8c6eb 0%, #ccc7e9 8%, #d6cae3 25%, #f1d5d9 41%,
+      #fadbd8 58%, #fcd4c8 75%, #fbe1da 91%, #fbe1da 100%);
+  box-shadow: 0 10px 30px rgba(122, 92, 142, 0.16);
 }
-/* Hero 左侧文案区：原 Hero 的内边距移到这里，右侧空间才能完整让给天气区。
-   min-width 300 是「标题/描述不被挤成竖排」的下限——低于这个宽度，
-   28px 的「每日热榜」就会一字一行。给死下限可让 flex 无法再压它，
-   压不下去时改由天气区收缩让路（见 .hero-weather 的 min-width）。
-   flex-grow 取 2，与天气区的 1 配对 → 宽屏下右侧约占整卡三分之一，
-   比原先的定宽 312px（约四分之一）更平衡，左侧的留白被利用起来。
-   竖排/移动端由下方媒体查询整体接管，不受这个比例影响 */
+/* Hero 文案区：图标块在左，标题/描述/数据芯片在右。
+   这里的内边距就是整张卡的内边距（.hero 自身零内边距）。
+   min-width: 0 是给内部 flex 项兜底：描述是一整段长文本，
+   不写它会让 .hero-body 的自动最小尺寸把卡片顶宽、溢出圆角。
+   左内边距 26.5 与 gap 18.5 是量出来的：图标块左边距 26.5、文字列起点 113.5 */
 .hero-main {
-  display: flex; align-items: flex-start; gap: 14px;
-  flex: 2 1 360px; min-width: 300px; padding: 18px 20px;
+  position: relative; z-index: 1;
+  display: flex; align-items: flex-start; gap: 19px;
+  /* 左内边距 25.5 与上内边距 24 是量出来的：效果图里橙色图标块的左上角在
+     卡片内 (26.5, 25.0)。注意 .hero 自带 1px 描边，而绝对定位/内边距的包含块
+    是 padding box，所以 padding 要再减 1 才是图标块的卡片内坐标。
+     gap 19：图标块右缘 95.0 + 19 = 文字列起点 114.0，与效果图标题墨迹起点一致。 */
+  min-width: 0; padding: 24px 30px 20.5px 25.5px;
 }
-/* 图标块：橙渐变圆角方块 + 白色火焰（复用顶栏 logo 图形） */
-/* ⚠️ 预览实验：Hero 图标/标题/副标题同比例放大（46→69 / 30→45 / 19→28 / 12→18），未定稿 */
+/* 图标块：橙渐变圆角方块 + 白色火焰。
+   渐变方向按效果图实测：右上最亮 (#f85600)、右下最深 (#f13802)，
+   绿通道从左上的 105 递减到右下的 56，所以是 135°。
+   圆角 18px 也是量出来的（沿顶边扫橙色跨度，拟合半径 ≈36 原图px） */
 .hero-icon {
-  flex-shrink: 0; width: 69px; height: 69px; border-radius: 19px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  flex-shrink: 0; width: 76px; height: 76px; border-radius: 20px;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: var(--accent-glow);
+  /* 渐变是拟合出来的，不是目视调的：把方块内（避开中央火焰与圆角）按
+     colour = a + bu·u + bv·v 做二维最小二乘，G 通道斜率 (bu,bv)=(-39.4,-56.4)。
+     比值 56.4/39.4 = 1.43，正好等于 145° 时 cos/sin = 0.819/0.571 = 1.434，
+     所以角度是 **145deg** 而不是原来的 135deg。
+     端点由 ΔC = bu/(sin145/1.389) 反解：ΔG = -95.9 → G 从 131 走到 35；
+     ΔR ≈ -8（R 基本饱和）、ΔB ≈ -10.5。
+     得到 #ff830b → #f92300。原值 #f67100 → #f13802 在方块下部明显偏暗偏灰
+     （实测 (100,170) 处 效果图 (249,72,2) / 实现 (243,79,2)，G 差 +7~+12）。 */
+  background: linear-gradient(145deg, #ff830b 0%, #f92300 100%);
+  box-shadow: 0 7px 18px rgba(230, 74, 4, 0.34);
 }
-.hero-icon svg { width: 45px; height: 45px; }
-.hero-body { flex: 1; min-width: 0; }
+/* 火焰本体实测 28×36.5 CSS。path 在 24×24 viewBox 里只占 17.02×22.5
+   （0.709×0.9375），所以 SVG 盒子要开到 39px 火焰才是 28 宽 */
+.hero-icon svg { width: 43px; height: 43px; display: block; }
+.hero-body { flex: 1; min-width: 0; padding-top: 2.4px; }
 .hero-title {
-  font-size: 28px; font-weight: 800; color: var(--text); letter-spacing: 0.3px;
-  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  display: flex; align-items: baseline; gap: 13px; flex-wrap: wrap;
+  /* 600 而不是 800：效果图的标题是 PingFang SC Semibold 那一档。
+     在只有 400/700 两档的字体上（微软雅黑）600 会被上取到 700，
+     在有可变字重的字体上 600 才落得准，所以 600 比 800 更稳。 */
+  /* ── 2026-09-20：整块字号放大一档 ──
+     原值（标题 23 / 副标语 14 / 描述 9.3 / 芯片 7.75）是从效果图 2× 截图直接 ÷2 量出来的，
+     逐像素确实最像，但 9.3px 的描述和 7.75px 的芯片在真实屏幕上读起来吃力。
+     以「可读性优先」整体放大，比例关系保持不变（标题仍是描述的 ~2.1 倍）：
+       图标块 68.5 → 76、标题 23 → 26、副标语 14 → 16、描述 9.3 → 12.5、
+       芯片 7.75 → 11（高 20 → 26）、芯片图标 10.5 → 14。
+     放大量是按「描述行仍能单行放下」反推的上限：12.5px 时整行约 362px，
+     而 1210 视口下文字列宽 489.5px，还有余量。 */
+  font-size: 26px; font-weight: 600; line-height: 1.15;
+  color: var(--hero-ink); letter-spacing: 0;
 }
-.hero-sub { font-size: 18px; font-weight: 600; color: var(--accent-text); letter-spacing: 0; }
-.hero-desc { margin-top: 4px; font-size: 13px; color: var(--text-dim); line-height: 1.6; }
-.hero-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.hero-sub { font-size: 16px; font-weight: 700; color: var(--hero-accent); letter-spacing: 0; }
+/* 标题→描述、描述→芯片 的两段间距是按「以图标块上沿为基准」的像素差对齐的：
+   效果图里描述行顶距图标块上沿 76px、芯片行顶 119px；初版分别是 66/108，
+   差了 5 个 CSS px（不是按卡片顶对齐——卡片顶在效果图里被圆角描边糊掉 1~2px，不可靠） */
+.hero-desc {
+  /* 6 而不是 6.5：试过把描述行（连带芯片行）下移 0.5 CSS 去凑整块互相关的
+     dy=-1，结果反而更差（描述行窗口 MAE 15.70 → 17.48，全卡 11.30 → 11.44）。
+     原因是 0.5px 的位移把文字推到了另一个子像素相位，抗锯齿变差，
+     收益（约 -0.02 全卡 MAE）远小于这一档相位损失。
+     结论：这类 0.5 CSS 的偏差属于「跨平台文字渲染」的噪声底，不要再追。 */
+  margin: 6px 0 0;
+  /* 字号 9.3 是按「整行墨迹总宽」定的，不要再用字距中位数去反解——
+     那个口径只有 0.5 原图px 的分辨率，而且在混合文本（含拉丁字母 B 和全角标点）上
+     连续段之间的斜率能差到 1.7~19.0，线性拟合在副标语上自检就偏了 1%。
+     整行墨迹总宽最稳：效果图 114.0..398.0 = 284.0 CSS，
+     实现 9.25px 时是 113.5..396.0 = 282.5 CSS，按线性外推 → 9.30px。
+     （另注：测量时窗口起点不能设成内容起点，否则会把窗口边界当成墨迹起点——
+     之前正是这么把效果图描述行误测成 277 CSS，得出「宽了 2.5%」的错误结论。） */
+  font-size: 12px; line-height: 1.55;
+  color: var(--hero-ink-dim);
+}
+.hero-stats { display: flex; flex-wrap: wrap; gap: 7.5px; margin-top: 12px; }
+/* 芯片：纯白药丸 + 极淡投影，没有描边（效果图里芯片和底色之间只有明度差）。
+   高度 20、字号 7.75 都是量出来的（芯片白区 40 原图px，内文 CJK advance 15.2 原图px）。
+   左右内边距 6.75 是用「药丸左右边缘」对比定的：实现端 DOM 实测药丸1 x114.0 w123.55，
+   效果图同口径量到 x≈114.0 w≈121.65，起点一致、宽度差 1.9（来自字重的抗锯齿差，见下）。
+   间距 7.3 是重新量过的：在药丸垂直中部行（y184..196，此处药丸投影还没落下来）
+   按「药丸亮度 / 间隙底色 的中点」读边缘——
+     效果图 药丸1右 469.54、药丸2左 484.55 → 空隙 15.0 原图px = 7.5 CSS；
+            药丸2右 643.48、药丸3左 658.34 → 空隙 14.86 原图px = 7.43 CSS。
+     实现端同口径读出来是 6.41 / 6.38（真值 6.25，说明这个口径本身有 +0.15 的偏差），
+     扣掉偏差 → 效果图真值 ≈ 7.3。原来写 6.25 时三颗药丸整体比效果图窄 4 CSS。 */
 .hero-chip {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-size: 12px; color: var(--text-dim);
-  background: var(--glass-lo); border: 1px solid var(--glass-border);
-  padding: 4px 10px; border-radius: 999px;
-  font-variant-numeric: tabular-nums;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 26px; padding: 0 8px;
+  font-size: 11px; line-height: 1;
+  color: var(--hero-chip-ink);
+  /* 药丸是半透明白，不是纯白——这点很容易做错。
+     反解方法：同一 x 上取药丸正上/正下方的背景求平均当底色，再解
+     pill = bg·(1-α) + 255·α。三个药丸压在完全不同的底色上
+     （背景归一化后分别是 #f7dddc / #f6dbd7 / #f8d5c2），
+     解出的 α 却是 0.607 / 0.595 / 0.620 —— 高度一致，反过来也验证了白点归一化是对的。
+     原来写 #fff（α=1）会让药丸在橙底上明显过亮、过硬。 */
+  background: rgba(255, 255, 255, 0.61);
+  border-radius: 999px;
+  box-shadow: 0 2px 5px rgba(126, 84, 92, 0.12);
+  /* 这里刻意不写 font-variant-numeric: tabular-nums。
+     效果图里数字的 advance 实测 8.0 原图px = 4.00 CSS（在 "2026" 上取相邻空隙中心间距），
+     开了 tabular-nums 会到 ≈4.58 CSS，19 个字符的时间戳就宽出 12.5 CSS——
+     这正是 chip1 原来比效果图宽 10.5 CSS 的主因（CJK 段「更新于」两边都是 31.0，完全一致）。 */
 }
-.hero-chip b { color: var(--text); font-weight: 600; }
-/* 今日天气区（Hero 右侧）：铺满右侧并上下贴边，背景由 JS 按天气写入天空渐变，
-   与左侧玻璃文案区共同构成一张完整的 Hero 卡（圆角与裁切交给 .hero） */
+/* 时间戳 / 数字：效果图里这一段是**粗体**，不是「只把颜色调深」。
+   判据用的是「墨量加权等效色」里的**总墨量**（同一区域、同一底色口径下，粗细只影响总量）：
+     芯片1 时间戳   效果图 131896 / 实现 83143  → 效果图多 59%
+     芯片2 标签     效果图  74399 / 实现 64910  → 只多 15%
+     芯片1 标签     效果图  36375 / 实现 35182  → 只多  3%
+     时钟图标       效果图  18248 / 实现 17426  → 只多  5%
+   也就是说只有「数字」这一段显著变粗，其余都只是字体栅格化差异（效果图是 macOS 的
+   PingFang/SF Pro，本机是 Microsoft YaHei/Segoe UI，描边本来就粗 3~15%）。
+   另外注意峰值墨量两边几乎一样（229 vs 216）——这说明变粗的是**笔画宽度**而不是颜色，
+   单看「最暗像素」会漏掉这个结论。
+   负字距 -0.35 是为了把粗体多出来的宽度压回去：Segoe UI 的数字比效果图的 SF Pro 宽，
+   19 个字符的时间戳加粗后会宽出 ≈4.9 CSS。 */
+.hero-chip b { color: #212137; font-weight: 700; letter-spacing: -0.35px; }
+/* 芯片里「图标 + 文案」要各自成组（见 app.js 里的 .hc-t 包裹层）：
+   .hero-chip 是 inline-flex，gap 会作用在**任意两个 flex 子元素之间**。
+   chip1 原本是 [图标, "更新于 ", <b>时间戳</b>] 三个 flex 项，
+   于是「更新于」和时间戳之间被多加了一个 flex gap（DOM 实测文本节点右缘 410 → b 盒左缘 415，
+   正好等于当时的 gap 值），而效果图那里只有 2.5 CSS（就是那个空格本身的宽度）。
+   把文案和 <b> 包进同一个 span 后，两者回到普通行内流，空格恢复正常。
+   注意：不要给这个包裹层加 white-space: pre —— 正常空白模式下，
+   文本与行内元素之间的单个空格本来就不会被折叠，加了反而容易踩换行坑。 */
+/* 芯片内的小图标：全部内联 SVG，尺寸随字号走 */
+/* 0.2px 的模糊是量出来的，不是随手加的：效果图里**装饰性图形**的边缘是软的，
+   而文字和卡片描边是锐的（卡片 1px 上边框的过渡只跨 2 个 device px，说明是原生 2× 渲染），
+   所以软的是图形本身，不是整张图被缩放。
+   芯片3 图标横剖：效果图从底色到墨色跨 ~3 个 device px，实现只跨 ~1 个。
+   0.2 CSS 在 4× 下是 0.8 device px，降采样回 2× 后 σ≈0.4 device px，方向对上了。
+   试过 0.4：全卡 MAE 只再降 0.01（11.24 → 11.23），但 14× 放大后底部那个 V 缺口被糊平，
+   形状反而比效果图更不清楚，所以取 0.2 这个「软而不糊」的值。 */
+.hc-i { width: 14px; height: 14px; flex-shrink: 0; display: block; filter: blur(0.2px); }
+
+/* ---- Hero 右侧装饰面板 ----
+   效果图里是三块磨砂玻璃圆角方块呈扇形叠放：火焰块在左后、上扬箭头块在右后、
+   柱状图块在最前。
+   位置/尺寸/旋转角不是目视估的——磨砂玻璃压在浅色渐变上对比度极低，
+   目视读角点误差能到 4° 以上（同一个矩形的上边和左边会算出相反的旋转方向）。
+   最后用的是「周长响应最大化」的改进版：在矩形周长上采 240 个点，
+   目标函数取「高通值超阈值的采样点占比」（命中率）而不是均值——
+   这样被前面面板压住的那几条边只是不计分，不会把拟合结果往遮挡方向拉。
+   再做分阶段坐标下降，并把矩形画回参考图核对。最终命中率 A 65.8% / B 55.4% / C 84.6%
+   （A、B 各有一段被压住，命中率天然上不去；C 在最前面，基本整圈可见）。
+   三块面板尺寸并不相同，效果图里确实是这样：火焰块 65.35×59.48、上扬块 63.5×62、
+   柱状块 82.3×59.15（明显更扁）。
+   纯装饰，aria-hidden；卡片不够宽时整块隐藏（见文末的窄屏媒体查询）。 */
+.hero-art {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  /* ── 2026-09-20：整簇缩小并贴向右缘 ──
+     字号放大之后，文案与装饰抢地方了。实测量（卡片内 x，卡片 640 宽）：
+       描述行墨迹右缘 503.7、最后一颗芯片右缘 501.3、装饰簇原尺寸左缘 451.4
+     —— 描述最后几个字直接压在火焰面板上（放大看过，字和面板左边缘叠在一起）。
+     这不是「再挪 2px」能解决的：效果图那套「小字 + 大装饰」的比例本身就要求
+     描述行只有 284 宽（9.3px）。字号提到 12/11 之后单行就是 367，怎么挪都撞。
+     所以让装饰让步（它是纯装饰，aria-hidden），文案不让。分三档，阈值两套版式各一份
+     （见文件下方）：桌面 隐藏/缩小/原尺寸 的分界在 635、700，移动在 577、636。
+     用「整簇一起缩放」而不是逐块缩：逐块缩会保住三块的中心距，簇反而摊得更开
+     （实测按各自中心缩 0.75 后簇宽 129，右缘会顶出卡片 3px）。
+     缩放同时把圆角 8.5→6.6、描边 1→0.78、backdrop 模糊 6→4.7 一起等比带走，
+     这正是一整簇「变小」该有的样子。
+     transform-origin 取 100% calc(50% + 16.6px)：横向上以卡片右缘为基准，
+     纵向上以装饰簇自身的中心（= 卡片中心 +16.6）为基准，
+     这样缩放不会把整簇往上抬（用 50% 的话会平白上移 4px）。 */
+  transform-origin: 100% calc(50% + 16.6px);
+}
+/* 装饰簇按「卡片自己的宽度」分三档让位（理由见 .hero-art 的注释）。
+   装饰簇原尺寸时左缘 = 卡片宽 − 188.6、缩到 0.76 并右移 13 后 = 卡片宽 − 130.3
+   （188.6 = 右缘留白 40.9 + 簇宽 147.7；缩 0.76 后右缘留白 31.1、簇宽 112.3，再右移 13）。
+   文案占到哪里是实测的：桌面 121.5..492.3、移动 84..434.8，两边都留 12 净空：
+     · 桌面版式（≥821px）：原尺寸需 ≥692.9（取 700）；0.76 需 ≥634.6（取 635）
+     · 移动版式（≤820px）：原尺寸需 ≥635.2（取 636）；0.76 需 ≥576.9（取 577）
+   桌面与移动的文案宽度差 58（两套字号：26/16/12.5/11 与 20.5/13/11.5/10），
+   所以两套阈值必须分开写。合成一条（取交集）会让移动端在 577~634 这段白缩一档、
+   把本来放得下的装饰整块藏掉——610 宽时净空还有 45，却什么都不显示。
+   635 这条线**必须 ≤640**——1210px 视口下卡片正好 640，那是基准版式，
+   装饰面板必须还在（缩到 0.76 时左缘 509.4，与描述行留 17.1 净空）。
+   一开始把线画在 641，结果 640 宽时整块被隐藏，基准视口上装饰直接没了。 */
+@media (min-width: 821px) {
+  @container (max-width: 634px) { .hero-art { display: none; } }
+  @container (min-width: 635px) and (max-width: 700px) {
+    .hero-art { transform: translateX(13px) scale(0.76); }
+  }
+}
+@media (max-width: 820px) {
+  @container (max-width: 576px) { .hero-art { display: none; } }
+  @container (min-width: 577px) and (max-width: 635px) {
+    .hero-art { transform: translateX(13px) scale(0.76); }
+  }
+}
+.ha-card {
+  position: absolute;
+  overflow: hidden;
+  /* 圆角实测 ≈8.5：在逆旋转图上取左上角轮廓点拟合圆，得 r≈16 原图 px（=8 CSS）；
+     再对照 8× 放大的角点截图校正到 8.5 */
+  border-radius: 8.5px;
+  /* 磨砂玻璃：半透明白 + 描边高光 + 背景模糊。
+     白色叠加强度必须用「白点归一化之后」的对比来定，否则会得出反向结论：
+     效果图整张有 ×0.965 的色阶压缩，不补偿的话效果图的玻璃看起来偏暗，
+     于是会误判成「实现的玻璃太白」，把白纱越调越弱。
+     ── 2026-09-20 修正 ──
+     上一版（135° 左上最强 0.26/0.15/0.10 + 底纱 0.23，描边 0.52）是在
+     「LANCZOS 降采样 + 旧背景渐变」两个前提下定出来的，现在两个都不成立了：
+       ① 实现端截图是 640 CSS 的 **4×** 渲染（2560px），降到 2× 必须用 BOX（面积平均）。
+          用 LANCZOS 会在边缘产生振铃，把文字/边界的最暗像素从 89（= CSS 的 #545365）压到 61，
+          凭空多出对比，结论自然反过来。
+       ② 卡片背景渐变后来整体重做过，面板底下透出来的底色已经不同了。
+     按 BOX 口径重测面板区域（MAE / 实现−效果图 偏色）：
+       A 19.8 (-3,+17,+30)   B 11.4 (-5,+7,+15)   C 13.0 (-3,-6,-7)
+     即左上那块（A）白纱过强、右下那块（C）反而略弱 —— 方向和旧版正好相反，
+     所以把 135° 改成 315°（右下最强）。
+     描边同时从 0.52 降到 0.28：沿面板 A 左边界取横向剖线，效果图的边缘高光只比
+     内部亮 +3，实现是 +17；面板 C 同理 +11 vs +22 —— 旧值明显过硬。
+     5× 放大对照也印证：效果图里玻璃块的可见性主要来自那圈细高光，
+     内部更接近「磨砂去饱和」而不是「加白提亮」。
+     ── 再者：三块面板的白纱**不能共用同一个值** ──
+     改完描边和方向后再测，A 仍然偏亮（+9,+20）、C 反而偏暗（-12,-15）。
+     按 Δα ≈ Δ通道 /(255−该处底色) 反解：A ≈ -0.21、B ≈ +0.05、C ≈ +0.19，
+     即等效 α 要分别落在 0.0 / 0.30 / 0.55 附近。这其实也符合层次逻辑：
+     最前面的柱状图块最「实」，后面的火焰块最「透」。
+     所以放弃共用渐变，改成每块各给一个平铺白纱。 */
+  background: rgba(255, 255, 255, 0.21);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  /* 效果图里玻璃是「被磨白」的——饱和度略降而不是升，所以 saturate 给到 1 附近 */
+  backdrop-filter: blur(6px) saturate(100%);
+  -webkit-backdrop-filter: blur(6px) saturate(100%);
+  box-shadow: 0 8px 20px rgba(190, 110, 70, 0.16);
+}
+/* 定位约定：right/top 定的是「面板中心」到卡片右边/顶边的距离，
+   靠 translate(50%, -50%) 把中心对齐过去，后面再接旋转。
+   注意卡片自己带 1px 描边，绝对定位的包含块是 padding box（比 border box 内缩 1px），
+   所以这里的值 = 效果图量到的值 − 1。
+   （实测：写 right:152 时 getBoundingClientRect 量到 fromRight = 153。） */
+/* 火焰块（左后）：65.35×59.48，中心距右 152、距卡片竖向中心 +1.5，逆时针 8.19° */
+.ha-flame {
+  right: 151px; top: calc(50% + 1.5px); width: 65.35px; height: 59.48px;
+  transform: translate(50%, -50%) rotate(-8.19deg);
+  /* 最后面那块最透：效果图里它几乎只剩一圈细高光，内部和底色差 ≈+2 级 */
+  background: rgba(255, 255, 255, 0.03);
+}
+/* 面板内的火焰：22×26.5，中心在面板中心偏左 11.5、偏下 2.25
+   （效果图里它确实不居中——被柱状图块压掉右边一块后视觉上才「居中」）。
+   viewBox 收紧到火焰路径自身的包围盒，再配 preserveAspectRatio="none"，
+   这样量到的 22×26.5 就是渲染尺寸，不受路径内空白影响。
+   注意 left/top 要再减 1：卡片带 1px 描边，绝对定位的包含块是 padding box */
+.ha-flame svg {
+  position: absolute; left: 9.18px; top: 17.74px;
+  width: 22px; height: 26.5px;
+}
+/* 上扬箭头块（右后）：63.5×62，中心距右 78.55、距卡片竖向中心 −11.04，顺时针 12.4° */
+.ha-trend {
+  right: 77.55px; top: calc(50% - 11.04px); width: 63.5px; height: 62px;
+  transform: translate(50%, -50%) rotate(12.4deg);
+}
+/* SVG 自带 63.5×62 的 viewBox，1 单位 = 1 CSS px。
+   这里必须写死尺寸：用 width/height:100% 的话百分比是相对「内容盒」解析的，
+   会被卡片那 1px 描边各吃一点，整幅图缩到 97.6% 并整体偏移 1px
+   （实测 svg 渲染成 61.5×60，坐标全错）。left/top 用 −1px 抵消描边。 */
+.ha-trend svg { position: absolute; left: -1px; top: -1px; display: block; width: 63.5px; height: 62px; }
+/* 柱状图块（最前）：82.3×59.15，中心距右 101.05、距卡片竖向中心 +27.94，顺时针 12.2°。
+   压在最上层，所以投影给重一点，制造层次 */
+.ha-chart {
+  right: 100.05px; top: calc(50% + 27.94px); width: 82.3px; height: 59.15px;
+  transform: translate(50%, -50%) rotate(12.2deg);
+  /* 最前面那块最实 */
+  background: rgba(255, 255, 255, 0.52);
+  box-shadow: 0 10px 24px rgba(186, 106, 66, 0.22);
+}
+.ha-chart svg { position: absolute; left: -1px; top: -1px; display: block; width: 82.3px; height: 59.15px; }
+/* 今日天气卡：右栏第一张卡（>1180px）／左侧抽屉里深色模式开关之上（≤900px）。
+   背景由 JS 按天气写入天空渐变，
+   圆角/裁切/投影与右栏其它 .rail-card 保持同一档，只是底色换成天空色而非玻璃。
+   两种落点都是竖排小卡：城市 → 大温度 → 区间，居中对齐。
+   卡片本身由 app.js 在两个宿主之间搬运，同一时刻只在一处；
+   900~1180px 这段两端都没有它的位置（右栏已隐藏、抽屉还没出现），整段不显示 */
 .hero-weather {
   position: relative;
-  /* 与左侧文案区按 2:1 分配剩余空间 → 宽屏下约占整卡三分之一。
-     原先固定 312px 只占四分之一，左侧的富余全成了留白；
-     加宽后这块「天空」的视觉分量才撑得住整张卡，装饰（云等）也有舒展空间。
-     max-width 440 防大屏过宽：1600px 卡片下 1/3 会到 533px，
-     而温度只有 50px 字号，会显得空荡荡。
-     min-width 260 是下限，空间不足时先收缩；仍不够则由 .hero 的 flex-wrap 换行接管。
-     竖排/移动端在下方媒体查询里被覆盖为通栏，此处的比例与上限都不生效 */
-  flex: 1 1 300px; min-width: 260px; max-width: 440px;
-  /* 左缘渐隐：天空色过渡到左侧玻璃区，避免一条硬边。
-     原先是 56px 的纯线性 alpha 渐变，观感偏「硬」：一是距离太短，
-     过渡带只占这块宽度的 18%、看得出是「一条带子」；二是线性渐变两端
-     斜率突变（0 与 56px 处一阶不连续），再与天空色自身的 160deg 渐变交叉，
-     容易显出几道竖向色带。
-     这里改用 s 形采样并把距离拉长到 104px：两端斜率趋近水平、中间快，
-     过渡被摊得更开更匀。104px 处已完全实色，而文字左边界约在 88px，
-     该处 alpha ≈0.93，视觉上几乎无衰减 */
-  -webkit-mask-image: linear-gradient(
-    90deg,
-    transparent 0,
-    rgba(0, 0, 0, 0.1) 20px,
-    rgba(0, 0, 0, 0.32) 42px,
-    rgba(0, 0, 0, 0.62) 66px,
-    rgba(0, 0, 0, 0.88) 86px,
-    #000 104px
-  );
-  mask-image: linear-gradient(
-    90deg,
-    transparent 0,
-    rgba(0, 0, 0, 0.1) 20px,
-    rgba(0, 0, 0, 0.32) 42px,
-    rgba(0, 0, 0, 0.62) 66px,
-    rgba(0, 0, 0, 0.88) 86px,
-    #000 104px
-  );
-  /* 左内边距随渐变加长同步上移（74 → 88）：让文字仍落在近乎不透明区，
-     同时把「可见区」的视觉中心维持在原来的位置附近，不至于明显偏右 */
-  padding: 14px 18px 14px 88px;
+  /* 独立卡片：自己承担圆角、裁切与投影（原先这些都由 .hero 代劳） */
+  border-radius: 18px; overflow: hidden;
+  box-shadow: var(--glass-shadow);
+  /* 两个宿主（.rail 与 .sb-foot）都是纵向 flex/block，卡片默认就会被拉满宽度；
+     写死 100% 是为了不依赖父级——宿主的 display 是 contents，卡片直接挂到
+     .rail / .sb-foot 上，两处的盒模型不同，交给父级反而会算错 */
+  width: 100%;
+  /* 高度下限：只显示「城市 + 温度」的加载骨架时不至于塌成一条 */
+  min-height: 148px;
+  /* 对称内边距。原来那套 88px 左内距 + 104px 左缘渐隐是给「Hero 右半边」
+     写的——天空色要与左侧玻璃区无缝接上才需要渐隐，现在它是一张独立的卡，
+     四边都是自己的天空色，渐隐和为它预留的左内距都没有存在意义 */
+  padding: 16px 18px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   text-align: center;
   color: #fff;
@@ -926,16 +1281,27 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .hw-fx-overcast .hw-cloud-s1 { stop-color: #f1f4f9; }
 .hw-fx-overcast .hw-cloud-s2 { stop-color: #e2e9f2; }
 .hw-fx-overcast .hw-cloud-s3 { stop-color: #c9d5e4; }
-/* 主云：190×127 是 viewBox 24×16 的等比尺寸（宽高比必须守住，否则云会被拉变形）。
-   往右上溢出卡片一点，云的底边落在温度文字上沿附近——既不挡住大字，又保持「云从右上方压过来」 */
+/* 主云：84×56 是 viewBox 24×16 的等比尺寸（宽高比必须守住，否则云会被拉变形）。
+   ⚠️ 这朵云必须整朵完整地落在右上角，不能像原来那样「往右上溢出卡片」——
+   云的可辨识部分（起伏的云顶）在 y 4~12，而卡片只有 148px 高、文字占掉中间，
+   一旦让它溢出顶边，露出来的就只剩平坦的云底，看上去是块圆角方块而不是云
+   （实测裁到 y 0~58 时就是这个结果）。完整放下后云占 y 6~62，
+   而「多云」二字的字形从 y≈72 起、温度那行的「°C」最右只到 x≈162，
+   横竖都错开，白字不会再压在白云上。
+   尺寸从 190×127 收到 84×56：天气卡不再是 Hero 的右半边（约 340px 宽），
+   而是右栏里 286px 宽的独立卡，原尺寸会横跨 2/3 张卡、把文字糊掉 */
 .hw-cloud-main {
-  top: -30px; right: -30px; width: 190px; height: 127px;
+  top: 6px; right: 10px; width: 84px; height: 56px;
   animation: hwDrift 19s ease-in-out infinite;
 }
-/* 副云：更小更淡，反向漂移，撑出前后两层 */
+/* 副云：更小更淡，反向漂移，撑出前后两层。
+   位置从「右侧靠内」改到「左下角」：原位置（right:152px，即距左 34px 起）
+   正好盖住居中的温度大字，而原先挡住它的是 Hero 右半区那条 104px 左缘渐隐——
+   改成独立卡后渐隐没有了，副云就整个露出来压在白字底下。
+   挪到左下角后与文字各行都不相交（文字最左到 x≈70，副云右缘只到 x≈54） */
 .hw-cloud-sub {
-  top: 40px; right: 152px; width: 100px; height: 67px;
-  opacity: 0.78;
+  top: 102px; right: auto; left: -30px; width: 84px; height: 56px;
+  opacity: 0.62;
   animation: hwDrift 27s ease-in-out infinite reverse;
 }
 .hw-fx-overcast .hw-cloud-sub { opacity: 0.62; }
@@ -944,78 +1310,46 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   50%      { transform: translateX(-13px); }
 }
 
-/* ---- 雨（雨 / 雷共用）：悬浮的水滴缓慢下落 ----
-   不再用条纹画「线」——那更像斜纹布，也不该从半空起步。
-   改成两层被拉长的椭圆「水滴」，铺满整块、从卡片顶部开始缓缓下沉，
-   位移严格等于 tile 高度以保证无缝循环（纯垂直，水平位移会让 tile 跳）。
-   水滴层 z-index 低于云，于是视觉上是「从云后面落下来」，
-   既铺满整块又不会穿过云体 */
+/* ---- 降水层（雨 / 雷雨 / 雪共用一套「随机图块 + 垂直下落」机制）----
+   图块本身——雨滴或雪花的**随机分布**，以及按降水强度（小/中/大/暴）的疏密分档——
+   由 app.js 的 hwPrecipTile 生成，这里不再写 background-image。
+   分工是刻意的：尺寸、位移、动画这些「布局」留在 CSS；
+   每颗雨滴落在哪、有多少颗这种「内容」归 JS。两边各管各的才不会互相打架，
+   也才可能在 JS 里用 Math.random 排出真正的随机分布。
+
+   旧实现是 `radial-gradient` 每格一颗的规则点阵（74×96 / 51×68），
+   相邻两格间距完全一致，放大看就是印刷网点——这正是「雨滴太规整」的来源。
+
+   两个槽位沿用装饰层的约定：i3 = 近处（大、亮、快），i6 = 远处（小、淡、慢）。
+   下落位移必须**严格等于图块高度**（两层都是 160）才能无缝循环；
+   图块里的雨滴被约束在图块内不越界（见 app.js），所以循环点上不会出现半颗雨滴。
+   ⚠️ background-size 与下方 keyframes 的位移量是一对，改一处必须改另一处；
+   改高度还要回头核对 app.js 里 HW_PRECIP 的 h（图块画布高度），三处必须一致。
+
+   z-index 低于云：视觉上雨雪是「从云后面落下来」的，不会穿过云体 */
 .hw-fx-rain i:nth-of-type(3),
-.hw-fx-thunder i:nth-of-type(3) {
+.hw-fx-thunder i:nth-of-type(3),
+.hw-fx-snow i:nth-of-type(3) {
   inset: 0; z-index: 1;
-  background-image: radial-gradient(
-    ellipse 1.7px 5.5px at 50% 50%,
-    rgba(255, 255, 255, 0.85) 0 55%,
-    transparent 100%
-  );
-  background-size: 74px 96px;
-  animation: hwRainDrop 4.2s linear infinite;
+  background-repeat: repeat;
+  background-size: 360px 160px;
+  animation: hwPrecipFall 7s linear infinite;
 }
 .hw-fx-rain i:nth-of-type(6),
-.hw-fx-thunder i:nth-of-type(6) {
-  inset: 0; z-index: 1;
-  background-image: radial-gradient(
-    ellipse 1.1px 3.4px at 50% 50%,
-    rgba(255, 255, 255, 0.5) 0 55%,
-    transparent 100%
-  );
-  background-size: 51px 68px;
-  background-position: 27px 19px;
-  animation: hwRainDrop2 6.4s linear infinite;
-}
-@keyframes hwRainDrop {
-  from { background-position: 0 0; }
-  to   { background-position: 0 96px; }
-}
-@keyframes hwRainDrop2 {
-  from { background-position: 27px 19px; }
-  to   { background-position: 27px 87px; }
-}
-
-/* ---- 雪：六角雪花缓缓落下 ----
-   原来只是圆点阵，像撒了盐。这里换成内联 SVG 画出的六角雪花
-   （三根过中心的主枝 + 端部小分叉），两层不同大小与速度给出远近层次。
-   位移严格等于 tile 高度，保证无缝循环；同样铺满整块、从顶部开始落 */
-.hw-fx-snow i:nth-of-type(3),
+.hw-fx-thunder i:nth-of-type(6),
 .hw-fx-snow i:nth-of-type(6) {
   inset: 0; z-index: 1;
   background-repeat: repeat;
-  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='-18%20-18%2060%2060'%20fill='none'%20stroke='%23ffffff'%20stroke-width='1.8'%20stroke-linecap='round'%3E%3Cpath%20d='M12%202.2v19.6M3.5%207.1l17%209.8M20.5%207.1l-17%209.8'/%3E%3Cpath%20d='M12%206.1L9.5%203.6M12%206.1l2.5-2.5M12%2017.9l-2.5%202.5M12%2017.9l2.5%202.5'/%3E%3Cpath%20d='M7.3%209.6L3.9%209.1M7.3%209.6l-.3-3.4M16.7%2014.4l3.4.5M16.7%2014.4l.3%203.4'/%3E%3Cpath%20d='M16.7%209.6l3.4-.5M16.7%209.6l.3-3.4M7.3%2014.4l-3.4.5M7.3%2014.4l-.3%203.4'/%3E%3C/svg%3E");
+  background-size: 300px 160px;
+  animation: hwPrecipFall2 15.1s linear infinite;
 }
-/* tile 尺寸同时决定「雪花大小」和「间距」，所以不能只放大 tile——
-   那会让雪花跟着变大。这里配合上面的 viewBox 扩边（图形只占画布 40%），
-   放大 tile 只增加间距，雪花本身反而更小更精致。
-   横向 tile 刻意大于纵向：天气区是宽扁的，纵向留 2 行就够，
-   横向拉稀才不会挤成一片（非等比 tile 下 SVG 按 preserveAspectRatio
-   取短边等比缩放并居中，雪花不会被压扁） */
-.hw-fx-snow i:nth-of-type(3) {
-  background-size: 140px 80px;
-  opacity: 0.9;
-  animation: hwSnowDrift 15s linear infinite;
-}
-.hw-fx-snow i:nth-of-type(6) {
-  background-size: 92px 54px;
-  background-position: 23px 15px;
-  opacity: 0.62;
-  animation: hwSnowDrift2 21s linear infinite;
-}
-@keyframes hwSnowDrift {
+@keyframes hwPrecipFall {
   from { background-position: 0 0; }
-  to   { background-position: 0 80px; }
+  to   { background-position: 0 160px; }
 }
-@keyframes hwSnowDrift2 {
-  from { background-position: 23px 15px; }
-  to   { background-position: 23px 69px; }
+@keyframes hwPrecipFall2 {
+  from { background-position: 0 0; }
+  to   { background-position: 0 160px; }
 }
 
 /* ---- 雾 / 霾 / 沙尘：四条厚薄不一的雾带缓慢交错平移 ----
@@ -1117,8 +1451,12 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   .hero-weather:hover .hw-tip { opacity: 0.85; }
 }
 .hero-weather.editing .hw-tip { opacity: 0 !important; }
-/* 编辑态抬一点最小高度：移动端天气区是横排的矮条，不撑开会放不下输入框 + 按钮 */
-.hero-weather.editing { min-height: 112px; }
+/* 编辑态不缩卡：卡片现在两种落点都是竖排卡（右栏 286×148、抽屉 232×148），
+   竖排单列布局约需 89px，148px 本来就有余量。
+   这里必须跟基础高度取同一个值——低于它会变成一条「编辑就变矮」的规则：
+   min-height 是下限而非高度，卡片实际高 = max(下限, 内容高)，
+   下限调到 112 就等于把卡片从 148 压到内容高的 ~126px，点一下卡就跳一截 */
+.hero-weather.editing { min-height: 148px; }
 
 .hw-edit {
   position: absolute; inset: 0; z-index: 2;
@@ -1201,92 +1539,63 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
      是整块里最先糊掉的一行，所以给最强的一档：近距离那层提到 0.5 */
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 2px 9px rgba(0, 0, 0, 0.3);
 }
-/* Hero 竖排断点与「移动端布局」完全对齐（820px / 触摸设备）。
-   原先卡在 560px：640~820px 这段已是移动模式（顶栏两行、无侧栏），
-   但 Hero 仍按横排渲染，左侧被定宽 312px 的天气区压到只剩百来像素，
-   「每日热榜」四个大字被迫一字一行——就是这次要修掉的现象。
-   现在只要进入移动模式，Hero 就同步竖排，天气区通栏铺在下方 */
+/* Hero 文案在移动模式整体收一档（与下方 ≤900px 的顶栏两行 / 侧栏抽屉同步）。
+   注意这里只管字号与内边距：天气区搬走后 Hero 只剩「图标 + 文案」一块，
+   横排竖排的分岔随之消失，原先那条 flex-direction:column 已无意义 */
 @media (max-width: 820px), (pointer: coarse) {
-  /* 竖排：左侧文案在上，天气区通栏铺在下方（两侧贴边由 .hero 的零内边距保证） */
-  .hero { flex-direction: column; margin-bottom: 14px; }
-  /* 竖排时 flex-basis 作用在高度上：桌面为横排写的 340px 会变成一整块空高，
-     这里重置为按内容高度 */
-  .hero-main { flex: 0 0 auto; min-width: 0; padding: 14px 16px; gap: 12px; }
-  .hero-icon { width: 60px; height: 60px; border-radius: 16px; }
-  .hero-icon svg { width: 39px; height: 39px; }
-  .hero-title { font-size: 25px; }
-  .hero-desc { font-size: 12px; }
-  /* 天气区改横排一行：竖排三行会吃掉太多首屏高度 */
-  .hero-weather {
-    /* max-width 复位：桌面为「约占 1/3」设的上限在这里必须去掉，
-       否则窄窗口（如 375px）下天气区通栏宽度会被卡在 440px 内 */
-    flex: 0 0 auto; width: 100%; max-width: none;
-    /* 移动端通栏条不做左缘渐隐：桌面是「天空色紧贴左侧玻璃区」，才需要一条渐变过渡；
-       移动端整条都是天空色、两侧同底，再糊一层淡出只会让左边显脏。
-       渐隐一去掉，为它预留的 72px 左内距也没有存在意义了，改回对称内距让内容真正居中 */
-    -webkit-mask-image: none; mask-image: none;
-    flex-direction: row; flex-wrap: wrap;
-    align-items: baseline; justify-content: center;
-    gap: 4px 8px; padding: 12px 16px;
-  }
-  /* 子项不收缩：城市、温度、区间三块各自是完整的不可断行内容，
-     允许收缩只会把它们压得互相重叠并溢出容器，反而不触发 flex-wrap 折行。
-     设成 0 后，排不下就整块折到下一行，始终完整可读 */
-  .hero-weather > * { flex-shrink: 0; }
-  .hw-temp { margin: 0; font-size: 30px; }
-  .hw-unit { font-size: 14px; }
-  .hw-cond { margin-left: 8px; font-size: 17px; letter-spacing: 0.3px; }
-  /* 气温区间完整显示，并入同一行随城市/温度一起居中；
-     一行排不下时整块折到第二行（flex-wrap），不再用「隐藏」来规避溢出 */
-  .hw-sub { margin: 0; font-size: 12px; line-height: 1.2; }
-  /* 装饰层在竖排下要整体缩一档并贴到右上角：这里的天气区是一条通栏矮条
-     （实测 375px 视口下只有 58px 高，桌面约 141px），桌面那套「大面积云层 +
-     92px 大太阳」根本放不下，会直接溢出被裁。
-     处理三件事：缩尺寸、隐藏放不下的层（副云 / 耀斑 / 第二簇星）、云改成紧凑形态 */
-  .hw-fx-sun i:nth-of-type(2),
-  .hw-fx-moon i:nth-of-type(4),
-  .hw-cloud-sub { display: none; }
-
-  .hw-fx-sun i:nth-of-type(1) { top: -7px; right: 2px; width: 46px; height: 46px; }
-  .hw-fx-sun i:nth-of-type(1)::before { width: 86px; height: 86px; margin: -43px 0 0 -43px; }
-  .hw-fx-sun i:nth-of-type(1)::after { width: 108px; height: 108px; margin: -54px 0 0 -54px; }
-
-  .hw-fx-moon i:nth-of-type(1) { top: -6px; right: 4px; width: 44px; height: 44px; box-shadow: inset -13px -4px 0 0 #fff9e2; }
-  .hw-fx-moon i:nth-of-type(3) { top: -24px; right: -16px; width: 84px; height: 84px; }
-  .hw-fx-moon i:nth-of-type(2) { top: 5px; right: 64px; box-shadow: 10px 14px 0 -1px rgba(255, 255, 255, 0.8), 22px 3px 0 -1px rgba(255, 255, 255, 0.55); }
-
-  /* 云：矮条（约 58px 高）放不下桌面那朵 190px 的大云，等比缩到 84×56 并贴紧右上角。
-     宽高比 24:16 必须守住，否则云会被拉变形；投影也一并收小 */
-  .hw-cloud-main {
-    top: -12px; right: -14px; width: 84px; height: 56px;
-    filter: drop-shadow(0 6px 12px rgba(96, 128, 170, 0.24));
-  }
-
-  /* 闪电：云底约 25px，闪电 24 起、高 24，收在 48px 内 */
-  .hw-fx-thunder i:nth-of-type(4) { top: 24px; right: 26px; width: 14px; height: 24px; }
-
-  /* 雾带压薄，四条按矮条高度重新分布 */
-  .hw-fx-fog i:nth-of-type(-n+4) { height: 9px; filter: blur(4px); }
-  .hw-fx-fog i:nth-of-type(1) { top: 8%; }
-  .hw-fx-fog i:nth-of-type(2) { top: 34%; height: 12px; }
-  .hw-fx-fog i:nth-of-type(3) { top: 58%; }
-  .hw-fx-fog i:nth-of-type(4) { top: 80%; height: 8px; }
+  /* 高度沿用桌面那条 min-height: 148px，一个字都不改——**全站就这一个高度**。
+     这里只调字号/内边距，让内容在 148 里装得下：
+     375px 视口（卡片 351）时描述折两行、芯片折两行，是内容最高的那一档。
+     逐项实测并压到刚好合适（内容盒 146，实占 145.1）：
+       标题 20.5×1.15 = 23.6 + 描述外边距 5 + 两行描述 2×11.5×1.45 = 33.4
+       + 芯片行外边距 9 + 两行芯片 2×21+6 = 48  →  119.0；加内边距 24 = 143
+     比原来（内边距 32、行高 1.55、芯片高 24）省下约 20px，靠的是行高与内边距，
+     不是字号——描述 11.5 / 芯片 10 这两个「能读的下限」一个都没动。 */
+  .hero { margin-bottom: 14px; border-radius: 18px; }
+  .hero-main { padding: 12px 16px 12px 15px; gap: 13px; }
+  .hero-icon { width: 54px; height: 54px; border-radius: 14px; }
+  .hero-icon svg { width: 31px; height: 31px; }
+  .hero-title { font-size: 20.5px; }
+  .hero-sub { font-size: 13px; }
+  .hero-desc { font-size: 11.5px; line-height: 1.45; margin-top: 5px; }
+  .hero-stats { gap: 6px; margin-top: 9px; }
+  .hero-chip { height: 21px; padding: 0 8px; font-size: 10px; gap: 5px; }
+  .hc-i { width: 13px; height: 13px; }
 }
+/* 装饰面板的隐藏/缩小已改为按「卡片自己的宽度」判断（容器查询，见 .hero-art 附近）。
+   原来那条 @media (max-width: 620px) 是按视口宽度隐藏的，现在不成立：
+   1181~1270 这段视口下卡片只有 611~700 宽，比 620 视口时的 596 还挤，
+   按视口判断会把最需要隐藏的那一段漏掉。 */
+
+/* ---- 天气卡「通栏横排条」版式已退役 ----
+   原先 ≤1180px 时右栏会退化成一条整页宽的通栏横带、只留天气卡，卡内随之从竖排改横排。
+   现在这条横带没有了：≤1180px 右栏整体隐藏，天气卡改为搬进左侧抽屉
+   （结构见 index.html 的 #sbWeather 与 app.js 的 placeWeatherCard）。
+   抽屉里卡片是 232px 宽的竖排卡，用的就是上面这套桌面竖排样式，
+   于是横排条那一整块（字号 clamp、装饰缩档、云缩到 78×52、闪电下移、雾带压薄）
+   连同它的 1180px 断点一起删掉——留着只会是没人命中的死规则 */
 
 /* 触摸屏上的天气编辑层：两行「输入框 + 关闭键」/「等宽双按钮」。
-   移动端天气区是通栏矮条，但把三个控件强压进一行会让输入框只剩 ~40% 宽
-   （375px 屏约 190px），长城市名根本看不全，按钮也被挤成贴身小目标；
+   天气卡在触摸设备上只有一种形态——右栏的 286px 竖卡，或抽屉里的 232px 竖卡，
+   两种都窄。把三个控件强压进一行会让输入框只剩 ~40% 宽（抽屉里约 196px、
+   右栏约 258px），长城市名根本看不全，按钮也被挤成贴身小目标；
    改成两行后每一行都是完整可点区域，触控目标与可视性才都达标。
    输入框必须 ≥16px——iOS Safari 对字号 <16px 的 input 聚焦时会自动放大整个页面 */
 @media (pointer: coarse) {
-  /* 基础态显式给 min-height:0：flex 项默认的 min-height:auto 是关键字、不可插值，
-     从它过渡到具体像素会硬跳一截；0 才能让下面的 min-height 过渡真正生效 */
+  /* 这里不再把 min-height 归零。原来归零是因为横条版式的基础高度只有 65px、
+     编辑态要抬到 140px，需要一条「0 → 具体像素」的可插值起点。
+     现在卡片两种落点都是竖排卡（右栏 286×148、抽屉 232×148），
+     基础高度就是 148px，而两行大控件实测只需 138px，148px 本来就有余量——
+     再归零反而会让卡片在进入编辑态时塌掉一截，「卡片形状保持不变」就没了 */
   .hero-weather {
-    min-height: 0;
+    min-height: 148px;
     transition: background var(--dur-slow) ease, min-height 0.24s ease;
   }
-  /* 两行 52px 控件所需高度：padding 24 + 52 + 行间距 10 + 52 = 138px，取 140 留余量 */
-  .hero-weather.editing { min-height: 140px; }
+  /* 编辑态保持 148px 不缩：两行 52px 控件实测需 138px（padding 24 + 52 + 行间距 10 + 52），
+     基础高度已经够用。必须显式写出来——基础规则只压住「无编辑态」，
+     而文件上方那条 .hero-weather.editing{min-height:148px} 虽然同值，
+     但它排在更前面；同值时靠这条保证触屏分支不被别的规则抢先 */
+  .hero-weather.editing { min-height: 148px; }
   .hw-edit {
     flex-direction: row; flex-wrap: wrap;
     align-items: center;
@@ -1474,7 +1783,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
      卡片定位主路径走 JS 的 scrollDockTop() 动态测量，不依赖此值） */
   scroll-margin-top: 180px;
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.1),
+    var(--glass-shadow),
     inset 0 1px 0 var(--glass-hi),
     inset 0 -1px 0 var(--glass-lo),
     inset 0 0 32px var(--glass-lo);
@@ -1507,7 +1816,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
     /* 悬停加深描边对比（暗色更亮 / 亮色更深），边缘比默认更「实」 */
     border-color: var(--glass-border-strong);
     box-shadow:
-      0 14px 40px rgba(0, 0, 0, 0.14),
+      var(--glass-shadow-hover),
       inset 0 1px 0 var(--glass-hi),
       inset 0 -1px 0 var(--glass-lo),
       inset 0 0 36px var(--glass-lo);
@@ -2658,6 +2967,23 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 
 /* ============ P3: Card fade-in + keyboard focus ============ */
+/* 入场动画的 two traps，都是这一条 fadeIn 带来的：
+
+   ① `fill-mode: both` 会让结束态（opacity:1 / translateY(0)）**永久**参与层叠，
+      而动画效果在层叠里高于普通声明 —— 于是下面 .card:hover 的
+      `transform: translateY(-2px)` 永远不会生效（实测悬停时 transform 恒为
+      matrix(1,0,0,1,0,0)）。悬停抬升其实一直是死的。
+
+   ② 任何把 animation 置回 none 的规则（.card:fullscreen / .card.fs-fake /
+      .vt-run .card）都会「销毁 + 重建」这条动画。带 fill-mode:both 与正的
+      内联 animation-delay（卡片 staggering）时，重建意味着回到 before-phase：
+      先按 from 帧渲染（opacity:0 + translateY(8px)），等完延迟再淡入 250ms。
+      退出全屏时肉眼就是「卡片闪一下 → 整卡上滑 8px 淡入」，也就是用户报的抖动。
+
+   所以入场动画跑完由 JS 把它摘成内联 `animation: none`（见 app.js 的
+   animationend 委托）：结束态不再残留 → 悬停抬升恢复；animation-name 不再变化
+   → 全屏 / 伪全屏 / View Transition 来回切换都不会重建动画。
+   @keyframes 本身保持不动。 */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -2868,8 +3194,10 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   .clock { padding: 7px 10px; font-size: 12.5px; gap: 6px; }
 }
 
-/* 原「≤430px 隐藏 .hw-sub」已移除：气温区间属于必要信息，
-   窄屏放不下时由 .hero-weather 的 flex-wrap 折到第二行，而不是被隐藏 */
+/* 原「≤430px 隐藏 .hw-sub」已移除：气温区间属于必要信息。
+   当时靠 .hero-weather 的 flex-wrap 折到第二行兜住，但横排条版式已退役，
+   现在卡片在两种落点（右栏 286px / 抽屉 232px）都是竖排卡，
+   区间本来就在自己的一行上，不需要再折行 */
 
 /* ≤380px：控件整体收紧一档，尽量把「日期 + 时间 + 4 按钮」留在同一行。
    这只是「省出空间」的优化，不是截断开关——真放不下时由 fitClocks
@@ -3147,9 +3475,17 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .card:fullscreen .card-head, .card.fs-fake .card-head { justify-content: flex-end; }
 /* 头部预算 = 按钮 28 + 上下内边距 22 ≈ 50 */
 .card:fullscreen .card-head, .card.fs-fake .card-head { padding-block: 11px; }
+/* 这里**不能**写 animation: none —— 详见 .card 那条 fadeIn 的注释：
+   把 animation 置回 none 会「销毁再重建」卡片的入场动画，退出全屏时
+   卡片先隐身（内联 animation-delay 期）再淡入 250ms，同时整卡上滑 8px，
+   就是用户看到的那一下闪抖。入场动画现在跑完会由 JS 摘成内联 animation:none，
+   全屏态与常态的 animation 值因此完全一致，切换时没有任何动画被重建。 */
 .card:fullscreen {
   width: 100vw; height: 100vh; max-height: none;
-  border-radius: 0; border: none; animation: none;
+  border-radius: 0; border: none;
+  /* 全屏卡片不接受 hover 抬升：2px 位移会在底部露出一条缝，
+     而且进出全屏时 :hover 命中状态变化会让 transform 走 250ms 过渡 */
+  transform: none;
   background: var(--bg); overflow: hidden;
 }
 .card:fullscreen .btn-fs { display: none; }
@@ -3189,11 +3525,12 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .card.fs-fake {
   position: fixed; inset: 0; z-index: 999;
   width: 100vw; max-width: none; height: 100dvh; max-height: none;
-  border-radius: 0; border: none; animation: none;
-  /* 内联 animation-delay（卡片进场 staggering）会让 animation:none 的重置失效，
-     动画停在 before-phase 的 from 帧（transform:translateY(8px)）——必须显式
-     归零延迟才能彻底停掉动画 */
-  animation-delay: 0s;
+  border-radius: 0; border: none;
+  /* 与 .card:fullscreen 同理：不碰 animation（会重建入场动画导致闪抖），
+     也不接受 hover 抬升。原先这里写的 animation: none + animation-delay: 0s
+     其实并没有生效——内联 animation-delay 的优先级高于类规则，
+     真正让动画停住的是 animation-name: none；而它正是闪抖的成因。 */
+  transform: none;
   background: var(--bg); overflow: hidden;
 }
 
@@ -3293,6 +3630,15 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 .sidebar::-webkit-scrollbar { width: 0; height: 0; }
 
+/* 亮色下菜单行提亮一档：原来那组中性灰压在蓝紫底上会显出一层「灰壳」，
+   换成半透明白才像玻璃浮在底色之上（对齐效果图）；暗色仍用原灰阶 */
+:root[data-theme="light"] .sidebar {
+  /* 玻璃底降到 0.46 后，菜单行若仍用 0.5 白就跟侧栏底几乎同色、整片糊在一起；
+     提到 0.6 才重新拉开「一行行」的层级 */
+  --sb-menu-bg: rgba(255, 255, 255, 0.6);
+  --sb-menu-bg-hover: rgba(255, 255, 255, 0.85);
+}
+
 .sb-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 8px 16px; }
 .sidebar .sb-head .logo { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .sidebar .sb-head .logo > svg { width: 26px; height: 26px; flex-shrink: 0; }
@@ -3338,8 +3684,104 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 :root[data-theme="dark"] .sb-switch { background: var(--accent); }
 :root[data-theme="dark"] .sb-switch::after { transform: translateX(15px); }
+/* 底部版权：抽屉/常驻侧栏共用同一段（.sb-foot 里主题开关之下）。
+   字号取全站最小档，靠 --text-dimmer 压到最淡，不跟菜单项抢注意力；
+   行高 1.7 让两行之间松一点，10.5px 的行距否则会挤成一坨。
+   .sb-foot 的 margin-top:auto 把它整体推到侧栏底部，
+   .sb-theme 的 margin-bottom:10px 就是它和主题开关之间的那道间距 */
 .sb-copy { margin: 0; font-size: 10.5px; line-height: 1.7; color: var(--text-dimmer); text-align: center; }
+/* ---- 抽屉里的天气卡（≤900px）：243×96 的紧凑横条 ----
+   宿主用 display:contents，卡片因此是 .sidebar 的直接 flex 子项：
+   宽度跟菜单自动对齐（两边都靠 stretch 撑满同一栏的 243px，即抽屉 264px 减去
+   左右各 10px 内边距和 1px 右边框），不用写死数值。
+   卡片不在（搬去右栏、或处于 900~1180 的「两端都没有」区间）时宿主不产生盒子，
+   不会在品牌文字和菜单之间留下空档；卡片因定位失败而 hidden 时同理 */
+.sb-weather { display: contents; }
+/* 高度取「菜单行高的两倍」：抽屉里菜单行是 48px（见下方 ≤900px 那段的
+   .sidebar .cat-nav button），两行正好 96px——视觉上是「比菜单项大一号的一格」，
+   而不是原来那样顶掉半个屏幕。
+   版式换成横排两行：左列「城市 温度 天气」+ 第二行「区间」，
+   右端留 56px 净空给装饰。文字左对齐而不是居中，就是为了让出这条净空：
+   243px 宽的卡里居中的文字会一直顶到右端的云 / 太阳上。
+   下边距 14px 与菜单拉开，上边距靠 .sb-head 自己的 16px 下内边距 */
+.sb-weather .hero-weather {
+  flex-direction: row; flex-wrap: wrap;
+  align-items: baseline; align-content: center; justify-content: flex-start;
+  gap: 0 6px;
+  /* flex-shrink:0 + min-height 必须写死：
+     .sidebar 是 height:100vh 的列向 flex 容器，内容比视口高时（比如分类页
+     的子目录列表展开后）flex 项会先压缩、压不动了才触发 overflow 滚动。
+     卡片若留着默认的 flex-shrink:1 又带 min-height:0，就会变成唯一能被压扁
+     的那一项——实测分类页上被压到 24px。这里把高度锁死，压缩量就落到
+     菜单/子目录那侧，由侧栏自己滚动（也就是「菜单不钉住」的原版行为） */
+  flex: 0 0 auto;
+  height: 96px; min-height: 96px;
+  padding: 12px 56px 12px 14px;
+  margin-bottom: 14px;
+  text-align: left;
+  border-radius: 14px;
+}
+/* 子项不收缩：城市、温度、区间都是不可断行的完整内容，
+   允许收缩只会把它们压得互相重叠，反而不触发 flex-wrap 折行 */
+.sb-weather .hero-weather > * { flex-shrink: 0; }
+/* 字号整体收一档。桌面那套 15 / 50 / 22 是给 286×148 的竖排卡写的，
+   原样塞进 96px 高的格里会立刻撑爆 */
+.sb-weather .hw-city { font-size: 13px; letter-spacing: 0.3px; }
+.sb-weather .hw-temp { margin: 0; font-size: 30px; line-height: 1.15; }
+.sb-weather .hw-unit { font-size: 12px; }
+.sb-weather .hw-cond { margin-left: 6px; font-size: 16px; letter-spacing: 0.3px; }
+/* 区间独占第二行（flex-basis:100% 强制换行，不靠「排不下才折」） */
+.sb-weather .hw-sub { flex-basis: 100%; margin: 0; font-size: 11.5px; line-height: 1.3; }
 
+/* 装饰缩到紧凑档并竖排居中在右端。桌面那套 92px 太阳 / 84px 云 / 164px 月晕
+   是给 286×148 写的，在 96px 高的小格里会直接溢出被裁 */
+.sb-weather .hw-cloud-main { top: 33px; right: 10px; width: 44px; height: 29px; }
+/* 副云在这么窄的格里只会和主云糊成一团 */
+.sb-weather .hw-cloud-sub { display: none; }
+.sb-weather .hw-fx-sun i:nth-of-type(1) { top: 26px; right: 10px; width: 44px; height: 44px; }
+/* 两圈光芒环（桌面 190/232px 的 conic 扇区）在紧凑卡里直接去掉：
+   圆心距卡片右缘只有 32px，而可见光芒的最外半径分别是 39.6px 和 51.5px，
+   右侧 7.6px / 19.5px 会被 overflow:hidden 切掉——扇形被切出一道硬边白楔，
+   比桌面版「挂在角外」的效果难看太多。日盘自带的三层 box-shadow 已经是
+   足够柔和的光晕，小尺寸下不需要再叠光芒 */
+.sb-weather .hw-fx-sun i:nth-of-type(1)::before,
+.sb-weather .hw-fx-sun i:nth-of-type(1)::after { display: none; }
+/* 耀斑是一簇散开的小光点，格子里放不下 */
+.sb-weather .hw-fx-sun i:nth-of-type(2) { display: none; }
+.sb-weather .hw-fx-moon i:nth-of-type(1) {
+  top: 28px; right: 12px; width: 40px; height: 40px;
+  box-shadow: inset -11px -4px 0 0 #fff9e2;
+}
+/* 星与第二簇星：点位是照 286px 宽算的，缩到 244px 会落到文字上 */
+.sb-weather .hw-fx-moon i:nth-of-type(2),
+.sb-weather .hw-fx-moon i:nth-of-type(4) { display: none; }
+/* 月晕：桌面那版是 164px 挂在右上角外、故意被裁的（月亮本身也在角外）。
+   紧凑卡里太阳和云都收进了卡内，月亮也收进来了，所以月晕不能再溢出——
+   否则月亮完整、光晕却被右缘切出一道直边，看着像渲染出错。
+   64px 且圆心对准月亮（月亮 right:12 + 40/2 = 距右 32px；月晕 right:0 + 64/2 = 32px），
+   径向渐变到 70% 就透明，实际可见半径约 22px，最右到距右缘 10px 处，完全在卡内 */
+.sb-weather .hw-fx-moon i:nth-of-type(3) { top: 16px; right: 0; width: 64px; height: 64px; }
+.sb-weather .hw-fx-thunder i:nth-of-type(4) { top: 30px; right: 26px; width: 13px; height: 26px; }
+/* 雾带压薄并按 96px 重新分布（桌面那套 26/34/30/20 是按 148px 配的） */
+.sb-weather .hw-fx-fog i:nth-of-type(-n+4) { height: 8px; filter: blur(4px); }
+.sb-weather .hw-fx-fog i:nth-of-type(1) { top: 16%; }
+.sb-weather .hw-fx-fog i:nth-of-type(2) { top: 40%; height: 10px; }
+.sb-weather .hw-fx-fog i:nth-of-type(3) { top: 62%; height: 9px; }
+.sb-weather .hw-fx-fog i:nth-of-type(4) { top: 82%; height: 7px; }
+/* 编辑态要把高度让出来：两行 52px 控件（输入框 + 按钮组）实测需 138px，96px 塞不下。
+   height 必须一起复位成 auto，否则内容会从卡片里溢出被裁 */
+.sb-weather .hero-weather.editing { height: auto; min-height: 138px; }
+/* 编辑态在触屏下多一个「取消」，三个按钮等宽均分 215px 内容宽 → 每个只有约 66px。
+   通用那条 .hw-btn 是 padding 0 10px / font-size 15px，「重新定位」四个字要 60px，
+   加内边距 80px 放不下，会折成两行（实测截图里就是这个样子）。
+   收紧到 padding 0 4px / 13.5px 后文字宽 54px + 8px = 62px < 66px，一行放下，
+   且保持三键等宽、不破坏触控目标高度（min-height:52px 来自通用规则，没动）。
+   只加粗指针分支：细指针（窄桌面窗口）是两键一行，原尺寸本来就够，
+   跟着改反而会把按钮压得又扁又小 */
+@media (pointer: coarse) {
+  .sb-weather .hw-edit-actions { gap: 8px; }
+  .sb-weather .hw-btn { padding: 0 4px; font-size: 13.5px; }
+}
 /* ---------------- 侧边栏内的分类导航：横向 pill 行 → 纵向菜单列表 ----------------
    JS 逻辑（分类切换 / 手风琴目录 / 定位跳转 / 滚动高亮）原样复用，这里只改排布与皮。
    视觉取自设计稿：
@@ -3416,18 +3858,34 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .sidebar .cat-pills > button.active .cnt { color: #fff; background: rgba(255, 255, 255, 0.26); }
 /* 展开箭头：行尾的 V 形（.mn 的 flex:1 已把它和徽章推到右边），
    两条 1.8px 描边拼成，跟着 currentColor 走，深浅主题都不用另配颜色。
-   方向约定：∧=子目录已展开、∨=已收起，点已激活分类即可切换 */
+   方向约定：∧=子目录已展开、∨=已收起，点已激活分类即可切换。
+
+   ★ 默认必须是 ∨（收起），只有「已激活 + 目录真的展开」才翻成 ∧。
+   反过来写（默认 ∧、sub-collapsed 时才 ∨）会踩两个坑：
+     ① **首次进入/刷新后第一次展开不播动画。** 页面加载时 nav 上还没有 sub-collapsed，
+        箭头一开始就停在 ∧，而目录其实是收起的；第一次点分类走的是
+        nav.classList.remove('sub-collapsed') —— 移除一个本来就不存在的类，
+        transform 前后完全一样，transition 根本不会被创建。
+        用 document.getAnimations() 直接对比过（见 caretanim.mjs）：
+          第一次点击的动画列表里只有 ::before|opacity，**没有 ::before|transform**；
+          第二次点击才出现 6 个 ::before|transform|250。
+        也就是说「图标不跟着开合动」不是没写 transition，而是那一帧没有状态差可过渡。
+     ② **一次开合会让全部 7 个分类按钮的 ::before 一起起 transform 过渡**，
+        而其中只有 1 个是可见的（其余 opacity .5，只在 hover 时才露脸）。
+        改成「默认 ∨」之后，切换 sub-collapsed 只改变激活那一个按钮的样式，
+        实测同一帧的 ::before|transform 过渡从 7 个降到 1 个。
+   顺带把语义也摆正了：未激活的分类本来就该显示 ∨ ——「点我会展开」。 */
 .sidebar .cat-nav .cat-pills > button[data-cat]::before {
   content: ''; order: 9; flex-shrink: 0; margin-left: 3px;
   width: 7px; height: 7px; border-radius: 1px;
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   opacity: 0.5;
-  transform: translateY(-2px) rotate(225deg);
+  transform: translateY(-1px) rotate(45deg);
   transition: transform var(--dur-base) var(--ease), opacity var(--dur-fast);
 }
-.sidebar .cat-nav.sub-collapsed .cat-pills > button[data-cat]::before {
-  transform: translateY(-1px) rotate(45deg);
+.sidebar .cat-nav:not(.sub-collapsed) .cat-pills > button.active[data-cat]::before {
+  transform: translateY(-2px) rotate(225deg);
 }
 /* 悬停与「已展开」都把箭头提到高对比：展开态是白字行，currentColor 即纯白；
    未展开行同样加浓，让「这一支能点开」这件事一眼可见 */
@@ -3568,6 +4026,10 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   padding: 16px 0 40px;
 }
 .app-shell .rail[hidden] { display: none; }
+/* 天气卡在右栏的宿主。display:contents 让卡片成为 .rail 的直接 flex 子项：
+   宿主自己若也是一个 flex 项，卡片处于 hidden 时 .rail 的 14px gap 会在它身上
+   多算一次，右栏顶部会凭空多出一条空档（display:none 的卡片不占位，但宿主占） */
+.rail-weather-slot { display: contents; }
 
 .app-shell .foot { padding: 18px 18px 32px; }
 
@@ -3633,8 +4095,17 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 
 /* 榜单流 */
 .home-list {
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: 16px; padding: 6px 4px;
+  /* 与 .card / .hero 同一套毛玻璃材质：玻璃底 + 背景模糊 + 玻璃描边 + 内高光。
+     原来是「不透明卡片底 + 实描边」，光斑根本透不过来，毛玻璃不成立 */
+  background: var(--glass-bg);
+  backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+  -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+  border: 1px solid var(--glass-border);
+  border-radius: 18px; padding: 6px 4px;
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 var(--glass-hi),
+    inset 0 -1px 0 var(--glass-lo);
 }
 /* 统一行高：各平台数据丰俭不一（头条只有标题、百度带摘要），
    不给下限的话两边的行高会差出一倍，整个列表看着忽松忽紧。
@@ -3704,7 +4175,24 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .hl-end { padding: 18px 0 10px; text-align: center; font-size: 12px; color: var(--text-dimmer); }
 
 /* ---------------- 右侧信息栏 ---------------- */
-.rail-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+/* 右栏第一张卡是「今日天气」（.hero-weather，由 app.js 的 placeWeatherCard
+   搬进 #railWeather 宿主）。它的全部样式在文件上方「今日天气卡」一节，这里不再重复。
+   它不挂 .rail-card：材质是同档的圆角 + 投影，但底色是 JS 按天气写入的天空渐变，
+   不是玻璃，套上 .rail-card 的玻璃底会把它盖掉。
+   ≤1180px 右栏整体隐藏，天气卡改住进左侧抽屉（#sbWeather），见文件末尾「响应式」 */
+
+.rail-card {
+  /* 同 .home-list：右栏卡片也换成毛玻璃，与左侧榜单同一材质 */
+  background: var(--glass-bg);
+  backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+  -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+  border: 1px solid var(--glass-border);
+  border-radius: 18px; padding: 14px;
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 var(--glass-hi),
+    inset 0 -1px 0 var(--glass-lo);
+}
 .rail-title {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 12px; font-size: 13px; font-weight: 800; color: var(--text);
@@ -3749,10 +4237,16 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 body.sb-locked { overflow: hidden; }
 
 /* ================================================================
-   响应式：右栏先收，再收侧边栏（抽屉化）
+   响应式：先收右栏，再收侧边栏（抽屉化）
    ================================================================ */
+/* 天气卡搬进抽屉后，右栏在窄屏已经没有任何要显示的内容——热搜平台九宫格与
+   热门话题在窄屏属于重复信息（顶部已有平台筛选行、正文已有主榜单），
+   天气卡又改住在抽屉里，于是这里可以退回最直接的做法：整栏隐藏。
+   原先那条「右栏退化成通栏横带、只留天气卡、order:-1 提到内容之前」的写法
+   连同它的一串补偿（align-items 改 stretch、负外边距抵消 gap、取消吸顶）一并删掉。
+   ⚠️ 结构断点仍是 1180px：它必须与 app.js 里 weatherHost() 的取值一致——
+   那里以 window.innerWidth > 1180 判断卡片该不该落在右栏 */
 @media (max-width: 1180px) {
-  /* 内容区不够宽时优先保内容：右栏整体隐藏 */
   .app-shell .rail { display: none; }
 }
 
@@ -3816,3 +4310,29 @@ body.sb-locked { overflow: hidden; }
    侧边栏（桌面常驻 + 窄屏抽屉）都要能就地展开子目录，与宽度断点无关——
    原来只在 ≤820px / 粗指针下还原，821~900px 的鼠标窗口打开抽屉会看不到子菜单 */
 .sidebar .cat-sub { display: grid !important; }
+
+/* ============ 毛玻璃统一：小控件补齐背景模糊 ============ */
+/* .card / .hero / .topbar / .sidebar / .home-list / .rail-card 这些「大面」各自写了
+   backdrop-filter，但搜索框、顶栏图标按钮、卡片头按钮、平台 pill 这些「小控件」
+   只有半透明底（--card 已改成半透明白），缺了模糊层就会把底下的光斑直接透出来、
+   显得脏。这里统一补上。
+   模糊半径取 20px 而非大面的 28px：控件面积小，28px 会把背后的色斑糊成一片纯色，
+   反而丢掉玻璃的通透感 */
+.site-search,
+.header-right a, .header-right button,
+.card-actions button,
+.sb-close, .sb-toggle,
+.hf-pill, .hf-arrow {
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+}
+
+/* 分组标题条补上与卡片同一档冷调投影：它此前只有内高光没有外投影，
+   夹在一堆浮起来的毛玻璃卡片中间会明显「轻」一档 */
+.cat-title {
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 var(--glass-hi),
+    inset 0 -1px 0 var(--glass-lo),
+    inset 0 0 24px var(--glass-lo);
+}
