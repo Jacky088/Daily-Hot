@@ -96,10 +96,10 @@
       </button>
     </div>
 
-    <!-- 天气卡的落点之一：抽屉里品牌文字（「聚合全网热点」）之下、菜单之上。
+    <!-- 天气卡的落点之一：侧栏/抽屉里品牌文字（Logo）之下、菜单之上。
          卡片本身不写在这里——它由 app.js 按视口宽度在右栏(#railWeather)与这里之间搬运，
          同一时刻只存在于一个宿主里（见 placeWeatherCard）。
-         >1180 它在右栏；900~1180 右栏已消失、抽屉还没出现，两端都没有它的位置，整段不显示。
+         >1180 它在右栏；≤1180（中间视口 900~1180px 与移动抽屉 ≤900px）位于侧栏/抽屉 Logo 正下方展示。
          宿主用 display:contents，所以卡片是 .sidebar 的直接 flex 子项：
          宽度自动跟菜单对齐（两边都是 stretch 撑满同一栏），卡片不在时也不占位 -->
     <div class="sb-weather" id="sbWeather"></div>
@@ -131,7 +131,8 @@
              那里那套 .header-right button 规则（36px 方块）会强行套到引擎按钮上 -->
         <form class="site-search" id="siteSearch" role="search">
           <svg class="ss-glass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
-          <input class="ss-input" id="ssInput" type="search" name="q" placeholder="使用必应搜索一下" aria-label="搜索关键词" autocomplete="off" spellcheck="false">
+          <input class="ss-input" id="ssInput" type="search" name="q" placeholder="站内搜源/热词，或回车全网搜索…" aria-label="搜索关键词" autocomplete="off" spellcheck="false">
+          <button class="ss-clear" id="ssClearBtn" type="button" aria-label="清空输入" hidden title="清空">✕</button>
           <!-- 引擎按钮：两只图标都在 DOM 里，由按钮上的 data-engine 决定显示哪只
                （见 style.css 的 .ss-engine [data-engine-icon]）——切换只改一个属性，
                不重建 DOM，图标也就不会闪。旁边的小箭头是「可以点开」的提示 -->
@@ -167,13 +168,15 @@
               <span class="ss-tick" aria-hidden="true">✓</span>
             </button>
           </div>
+          <!-- 站内即时检索与模糊搜源智能浮层 -->
+          <div class="ss-suggest" id="ssSuggest" role="listbox" aria-label="站内即时搜索与快捷直达" hidden></div>
         </form>
         <div class="header-right">
           <!-- 时钟与按钮同属「右侧容器」：宽屏时搜索框紧跟 logo、时钟在右，
                窗口放不下时整组一起换行到第二行（第一行留 logo + 搜索框）。
                clocks 必须是 .header-right 的子元素——fitClocks 正是用
                clock.parentElement 判断「这一行有没有溢出」来决定日期降不降级 -->
-          <div class="clock clock-desktop" id="clockDesktop" title="当前时间">
+          <div class="clock clock-desktop" id="clockDesktop" role="button" tabindex="0" title="点击查看万年历 · 农历与节假日" aria-label="万年历时钟胶囊，点击查看农历与节假日">
             <div class="clock-fill" data-fill="desktop"></div>
             <!-- 泡泡层：铺满胶囊，由 CSS clip-path 按今日进度裁出可见区（只活在橙色区间内） -->
             <div class="clock-bubbles" aria-hidden="true"><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i></div>
@@ -181,7 +184,7 @@
             <span class="clock-date" id="clockDateDesktop">今天是 ----年-月-日 周-</span>
             <span class="clock-time" id="clockTimeDesktop">--:--:--</span>
           </div>
-          <div class="clock clock-mobile" id="clockMobile" title="当前时间">
+          <div class="clock clock-mobile" id="clockMobile" role="button" tabindex="0" title="点击查看万年历 · 农历与节假日" aria-label="万年历时钟胶囊，点击查看农历与节假日">
             <div class="clock-fill" data-fill="mobile"></div>
             <div class="clock-bubbles" aria-hidden="true"><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i></div>
             <span class="clock-dot"></span>
@@ -215,6 +218,20 @@
 
 <!-- 下拉刷新指示器：手势拖出时跟随，松手回弹/触发刷新 -->
 <div class="ptr-indicator" id="ptrIndicator" aria-hidden="true"><span class="ptr-spin"></span></div>
+
+<!-- 万年历 / 农历 / 节假日弹窗 -->
+<div class="cal-modal-overlay" id="calModalOverlay" hidden>
+  <div class="cal-modal-card" id="calModalCard" role="dialog" aria-modal="true" aria-labelledby="calModalTitle">
+    <div class="cal-modal-head">
+      <div class="cal-modal-title" id="calModalTitle">
+        <span class="cal-modal-icon">📅</span>
+        <span class="cal-modal-text">万年历 · 农历与节假日</span>
+      </div>
+      <button class="cal-modal-close" id="calModalClose" type="button" aria-label="关闭弹窗" title="关闭 (Esc)">✕</button>
+    </div>
+    <div class="cal-modal-body" id="calModalBody"></div>
+  </div>
+</div>
 
 <script src="/app.js"></script>
 </body>

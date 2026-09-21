@@ -133,20 +133,192 @@ const CARD_LOGOS = {
 };
 
 // ============ 顶栏搜索 ============
-// 默认必应：搜索框右侧只露当前引擎的图标，点它在下方弹出候选列表切换
-//（同综合搜索引擎的选法）。选择写进 localStorage 记住。
-// 走各家网页版结果页、新标签打开，不离开当前面板
+// 优先站内即时热词筛选 / 模糊搜源，兜底全网搜索引擎（必应/谷歌）。
+// 选择搜索引擎写入 localStorage 记住。
 const SEARCH_ENGINES = {
   bing: { name: '必应', url: 'https://www.bing.com/search?q=' },
   google: { name: '谷歌', url: 'https://www.google.com/search?q=' },
 };
+
+// 常见模块拼音、缩写与别名映射表
+const EP_ALIASES = {
+  '60s': ['60秒', '读懂世界', '每日早报', '简报', '新闻早报', '早报', '60s', 'news', 'zb'],
+  'history': ['历史上的今天', '历史', '今天', 'lishi', 'today', 'ls'],
+  'weibo': ['微博', '微博热搜', 'wb', 'weibo', '渣浪', '围脖'],
+  'zhihu': ['知乎', '知乎热榜', 'zh', 'zhihu', '逼乎'],
+  'bili': ['b站', '哔哩哔哩', 'bilibili', 'bili', '小破站', '弹幕', 'bz'],
+  'douyin': ['抖音', '抖音热点', 'dy', 'douyin', '字节', '短视频'],
+  'toutiao': ['今日头条', '头条', 'tt', 'toutiao', 'jrtt'],
+  'aljazeera': ['半岛', '半岛电视台', 'aljazeera', '国际新闻'],
+  'bbcnews': ['bbc', '英国广播公司', 'bbcnews'],
+  'cnnnews': ['cnn', 'cnnnews'],
+  'bdhot': ['百度', '百度热搜', 'bd', 'baidu', '百度热榜'],
+  'bdtieba': ['贴吧', '百度贴吧', 'tieba', 'tb', 'bdtieba'],
+  'quark': ['夸克', '夸克资讯', 'quark', 'qk'],
+  'ifeng': ['凤凰', '凤凰网', 'ifeng', '凤凰热榜', 'fh'],
+  'dongchedi': ['懂车帝', '汽车', 'dcd', 'dongchedi', '车'],
+  'hupu': ['虎扑', '虎扑步行街', 'hp', 'hupu', '步行街', '直男'],
+  'nodeseek': ['nodeseek', 'ns', '主机', 'vps'],
+  'v2ex': ['v2ex', 'v2', 'v站', '威凸'],
+  'let': ['lowendtalk', 'let'],
+  'hn': ['hackernews', 'hn', 'hacker news'],
+  'itnews': ['it资讯', 'it之家', '科技资讯'],
+  'kuan': ['酷安', '基安', 'kuan', 'ka', '数码'],
+  '36kr': ['36氪', '36kr', '36', 'kr', '创业'],
+  'sspai': ['少数派', 'sspai', '数字生活'],
+  'huxiu': ['虎嗅', 'huxiu', 'hx'],
+  'juejin': ['掘金', 'juejin', 'jj', '前端', '后端'],
+  'gh-trending': ['github', 'git', 'gh', '开源', '代码', '项目'],
+  'cto51': ['51cto', 'cto', '博客'],
+  'itrank': ['it之家热榜', 'it之家', 'itrank'],
+  'maoyan-showing': ['在映电影', '院线', '热映'],
+  'maoyan-coming': ['待映电影', '即将上映', '预告'],
+  'maoyan': ['猫眼', '票房', '电影票房', 'my', 'maoyan'],
+  'douban': ['豆瓣', '豆瓣电影', 'db', 'douban', '影评'],
+  'douban-tv-cn': ['华语剧集', '国产剧', '电视剧'],
+  'douban-tv-global': ['全球剧集', '美剧', '韩剧', '日剧', '英剧'],
+  'douban-show-cn': ['华语综艺', '国产综艺', '综艺'],
+  'douban-show-global': ['全球综艺', '国外综艺'],
+  'bdtv': ['百度电视剧', '电视剧榜'],
+  'bdmovie': ['百度电影', '电影榜'],
+  'simkl-tv': ['流媒体剧集', 'netflix', 'hbo', 'disney', 'simkl'],
+  'simkl-movies': ['流媒体电影', '流媒体动画'],
+  'youtube': ['油管', 'youtube', 'ytb', '游戏视频'],
+  'ncm': ['网易云', '网易云音乐', 'wyy', '163', '云音乐', '听歌'],
+  'applemusic': ['applemusic', 'apple music', '苹果音乐'],
+  'qqmusic': ['qq音乐', 'qq music', '企鹅音乐', '绿钻'],
+  'epic': ['epic', '喜加一', 'epic games', '白嫖'],
+  'steam': ['steam', '蒸汽平台', 'g胖', 'v社'],
+  'lyric': ['歌词', '查歌词', '搜歌词', 'geci'],
+  'changya': ['唱鸭', '弹唱'],
+  'baike': ['百度百科', '百科', '词条', 'baike', 'bk'],
+  'health': ['健康计算器', 'bmi', '体脂率', '基础代谢', '健康', '减肥'],
+  'qr': ['二维码', '二维码生成', 'qr', 'qrcode', 'erweima'],
+  'hash': ['哈希', 'md5', 'sha256', 'base64', 'hash', '加密'],
+  'wnow': ['天气', '实时天气', 'tq', 'weather', 'tianqi', '气温', '下雨', '温度'],
+  'wfc': ['天气预报', '预报', '7天天气', '未来天气'],
+  'exrate': ['汇率', '外汇', '美元', '欧元', '日元', '英镑', 'hl', 'huilv'],
+  'fuel': ['油价', '今日油价', '汽油', '柴油', '92', '95', '98', 'yj', 'youjia'],
+  'gold': ['金价', '黄金', '黄金价格', '周大福', 'gold', 'hj', 'huangjin'],
+  'calendar': ['日历', '万年历', '放假', '节假日', 'rili', 'wnl'],
+  'lunar': ['老黄历', '黄历', '农历', '阴历', '吉凶', '宜忌', 'hl'],
+  'moyu': ['摸鱼', '摸鱼办', '周五', '放假倒计时', 'moyu', 'my'],
+  'duanzi': ['段子', '搞笑', '笑话', 'duanzi'],
+  'dadjoke': ['冷笑话', '英文笑话', 'dadjoke'],
+  'hitokoto': ['一言', '句子', '语录', 'hitokoto', 'yiyan'],
+  'kfc': ['疯狂星期四', 'kfc', '肯德基', 'v50'],
+  'fabing': ['发疯文学', '发病', '发病文学'],
+  'geng': ['梗百科', '热梗', '梗', '小黑子', '吃瓜'],
+  'game2048': ['2048', '小游戏', '游戏', '2048游戏'],
+  'muyu': ['木鱼', '电子木鱼', '功德', '积德', '敲木鱼', 'muyu'],
+  'fanyi': ['翻译', '中英互译', '词典', 'fanyi', 'fy', 'translate']
+};
+
+const POPULAR_MODULE_IDS = ['weibo', 'zhihu', '60s', 'gh-trending', '36kr', 'wnow', 'fuel', 'bili'];
+
+function highlightSearchQuery(text, query) {
+  if (!text) return '';
+  if (!query) return esc(text);
+  const qClean = query.trim();
+  if (!qClean) return esc(text);
+  const safeQ = qClean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = text.split(new RegExp(`(${safeQ})`, 'gi'));
+  return parts.map(part => {
+    if (part.toLowerCase() === qClean.toLowerCase()) {
+      return `<mark>${esc(part)}</mark>`;
+    }
+    return esc(part);
+  }).join('');
+}
+
+function matchSearchModules(q) {
+  const query = q.trim().toLowerCase();
+  if (!query || (typeof EPS === 'undefined') || !Array.isArray(EPS)) return [];
+  const results = [];
+  for (const ep of EPS) {
+    let score = 0;
+    const name = ep.name.toLowerCase();
+    const id = ep.id.toLowerCase();
+    const aliases = EP_ALIASES[ep.id] || [];
+
+    if (name === query || id === query) {
+      score = 100;
+    } else if (aliases.some(a => a.toLowerCase() === query)) {
+      score = 95;
+    } else if (name.startsWith(query)) {
+      score = 80;
+    } else if (name.includes(query)) {
+      score = 65;
+    } else if (aliases.some(a => a.toLowerCase().startsWith(query))) {
+      score = 60;
+    } else if (aliases.some(a => a.toLowerCase().includes(query))) {
+      score = 50;
+    } else if (id.startsWith(query)) {
+      score = 45;
+    } else if (id.includes(query)) {
+      score = 35;
+    } else {
+      const catObj = (typeof CATS !== 'undefined') ? CATS.find(c => c.id === ep.cat) : null;
+      if (catObj && catObj.name.toLowerCase().includes(query)) {
+        score = 25;
+      }
+    }
+
+    if (score > 0) {
+      results.push({ ep, score });
+    }
+  }
+  return results.sort((a, b) => b.score - a.score).slice(0, 5).map(x => x.ep);
+}
+
+function matchSearchHotItems(q) {
+  const query = q.trim().toLowerCase();
+  if (!query || !homeData) return { items: [], total: 0 };
+  const matched = [];
+  const seen = new Set();
+
+  for (const it of (homeData.items || [])) {
+    if (!it.title) continue;
+    const t = it.title.toLowerCase();
+    const d = (it.desc || '').toLowerCase();
+    if (t.includes(query) || d.includes(query)) {
+      const key = it.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 12);
+      if (!seen.has(key)) {
+        seen.add(key);
+        matched.push(it);
+      }
+    }
+  }
+
+  for (const plat in (homeData.lists || {})) {
+    for (const it of (homeData.lists[plat] || [])) {
+      if (!it.title) continue;
+      const t = it.title.toLowerCase();
+      const d = (it.desc || '').toLowerCase();
+      if (t.includes(query) || d.includes(query)) {
+        const key = it.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 12);
+        if (!seen.has(key)) {
+          seen.add(key);
+          matched.push(it);
+        }
+      }
+    }
+  }
+
+  return {
+    items: matched.slice(0, 6),
+    total: matched.length
+  };
+}
 
 function initSiteSearch() {
   const form = document.getElementById('siteSearch');
   const input = document.getElementById('ssInput');
   const trigger = document.getElementById('ssEngineBtn');
   const menu = document.getElementById('ssEngineMenu');
-  if (!form || !input || !trigger || !menu) return;
+  const clearBtn = document.getElementById('ssClearBtn');
+  const suggest = document.getElementById('ssSuggest');
+  if (!form || !input || !trigger || !menu || !suggest) return;
   const items = [...menu.querySelectorAll('.ss-item')];
 
   let engine = 'bing';
@@ -155,42 +327,57 @@ function initSiteSearch() {
     if (saved && SEARCH_ENGINES[saved]) engine = saved;
   } catch {}
 
-  // 开合的唯一写入口：菜单显隐 + 按钮的 aria-expanded 共用同一个开关，
-  // 不必两处同步；外点 / Esc 关闭也走它
-  const setOpen = (open) => {
-    menu.classList.toggle('open', open);
-    trigger.setAttribute('aria-expanded', String(open));
+  let activeRowIndex = -1;
+
+  // 维护搜索框 suggest-open 状态，确保浮层展开时 z-index 凌驾于顶栏右侧与时钟胶囊之上
+  const updateSuggestOpenState = () => {
+    const isEngineOpen = menu.classList.contains('open');
+    const isSuggestVisible = !suggest.hidden;
+    form.classList.toggle('suggest-open', isEngineOpen || isSuggestVisible);
   };
 
-  // 选中态的唯一写入口。三处都要跟着走，所以集中在这里刷新：
-  //   ① 按钮图标：只写 data-engine，由 CSS 决定显示哪只（不重建 DOM，图标不闪）
-  //   ② 列表里的橙字与勾、按钮的无障碍名
-  //   ③ 输入框提示语（「使用必应/谷歌搜索一下」）
+  const setSuggestVisible = (visible) => {
+    suggest.hidden = !visible;
+    updateSuggestOpenState();
+  };
+
+  // 开合唯一写入：引擎下拉菜单显隐
+  const setEngineMenuOpen = (open) => {
+    menu.classList.toggle('open', open);
+    trigger.setAttribute('aria-expanded', String(open));
+    if (open) suggest.hidden = true;
+    updateSuggestOpenState();
+  };
+
   const paint = () => {
     trigger.dataset.engine = engine;
     trigger.setAttribute('aria-label', '选择搜索引擎，当前为' + SEARCH_ENGINES[engine].name);
     items.forEach(it => it.setAttribute('aria-selected', String(it.dataset.engine === engine)));
-    input.placeholder = '使用' + SEARCH_ENGINES[engine].name + '搜索一下';
+    input.placeholder = '搜模块/热词，或回车' + SEARCH_ENGINES[engine].name + '搜…';
   };
   paint();
 
-  trigger.onclick = () => setOpen(!menu.classList.contains('open'));
+  trigger.onclick = (e) => {
+    e.stopPropagation();
+    setEngineMenuOpen(!menu.classList.contains('open'));
+  };
 
   items.forEach(it => {
     it.onclick = () => {
       engine = it.dataset.engine;
       try { localStorage.setItem('search-engine', engine); } catch {}
       paint();
-      setOpen(false);
-      input.focus();   // 选完引擎多半是为了接着输入，顺手还焦点
+      setEngineMenuOpen(false);
+      input.focus();
+      renderSuggest(input.value.trim());
     };
   });
 
-  // 键盘：按钮上按上下键直接进列表；列表内上下键循环移动（Esc 由下面统一关闭）
+  // 键盘：引擎按钮上下键进菜单
   trigger.addEventListener('keydown', e => {
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
     e.preventDefault();
-    setOpen(true);
+    setEngineMenuOpen(true);
     const cur = items.findIndex(it => it.dataset.engine === engine);
     items[cur > -1 ? cur : 0].focus();
   });
@@ -201,22 +388,336 @@ function initSiteSearch() {
     items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
   });
 
-  // 外点关闭：按钮与菜单都在 form 内，点它们不该关（按钮自己负责开合）
-  document.addEventListener('click', e => {
-    if (!form.contains(e.target)) setOpen(false);
-  });
-  // Esc 关闭并把焦点还给输入框：从菜单里退出后不用再点一下才能继续打字
-  document.addEventListener('keydown', e => {
-    if (e.key !== 'Escape' || !menu.classList.contains('open')) return;
-    setOpen(false);
-    input.focus();
+  const executeSelection = (type, payload) => {
+    setSuggestVisible(false);
+    if (type === 'module') {
+      const ep = (typeof EPS !== 'undefined' && Array.isArray(EPS)) ? EPS.find(x => x.id === payload) : null;
+      if (ep && locateCardFn) {
+        locateCardFn(ep);
+      }
+      input.blur();
+    } else if (type === 'hot') {
+      if (payload) {
+        window.open(safeUrl(payload), '_blank', 'noopener');
+      }
+    } else if (type === 'filter') {
+      if (curView !== 'home' && switchToHomeFn) {
+        switchToHomeFn();
+      }
+      if (typeof window.toggleKeywordFilter === 'function') {
+        window.toggleKeywordFilter(payload);
+      }
+      input.blur();
+    } else if (type === 'web') {
+      if (payload) {
+        window.open(SEARCH_ENGINES[engine].url + encodeURIComponent(payload), '_blank', 'noopener');
+      }
+      input.blur();
+    }
+  };
+
+  const executeDefault = (q) => {
+    if (!q) { input.focus(); return; }
+    const modules = matchSearchModules(q);
+    const qLower = q.toLowerCase();
+    if (modules.length > 0) {
+      const best = modules[0];
+      const aliases = EP_ALIASES[best.id] || [];
+      if (
+        best.name.toLowerCase() === qLower ||
+        best.id.toLowerCase() === qLower ||
+        best.name.toLowerCase().includes(qLower) ||
+        aliases.some(a => a.toLowerCase() === qLower)
+      ) {
+        executeSelection('module', best.id);
+        return;
+      }
+    }
+    const hotResult = matchSearchHotItems(q);
+    if (hotResult.total > 0) {
+      executeSelection('filter', q);
+      return;
+    }
+    executeSelection('web', q);
+  };
+
+  const renderSuggest = (q) => {
+    const query = (q || '').trim();
+    activeRowIndex = -1;
+
+    // 空输入态：全网热词云 + 常用数据源直达
+    if (!query) {
+      let topKws = [];
+      try {
+        if (typeof extractHotKeywords === 'function' && homeData) {
+          topKws = extractHotKeywords(homeData).slice(0, 6);
+        }
+      } catch {}
+
+      const popModules = (typeof EPS !== 'undefined' && Array.isArray(EPS))
+        ? POPULAR_MODULE_IDS.map(id => EPS.find(x => x.id === id)).filter(Boolean)
+        : [];
+
+      let html = '';
+      if (topKws.length > 0) {
+        html += `
+          <div class="ss-group">
+            <div class="ss-group-title">
+              <span>🔥 全网实时热词</span>
+              <span class="ss-group-count">点击即筛选</span>
+            </div>
+            <div class="ss-pills-wrap">
+              ${topKws.map(kw => `<button type="button" class="ss-kw-pill" data-kw="${esc(kw.word)}">${esc(kw.word)} <span class="ss-kw-cnt">${kw.count}</span></button>`).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      if (popModules.length > 0) {
+        html += `
+          <div class="ss-group">
+            <div class="ss-group-title">
+              <span>🧭 常用数据源直达</span>
+            </div>
+            <div class="ss-pills-wrap">
+              ${popModules.map(ep => `<button type="button" class="ss-mod-pill" data-ep-id="${esc(ep.id)}"><span class="ss-pill-icon">${ep.icon}</span> ${esc(ep.name)}</button>`).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      html += `
+        <div class="ss-footer-hint">
+          <span><kbd>/</kbd> 或 <kbd>Ctrl+K</kbd> 呼出</span>
+          <span><kbd>↑</kbd><kbd>↓</kbd> 导航</span>
+          <span><kbd>Esc</kbd> 关闭</span>
+        </div>
+      `;
+      suggest.innerHTML = html;
+      setSuggestVisible(true);
+      return;
+    }
+
+    // 非空态：数据源直达 + 站内热搜即时匹配 + 全网搜索兜底
+    const modules = matchSearchModules(query);
+    const hotResult = matchSearchHotItems(query);
+
+    let html = '';
+
+    if (modules.length > 0) {
+      html += `
+        <div class="ss-group">
+          <div class="ss-group-title">
+            <span>🧭 数据源直达</span>
+            <span class="ss-group-count">${modules.length} 个结果</span>
+          </div>
+          ${modules.map(ep => {
+            const catObj = (typeof CATS !== 'undefined') ? CATS.find(c => c.id === ep.cat) : null;
+            const catName = catObj ? catObj.name.replace(/^[^\u4e00-\u9fa5a-zA-Z0-9]+/, '') : ep.cat;
+            return `
+              <div class="ss-row ss-row-module" role="option" data-type="module" data-payload="${esc(ep.id)}">
+                <span class="ss-row-icon">${ep.icon}</span>
+                <div class="ss-row-body">
+                  <div class="ss-row-title">${highlightSearchQuery(ep.name, query)}</div>
+                  <div class="ss-row-sub">${esc(catName)} · 站内模块</div>
+                </div>
+                <span class="ss-row-badge">直达 ↵</span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    if (hotResult.items.length > 0) {
+      html += `
+        <div class="ss-group">
+          <div class="ss-group-title">
+            <span>🔥 站内热搜即时匹配</span>
+            <span class="ss-group-count">${hotResult.total} 条相关</span>
+          </div>
+          ${hotResult.items.map(it => {
+            const hot = typeof heatText === 'function' ? heatText(it) : (it.hot_index_text || it.hot_text || '');
+            const tagHtml = it.tag ? `<span class="ss-item-tag">${esc(it.tag)}</span>` : '';
+            const hotHtml = hot ? `<span class="ss-row-heat">${esc(hot)}</span>` : '';
+            const iconImg = it.source_icon ? `<img class="ss-source-icon" src="${esc(it.source_icon)}" alt="" onerror="this.style.display='none'">` : '<span class="ss-row-icon">📌</span>';
+            return `
+              <div class="ss-row ss-row-hot" role="option" data-type="hot" data-payload="${esc(it.link || '')}">
+                ${iconImg}
+                <div class="ss-row-body">
+                  <div class="ss-row-title">${highlightSearchQuery(it.title, query)}</div>
+                  <div class="ss-row-sub">${esc(it.source_name || '')}</div>
+                </div>
+                ${tagHtml}
+                ${hotHtml}
+                <span class="ss-row-jump">↗</span>
+              </div>
+            `;
+          }).join('')}
+          <div class="ss-row ss-row-action" role="option" data-type="filter" data-payload="${esc(query)}">
+            <span class="ss-row-icon">⚡</span>
+            <div class="ss-row-body">
+              <div class="ss-row-title">在主榜聚合筛选包含 “<strong>${esc(query)}</strong>” 的全部热搜 (${hotResult.total}条)</div>
+              <div class="ss-row-sub">聚合全网热点 · 联动右侧热词透视</div>
+            </div>
+            <span class="ss-row-badge">回车筛选 ↵</span>
+          </div>
+        </div>
+      `;
+    } else if (modules.length === 0) {
+      html += `
+        <div class="ss-group">
+          <div class="ss-group-title"><span>🔥 站内热搜</span></div>
+          <div style="padding: 6px 10px; font-size: 12px; color: var(--text-dimmer);">站内暂无包含 “${esc(query)}” 的热搜</div>
+        </div>
+      `;
+    }
+
+    html += `
+      <div class="ss-group">
+        <div class="ss-group-title">
+          <span>🌐 全网搜索</span>
+        </div>
+        <div class="ss-row ss-row-web" role="option" data-type="web" data-payload="${esc(query)}">
+          <span class="ss-row-icon">🔍</span>
+          <div class="ss-row-body">
+            <div class="ss-row-title">在 <strong>${esc(SEARCH_ENGINES[engine].name)}</strong> 中搜索 “${esc(query)}”</div>
+            <div class="ss-row-sub">外部全网搜索引擎 · 新标签页打开</div>
+          </div>
+          <span class="ss-row-badge">全网 ↗</span>
+        </div>
+      </div>
+    `;
+
+    suggest.innerHTML = html;
+    setSuggestVisible(true);
+  };
+
+  // 键盘操作：上下选择、回车确认、Esc 退出
+  input.addEventListener('keydown', (e) => {
+    const rows = [...suggest.querySelectorAll('.ss-row')];
+    if (e.key === 'ArrowDown') {
+      if (suggest.hidden) {
+        renderSuggest(input.value.trim());
+        setSuggestVisible(true);
+        return;
+      }
+      if (rows.length === 0) return;
+      e.preventDefault();
+      activeRowIndex = (activeRowIndex + 1) % rows.length;
+      rows.forEach((r, idx) => r.classList.toggle('active', idx === activeRowIndex));
+      rows[activeRowIndex].scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      if (suggest.hidden) return;
+      if (rows.length === 0) return;
+      e.preventDefault();
+      activeRowIndex = (activeRowIndex - 1 + rows.length) % rows.length;
+      rows.forEach((r, idx) => r.classList.toggle('active', idx === activeRowIndex));
+      rows[activeRowIndex].scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (activeRowIndex >= 0 && rows[activeRowIndex]) {
+        const type = rows[activeRowIndex].dataset.type;
+        const payload = rows[activeRowIndex].dataset.payload;
+        executeSelection(type, payload);
+      } else {
+        executeDefault(input.value.trim());
+      }
+      return;
+    }
+    if (e.key === 'Escape') {
+      setSuggestVisible(false);
+      input.blur();
+      return;
+    }
   });
 
+  // 输入监听
+  input.addEventListener('input', () => {
+    const val = input.value.trim();
+    if (clearBtn) clearBtn.hidden = !input.value;
+    renderSuggest(val);
+  });
+
+  input.addEventListener('focus', () => {
+    setEngineMenuOpen(false);
+    if (clearBtn) clearBtn.hidden = !input.value;
+    renderSuggest(input.value.trim());
+  });
+
+  // 清空按钮
+  if (clearBtn) {
+    clearBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      input.value = '';
+      clearBtn.hidden = true;
+      renderSuggest('');
+      input.focus();
+    });
+  }
+
+  // 浮层交互点击代理
+  suggest.addEventListener('click', (e) => {
+    const row = e.target.closest('.ss-row');
+    if (row) {
+      const type = row.dataset.type;
+      const payload = row.dataset.payload;
+      executeSelection(type, payload);
+      return;
+    }
+    const kwPill = e.target.closest('.ss-kw-pill');
+    if (kwPill) {
+      const kw = kwPill.dataset.kw;
+      input.value = kw;
+      if (clearBtn) clearBtn.hidden = false;
+      renderSuggest(kw);
+      input.focus();
+      return;
+    }
+    const modPill = e.target.closest('.ss-mod-pill');
+    if (modPill) {
+      const epId = modPill.dataset.epId;
+      executeSelection('module', epId);
+      return;
+    }
+  });
+
+  // 表单提交（兼容移动端软键盘搜索按钮）
   form.addEventListener('submit', (e) => {
-    e.preventDefault();   // 表单本身无 action：拦截后自行拼 URL，避免离开页面
-    const q = input.value.trim();
-    if (!q) { input.focus(); return; }
-    window.open(SEARCH_ENGINES[engine].url + encodeURIComponent(q), '_blank', 'noopener');
+    e.preventDefault();
+    const rows = [...suggest.querySelectorAll('.ss-row')];
+    if (activeRowIndex >= 0 && rows[activeRowIndex]) {
+      const type = rows[activeRowIndex].dataset.type;
+      const payload = rows[activeRowIndex].dataset.payload;
+      executeSelection(type, payload);
+    } else {
+      executeDefault(input.value.trim());
+    }
+  });
+
+  // 点击外部收起
+  document.addEventListener('click', (e) => {
+    if (!form.contains(e.target)) {
+      setEngineMenuOpen(false);
+      setSuggestVisible(false);
+    }
+  });
+
+  // 全局快捷键：/ 或 Ctrl+K / Cmd+K 聚焦呼出
+  document.addEventListener('keydown', (e) => {
+    const tag = (e.target.tagName || '').toLowerCase();
+    const isInput = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
+    if (!isInput && (e.key === '/' || ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')))) {
+      e.preventDefault();
+      input.focus();
+      input.select();
+      setSuggestVisible(true);
+      renderSuggest(input.value.trim());
+    }
   });
 }
 
@@ -410,12 +911,11 @@ function heroWeatherNode() {
   return heroWeatherEl;
 }
 
-// 当前视口下卡片该待在哪个宿主；null = 这段宽度两端都没有它的位置
+// 当前视口下卡片该待在哪个宿主：>1180px 放在右栏顶部，≤1180px 放置在左侧菜单 Logo 正下方（#sbWeather，中间视口与抽屉共用）
 function weatherHost() {
   const w = window.innerWidth;
   if (w > HW_RAIL_MIN_WIDTH) return document.getElementById('railWeather');
-  if (w <= HW_DRAWER_MAX_WIDTH) return document.getElementById('sbWeather');
-  return null;
+  return document.getElementById('sbWeather');
 }
 
 // 把卡片搬进当前宿主，返回它此刻是否落在页面里。
@@ -425,8 +925,6 @@ function placeWeatherCard() {
   const host = weatherHost();
   const node = heroWeatherNode();
   if (!host) {
-    // 900~1180：右栏没了、抽屉还没出来。节点只是脱离文档，
-    // 内容和状态都留着，回到有效区间时由 restoreHeroWeather 原样贴回
     if (node.parentNode) node.remove();
     return false;
   }
@@ -586,8 +1084,8 @@ function hwPrecipTile(kind, layer, level) {
   if (kind === 'rain') {
     for (let i = 0; i < count; i++) {
       const rx = rnd(cfg.rx[0], cfg.rx[1]);
-      // 长宽比随机：真实的雨丝不会一般长，3 倍上下浮动最像「雨」
-      const ry = rx * rnd(2.7, 3.8);
+      // 长宽比随机：雨滴做更修长流线的纵向延伸（3.2~4.6 倍），在倾角旋转下形成极具动势的细雨丝
+      const ry = rx * rnd(3.2, 4.6);
       // 内缩 2px：保证整颗雨滴落在图块内（见上面第 2 条约束）
       const cx = rnd(rx + 2, cfg.w - rx - 2);
       const cy = rnd(ry + 2, cfg.h - ry - 2);
@@ -645,7 +1143,13 @@ function applyHeroWeatherFx(box) {
     // 这里的高度、CSS 的 background-size 高度、keyframes 的位移量**必须三处一致**：
     // 位移量比图块高度小一截，循环接缝处就会「跳一下」；比它大则每次循环漏掉一段。
     // 改任一处都要同时改另外两处（tilecheck / raincheck 会校验这一点）。
-    el.style.animationDuration = `${(HW_PRECIP[pk][layer].h / (HW_PRECIP_SPEED[pk][layer] * rate)).toFixed(1)}s`;
+    const fallDur = (HW_PRECIP[pk][layer].h / (HW_PRECIP_SPEED[pk][layer] * rate)).toFixed(1);
+    if (pk === 'snow') {
+      const swayDur = slot === 3 ? '8s' : '13s';
+      el.style.animationDuration = `${fallDur}s, ${swayDur}`;
+    } else {
+      el.style.animationDuration = `${fallDur}s`;
+    }
   });
 }
 
@@ -693,10 +1197,13 @@ function heroWeatherHtml(d, editing) {
   //   i4 闪电
   //   i5 天光泛白（闪电时整块天空透亮）
   //   i6 备用
+  const condHtml = w.condition
+    ? `<span class="hw-sep">·</span><span class="hw-cond">${esc(w.condition)}</span>`
+    : '';
   const kind = hwFxKind(d);
   return `<div class="hw-fx hw-fx-${kind}" aria-hidden="true">${HW_CLOUD_KINDS.has(kind) ? HW_CLOUD_SVG : ''}<i></i><i></i><i></i><i></i><i></i><i></i></div>
-    <div class="hw-city">${esc(city)}<span class="hw-tip" aria-hidden="true">✎</span>${isDefault ? '<span class="hw-def">默认</span>' : ''}</div>
-    <div class="hw-temp">${esc(String(w.temperature ?? '--'))}<span class="hw-unit">°C</span><span class="hw-cond">${esc(w.condition || '')}</span></div>
+    <div class="hw-city"><span class="hw-city-text"><span class="hw-city-name">${esc(city)}</span>${condHtml}</span><span class="hw-city-extra"><span class="hw-tip" aria-hidden="true">✎</span>${isDefault ? '<span class="hw-def">默认</span>' : ''}</span></div>
+    <div class="hw-temp">${esc(String(w.temperature ?? '--'))}<span class="hw-unit">°</span></div>
     ${bits.length ? `<div class="hw-sub">${esc(bits.join(' · '))}</div>` : ''}
     <div class="hw-edit"${editing ? '' : ' hidden'}>
       <button type="button" class="hw-edit-close" aria-label="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
@@ -853,11 +1360,10 @@ function restoreHeroWeather() {
   // 'idle'：首次加载还没开始，节点保持 hidden，交给 loadHeroWeather 接管
 }
 
-// 视口跨过 900 / 1180 时卡片要换宿主。用 matchMedia 而不是 resize 监听：
+// 视口跨过 1180 / 900 时卡片要换宿主。用 matchMedia 而不是 resize 监听：
 // resize 在拖拽窗口时每帧都触发，而真正需要搬家的只有跨过这两条线的那一瞬间。
-// 两条查询都要挂——1181 那条负责「回到右栏」，900 那条负责「进抽屉」，
-// 中间区间的进出正好由它们各自的一次触发覆盖
-['(min-width: 1181px)', '(max-width: 900px)'].forEach((q) => {
+// 1181 负责「回到右栏」，1180 负责「进侧栏/抽屉 Logo 下方」，900 负责移动抽屉切换
+['(min-width: 1181px)', '(max-width: 1180px)', '(max-width: 900px)'].forEach((q) => {
   const mq = window.matchMedia(q);
   const onChange = () => restoreHeroWeather();
   if (mq.addEventListener) mq.addEventListener('change', onChange);
@@ -1158,13 +1664,12 @@ CARD_GROUPS.forEach(g => g.tabs.forEach(t => { GROUP_OF[t.ep] = g; }));
 // ============ 响应式判定：断点与输入能力（CSS 与 JS 共用同一口径） ============
 // MQ_TOUCH  ：主输入为触摸（手机/平板）——全屏分流用；触摸设备绕开系统 Fullscreen API，
 //             避免 Android / 内嵌 WebView 进入全屏时把屏幕强制旋转为横屏。
-// MQ_MOBILE ：窄屏「或」触摸——移动端布局/交互判定。与 style.css 的
-//             @media (max-width: 820px), (pointer: coarse) 逐字一致；
-//             手机横屏时宽度常 >820px，靠 (pointer: coarse) 兜住，仍按移动端布局。
+// MQ_MOBILE ：窄屏——移动端布局/交互判定。纯按视口宽度判定（≤820px），
+//             与 style.css 的 @media (max-width: 820px) 逐字一致，
+//             避免大屏触控笔记本（Surface / 触摸一体机等）被误判为移动端布局。
 const MQ_TOUCH = window.matchMedia('(pointer: coarse)');
-const MQ_MOBILE = window.matchMedia('(max-width: 820px), (pointer: coarse)');
+const MQ_MOBILE = window.matchMedia('(max-width: 820px)');
 // 三栏版式断点：≤900px 左侧栏收成抽屉（与 style.css 的抽屉媒体查询逐字一致）。
-// 不能复用 MQ_MOBILE——它还含 (pointer: coarse)，触摸大屏会被误判成抽屉版式
 const MQ_DRAWER = window.matchMedia('(max-width: 900px)');
 // 移动端布局是否生效：原分散的 window.innerWidth <=/> 820 判断统一改用它，杜绝断点散落
 const isMobileLayout = () => MQ_MOBILE.matches;
@@ -1331,12 +1836,14 @@ let curView = 'home';
 // 首页聚合数据与平台筛选（'all' = 综合）
 let homeData = null;
 let homeFilter = 'all';
+let homeKeywordFilter = null; // 当前热词筛选（null 为不筛选）
 // 首页每个榜单默认展示条数，超出折叠；homeExpanded 只在「当前这一屏」有效，换筛选即复位
 const HOME_COLLAPSE_N = 20;
 let homeExpanded = false;
 let activeModuleId = null; // 当前高亮的子菜单模块（点击模块菜单后记录）
 let syncSubs = null; // init 内部 refreshSubs 的对外钩子：分组卡片切标签页时同步子菜单高亮
 let locateCardFn = null; // init 内部 locateCard 的对外钩子：分类页数据源便签点击定位用
+let switchToHomeFn = null; // init 内部 switchToHome 的对外钩子：站内搜索切回首页用
 let centerSubChip = null; // init 内部 focusSubChip 的对外钩子：切标签页时让对应模块 chip 滚入可视区
 let fanyiLangs = null;
 
@@ -1508,7 +2015,15 @@ window.addEventListener('mouseup', () => {
 });
 
 // P1: 骨架屏 HTML
-const SKELETON_HTML = '<div class="skeleton"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line skeleton-line-short"></div></div>';
+const SKELETON_HTML = '<div class="skeleton">' +
+  '<div class="skeleton-line" style="width:78%"></div>' +
+  '<div class="skeleton-line" style="width:92%"></div>' +
+  '<div class="skeleton-line" style="width:85%"></div>' +
+  '<div class="skeleton-line" style="width:68%"></div>' +
+  '<div class="skeleton-line" style="width:88%"></div>' +
+  '<div class="skeleton-line" style="width:74%"></div>' +
+  '<div class="skeleton-line" style="width:82%"></div>' +
+  '<div class="skeleton-line skeleton-line-short" style="width:55%"></div></div>';
 
 // 视图空态：复用免费游戏空态的视觉语言（图标+主文案+副说明），比一行灰字友好。
 // 搜索框已移除，这里只在分类数据缺失这类异常情况下兜底
@@ -1640,6 +2155,9 @@ function init() {
 
   // 顶栏搜索（默认必应，可切谷歌）
   initSiteSearch();
+
+  // 万年历与农历胶囊弹窗
+  initCalendarModal();
 
   // Theme：优先用用户手动保存的偏好，否则跟随系统日间/夜间模式
   // （prefers-color-scheme 在桌面 Chrome/Edge/Firefox 与移动端 Safari/Chrome 均已支持）
@@ -1957,6 +2475,15 @@ function init() {
       : document.getElementById('card-' + ep.id);
     if (card && group && typeof card._activateTab === 'function') card._activateTab(ep.id);
     if (card) {
+      // 若目标卡仍在视口懒加载队列中，立即触发加载，无需等待滚动动画到位
+      if (card.dataset.lazyEp) {
+        const epId = card.dataset.lazyEp;
+        delete card.dataset.lazyEp;
+        delete card.dataset.forceUpdate;
+        if (cardLazyObserver) cardLazyObserver.unobserve(card);
+        const targetEp = EPS.find(e => e.id === epId) || ep;
+        load(targetEp);
+      }
       // 先停掉上一轮校正（可能是分类定位留下的）：它会持续把页面拉回分类标题，
       // 与本次卡片定位争抢滚动位置，是精确定位失效的直接原因
       stopAlign();
@@ -2086,6 +2613,7 @@ function init() {
     render(true);
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
+  switchToHomeFn = switchToHome;
 
   CATS.forEach(c => {
     // 「全部」不再出现在侧边栏菜单里：首页已经是跨平台聚合视图，
@@ -2131,6 +2659,8 @@ function init() {
       // pill 行放不下时把选中的分类居中（内部按宽度判断，够宽时跳过）
       centerInContainer(catPills, b);
       refreshSubs();
+      // 切分类前先将滚动位置复位，避免上一页遗留的深层滚动偏移行导致下方视口外卡片被误判为可见
+      window.scrollTo({ top: 0, behavior: 'instant' });
       // sync：scrollToCatTitle 紧接着要测量新渲染出来的分类标题位置
       render(true);
       scrollToCatTitle(c.id);
@@ -2323,6 +2853,9 @@ function init() {
     if (topbarEl) document.documentElement.style.setProperty('--topbar-h', topbarEl.getBoundingClientRect().height + 'px');
   }
   syncTopbarH();
+  if (window.ResizeObserver && topbarEl) {
+    new ResizeObserver(syncTopbarH).observe(topbarEl);
+  }
   window.addEventListener('resize', () => { syncTopbarH(); placeCatPanel(); });
   window.addEventListener('load', () => { syncTopbarH(); placeCatPanel(); });
 
@@ -2359,6 +2892,37 @@ function render(sync) {
   } else {
     doRender();
   }
+}
+
+// ============ 卡片视口懒加载（IntersectionObserver） ============
+let cardLazyObserver = null;
+function setupCardLazyObserver() {
+  if (cardLazyObserver) {
+    cardLazyObserver.disconnect();
+    cardLazyObserver = null;
+  }
+  if (!('IntersectionObserver' in window)) return null;
+
+  cardLazyObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const el = entry.target;
+        cardLazyObserver.unobserve(el);
+        const epId = el.dataset.lazyEp;
+        const force = el.dataset.forceUpdate === '1';
+        if (epId) {
+          delete el.dataset.lazyEp;
+          delete el.dataset.forceUpdate;
+          const ep = EPS.find(e => e.id === epId);
+          if (ep) load(ep, force).finally(() => splash.step());
+        }
+      }
+    });
+  }, {
+    rootMargin: '200px 0px',
+    threshold: 0.01,
+  });
+  return cardLazyObserver;
 }
 
 function renderImpl() {
@@ -2459,7 +3023,7 @@ function renderImpl() {
     return;
   }
 
-  // Auto load — 错开请求，避免触发速率限制
+  // Auto load — 视口感知懒加载：首屏可见卡片直接加载并通知开屏遮罩，视口外卡片交由 IntersectionObserver 按需拉取
   // 分组成员不出现在独立自动加载队列：分组卡片只加载当前激活的标签页，
   // 其余标签页由 activate() 在首次点开时懒加载
   const autoEps = EPS.filter(ep => ep.auto && (curCat === 'all' || curCat === ep.cat) && !GROUP_OF[ep.id]);
@@ -2467,14 +3031,29 @@ function renderImpl() {
     const ep = EPS.find(e => e.id === card.dataset.activeEp);
     if (ep && ep.auto) autoEps.push(ep);
   });
-  // 首屏：开屏遮罩等这批自动加载全部完成（或 3.5s 兜底）后再渐隐
-  if (!firstRenderDone) {
-    firstRenderDone = true;
-    splash.begin(autoEps.length);
+
+  const observer = setupCardLazyObserver();
+  if (!observer) {
+    if (!firstRenderDone) {
+      firstRenderDone = true;
+      splash.begin(autoEps.length || 1);
+    }
+    autoEps.forEach((ep, i) => {
+      setTimeout(() => load(ep).finally(() => splash.step()), i * 60);
+    });
+  } else {
+    if (!firstRenderDone) {
+      firstRenderDone = true;
+      splash.begin(1);
+    }
+    autoEps.forEach(ep => {
+      const cardId = 'card-' + (GROUP_OF[ep.id] ? GROUP_OF[ep.id].id : ep.id);
+      const cardEl = document.getElementById(cardId);
+      if (!cardEl) return;
+      cardEl.dataset.lazyEp = ep.id;
+      observer.observe(cardEl);
+    });
   }
-  autoEps.forEach((ep, i) => {
-    setTimeout(() => load(ep).finally(() => splash.step()), i * 80);
-  });
 
   // 菜单同步：目录徽章/高亮对齐刚重建的 DOM，并按新卡片集合重建 scroll-spy 监听
   if (syncSubs) syncSubs();
@@ -3123,7 +3702,6 @@ function rCalendar(d, c, ep) {
       '</div>';
   }));
   h += '</div>';
-  h += '<div class="cal-tip">节气与节日以强调色标注 · 休 / 班为法定节假日安排</div>';
   h += '</div>';
   c.innerHTML = h;
 }
@@ -3174,6 +3752,229 @@ document.addEventListener('click', e => {
     }
   }
 });
+
+// ============ 万年历 / 农历 / 节假日弹窗 ============
+function initCalendarModal() {
+  const overlay = document.getElementById('calModalOverlay');
+  const card = document.getElementById('calModalCard');
+  const closeBtn = document.getElementById('calModalClose');
+  const body = document.getElementById('calModalBody');
+  const clockDesktop = document.getElementById('clockDesktop');
+  const clockMobile = document.getElementById('clockMobile');
+
+  if (!overlay || !card || !closeBtn || !body) return;
+
+  const now = new Date();
+  let calModalYear = now.getFullYear();
+  let calModalMonth = now.getMonth() + 1;
+  let calModalLunarData = null;
+  const calModalCalendarCache = new Map();
+  let calModalLoading = false;
+
+  const renderModalContent = () => {
+    let html = '';
+
+    // 1. 今日农历详情
+    if (calModalLunarData) {
+      const d = calModalLunarData;
+      const s = d.solar || {};
+      const l = d.lunar || {};
+      const z = d.zodiac || {};
+      const sixty = d.sixty_cycle?.year?.name || '';
+      const term = d.term;
+      const termTxt = term ? (term.today ? `今日${term.today}` : (term.stage?.name ? `${term.stage.name} 第${term.stage.position}天` : '')) : '';
+      const f = d.festival;
+      const festival = f ? (f.both_desc || [f.solar, f.lunar].filter(Boolean).join('、')) : '';
+      const constellation = d.constellation?.name || '';
+      const phase = d.phase?.name || '';
+      const taboo = d.taboo?.day;
+
+      let tabooYi = '';
+      let tabooJi = '';
+      if (taboo) {
+        if (taboo.recommends) {
+          tabooYi = taboo.recommends.split('.').filter(Boolean).slice(0, 8).join(' · ');
+        }
+        if (taboo.avoids) {
+          tabooJi = taboo.avoids.split('.').filter(Boolean).slice(0, 8).join(' · ');
+        }
+      }
+
+      const lunarRaw = (l.desc_short || '').replace(/^农历/, '').trim();
+      const lunarText = lunarRaw ? `农历 ${lunarRaw}` : '';
+
+      html += `
+        <div class="cal-today-box">
+          <div class="cal-today-top">
+            <span class="cal-today-solar">${esc(s.full || '')} ${esc(s.week_desc || '')}</span>
+            <span class="cal-today-lunar">${esc(lunarText)}</span>
+          </div>
+          <div class="cal-today-tags">
+            ${sixty || z.year ? `<span class="cal-badge highlight">${esc(sixty || '')}生肖${esc(z.year || '')}</span>` : ''}
+            ${termTxt ? `<span class="cal-badge">🌾 ${esc(termTxt)}</span>` : ''}
+            ${festival ? `<span class="cal-badge rest">🏮 ${esc(festival)}</span>` : ''}
+            ${constellation ? `<span class="cal-badge">✨ ${esc(constellation)}</span>` : ''}
+            ${phase ? `<span class="cal-badge">🌓 ${esc(phase)}</span>` : ''}
+          </div>
+          ${(tabooYi || tabooJi) ? `
+            <div style="display:flex; flex-direction:column; gap:6px; margin-top:2px;">
+              ${tabooYi ? `<div class="cal-taboo-row"><span class="cal-taboo-label yi">宜</span><span class="cal-taboo-val">${esc(tabooYi)}</span></div>` : ''}
+              ${tabooJi ? `<div class="cal-taboo-row"><span class="cal-taboo-label ji">忌</span><span class="cal-taboo-val">${esc(tabooJi)}</span></div>` : ''}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    } else if (calModalLoading) {
+      html += `
+        <div class="cal-today-box" style="align-items:center; justify-content:center; min-height:80px; color:var(--text-dim);">
+          <span>⏳ 正在获取今日农历、节气与宜忌信息…</span>
+        </div>
+      `;
+    }
+
+    // 2. 月历与节假日安排
+    const cacheKey = `${calModalYear}-${calModalMonth}`;
+    const calData = calModalCalendarCache.get(cacheKey);
+
+    if (calData && Array.isArray(calData.weeks)) {
+      const todayDate = new Date();
+      const isCurrentMonth = (calModalYear === todayDate.getFullYear() && calModalMonth === (todayDate.getMonth() + 1));
+
+      html += '<div class="cal">';
+      html += '<div class="cal-head">' +
+        `<button class="cal-nav" type="button" data-cal-modal-nav="-1" title="上个月">‹</button>` +
+        `<span class="cal-title">${calModalYear} 年 ${calModalMonth} 月</span>` +
+        `<button class="cal-nav" type="button" data-cal-modal-nav="1" title="下个月">›</button>` +
+        (isCurrentMonth ? '' : `<button class="cal-today" type="button" data-cal-modal-today title="回到本月">今天</button>`) +
+        '</div>';
+      html += '<div class="cal-weeks">' +
+        ['一', '二', '三', '四', '五', '六', '日'].map((w, i) => `<span${i > 4 ? ' class="wk"' : ''}>${w}</span>`).join('') +
+        '</div>';
+      html += '<div class="cal-grid">';
+      calData.weeks.forEach(week => week.forEach(cell => {
+        if (!cell) { html += '<div class="cal-cell blank"></div>'; return; }
+        const cls = ['cal-cell'];
+        if (cell.is_weekend) cls.push('wk');
+        if (cell.is_today) cls.push('today');
+        const mark = cell.holiday ? (cell.holiday.is_work ? '<i class="cal-mark work">班</i>' : '<i class="cal-mark rest">休</i>') : '';
+        html += `<div class="${cls.join(' ')}" title="${esc(cell.date || '')}">` +
+          `<div class="cal-d">${mark}${cell.day}</div>` +
+          `<div class="cal-l${cell.label_is_special ? ' sp' : ''}">${esc(cell.label || '')}</div>` +
+          '</div>';
+      }));
+      html += '</div>';
+      html += '</div>';
+    } else if (calModalLoading) {
+      html += `
+        <div style="display:flex; align-items:center; justify-content:center; min-height:160px; color:var(--text-dim); font-size:13px;">
+          <span>⏳ 正在加载万年历与节假日数据…</span>
+        </div>
+      `;
+    } else {
+      html += `
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:140px; gap:8px; color:var(--text-dim);">
+          <span>万年历数据加载失败</span>
+          <button type="button" class="btn" data-cal-modal-retry style="padding:4px 12px; font-size:12px;">重新加载</button>
+        </div>
+      `;
+    }
+
+    body.innerHTML = html;
+  };
+
+  const loadModalData = async (year, month) => {
+    calModalLoading = true;
+    renderModalContent();
+
+    const promises = [];
+    if (!calModalLunarData) {
+      promises.push(
+        fetch(`${API}/v2/lunar`)
+          .then(r => r.json())
+          .then(res => {
+            if (res.code === 200 && res.data) calModalLunarData = res.data;
+          })
+          .catch(() => {})
+      );
+    }
+
+    const key = `${year}-${month}`;
+    if (!calModalCalendarCache.has(key)) {
+      promises.push(
+        fetch(`${API}/v2/lunar/calendar?year=${year}&month=${month}`)
+          .then(r => r.json())
+          .then(res => {
+            if (res.code === 200 && res.data) calModalCalendarCache.set(key, res.data);
+          })
+          .catch(() => {})
+      );
+    }
+
+    await Promise.all(promises);
+    calModalLoading = false;
+    renderModalContent();
+  };
+
+  const openModal = () => {
+    overlay.hidden = false;
+    document.body.style.overflow = 'hidden';
+    const d = new Date();
+    calModalYear = d.getFullYear();
+    calModalMonth = d.getMonth() + 1;
+    loadModalData(calModalYear, calModalMonth);
+    closeBtn.focus();
+  };
+
+  const closeModal = () => {
+    if (overlay.hidden) return;
+    overlay.hidden = true;
+    document.body.style.overflow = '';
+  };
+
+  [clockDesktop, clockMobile].forEach(btn => {
+    if (!btn) return;
+    btn.addEventListener('click', openModal);
+    btn.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openModal();
+      }
+    });
+  });
+
+  closeBtn.addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !overlay.hidden) closeModal();
+  });
+
+  body.addEventListener('click', (e) => {
+    const nav = e.target.closest('[data-cal-modal-nav]');
+    if (nav) {
+      const step = parseInt(nav.dataset.calModalNav, 10);
+      calModalMonth += step;
+      if (calModalMonth > 12) { calModalMonth = 1; calModalYear++; }
+      if (calModalMonth < 1) { calModalMonth = 12; calModalYear--; }
+      loadModalData(calModalYear, calModalMonth);
+      return;
+    }
+    const todayBtn = e.target.closest('[data-cal-modal-today]');
+    if (todayBtn) {
+      const d = new Date();
+      calModalYear = d.getFullYear();
+      calModalMonth = d.getMonth() + 1;
+      loadModalData(calModalYear, calModalMonth);
+      return;
+    }
+    const retryBtn = e.target.closest('[data-cal-modal-retry]');
+    if (retryBtn) {
+      loadModalData(calModalYear, calModalMonth);
+      return;
+    }
+  });
+}
 
 // ============ 2048 小游戏（纯前端，noapi） ============
 // 棋局状态按卡片 id 存内存，最高分 localStorage 持久化；
@@ -4155,9 +4956,37 @@ function applyHome(data, ts) {
  */
 function filteredItems() {
   if (!homeData) return [];
+  if (homeKeywordFilter) {
+    const kw = homeKeywordFilter.toLowerCase();
+    // 选定单平台时只在该平台搜
+    if (homeFilter !== 'all') {
+      const own = homeData.lists && homeData.lists[homeFilter];
+      const list = Array.isArray(own) && own.length ? own : homeData.items.filter(it => it.source === homeFilter);
+      return list.filter(it => (it.title && it.title.toLowerCase().includes(kw)) || (it.desc && it.desc.toLowerCase().includes(kw)));
+    }
+    // 处于「综合」模式时，跨全网所有平台列表（homeData.lists）聚合呈现该热词的所有事件
+    const results = [];
+    const seen = new Set();
+    // 先收录综合榜已有条目
+    for (const it of homeData.items || []) {
+      if ((it.title && it.title.toLowerCase().includes(kw)) || (it.desc && it.desc.toLowerCase().includes(kw))) {
+        const key = it.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 10);
+        if (!seen.has(key)) { seen.add(key); results.push(it); }
+      }
+    }
+    // 再收录各平台榜单条目
+    for (const k in homeData.lists || {}) {
+      for (const it of homeData.lists[k] || []) {
+        if ((it.title && it.title.toLowerCase().includes(kw)) || (it.desc && it.desc.toLowerCase().includes(kw))) {
+          const key = it.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 10);
+          if (!seen.has(key)) { seen.add(key); results.push(it); }
+        }
+      }
+    }
+    return results;
+  }
   if (homeFilter === 'all') return homeData.items;
   const own = homeData.lists && homeData.lists[homeFilter];
-  // lists 缺席时（旧缓存 / 该平台被超时掐掉）退回混排里的该平台条目，至少不空列表
   return Array.isArray(own) && own.length ? own : homeData.items.filter(it => it.source === homeFilter);
 }
 
@@ -4210,18 +5039,30 @@ function renderHomeList() {
   const list = $('#homeList');
   if (!list || !homeData) return;
   const all = filteredItems();
+  const filterBarHtml = homeKeywordFilter
+    ? `<div class="hl-filter-bar">
+        <div class="hl-filter-info"><span class="hl-filter-tag">热词筛选</span>包含 <strong>“${esc(homeKeywordFilter)}”</strong> 的热搜（共 ${all.length} 条）</div>
+        <button class="hl-filter-clear" type="button" onclick="clearKeywordFilter()">✕ 清除筛选</button>
+      </div>`
+    : '';
+
   if (!all.length) {
-    list.innerHTML = '<div class="empty-state"><span class="es-icon">🍃</span><span class="es-text">暂无热榜数据</span><span class="es-sub">换个平台筛选看看吧</span></div>';
+    list.innerHTML = filterBarHtml +
+      `<div class="empty-state">
+        <span class="es-icon">${homeKeywordFilter ? '🔍' : '🍃'}</span>
+        <span class="es-text">${homeKeywordFilter ? `未找到包含 “${esc(homeKeywordFilter)}” 的热搜` : '暂无热榜数据'}</span>
+        ${homeKeywordFilter ? '<button class="retry-btn" type="button" onclick="clearKeywordFilter()">清除筛选</button>' : '<span class="es-sub">换个平台筛选看看吧</span>'}
+      </div>`;
     return;
   }
-  // 默认只渲染前 N 条，多出来的折起来（点击展开）；折叠态下不显示「已经到底了」——
-  // 那时候并没有到底，显示出来是误导
-  const collapsible = all.length > HOME_COLLAPSE_N;
+  // 默认只渲染前 N 条，多出来的折起来（点击展开）；折叠态下不显示「已经到底了」；
+  // 热词筛选激活时由于结果通常精简（5~15条），直接展示全部，不折叠
+  const collapsible = !homeKeywordFilter && all.length > HOME_COLLAPSE_N;
   const collapsed = collapsible && !homeExpanded;
   const items = collapsed ? all.slice(0, HOME_COLLAPSE_N) : all;
 
   // 排名按「当前所见顺序」重编：筛选到单平台后原全局名次会跳号
-  list.innerHTML = items.map((it, i) => {
+  list.innerHTML = filterBarHtml + items.map((it, i) => {
     const rank = i + 1;
     const cls = rank <= 3 ? ` top${rank}` : '';
     const title = it.link
@@ -4229,27 +5070,30 @@ function renderHomeList() {
       : esc(it.title);
     const tag = it.tag ? `<span class="hl-tag">${esc(it.tag)}</span>` : '';
     const desc = it.desc ? `<div class="hl-desc">${esc(it.desc)}</div>` : '';
-    // 缩略图：只有部分平台给图（抖音/头条/百度/知乎/凤凰），没有的自然不占位。
-    // referrerpolicy 必须置空——头条、抖音的图床都做 Referer 防盗链，
-    // 带上来源域会直接 403；onerror 兜底移除，避免留一个破图框
-    const thumb = it.cover
-      ? `<img class="hl-thumb" src="${esc(it.cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`
+    const thumbImg = it.cover
+      ? `<img class="hl-thumb" src="${esc(it.cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.hl-thumb-link')?.remove() || this.remove()">`
+      : '';
+    const thumb = thumbImg
+      ? (it.link ? `<a class="hl-thumb-link" href="${safeUrl(it.link)}" target="_blank" rel="noopener" tabindex="-1">${thumbImg}</a>` : thumbImg)
       : '';
     // 综合榜展示指数，该平台原始热度放进悬停提示保留可追溯性；单平台榜直接展示原始热度
     const hotNum = heatText(it);
     const hotTip = homeFilter === 'all' && it.hot_text
       ? ` title="${esc(it.source_name + '原始热度 ' + it.hot_text)}"`
       : '';
-    const hot = hotNum ? `<span class="hl-hot"${hotTip}>${esc(hotNum)}</span>` : '';
+    const hot = hotNum ? `<span class="hl-hot"${hotTip}>${esc(hotNum)}</span>` : '<span class="hl-hot"></span>';
     return `<div class="hl-item${cls}">
       <span class="hl-rank">${rank}</span>
-      ${thumb}
       <div class="hl-body">
-        <div class="hl-title">${title}${tag}</div>
+        <div class="hl-title">${title}</div>
         ${desc}
       </div>
+      <div class="hl-thumb-slot">${thumb}</div>
       <div class="hl-meta">
-        <span class="hl-source"><img src="${esc(it.source_icon)}" alt="" loading="lazy" onerror="this.remove()">${esc(it.source_name)}</span>
+        <div class="hl-meta-left">
+          <span class="hl-tag-slot">${tag}</span>
+          <span class="hl-source"><img src="${esc(it.source_icon)}" alt="" loading="lazy" onerror="this.remove()">${esc(it.source_name)}</span>
+        </div>
         ${hot}
       </div>
     </div>`;
@@ -4300,6 +5144,212 @@ async function ensureRailData(force = false) {
   }
 }
 
+// 停用词库：过滤中文高频虚词、句式起承转合词与无信息量动词
+const HW_STOP_WORDS = new Set([
+  '可以', '可能', '因为', '所以', '如果', '但是', '通过', '进行', '成为', '开始', '目前', '表示', '我们', '他们',
+  '这个', '那个', '什么', '怎么', '如何', '为什么', '已经', '还是', '正在', '一个', '没有', '出现', '引发', '背后',
+  '曝光', '最新', '到底', '究竟', '登上', '回应', '热议', '网友', '官方', '发布', '现场', '今天', '今年', '昨日',
+  '明天', '相关', '来看', '知道', '觉得', '看到', '关注', '发生', '第一', '男子', '女子', '妻子', '丈夫', '有人',
+  '自己', '真的', '直接', '全面', '宣布', '确认', '揭秘', '冲上', '再次', '竟然', '结果', '这些', '那些', '这样',
+  '那样', '其中', '以及', '带来', '造成', '导致', '认为', '不仅', '而且', '虽然', '尽管', '还有', '并且', '不过',
+  '对此', '随后', '对于', '关于', '作为', '随着', '为了', '由于', '其实', '看来', '希望', '突然', '要求', '建议',
+  '评价', '如何评价', '这是', '那是', '不是', '就是', '也是', '只是', '还是', '不能', '不要', '不会', '成了',
+  '小时', '分钟', '时间', '地方', '情况', '问题', '原因', '影响', '大家', '世界', '全国', '事件', '部分', '人员'
+]);
+
+/** 纯前端根据当前筛选范围（全网或指定平台）提取突发飙升事件（爆/沸/新与高热度前排加权） */
+function extractSurgingItems(data, filter = 'all') {
+  if (!data) return [];
+  let all = [];
+  if (!filter || filter === 'all') {
+    all = [...(data.items || [])];
+    for (const k in data.lists || {}) {
+      if (Array.isArray(data.lists[k])) all.push(...data.lists[k]);
+    }
+  } else {
+    all = Array.isArray(data.lists?.[filter])
+      ? [...data.lists[filter]]
+      : (data.items || []).filter(it => it.source === filter);
+  }
+
+  const candidates = [];
+  const seen = new Set();
+
+  for (const it of all) {
+    if (!it || !it.title) continue;
+    // 提取纯文本键用于去重，避免类似事件重复上榜
+    const key = it.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 8);
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    let score = 0;
+    const tag = it.tag || '';
+    if (tag === '爆') score += 120;
+    else if (tag === '沸') score += 90;
+    else if (tag === '新') score += 75;
+    else if (tag === '热') score += 60;
+
+    if (it.rank === 1) score += 60;
+    else if (it.rank === 2) score += 40;
+    else if (it.rank === 3) score += 25;
+
+    if (it.hot && it.hot > 2000000) score += 30;
+
+    // 单平台时热点标通常较少，适当放宽门槛，保证前排重点事件能顺利上榜
+    const minScore = (!filter || filter === 'all') ? 35 : 20;
+    if (score > minScore) {
+      candidates.push({ ...it, surgingScore: score });
+    }
+  }
+
+  candidates.sort((a, b) => b.surgingScore - a.surgingScore);
+  // 兜底补齐：若带标候选少于 3 条，用当前筛选范围前排补充
+  if (candidates.length < 3) {
+    const fallbackList = (!filter || filter === 'all')
+      ? (data.items || [])
+      : (data.lists?.[filter] || (data.items || []).filter(it => it.source === filter));
+    for (const it of fallbackList) {
+      if (candidates.length >= 3) break;
+      const key = it.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 8);
+      if (!seen.has(key)) {
+        seen.add(key);
+        candidates.push({ ...it, surgingScore: 10 });
+      }
+    }
+  }
+  return candidates.slice(0, 3);
+}
+
+/** 基于现代浏览器原生 Intl.Segmenter 的中文分词与热词聚合（跟随全网/单平台筛选动态计算） */
+function extractHotKeywords(data, filter = 'all') {
+  if (!data) return [];
+  const allTitles = [];
+  if (!filter || filter === 'all') {
+    for (const it of data.items || []) allTitles.push({ title: it.title, src: it.source || 'all' });
+    for (const k in data.lists || {}) {
+      if (Array.isArray(data.lists[k])) {
+        for (const it of data.lists[k]) allTitles.push({ title: it.title, src: k });
+      }
+    }
+  } else {
+    const list = Array.isArray(data.lists?.[filter])
+      ? data.lists[filter]
+      : (data.items || []).filter(it => it.source === filter);
+    for (const it of list) {
+      if (it && it.title) allTitles.push({ title: it.title, src: filter });
+    }
+  }
+
+  let seg;
+  try {
+    seg = new Intl.Segmenter('zh-CN', { granularity: 'word' });
+  } catch {
+    seg = null;
+  }
+
+  const counts = new Map();
+  const plats = new Map();
+
+  for (const { title, src } of allTitles) {
+    if (!title) continue;
+    const clauses = title.split(/[，。！？、：；“”"'（）()—\-–·#\s【】《》]+/);
+    for (const clause of clauses) {
+      if (!clause || clause.length < 2) continue;
+      const matchedInClause = new Set();
+      if (seg) {
+        const tokens = Array.from(seg.segment(clause)).filter(t => t.isWordLike).map(t => t.segment);
+        for (let i = 0; i < tokens.length; i++) {
+          const w = tokens[i];
+          if (w.length >= 2 && !/^\d+$/.test(w) && !HW_STOP_WORDS.has(w)) {
+            matchedInClause.add(w);
+          }
+          // 拼接相邻两个词元，识别被默认词典切散的专有名词（如 亚 + 运会 -> 亚运会，神 + 舟 -> 神舟）
+          if (i + 1 < tokens.length) {
+            const combo = tokens[i] + tokens[i + 1];
+            if (combo.length >= 2 && combo.length <= 6 && !/^\d+$/.test(combo) && !HW_STOP_WORDS.has(combo)) {
+              matchedInClause.add(combo);
+            }
+          }
+        }
+      } else {
+        const words = clause.match(/[\u4e00-\u9fa5]{2,4}/g) || [];
+        for (const w of words) {
+          if (!HW_STOP_WORDS.has(w)) matchedInClause.add(w);
+        }
+      }
+      for (const w of matchedInClause) {
+        counts.set(w, (counts.get(w) || 0) + 1);
+        if (!plats.has(w)) plats.set(w, new Set());
+        plats.get(w).add(src);
+      }
+    }
+  }
+
+  // 抑制被拼接组合包含的短碎片词（如已有高频的「亚运会」，则去除单纯的「运会」）
+  const keys = Array.from(counts.keys());
+  for (const short of keys) {
+    const sCount = counts.get(short);
+    for (const long of keys) {
+      if (long.length > short.length && long.includes(short)) {
+        const lCount = counts.get(long);
+        if (lCount && lCount >= sCount * 0.7) {
+          counts.delete(short);
+          break;
+        }
+      }
+    }
+  }
+
+  let list = Array.from(counts.entries())
+    .map(([w, c]) => {
+      const pCount = (plats.get(w) || new Set()).size;
+      // 全网模式跨平台共振加权；单平台模式下按频次与长度
+      const score = (!filter || filter === 'all') ? c * (1 + (pCount - 1) * 0.45) : c;
+      return { word: w, count: c, platCount: pCount, score };
+    })
+    .filter(x => x.word.length >= 2 && x.word.length <= 6);
+
+  if (!filter || filter === 'all') {
+    list = list.filter(x => x.count >= 2);
+  } else {
+    // 单平台下（样本通常 30~50 条）：优先选频次 >= 2 的高频热词；
+    // 若不足 12 个，再允许频次为 1 的前排有意义词补充，确保词云丰满且聚焦
+    const highFreq = list.filter(x => x.count >= 2);
+    if (highFreq.length >= 12) {
+      list = highFreq;
+    } else {
+      list = list.filter(x => x.count >= 1);
+    }
+  }
+
+  return list
+    .sort((a, b) => b.score - a.score || b.count - a.count || b.word.length - a.word.length)
+    .slice(0, 18);
+}
+
+window.toggleKeywordFilter = function(word) {
+  if (homeKeywordFilter === word) {
+    homeKeywordFilter = null;
+  } else {
+    homeKeywordFilter = word;
+  }
+  renderHomeList();
+  renderRailInsights();
+  const list = $('#homeList');
+  if (list) {
+    const rect = list.getBoundingClientRect();
+    if (rect.top < 0) {
+      window.scrollTo({ top: window.scrollY + rect.top - 80, behavior: SMOOTH });
+    }
+  }
+};
+
+window.clearKeywordFilter = function() {
+  homeKeywordFilter = null;
+  renderHomeList();
+  renderRailInsights();
+};
+
 function renderRail() {
   const rail = $('#rail');
   if (!rail || rail.hidden) return;
@@ -4324,43 +5374,103 @@ function renderRail() {
         </button>`).join('')}
       </div>
     </section>
-    <section class="rail-card">
-      <div class="rail-title">热门话题<span class="rt-sub">综合</span></div>
-      <div class="rail-topics" id="railTopics"></div>
+    <section class="rail-card rail-insights">
+      <div class="rail-title">
+        <span class="rt-label"><span class="rt-pulse"></span><span id="rsTitleLabel">全网飙升速报</span></span>
+        <span class="rt-sub" id="rsSubLabel">实时热点</span>
+      </div>
+      <div class="rail-surging" id="railSurging"></div>
+
+      <div class="rail-divider"></div>
+
+      <div class="rail-title">
+        <span class="rt-label" id="wcTitleLabel">全网热词词云</span>
+        <span class="rt-sub" id="wcFilterSub">点击热词联动</span>
+      </div>
+      <div class="rail-wordcloud" id="railWordCloud"></div>
     </section>`;
-  renderRailTopics();
+  renderRailInsights();
   // innerHTML 重建把宿主换成了新节点，必须重新安置并补画卡片
   restoreHeroWeather();
 }
 
-function renderRailTopics() {
-  const box = $('#railTopics');
-  if (!box || !homeData) return;
-  // 固定取「综合」榜前 10 条，不跟随平台筛选：这一栏的定位是「全域热点速览」，
-  // 跟着筛选一起变等于把左侧榜单又抄一遍，反而失去参照价值
-  const items = homeData.items.slice(0, 10);
-  if (!items.length) {
-    box.innerHTML = '<div class="hl-end">暂无话题</div>';
-    return;
+function renderRailInsights() {
+  if (!homeData) return;
+  const surgingBox = $('#railSurging');
+  const cloudBox = $('#railWordCloud');
+  const filterSub = $('#wcFilterSub');
+  const rsTitle = $('#rsTitleLabel');
+  const rsSub = $('#rsSubLabel');
+  const wcTitle = $('#wcTitleLabel');
+
+  let scopeName = '全网';
+  if (homeFilter && homeFilter !== 'all') {
+    const p = homeData.platforms ? homeData.platforms.find(x => x.id === homeFilter) : null;
+    scopeName = p ? p.name : homeFilter;
   }
-  box.innerHTML = items.map((it, i) => {
-    const heat = heatText(it);
-    const rank = i + 1;
-    // 前三名带 topN 类，与首页聚合榜、分类页卡片的角标共用同一套配色
-    // （序号角标的样式集中在 style.css 的「名次角标（全站统一）」一处）
-    const cls = `rt-item${rank <= 3 ? ` top${rank}` : ''}`;
-    // 序号而非 # 号：这一栏是「第几条热门」，用名次读起来比 # 更直接
-    const inner = `<span class="rn">${rank}</span><span class="tt">${esc(it.title)}</span>` +
-      (heat ? `<span class="vv">${esc(heat)}</span>` : '');
-    return it.link
-      ? `<a class="${cls}" href="${safeUrl(it.link)}" target="_blank" rel="noopener">${inner}</a>`
-      : `<div class="${cls}">${inner}</div>`;
-  }).join('');
+
+  if (rsTitle) rsTitle.textContent = `${scopeName}飙升速报`;
+  if (rsSub) rsSub.textContent = homeFilter === 'all' ? '实时热点' : `${scopeName}实时`;
+  if (wcTitle) wcTitle.textContent = `${scopeName}热词词云`;
+
+  if (surgingBox) {
+    const surging = extractSurgingItems(homeData, homeFilter);
+    if (!surging.length) {
+      surgingBox.innerHTML = '<div class="hl-end">暂无突发热点</div>';
+    } else {
+      surgingBox.innerHTML = surging.map(it => {
+        let tagClass = 'tag-hot';
+        let tagText = it.tag || '热';
+        if (it.tag === '爆') { tagClass = 'tag-bao'; tagText = '爆'; }
+        else if (it.tag === '沸') { tagClass = 'tag-fei'; tagText = '沸'; }
+        else if (it.tag === '新') { tagClass = 'tag-xin'; tagText = '新'; }
+        else if (it.rank === 1) { tagClass = 'tag-top'; tagText = 'TOP 1'; }
+
+        const heat = it.hot_text || (it.hot ? formatHot(it.hot) : '');
+        return `<a class="rs-item" href="${safeUrl(it.link)}" target="_blank" rel="noopener">
+          <div class="rs-header">
+            <span class="rs-tag ${tagClass}">${esc(tagText)}</span>
+            <span class="rs-title" title="${esc(it.title)}">${esc(it.title)}</span>
+          </div>
+          <div class="rs-meta">
+            <img src="${esc(it.source_icon)}" alt="" loading="lazy" onerror="this.remove()">
+            <span>${esc(it.source_name)}</span>
+            ${heat ? `<span>· ${esc(heat)}</span>` : ''}
+          </div>
+        </a>`;
+      }).join('');
+    }
+  }
+
+  if (cloudBox) {
+    const keywords = extractHotKeywords(homeData, homeFilter);
+    if (!keywords.length) {
+      cloudBox.innerHTML = '<div class="hl-end">暂无热词</div>';
+    } else {
+      cloudBox.innerHTML = keywords.map((kw, i) => {
+        const tierCls = i < 3 ? 'wc-t1' : (i < 8 ? 'wc-t2' : 'wc-t3');
+        const activeCls = homeKeywordFilter === kw.word ? ' active' : '';
+        return `<button type="button" class="wc-tag ${tierCls}${activeCls}" onclick="toggleKeywordFilter('${esc(kw.word)}')" title="${kw.count} 条相关热搜 · 点击联动筛选">
+          <span class="wc-text">${esc(kw.word)}</span>
+          <span class="wc-count">${kw.count}</span>
+        </button>`;
+      }).join('');
+    }
+  }
+
+  if (filterSub) {
+    if (homeKeywordFilter) {
+      filterSub.innerHTML = `已筛选: “${esc(homeKeywordFilter)}” <span class="wc-clear-inline" onclick="clearKeywordFilter()">[清除]</span>`;
+    } else {
+      filterSub.textContent = '点击热词联动';
+    }
+  }
 }
 
 function setHomeFilter(id) {
   homeFilter = id;
   homeExpanded = false; // 换榜单后重新折叠，避免带着上一份榜单的展开态进来
+  homeKeywordFilter = null; // 切换平台筛选时复位热词过滤
   let activePill = null;
   $$('#homeFilter .hf-pill').forEach(b => {
     const on = b.dataset.plat === id;
@@ -4372,6 +5482,7 @@ function setHomeFilter(id) {
   // 从右栏九宫格点过来的平台很可能停在屏幕外，不拉回来就看不见选中态
   revealPill(activePill);
   renderHomeList();
+  renderRailInsights();
 }
 
 /** 把某个标签滚入可视区（已完整可见则原样不动）。滚动容器即标签的直接父节点 */
@@ -4425,14 +5536,39 @@ function refreshAll() {
   }
 
   const visEps = EPS.filter(ep => (curCat === 'all' || curCat === ep.cat) && !GROUP_OF[ep.id]);
-  visEps.forEach((ep, i) => {
+  document.querySelectorAll('.group-card').forEach(card => {
+    const ep = EPS.find(e => e.id === card.dataset.activeEp);
+    if (ep) visEps.push(ep);
+  });
+
+  const vh = window.innerHeight || 800;
+  const immediateEps = [];
+
+  visEps.forEach(ep => {
+    const cardId = 'card-' + (GROUP_OF[ep.id] ? GROUP_OF[ep.id].id : ep.id);
+    const cardEl = document.getElementById(cardId);
+    if (!cardLazyObserver || !cardEl) {
+      immediateEps.push(ep);
+      return;
+    }
+    const rect = cardEl.getBoundingClientRect();
+    if (rect.top < vh + 400 && rect.bottom > -200) {
+      immediateEps.push(ep);
+    } else {
+      cardEl.dataset.lazyEp = ep.id;
+      cardEl.dataset.forceUpdate = '1';
+      cardLazyObserver.observe(cardEl);
+    }
+  });
+
+  immediateEps.forEach((ep, i) => {
     setTimeout(() => load(ep, true).catch(() => {}), i * 60);
   });
   // 右栏现在所有页面常显，它的聚合数据也得跟着「全部刷新」一起刷，
   // 否则正文刷新了、右栏还停在上一次的热搜平台与话题上
   ensureRailData(true);
   const done = () => { if (btn) btn.classList.remove('busy'); };
-  setTimeout(done, Math.max(600, visEps.length * 60 + 400));
+  setTimeout(done, Math.max(600, immediateEps.length * 60 + 400));
 }
 document.addEventListener('click', e => {
   if (e.target.closest('#btnRefreshAll')) refreshAll();
@@ -5831,6 +6967,11 @@ function clearKbFocus() {
 }
 
 init();
+
+// 后台休眠节能：页面隐藏（切后台/最小化）时暂停动画与高频活动，减少无效 GPU 与电量消耗
+document.addEventListener('visibilitychange', () => {
+  document.documentElement.classList.toggle('page-hidden', document.hidden);
+});
 
 
 

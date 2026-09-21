@@ -17,6 +17,7 @@ sk.json/
 
 # 本地调试截图（仅供预览核对，不入库）
 preview-*.png
+preview.png
 pv-*.png
 # 无头 Chrome 跑视觉校验时按宽度批量导出的截图目录（同上，不入库）
 .preview-out/
