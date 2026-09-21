@@ -224,7 +224,7 @@
   <div class="cal-modal-card" id="calModalCard" role="dialog" aria-modal="true" aria-labelledby="calModalTitle">
     <div class="cal-modal-head">
       <div class="cal-modal-title" id="calModalTitle">
-        <span class="cal-modal-icon">📅</span>
+        <span class="cal-modal-icon"><img class="emo" src="/emoji/1f4c5.svg" alt="📅" draggable="false"></span>
         <span class="cal-modal-text">万年历 · 农历与节假日</span>
       </div>
       <button class="cal-modal-close" id="calModalClose" type="button" aria-label="关闭弹窗" title="关闭 (Esc)">✕</button>
@@ -233,6 +233,9 @@
   </div>
 </div>
 
+<!-- 统一 emoji 渲染层：必须在 app.js 之前加载，它会接管 innerHTML 等写入出口，
+     把 emoji 统一换成 /emoji/*.svg 本地图标（详见 emoji.js 顶部说明） -->
+<script src="/emoji.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

@@ -131,6 +131,17 @@ html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
 }
+/* 统一 emoji 图标（见 emoji.js）：系统 emoji 字体在各平台字形/基线差异过大，
+   统一换成本地 SVG 图标后跨设备一致。尺寸跟随字号（1em），基线下移一点与中文对齐 */
+.emo {
+  width: 1em; height: 1em;
+  display: inline-block;
+  vertical-align: -0.125em;
+  object-fit: contain;
+  flex-shrink: 0;
+  -webkit-user-drag: none;
+  user-select: none;
+}
 body {
   /* 字体栈里为什么要在 PingFang 与雅黑之间插一个 "Noto Sans SC"：
      效果图是 macOS 上截的，中文走 PingFang SC；Windows 上 PingFang 缺失会落到微软雅黑，
@@ -4984,7 +4995,15 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   color: var(--accent); font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.hl-hot:not(:empty)::before { content: '🔥'; margin-right: 3px; font-size: 11px; font-weight: 400; }
+/* 热度徽标前的小火焰：CSS 伪元素里塞不进 <img>，改用等价的内联 SVG 图标
+   （与 .emo 同一套资源，见 emoji.js），保证与其他 emoji 图标观感一致 */
+.hl-hot:not(:empty)::before {
+  content: '';
+  display: inline-block;
+  width: 12px; height: 12px;
+  margin-right: 3px;
+  background: url('/emoji/1f525.svg') center / contain no-repeat;
+}
 /* 折叠/展开：整行宽的按钮，视觉上接在榜单末尾，与「已经到底了」同一位置互换 */
 .hl-toggle {
   display: block; width: 100%; margin-top: 2px; padding: 12px 0;

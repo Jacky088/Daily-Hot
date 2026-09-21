@@ -3215,7 +3215,9 @@ function makeCard(ep) {
   if (ep.hint) {
     const tip = document.createElement('div');
     tip.className = 'news-tip';
-    tip.textContent = '💡 ' + ep.hint;
+    // 用 innerHTML 而非 textContent：emoji 由 emoji.js 统一替换成本地 SVG 图标，
+    // 而 textContent 不解析 HTML（详见 emoji.js 顶部说明）
+    tip.innerHTML = '💡 ' + esc(ep.hint);
     body.appendChild(tip);
   }
 
@@ -4552,7 +4554,8 @@ function rMuyu(_, c, ep) {
     const st = muyu[id];
     st.mute = !st.mute;
     try { localStorage.setItem('muyu-mute', st.mute ? '1' : '0'); } catch {}
-    ev.currentTarget.textContent = st.mute ? '🔇 静音中' : '🔊 音效';
+    // innerHTML 才能让 emoji 走 emoji.js 的统一替换（textContent 不解析 HTML）
+    ev.currentTarget.innerHTML = st.mute ? '🔇 静音中' : '🔊 音效';
   };
 }
 

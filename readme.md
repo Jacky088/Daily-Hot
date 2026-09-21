@@ -47,6 +47,7 @@
 
 ### 🎨 体验设计
 
+- **🙂 统一 emoji 图标** — 菜单、卡片与各处提示里的 emoji 全部换成本地 SVG 图标，不再由系统 emoji 字体渲染，Windows / macOS / Android / iOS 上形状与大小完全一致
 - **🧭 三栏式布局** — 左侧导航 / 中间内容 / 右侧信息栏；三块玻璃面板以圆角 + 留白悬浮在背景之上，滚动到底时三者底边齐平，窄屏自动重排
 - **📱 移动端适配** — 侧边栏收纳为抽屉，触屏友好，顶栏不溢出
 - **🌙 日间 / 夜间模式** — 跟随系统明暗，可手动切换并记忆
@@ -199,10 +200,12 @@ npx wrangler deploy
 │   ├── index.html           # 前端面板（单文件 HTML）
 │   ├── wallpaper.html       # 壁纸幻灯片页（今日及往期）
 │   ├── app.js               # 前端逻辑（数据源注册 + 渲染器 + 聚合首页）
+│   ├── emoji.js             # 统一 emoji 渲染层（emoji → 本地 SVG 图标）
 │   ├── style.css            # 样式（含三栏布局与响应式断点）
 │   ├── manifest.json        # PWA 配置
 │   ├── sw.js                # Service Worker
 │   ├── apple-touch-icon.png # iOS 主屏图标
+│   ├── emoji/               # emoji SVG 图标（由 scripts/fetch-emoji.mjs 生成）
 │   └── logos/               # 数据源品牌图标
 ├── src/
 │   ├── app.ts               # Oak 应用入口 + 中间件注册
@@ -238,6 +241,7 @@ npx wrangler deploy
 
 - **[vikiboss/60s](https://github.com/vikiboss/60s)** — 提供 40+ 个 API 接口
 - **[vikiboss/60s-static-host](https://github.com/vikiboss/60s-static-host)** — 每日新闻数据源
+- **[Twemoji](https://github.com/jdecked/twemoji)** — 前端 emoji 图标（CC-BY 4.0），图标资源见 `public/emoji/`
 
 ## 🪪 License
 
