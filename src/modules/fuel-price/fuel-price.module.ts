@@ -91,8 +91,8 @@ interface FuelTrend {
 
 class ServiceFuelPrice {
   #BASE_URL: string = 'http://www.qiyoujiage.com'
-  // 移动版：桌面版 www 对部分网络出口（代理/机房 IP）会被 WAF 拦截（连接重置 / HTTP 418），
-  // 移动版路径结构与桌面版一致，作为回退源
+  // 移动版：同一运营方，路径结构一致。移动版会先于桌面版应用当次调价（桌面版常滞后一次调整），
+  // 故优先取移动版；桌面版仅作回退（移动版不可用时）
   #MOBILE_URL: string = 'http://m.qiyoujiage.com'
   #HISTORY_URL: string = 'https://you.jxgjtz.com'
 
@@ -193,12 +193,12 @@ class ServiceFuelPrice {
       return cachedEntry
     }
 
-    // 依次尝试桌面版 → 移动版：没有内容就算失败（WAF 可能返回 200 的拦截页，解析出 0 条），
+    // 依次尝试移动版 → 桌面版：没有内容就算失败（WAF 可能返回 200 的拦截页，解析出 0 条），
     // 两个源都拿不到有效数据时才抛错，交由上层回 500
     let result: { ts: number; items: FuelPrice[]; trend: FuelTrend | null; base: string } | null = null
     let lastError: unknown = null
 
-    for (const base of [this.#BASE_URL, this.#MOBILE_URL]) {
+    for (const base of [this.#MOBILE_URL, this.#BASE_URL]) {
       try {
         // fetchUpstream 自带 UA + 8s 超时 + 1 次重试；原来裸 fetch 无超时
         const response = await fetchUpstream(`${base}${region.url}`)
