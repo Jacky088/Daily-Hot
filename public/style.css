@@ -8487,10 +8487,24 @@ select:focus-visible {
 .card.fs-fake .card-head {
   justify-content: flex-end;
 }
-/* 头部预算 = 按钮 28 + 上下内边距 22 ≈ 50 */
+/* 头部预算 = 按钮 44 + 上下内边距 28 ≈ 72（非全屏是 28+22≈50） */
 .card:fullscreen .card-head,
 .card.fs-fake .card-head {
-  padding-block: 11px;
+  padding-block: 14px;
+  /* 顶部下移：小屏/刘海屏的地址栏、状态栏容易压住贴顶的小按钮，
+     有安全区时再让出一截（桌面 env()=0，等价 14px） */
+  padding-top: max(14px, env(safe-area-inset-top));
+}
+/* 全屏时右上角按钮放大：28px 太小又贴顶，44px 热区更易点中、更醒目 */
+.card:fullscreen .card-actions button,
+.card.fs-fake .card-actions button {
+  width: 44px;
+  height: 44px;
+}
+.card:fullscreen .card-actions button svg,
+.card.fs-fake .card-actions button svg {
+  width: 18px;
+  height: 18px;
 }
 /* 这里**不能**写 animation: none —— 详见 .card 那条 fadeIn 的注释：
    把 animation 置回 none 会「销毁再重建」卡片的入场动画，退出全屏时
@@ -8551,16 +8565,16 @@ select:focus-visible {
   width: 100%;
 }
 /* 2048：棋盘随视口放大；棋盘为正方形，宽度同时受视口高度约束防止纵向溢出
-   （预算 = 头部 51 + 上下内边距 20 + 主体 margin 10 ≈ 81，留少量余量） */
+   （预算 = 头部 72 + 上下内边距 20 + 主体 margin 10 ≈ 102，留少量余量） */
 .card:fullscreen .g2048,
 .card.fs-fake .g2048 {
-  width: min(100%, 860px, calc(100dvh - 90px));
+  width: min(100%, 860px, calc(100dvh - 112px));
   margin-inline: auto;
 }
 /* 木鱼：整体加宽；viewBox 高宽比 260/360 ≈ 0.72，宽度按可用高度反推 */
 .card:fullscreen .muyu,
 .card.fs-fake .muyu {
-  width: min(100%, 760px, calc((100dvh - 110px) / 0.72));
+  width: min(100%, 760px, calc((100dvh - 132px) / 0.72));
   margin-inline: auto;
 }
 .card:fullscreen .muyu-svg,
@@ -8571,11 +8585,11 @@ select:focus-visible {
 @supports not (height: 100dvh) {
   .card:fullscreen .g2048,
   .card.fs-fake .g2048 {
-    width: min(100%, 860px, calc(100vh - 90px));
+    width: min(100%, 860px, calc(100vh - 112px));
   }
   .card:fullscreen .muyu,
   .card.fs-fake .muyu {
-    width: min(100%, 760px, calc((100vh - 110px) / 0.72));
+    width: min(100%, 760px, calc((100vh - 132px) / 0.72));
   }
 }
 
@@ -8599,6 +8613,21 @@ select:focus-visible {
   transform: none;
   background: var(--bg);
   overflow: hidden;
+}
+
+/* 伪全屏只留游戏本体（与原生 :fullscreen 行为对齐）：
+   卡片的 z-index:999 被祖先层叠上下文钳制，压不过 sticky 顶栏（z-80）
+   和悬浮目录按钮（z-150），它们会浮在全屏卡片上——索性直接隐藏。
+   挂在 html.fs-fake-on 上，进/出全屏由 JS 增删该类，自动还原 */
+html.fs-fake-on .app-shell .topbar,
+html.fs-fake-on .sb-toc {
+  display: none;
+}
+/* 层级修复：.main 的 z-index:1 会把满屏卡片（z-999 落在 .main 层叠上下文内）
+   整体钳到 1，压不过顶栏（z-100）/侧栏这些 body 级 UI——全屏期间把 .main
+   抬高一档，保证卡片永远是最高层（顶栏/目录按钮另有 display:none 兜底） */
+html.fs-fake-on .main {
+  z-index: 1000;
 }
 
 /* ============ 分类/搜索切换过渡（View Transitions） ============ */
@@ -8863,7 +8892,8 @@ select:focus-visible {
 }
 
 .sb-close,
-.sb-toggle {
+.sb-toggle,
+.sb-toc {
   display: none;
   align-items: center;
   justify-content: center;
@@ -8881,14 +8911,21 @@ select:focus-visible {
     border-color var(--dur-fast);
 }
 .sb-close:hover,
-.sb-toggle:hover {
+.sb-toggle:hover,
+.sb-toc:hover {
   color: var(--accent);
   border-color: var(--accent);
 }
 .sb-close svg,
-.sb-toggle svg {
+.sb-toggle svg,
+.sb-toc svg {
   width: 17px;
   height: 17px;
+}
+
+/* 窄屏目录面板：桌面/宽视口永不出现（面板完整样式都在 ≤900px 媒体查询里） */
+.toc-panel {
+  display: none;
 }
 
 /* 侧边栏底部的主题开关与版权 */
@@ -9230,11 +9267,23 @@ select:focus-visible {
   display: flex;
   flex-direction: column;
   flex-wrap: nowrap;
-  gap: 4px;
+  /* 间距改用按钮下边距而不是容器 gap：每个分类按钮后面都跟着一个收起的
+     .cat-sub（0 高、留在文档流里撑展开动画），它同样是 flex 子项，容器 gap
+     会照常在「按钮→cat-sub→按钮」之间插两份——分类按钮之间成了双倍间距，
+     而「首页按钮→第一个分类」之间没有 cat-sub 只有单倍，第一段明显偏短。
+     （负 margin 抵消方案实测无效：Chrome 把负 margin 子项的外尺寸钳到 0，
+     不会少吃 gap。）margin 方案里 0 高的 cat-sub 天然不占间距，全部等距。
+     间距值做成变量：触摸端媒体查询会把行距放大到 6px，两处必须联动 */
+  --sb-pills-gap: 4px;
+  gap: 0;
   padding: 0;
   flex: none;
   min-width: 0;
   overflow: visible;
+}
+/* 只给一级按钮加下边距；最后的 cat-sub 收尾不需要（0 高无影响，与原 gap 行为一致） */
+.sidebar .cat-pills > button {
+  margin-bottom: var(--sb-pills-gap);
 }
 /* 一级菜单行：浅灰圆角块 + 深色粗体名称。
    尺寸/圆角/内边距必须写全——窄屏那套 42px/17px 的胶囊底（.cat-pills > button）
@@ -9405,6 +9454,8 @@ select:focus-visible {
   display: grid;
   grid-template-rows: 0fr;
   border-radius: 10px;
+  /* 收起时高度为 0：容器已弃用 gap（改按钮 margin 承担间距，见 .sidebar .cat-pills），
+     这里上下 margin 保持 0，0 高子项就不会在任何两行之间贡献额外空隙 */
   margin: 0 0 0 14px;
   padding: 0 0 0 8px;
   /* visibility 不参与视觉过渡，只负责把收回的内容移出焦点链：
@@ -9421,9 +9472,11 @@ select:focus-visible {
   order: 0;
   grid-template-rows: 1fr;
   visibility: visible;
-  /* 只保留缩进、不加左侧引导线：层级靠内缩本身就看得懂，多一条竖线反而碍眼 */
+  /* 只保留缩进、不加左侧引导线：层级靠内缩本身就看得懂，多一条竖线反而碍眼。
+     上下间距按 margin 方案对账：上方 = 按钮 mb(gap) + mt，与原 gap+mt 相同；
+     下方原为 mb + 容器 gap，gap 没了就并进 mb 里保持视觉不变 */
   margin-top: 3px;
-  margin-bottom: 7px;
+  margin-bottom: calc(7px + var(--sb-pills-gap));
   transition:
     grid-template-rows var(--dur-base) var(--ease),
     margin-top var(--dur-base) var(--ease),
@@ -9441,7 +9494,7 @@ select:focus-visible {
   grid-template-rows: 0fr;
   /* 四边写全：基础版式那条 (.cat-nav.sub-collapsed .cat-sub.open，0,4,0) 用的是
      margin/padding 简写，只覆盖上下两边的写法会被它把左右也一起改掉，
-     收起过程中整块目录会横移十来像素 */
+     收起过程中整块目录会横移十来像素。上下归零同收起态（间距由按钮 margin 承担） */
   margin: 0 0 0 14px;
   padding: 0 0 0 8px;
 }
@@ -10407,6 +10460,43 @@ body.sb-locked {
   .sb-toggle {
     display: flex;
   }
+  /* 目录按钮：仍是左下角悬浮玻璃 fab（汉堡已回归顶栏、搜索框左边）。
+     按钮本体挂在 body 直下（见 index.html），fixed 才相对视口定位；
+     尺寸取触屏下限 48px、留 safe-area 避开全面屏手势条；层叠压在遮罩(190)/
+     抽屉(200)之下——抽屉展开时它随内容一起被压暗，关闭走面板自己的 ✕ / 遮罩点击。
+     首页视图由 JS 写 hidden 收起，display:flex 会盖掉 hidden 的默认隐藏，末尾补一条 */
+  .sb-toc {
+    position: fixed;
+    left: max(14px, env(safe-area-inset-left));
+    bottom: max(14px, env(safe-area-inset-bottom));
+    z-index: 150;
+    display: flex;
+    width: 48px;
+    height: 48px;
+    border-radius: 15px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    box-shadow:
+      var(--glass-shadow),
+      inset 0 1px 0 var(--glass-hi);
+    color: var(--text);
+    transition:
+      color var(--dur-fast),
+      border-color var(--dur-fast),
+      transform var(--dur-fast);
+  }
+  .sb-toc svg {
+    width: 22px;
+    height: 22px;
+  }
+  .sb-toc:active {
+    transform: scale(0.92);
+  }
+  .sb-toc[hidden] {
+    display: none;
+  }
   .app-shell .layout {
     padding: 0 12px;
   }
@@ -10423,12 +10513,19 @@ body.sb-locked {
   .app-shell .main {
     padding: 12px 0 max(16px, env(safe-area-inset-bottom));
   }
-  /* 顶栏恢复两行版式：第一行 ☰ + 搜索框，第二行 时钟 + 按钮。
+  /* 顶栏窄屏版式：第一行 ☰ + 搜索框，第二行 时钟 + 按钮。
      flex-wrap 必须显式重设——上方 .app-shell .header 的新版式把它覆盖掉了 */
   .app-shell .header {
     flex-wrap: wrap;
     gap: 10px;
     padding: 10px 14px;
+  }
+  /* ≤1100px 的版式把搜索框压成 flex-basis:100%（给「logo 独占一行」用的），
+     断点内 ☰ 已回归顶栏，必须恢复 basis 0 才能和 ☰ 排进同一行——
+     否则就是 ☰ / 搜索框 / 时钟按钮 各占一行的三行版式（已踩坑）。
+     本块在文件里位于 1100px 规则之后，同特异性靠后者胜 */
+  .site-search {
+    flex: 1 1 0;
   }
   /* 抽屉里的菜单按触屏尺寸整体重排：桌面那套 44/32px 的行高是给鼠标的，
      指尖点下去容易点偏、误触相邻项。
@@ -10436,7 +10533,9 @@ body.sb-locked {
      行间距一并放到 6px，两侧各让出误触缓冲区；图标与徽章同步放大，
      保证「48px 的行」里视觉重心也够大，不是一行空旷的长条 */
   .sidebar .cat-pills {
-    gap: 6px;
+    /* 行距放大到 6px：间距由 .sidebar .cat-pills > button 的下边距承担（gap 方案
+       会被按钮后面的 0 高 cat-sub 吃掉一份，造成首段间距偏短），这里只抬变量 */
+    --sb-pills-gap: 6px;
   }
   .sidebar .cat-nav button {
     height: 48px;
@@ -10464,7 +10563,8 @@ body.sb-locked {
      选择器要带 .cat-nav 才够压过桌面那条 (0,4,0)，否则这 4/8px 根本落不下去 */
   .sidebar .cat-nav .cat-sub.open {
     margin-top: 4px;
-    margin-bottom: 8px;
+    /* 下方原为 mb + 容器 gap(6px)，gap 已弃用，并进 mb 保持视觉不变 */
+    margin-bottom: calc(8px + var(--sb-pills-gap));
   }
   .sidebar .cat-sub-inner {
     gap: 2px;
@@ -10484,6 +10584,121 @@ body.sb-locked {
   .sb-close svg {
     width: 19px;
     height: 19px;
+  }
+
+  /* ===== 目录抽屉（左下角目录按钮拉出，只列当前分类的数据源标签）=====
+     与侧边栏抽屉同款侧滑语言：贴左/上/下缘、只圆右侧、整块从 -100% 滑入。
+     窄一档（264 → 252px）：里面只有一列数据源条目，不需要抽屉那个宽度；
+     菜单灰阶变量同步带一份——条目 :active 要用，别去 .sidebar 身上借 */
+  .toc-panel {
+    --sb-menu-bg-hover: rgba(148, 152, 168, 0.18);
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    width: min(76vw, 252px);
+    background: var(--glass-bg);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    border: none;
+    border-right: 1px solid var(--glass-border);
+    border-radius: 0 20px 20px 0;
+    transform: translateX(-100%);
+    transition: transform var(--dur-base) var(--ease);
+    box-shadow: 0 0 42px rgba(0, 0, 0, 0.34);
+    padding: max(14px, env(safe-area-inset-top)) 8px max(10px, env(safe-area-inset-bottom));
+  }
+  .toc-panel.open {
+    transform: none;
+  }
+  /* 面板里的 ✕ 收回桌面档的 34px：全局窄屏规则把它放大到 40px，
+     在这份紧凑列表的头部显得笨重 */
+  .toc-head .sb-close {
+    width: 34px;
+    height: 34px;
+  }
+  .toc-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2px 8px 8px;
+  }
+  .toc-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .toc-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    /* 与 .sidebar 同款处理：触摸/滚轮都能滚，但不画原生滚动条——
+     那条灰色轨道挤在玻璃面板右缘，是整块面板里最脏的元素 */
+    scrollbar-width: none;
+  }
+  .toc-body::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+  /* 条目与抽屉菜单同语言但更紧凑：37px 窄行 + 18px 小图标，一屏多看几条。
+     类名复用 .cat-toc-item 换全局高亮同步，样式在这里自成一档（不带 .sidebar 前缀） */
+  .toc-panel .cat-toc-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 37px;
+    padding: 4px 10px;
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 500;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition:
+      color var(--dur-fast),
+      background var(--dur-fast);
+  }
+  .toc-panel .cat-toc-item .mm {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+  }
+  .toc-panel .cat-toc-item .nm {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .toc-panel .cat-toc-item .ci {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+  }
+  .toc-panel .cat-toc-item .ci .card-logo {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+  }
+  .toc-panel .cat-toc-item.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent-light));
+    color: #fff;
+    font-weight: 700;
+    box-shadow: var(--accent-glow);
+  }
+  .toc-panel .cat-toc-item:active {
+    background: var(--sb-menu-bg-hover);
+  }
+  .toc-panel .cat-toc-item.active:active {
+    background: var(--accent-light);
   }
 }
 

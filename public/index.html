@@ -155,7 +155,7 @@
       <div class="app-main">
         <div class="topbar">
           <div class="header">
-            <!-- 窄屏专用：展开左侧抽屉 -->
+            <!-- 窄屏专用：展开左侧抽屉，位于顶栏玻璃卡内、搜索框左边 -->
             <button class="sb-toggle" id="sbToggle" type="button" aria-label="展开菜单" aria-expanded="false">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                 <path d="M3 6h18M3 12h18M3 18h18" />
@@ -399,6 +399,37 @@
         </div>
       </div>
     </div>
+
+    <!-- 窄屏专用：左下角悬浮目录按钮，点开当前分类的数据源目录抽屉。
+     必须挂在 body 直下——顶栏 .topbar 带 backdrop-filter，会成为 fixed 后代的
+     包含块，挂在顶栏里就无法相对视口定位。
+     层叠位于内容之上、遮罩(190)/抽屉(200)之下：抽屉展开时它随遮罩一起被压暗；
+     只在分类视图出现（首页没有「当前分类」，由 app.js 的 syncTocFab 控制显隐） -->
+    <button class="sb-toc" id="sbToc" type="button" aria-label="本页目录" aria-expanded="false" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M9 6h12M9 12h12M9 18h12" />
+        <circle cx="4" cy="6" r="1.4" fill="currentColor" stroke="none" />
+        <circle cx="4" cy="12" r="1.4" fill="currentColor" stroke="none" />
+        <circle cx="4" cy="18" r="1.4" fill="currentColor" stroke="none" />
+      </svg>
+    </button>
+
+    <!-- 目录面板遮罩：与抽屉遮罩同款样式（.sb-mask），两个面板互斥、不会同屏出现 -->
+    <div class="sb-mask" id="tocMask" hidden></div>
+
+    <!-- 窄屏专用：目录抽屉——像菜单一样从左缘侧滑，但只列当前分类的数据源标签
+     （即分类页顶部那条横向便签行，同一份 catTocEntries 口径），点条目定位到对应卡片 -->
+    <aside class="toc-panel" id="tocPanel" aria-hidden="true">
+      <div class="toc-head">
+        <b class="toc-title" id="tocTitle">本页目录</b>
+        <button class="sb-close" id="tocClose" type="button" aria-label="收起目录">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <nav class="toc-body" id="tocBody"></nav>
+    </aside>
 
     <!-- 抽屉遮罩：窄屏下侧边栏展开时铺满内容区，点击收起 -->
     <div class="sb-mask" id="sbMask" hidden></div>

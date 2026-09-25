@@ -1536,11 +1536,39 @@ function cacheKey(ep, url) {
 }
 
 // ============ 方案二：榜单 Top N 折叠 ============
-// 榜单类卡片（type:'list'）默认只渲染前 N 条，点击「展开全部」后本地重渲染全部条目，
-// 状态按卡片记忆（localStorage），刷新/切分类回来保持用户的展开偏好
-const LIST_COLLAPSE_N = 10
-// 各榜单最近一次渲染的原始数据，供展开/收起切换时免请求重渲染
-const listData = {}
+// 榜单类卡片默认只渲染/只显示前 N 条，点击「展开全部」后本地重渲染全部条目，
+// 状态按卡片记忆（localStorage），刷新/切分类回来保持用户的展开偏好。
+// 折叠阈值随版式走：桌面端 20 条、移动端 10 条（isMobileLayout 与 style.css
+// 的 820px 断点逐字一致）；断点跨越时由下方 MQ_MOBILE 监听本地重渲染
+const LIST_COLLAPSE_N_MOBILE = 10
+const LIST_COLLAPSE_N_DESKTOP = 20
+function listCollapseN() {
+  return isMobileLayout() ? LIST_COLLAPSE_N_MOBILE : LIST_COLLAPSE_N_DESKTOP
+}
+// 各榜单最近一次渲染的重渲染闭包，供展开/收起切换与断点跨越时免请求重渲染
+const listRerender = {}
+
+// 通用 Top N 折叠（renderData 后处理，rList 以外的渲染器都靠它）：
+// 内容区直子节点里出现榜单行（.item / .news-item）且超过 N 时，
+// 折叠其余行并追加「展开全部 / 收起」按钮。天气/游戏/表单等非榜单结构
+// 没有匹配行，行数 ≤ N 时也无按钮，两种情况都自然 no-op。
+// 注意 rList 自己内建了同款折叠（含 span-2 双栏联动），type:'list' 跳过
+function applyRowFold(ep, c) {
+  if (ep.type === 'list') return
+  const expanded = isListExpanded(ep.id)
+  const N = listCollapseN()
+  const rows = c.querySelectorAll(':scope > .item, :scope > .news-item')
+  if (rows.length <= N) return
+  if (!expanded) for (let i = N; i < rows.length; i++) rows[i].style.display = 'none'
+  const btn = document.createElement('button')
+  btn.type = 'button'
+  btn.className = 'list-toggle'
+  btn.dataset.listToggle = ep.id
+  btn.textContent = expanded ? `收起，仅看 Top ${N}` : `展开全部 ${rows.length} 条`
+  // 💡 提示条保持在卡片最底部，按钮插到它前面
+  const tip = c.querySelector(':scope > .news-tip')
+  c.insertBefore(btn, tip || null)
+}
 
 function isListExpanded(id) {
   try {
@@ -2632,6 +2660,7 @@ let homeExpanded = false
 let activeModuleId = null // 当前高亮的子菜单模块（点击模块菜单后记录）
 let syncSubs = null // init 内部 refreshSubs 的对外钩子：分组卡片切标签页时同步子菜单高亮
 let locateCardFn = null // init 内部 locateCard 的对外钩子：分类页数据源便签点击定位用
+let syncTocFab = null // init 内部赋值：窄屏悬浮目录按钮随当前视图显隐（首页无当前分类则藏）
 let switchToHomeFn = null // init 内部 switchToHome 的对外钩子：站内搜索切回首页用
 let centerSubChip = null // init 内部 focusSubChip 的对外钩子：切标签页时让对应模块 chip 滚入可视区
 let fanyiLangs = null
@@ -3609,18 +3638,106 @@ function init() {
     setSidebarOpen(false)
   }
 
-  if (sbToggle) sbToggle.onclick = () => setSidebarOpen(!appShell.classList.contains('sidebar-open'))
+  // 点汉堡先收目录面板再开/关抽屉：两个面板互斥，遮罩与滚动锁始终只归一个面板
+  if (sbToggle)
+    sbToggle.onclick = () => {
+      setTocPanelOpen(false)
+      setSidebarOpen(!appShell.classList.contains('sidebar-open'))
+    }
   // 抽屉的关闭路径就这三条：✕ 按钮、点遮罩空白处、Esc。
   // 菜单项自身的点击一律不关（点分类只是切换/展开，点完还想接着点）
   if (sbClose) sbClose.onclick = closeSidebar
   if (sbMask) sbMask.onclick = closeSidebar
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeSidebar()
+    if (e.key !== 'Escape') return
+    // 目录面板开着先收它，收完才轮到抽屉
+    if (tocPanel && tocPanel.classList.contains('open')) setTocPanelOpen(false)
+    else closeSidebar()
   })
-  // 视口变宽回到桌面版式时收起抽屉，避免 sidebar-open / sb-locked 残留
+  // 视口变宽回到桌面版式时收起抽屉与目录面板，避免 sidebar-open / sb-locked 残留
   MQ_DRAWER.addEventListener('change', () => {
-    if (!MQ_DRAWER.matches) setSidebarOpen(false)
+    if (!MQ_DRAWER.matches) {
+      setSidebarOpen(false)
+      setTocPanelOpen(false)
+    }
   })
+
+  // ===== 窄屏悬浮目录面板（左下角 ☰ 下方的目录按钮）=====
+  // 与菜单抽屉同款侧滑交互，但内容只放当前分类的数据源标签
+  // （即分类页顶部那条横向便签行，同一份 catTocEntries 口径），点条目定位到对应卡片。
+  // 首页视图没有「当前分类」，按钮由 syncTocFab 藏起；遮罩各用各的（#tocMask），样式同款
+  const sbToc = $('#sbToc')
+  const tocPanel = $('#tocPanel')
+  const tocBody = $('#tocBody')
+  const tocTitle = $('#tocTitle')
+  const tocClose = $('#tocClose')
+  const tocMask = $('#tocMask')
+  let tocTimer = 0
+
+  function setTocPanelOpen(open) {
+    if (!tocPanel) return
+    const shouldOpen = !!open && MQ_DRAWER.matches
+    if (shouldOpen) buildTocPanel()
+    tocPanel.classList.toggle('open', shouldOpen)
+    tocPanel.setAttribute('aria-hidden', String(!shouldOpen))
+    if (sbToc) sbToc.setAttribute('aria-expanded', String(shouldOpen))
+    // 与抽屉共用 body 滚动锁；两个面板互斥，不存在同时写这个类的情况
+    document.body.classList.toggle('sb-locked', shouldOpen)
+    if (!tocMask) return
+    clearTimeout(tocTimer)
+    if (shouldOpen) {
+      tocMask.hidden = false
+      requestAnimationFrame(() => tocMask.classList.add('show'))
+    } else {
+      tocMask.classList.remove('show')
+      // 等淡出过渡结束再真正隐藏，否则 display:none 会把过渡掐断
+      tocTimer = setTimeout(() => {
+        if (tocPanel && !tocPanel.classList.contains('open')) tocMask.hidden = true
+      }, 260)
+    }
+  }
+
+  // 面板内容每次打开时重建：跟随当前分类。条目复用 .cat-toc-item 类与 data-key——
+  // setTocActive / updateTocBadges 全局按类名收集，面板条目自动获得滚动高亮与徽章同步
+  function buildTocPanel() {
+    if (!tocBody) return
+    const cat = CATS.find((c) => c.id === curCat)
+    if (tocTitle) tocTitle.textContent = cat ? cat.name : '本页目录'
+    tocBody.innerHTML = ''
+    catTocEntries(curCat).forEach((e) => {
+      const item = document.createElement('button')
+      item.type = 'button'
+      item.className = 'cat-toc-item'
+      item.dataset.key = e.key
+      item.dataset.type = e.type
+      item.title = `定位到「${e.name}」`
+      item.innerHTML = `<span class="mm"><span class="ci">${e.icon}</span><span class="nm">${esc(e.name)}</span></span>`
+      item.onclick = () => {
+        // 先收面板（同步解除 body 滚动锁），紧接着的定位滚动才不会被 overflow:hidden 吞掉
+        setTocPanelOpen(false)
+        const target = EPS.find((x) => x.id === e.epId)
+        if (target) locateCard(target)
+      }
+      tocBody.appendChild(item)
+    })
+    // 条目是刚新建的，谁都不带 active——滚动期间 setTocActive 打的高亮全被重建丢了，
+    // 面板打开时就是「一片灰、不知道读到哪」。这里把 scroll-spy / 点击定位标记的
+    // 当前卡片重新套上（面板开着时 body 滚动锁死、阅读位置不会变，开面板对齐一次即可）。
+    // 顺手把高亮项滚进视野：长列表里它可能落在可视区外，亮了也看不见
+    setTocActive(lastTocActiveKey)
+    const cur = tocBody.querySelector('.cat-toc-item.active')
+    if (cur) requestAnimationFrame(() => cur.scrollIntoView({ block: 'nearest' }))
+  }
+
+  // 窄屏目录按钮随视图显隐（render 收口调用 + 初始一次）
+  syncTocFab = () => {
+    if (sbToc) sbToc.hidden = curView !== 'cat' || curCat === 'all'
+  }
+  syncTocFab()
+
+  if (sbToc) sbToc.onclick = () => setTocPanelOpen(!tocPanel.classList.contains('open'))
+  if (tocClose) tocClose.onclick = () => setTocPanelOpen(false)
+  if (tocMask) tocMask.onclick = () => setTocPanelOpen(false)
 
   nav.appendChild(catRow)
   // 面板挂 body 下而非 nav 内：nav 自身的 backdrop-filter 会成为 backdrop root，
@@ -3783,6 +3900,8 @@ function init() {
 // 表现就是「先跳到错误位置再慢慢修正」。而跳转本身就是瞬时定位，不需要这段过渡。
 let renderVTReady = false
 function render(sync) {
+  // 窄屏悬浮目录按钮随视图显隐：render 是所有视图切换的收口处，在这里同步一次即可
+  if (syncTocFab) syncTocFab()
   const doRender = () => {
     renderImpl()
   }
@@ -4550,6 +4669,9 @@ function renderData(ep, d, c) {
       muyu: rMuyu,
     }[ep.type] || rJSON
   fn(d, c, ep)
+  // 登记重渲染闭包（展开/收起切换、断点跨越时用），然后做通用 Top N 折叠后处理
+  listRerender[ep.id] = () => renderData(ep, d, c)
+  applyRowFold(ep, c)
 }
 
 function rNews(d, c) {
@@ -4581,10 +4703,10 @@ function rList(d, c, ep) {
     return
   }
   const f = ep.f || {}
-  // Top N 折叠：默认只渲染前 N 条，展开状态按卡片记忆；记录原始数据供切换时免请求重渲染
+  // Top N 折叠：默认只渲染前 N 条（桌面 20 / 移动 10），展开状态按卡片记忆
   const expanded = isListExpanded(ep.id)
-  const items = expanded ? d : d.slice(0, LIST_COLLAPSE_N)
-  listData[ep.id] = d
+  const N = listCollapseN()
+  const items = expanded ? d : d.slice(0, N)
   let h = ''
   items.forEach((it, i) => {
     const rank = it.rank || i + 1
@@ -4624,10 +4746,10 @@ function rList(d, c, ep) {
       h += '</div></div>'
     }
   })
-  if (d.length > LIST_COLLAPSE_N) {
+  if (d.length > N) {
     h +=
       `<button class="list-toggle" type="button" data-list-toggle="${ep.id}">` +
-      (expanded ? `收起，仅看 Top ${LIST_COLLAPSE_N}` : `展开全部 ${d.length} 条`) +
+      (expanded ? `收起，仅看 Top ${N}` : `展开全部 ${d.length} 条`) +
       `</button>`
   }
   c.innerHTML = h
@@ -4636,18 +4758,27 @@ function rList(d, c, ep) {
   if (card) card.classList.toggle('expanded', expanded)
 }
 
-// 展开/收起切换：事件委托统一处理，用 listData 里已缓存的原始数据本地重渲染，不重新请求
+// 展开/收起切换：事件委托统一处理，用 listRerender 里登记的重渲染闭包本地重渲染，不重新请求
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-list-toggle]')
   if (!btn) return
-  const id = btn.dataset.listToggle
-  const ep = window['_ep_' + id]
-  const c = document.getElementById('content-' + id)
-  const d = listData[id]
-  if (!ep || !c || !d) return
-  setListExpanded(id, !isListExpanded(id))
-  rList(d, c, ep)
+  const rerender = listRerender[btn.dataset.listToggle]
+  if (!rerender) return
+  setListExpanded(btn.dataset.listToggle, !isListExpanded(btn.dataset.listToggle))
+  rerender()
 })
+
+// 断点跨越（桌面 ⇄ 移动，820px）时折叠阈值不同：把已登记的榜单本地重渲染一遍，
+// 折叠条数立即跟随版式（展开偏好不变，免重新请求）。兼容老 webkit 的 addListener；
+// matchMedia 的 change 只在跨断点时触发，拖动窗口过程中不会高频重渲染
+function rerenderListsForBreakpoint() {
+  for (const id in listRerender) listRerender[id]()
+}
+if (typeof MQ_MOBILE.addEventListener === 'function') {
+  MQ_MOBILE.addEventListener('change', rerenderListsForBreakpoint)
+} else if (typeof MQ_MOBILE.addListener === 'function') {
+  MQ_MOBILE.addListener(rerenderListsForBreakpoint)
+}
 
 // ============ 万年历（calendar） ============
 // 各卡当前浏览的年月（切换月份的本地状态）
@@ -5706,6 +5837,36 @@ document.addEventListener('animationend', (e) => {
 // 不做任何内容旋转（早期版本曾把 .fs-unit 转 -90° 强制横屏，实测屏幕并不跟随
 // 旋转，内容侧躺纯属负体验，已整体移除）。
 // 退出（✕/ESC/手势）由 onFsChange 统一还原滚动位置（进入前预记基准）
+// 伪全屏进出场动效（WAAPI，作用在卡片内层的 .fs-unit 上）：
+// **绝不能**拿 .card 本身做透明度/缩放动画——满屏卡片一旦半透明，背后
+// 「顶栏消失 + 滚动被重置 + 网格空位」的中间态就会露出来，这正是用户报的闪烁。
+// 所以进出场改成：卡片本体瞬间不透明盖满屏（背景的所有跳变都发生在盖住之后，
+// 看不见），只有内层内容做缩放淡入/淡出；退出等内容退完，一次性拆类还原，
+// 背景页在同一帧内完整复原，全程没有「半透明露出中间态」的帧。
+// 顺带：.fs-unit 没有 inline animation（fadeIn 摘除只发生在 .card 上），
+// 但统一走 WAAPI 最稳，不碰任何 CSS animation 属性。
+// 原生全屏的进出场由浏览器自带缩放动画，不需要（也不能）叠加
+const FS_ANIM_MS = { enter: 200, leave: 150 }
+function fsAnimAllowed() {
+  return !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+function fsUnitOf(card) {
+  return card.querySelector('.fs-unit')
+}
+// 进入：内容从 96% 缩放 + 半透明就位，弱化「瞬间铺满」的生硬感
+function fsAnimEnter(card) {
+  if (!fsAnimAllowed()) return null
+  const unit = fsUnitOf(card)
+  if (!unit) return null
+  return unit.animate(
+    [
+      { transform: 'scale(0.96)', opacity: 0.55 },
+      { transform: 'none', opacity: 1 },
+    ],
+    { duration: FS_ANIM_MS.enter, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+  )
+}
+
 function cardFsEl() {
   // 真实原生全屏元素。现代 API 存在时以其为准：个别 WebView（内嵌 Electron 等）在
   // 全屏请求挂起期间 webkitFullscreenElement 会残留旧值误报「原生全屏中」，令 ✕
@@ -5744,6 +5905,7 @@ function fsEnterFake(card, prevScrollY) {
   })
   document.documentElement.style.overflow = 'hidden' // 锁背景滚动
   cardFsSync()
+  card.__fsUnitAnim = fsAnimEnter(card)
 }
 
 // 原生全屏确认生效后落状态：onFsChange 进入分支已建 {native} 骨架，这里补记滚动基准。
@@ -5819,13 +5981,44 @@ function fsExitCard(card) {
     return
   }
   const st = fsState.get(card) || {} // 状态意外缺失也照常拆类还原，别把用户锁在伪全屏里
-  card.classList.remove('fs-fake')
-  document.documentElement.classList.remove('fs-fake-on')
-  document.documentElement.style.overflow = st.prevScroller || ''
-  fsState.delete(card)
-  cardFsSync()
-  // 恢复进入前的滚动位置并校验卡片停靠位（overflow:hidden 期间浏览器已把位置清零）
-  fsRestoreScroll(card, st.prevScrollY)
+  if (card.__fsLeaving) return // 退出动效进行中：忽略重复触发
+  card.__fsLeaving = true
+  // 进入动效还没跑完就退出：掐掉它，避免它的透明度效果盖过退出动画
+  if (card.__fsUnitAnim) {
+    card.__fsUnitAnim.cancel()
+    card.__fsUnitAnim = null
+  }
+  const finishFakeExit = () => {
+    card.__fsLeaving = false
+    // 动效期间被升级成原生全屏 / 状态被其它路径清走：别覆盖 onFsChange 落好的状态
+    if (cardFsEl() || !card.classList.contains('fs-fake')) return
+    // 一次性拆类 + 还原滚动：全部改动落在同一帧，背景页完整复原，没有中间态
+    card.classList.remove('fs-fake')
+    document.documentElement.classList.remove('fs-fake-on')
+    document.documentElement.style.overflow = st.prevScroller || ''
+    fsState.delete(card)
+    cardFsSync()
+    // 恢复进入前的滚动位置并校验卡片停靠位（overflow:hidden 期间浏览器已把位置清零）
+    fsRestoreScroll(card, st.prevScrollY)
+  }
+  const unit = fsUnitOf(card)
+  if (!fsAnimAllowed() || !unit) {
+    finishFakeExit()
+    return
+  }
+  // 内容先缩退（卡片本体保持不透明满屏，背后页面全程被挡住），
+  // 退完再一次性拆类还原——替代上一版「卡片半透明淡出」露背景的闪法
+  const leave = unit.animate(
+    [
+      { transform: 'none', opacity: 1 },
+      { transform: 'scale(0.97)', opacity: 0 },
+    ],
+    { duration: FS_ANIM_MS.leave, easing: 'cubic-bezier(0.4, 0, 1, 1)' },
+  )
+  leave.onfinish = leave.oncancel = () => {
+    leave.onfinish = leave.oncancel = null
+    finishFakeExit()
+  }
 }
 
 // 退出全屏的滚动恢复：先回进入前的 scrollY，再校验卡片是否停靠在 sticky 顶栏/
