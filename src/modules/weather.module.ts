@@ -1,6 +1,7 @@
 import { Common, dayjs } from '../common.ts'
 import { serviceIP } from './ip.module.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 import type { RouterMiddleware } from '@oak/oak'
 
 // 无法定位（海外 IP、IP 库全挂）或上游城市库查不到时的兜底城市
@@ -533,12 +534,13 @@ class ServiceWeather {
 
     const url = `${UAPI_WEATHER_URL}?city=${encodeURIComponent(city)}&extended=true&forecast=true&indices=true`
 
-    const response = await fetch(url, {
+    // fetchUpstream 自带 UA + 5s 超时（按本模块口径）+ 1 次重试；
+    // 404/非 ok/200+{error} 的判定语义原样保留
+    const response = await fetchUpstream(url, {
       headers: {
-        'User-Agent': Common.chromeUA,
         Accept: 'application/json',
       },
-      signal: AbortSignal.timeout(5000),
+      timeoutMs: 5000,
     })
 
     // 404：城市名上游认不出。沿用旧链路同一句文案，
@@ -584,7 +586,8 @@ class ServiceWeather {
 
     return {
       location: {
-        name: provinceName && provinceName !== cityName ? `${provinceName}${cityName}${county}` : `${cityName}${county}`,
+        name:
+          provinceName && provinceName !== cityName ? `${provinceName}${cityName}${county}` : `${cityName}${county}`,
         province,
         city,
         county,
@@ -875,18 +878,22 @@ class ServiceWeather {
     return cityInfo
   }
 
+  // 城市搜索 / 天气实况 / 空气质量：同属腾讯天气接口族，Referer 必带；
+  // fetchUpstream 自带 UA + 8s 超时 + 1 次重试，三处语义一致
+  private readonly qqHeaders = {
+    Referer: 'https://news.qq.com/',
+    Accept: 'application/json',
+  } as const
+
   private async searchCity(location: string, city: string, province: string): Promise<CityInfo> {
     const cleanLocation = location.trim()
     const encodedLocation = encodeURIComponent(cleanLocation)
 
     const url = `https://i.news.qq.com/city/like?source=pc&city=${encodedLocation}`
 
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': Common.chromeUA,
-        Referer: 'https://news.qq.com/',
-        Accept: 'application/json',
-      },
+    const response = await fetchUpstream(url, {
+      headers: { ...this.qqHeaders },
+      timeoutMs: 8000,
     })
 
     if (!response.ok) {
@@ -932,12 +939,9 @@ class ServiceWeather {
 
     const url = `https://i.news.qq.com/weather/common?source=pc&weather_type=observe%7Cforecast_1h%7Cforecast_24h%7Cindex%7Calarm%7Climit%7Ctips%7Crise&province=${province}&city=${city}&county=${county}`
 
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': Common.chromeUA,
-        Referer: 'https://news.qq.com/',
-        Accept: 'application/json',
-      },
+    const response = await fetchUpstream(url, {
+      headers: { ...this.qqHeaders },
+      timeoutMs: 8000,
     })
 
     if (!response.ok) {
@@ -967,12 +971,9 @@ class ServiceWeather {
 
     const url = `https://i.news.qq.com/weather/common?source=pc&weather_type=air%7Crise&province=${province}&city=${city}`
 
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': Common.chromeUA,
-        Referer: 'https://news.qq.com/',
-        Accept: 'application/json',
-      },
+    const response = await fetchUpstream(url, {
+      headers: { ...this.qqHeaders },
+      timeoutMs: 8000,
     })
 
     if (!response.ok) {

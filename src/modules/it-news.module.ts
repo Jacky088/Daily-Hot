@@ -1,4 +1,5 @@
 import { Common, dayjs, TZ_SHANGHAI } from '../common.ts'
+import { fetchUpstream, fetchUpstreamText } from '../fetch-upstream.ts'
 import { load } from 'cheerio'
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -111,7 +112,7 @@ class ServiceITNews {
       return this.#rankCache.ranks
     }
 
-    const html = await (await fetch('https://www.ithome.com/', { headers: { 'User-Agent': Common.chromeUA } })).text()
+    const html = await fetchUpstreamText('https://www.ithome.com/')
     const $ = load(html)
     const ranksWrap = $('#rank')
 
@@ -145,9 +146,8 @@ class ServiceITNews {
       return this.#cache.items
     }
 
-    const response = await fetch(RSS_URL, {
-      headers: { 'User-Agent': Common.chromeUA },
-    })
+    // fetchUpstream 自带 UA + 超时重试；下游按 !response.ok 判定走内存旧缓存，语义不变
+    const response = await fetchUpstream(RSS_URL, { retry: 0 })
 
     if (!response.ok) {
       if (this.#cache) return this.#cache.items

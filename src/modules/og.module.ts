@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -79,10 +80,13 @@ class ServiceOG {
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
       this.#assertSafeUrl(_url)
 
-      response = await fetch(_url, {
+      // fetchUpstream 默认补 UA + 8s 超时 + 5xx 重试；redirect/manual 与逐跳 SSRF 校验
+      // 语义原样保留（fetchUpstream 透传 redirect 选项），超时按本模块 5s 口径覆盖
+      response = await fetchUpstream(_url, {
         redirect: 'manual',
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-        headers: { 'User-Agent': Common.chromeUA, Accept: 'text/html,*/*' },
+        timeoutMs: FETCH_TIMEOUT_MS,
+        retry: 0,
+        headers: { Accept: 'text/html,*/*' },
       })
 
       // 非 3xx 即为最终响应

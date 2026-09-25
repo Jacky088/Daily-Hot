@@ -2,6 +2,8 @@ import pkg from '../package.json' with { type: 'json' }
 import crypto from 'node:crypto'
 import { Buffer } from 'node:buffer'
 import { COMMON_MSG, config } from './config.ts'
+import { env } from './runtime-env.ts'
+import { fetchUpstream } from './fetch-upstream.ts'
 
 import type { BinaryToTextEncoding } from 'node:crypto'
 import type { Request, RouterContext } from '@oak/oak'
@@ -87,8 +89,8 @@ export class Common {
   }
 
   static useProxiedUrl(link: string) {
-    // deno-lint-ignore no-process-global
-    if (!process.env.DEV) return link
+    // 本地开发代理：仅 DEV=1 时把上游 host 换到代理，方便抓包
+    if (!env('DEV')) return link
     const url = new URL(link)
     url.searchParams.set('proxy-host', url.host)
     url.host = 'proxy.viki.moe'
@@ -176,17 +178,19 @@ export class Common {
         if (Array.isArray(value)) {
           for (const item of value) {
             if (removeNullish && this.isNullish(item)) continue
-            result.append(key, item)
+            // URLSearchParams.append 只要字符串：boolean/number 靠隐式转换在跑，
+            // 显式 String() 避免 noImplicitAny 收紧后埋坑
+            result.append(key, String(item))
           }
         } else {
           if (removeNullish && this.isNullish(value)) continue
-          result.append(key, value)
+          result.append(key, String(value))
         }
       }
       return result.toString()
     }
 
-    return new URLSearchParams(entries).toString()
+    return new URLSearchParams(entries.map(([k, v]) => [k, String(v)] as [string, string])).toString()
   }
 
   static getApiInfo() {
@@ -229,19 +233,11 @@ export class Common {
       try {
         Common.debug(`Trying URL: ${url}`)
 
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 3_000)
-
-        const response = await fetch(url, {
-          signal: controller.signal,
-          headers: {
-            'User-Agent': Common.chromeUA,
-            'X-Real-IP': '157.255.219.143',
-            'X-Forwarded-For': '157.255.219.143',
-          },
-        })
-
-        clearTimeout(timeoutId)
+        // 注意：这里不再伪造 X-Forwarded-For / X-Real-IP 绕 geo——
+        // 伪造转发头 fragile 且有合规观感；国内外线路选择交给 OVERSEAS_FIRST
+        // 切换 CDN 顺序解决。超时 3s、逐源不重试（外层循环本身就是「失败换下一个」，
+        // 传 retry>0 纯属浪费时间）。
+        const response = await fetchUpstream(url, { timeoutMs: 3_000, retry: 0 })
 
         if (response.ok) {
           Common.debug(`Successful URL: ${url}`)

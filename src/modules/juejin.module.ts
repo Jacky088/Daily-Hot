@@ -1,5 +1,6 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -72,9 +73,8 @@ class ServiceJuejin {
   }
 
   async #fetch(category: string): Promise<JuejinItem[]> {
-    const response = await fetch(`${JUEJIN_API}?category_id=${JUJIN_CATEGORY_MAP[category].id}&type=hot`, {
-      headers: { 'User-Agent': Common.chromeUA },
-      signal: AbortSignal.timeout(10000),
+    const response = await fetchUpstream(`${JUEJIN_API}?category_id=${JUJIN_CATEGORY_MAP[category].id}&type=hot`, {
+      timeoutMs: 10000,
     })
 
     if (!response.ok) {

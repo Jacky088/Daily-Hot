@@ -1,11 +1,12 @@
 import { config } from '../config.ts'
 import { Common } from '../common.ts'
+import { env } from '../runtime-env.ts'
 import { serviceIP } from '../modules/ip.module.ts'
 
 import type { Middleware } from '@oak/oak'
 
 // 黑名单 IP 列表，环境变量格式为 JSON 数组字符串。
-// 惰性解析：Cloudflare Workers 的 process.env 由 nodejs_compat 在运行时注入，
+// 惰性解析：Cloudflare Workers 的 env 由 cf-worker.ts 在收到请求时注入，
 // 模块顶层求值可能早于注入时机，放到首次请求再解析才能确保读到值。
 // 解析非法时安全降级为空列表，避免整个服务崩溃。
 let list: string[] | null = null
@@ -16,7 +17,7 @@ function getList(): string[] {
   let parsed: string[] = []
 
   try {
-    parsed = process.env.BLACKLIST_IPS ? JSON.parse(process.env.BLACKLIST_IPS) : []
+    parsed = env('BLACKLIST_IPS') ? JSON.parse(env('BLACKLIST_IPS')!) : []
   } catch (e) {
     console.warn('[BLACKLIST] 环境变量 BLACKLIST_IPS 解析失败，已降级为空列表:', e)
   }

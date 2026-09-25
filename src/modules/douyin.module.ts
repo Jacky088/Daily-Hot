@@ -1,5 +1,6 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstreamJson } from '../fetch-upstream.ts'
 import { withUapisFallback } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -42,7 +43,10 @@ class ServiceDouyin {
 
   async #fetch() {
     const api = 'https://aweme-lq.snssdk.com/aweme/v1/hot/search/list/?aid=1128&version_code=880'
-    const { data = {} } = await (await fetch(api)).json()
+    // 抖音上游本身慢（冷启动实测 7.6s），超时放宽到 12s，避免聚合页缺席
+    const { data = {} } = await fetchUpstreamJson<{
+      data?: { word_list?: unknown[]; active_time?: string }
+    }>(api, { timeoutMs: 12_000 })
     const { word_list = [], active_time = '' } = data
     const list = word_list as {
       article_detail_count: number

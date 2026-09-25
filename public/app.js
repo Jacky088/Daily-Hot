@@ -1,79 +1,97 @@
-const API = location.origin;
+const API = location.origin
 
 // 平滑滚动开关：系统开启「减少动态」时退回瞬时跳转。
 // 必须显式传给 scrollTo/scrollBy/scrollIntoView——JS 传的 behavior 优先级高于
 // CSS 的 html{scroll-behavior}，只在 CSS 里降级对这些调用无效。
 // 用 'instant' 而不是 'auto'：'auto' 表示「跟随 CSS 的 scroll-behavior」，
 // 一旦哪天那段 CSS 兜底被删掉，这里就会悄悄退回平滑滚动
-const SMOOTH = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth';
+const SMOOTH = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'
 
 // ============ P0: API 响应缓存 ============
 // 缓存优先策略：30 分钟内切换分类/模块直接读缓存不重新请求，
 // 手动点卡片 ↻ 才强制刷新（forceUpdate 绕过缓存）
-const CACHE_TTL = 30 * 60 * 1000;
+const CACHE_TTL = 30 * 60 * 1000
 
 // 发版时递增：让所有旧的 localStorage 缓存失效，
 // 否则用户在 TTL 内会继续看到上一版缓存下来的渲染结果
 // v18：天气定位链路修复（服务端改为按出口公网 IP 定位）。旧的 hero-weather 缓存里
 // 存着「定位失败 → 默认城市」的结果，且要等 30 分钟 TTL 才过期，递增版本号让它立即失效
-const CACHE_VERSION = 'v18';
+const CACHE_VERSION = 'v1.15.0'
 
 // 清理已下线功能的残留键（如编辑布局的收藏/隐藏偏好），避免永久占空间
-try { localStorage.removeItem('ep-pinned'); localStorage.removeItem('ep-hidden'); } catch {}
+try {
+  localStorage.removeItem('ep-pinned')
+  localStorage.removeItem('ep-hidden')
+} catch {}
 
 function cacheGet(key) {
   try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    const { ts, data } = JSON.parse(raw);
-    if (Date.now() - ts > CACHE_TTL) { localStorage.removeItem(key); return null; }
-    return data;
-  } catch { return null; }
+    const raw = localStorage.getItem(key)
+    if (!raw) return null
+    const { ts, data } = JSON.parse(raw)
+    if (Date.now() - ts > CACHE_TTL) {
+      localStorage.removeItem(key)
+      return null
+    }
+    return data
+  } catch {
+    return null
+  }
 }
 
 // 缓存读取附带时间戳版本：renderData 用来显示「x 分钟前」
 function cacheGetWithTs(key) {
   try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    const { ts, data } = JSON.parse(raw);
-    if (Date.now() - ts > CACHE_TTL) { localStorage.removeItem(key); return null; }
-    return { data, ts };
-  } catch { return null; }
+    const raw = localStorage.getItem(key)
+    if (!raw) return null
+    const { ts, data } = JSON.parse(raw)
+    if (Date.now() - ts > CACHE_TTL) {
+      localStorage.removeItem(key)
+      return null
+    }
+    return { data, ts }
+  } catch {
+    return null
+  }
 }
 
 // 相对时间：<1 分钟「刚刚」，<60 分钟「N 分钟前」，当天「HH:MM」，
 // 更早「昨天」/「M-D HH:MM」。热榜用户最关心新鲜度，人话格式比绝对时间好读
 function relTime(ts) {
-  if (typeof ts !== 'number' || !isFinite(ts)) return '';
-  const diff = Date.now() - ts;
-  if (diff < 60 * 1000) return '刚刚';
-  if (diff < 60 * 60 * 1000) return Math.floor(diff / 60000) + ' 分钟前';
-  const d = new Date(ts), now = new Date();
-  const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  const sameDay = d.toDateString() === now.toDateString();
-  if (sameDay) return hm;
-  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-  if (d.toDateString() === yesterday.toDateString()) return `昨天 ${hm}`;
-  return `${d.getMonth() + 1}-${d.getDate()} ${hm}`;
+  if (typeof ts !== 'number' || !isFinite(ts)) return ''
+  const diff = Date.now() - ts
+  if (diff < 60 * 1000) return '刚刚'
+  if (diff < 60 * 60 * 1000) return Math.floor(diff / 60000) + ' 分钟前'
+  const d = new Date(ts),
+    now = new Date()
+  const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  const sameDay = d.toDateString() === now.toDateString()
+  if (sameDay) return hm
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (d.toDateString() === yesterday.toDateString()) return `昨天 ${hm}`
+  return `${d.getMonth() + 1}-${d.getDate()} ${hm}`
 }
 
 // 卡片级加载时间戳：load 成功（缓存命中或网络返回）时刷新，
 // paintRelTimes 循环重绘（30s 间隔），保证「3 分钟前」随时间自然增长
-const epLoadedAt = {};
+const epLoadedAt = {}
 function markEpLoaded(id, ts) {
-  epLoadedAt[id] = ts;
-  const el = document.querySelector(`[data-ep-loaded="${id}"]`);
-  if (el) { el.textContent = relTime(ts); el.hidden = false; }
-  heroRefreshTime();
+  epLoadedAt[id] = ts
+  const el = document.querySelector(`[data-ep-loaded="${id}"]`)
+  if (el) {
+    el.textContent = relTime(ts)
+    el.hidden = false
+  }
+  heroRefreshTime()
 }
 function paintRelTimes() {
-  document.querySelectorAll('[data-ep-loaded]').forEach(el => {
-    const t = relTime(epLoadedAt[el.dataset.epLoaded]);
-    if (t && el.textContent !== t) el.textContent = t;
-  });
+  document.querySelectorAll('[data-ep-loaded]').forEach((el) => {
+    const t = relTime(epLoadedAt[el.dataset.epLoaded])
+    if (t && el.textContent !== t) el.textContent = t
+  })
 }
-setInterval(paintRelTimes, 30 * 1000);
+setInterval(paintRelTimes, 30 * 1000)
 
 // ============ 页首 Hero 卡（站点简介 + 数据统计） ============
 // 卡片标题品牌 Logo：有官方标识的数据源用品牌图标替换 emoji。
@@ -130,7 +148,7 @@ const CARD_LOGOS = {
   sspai: 'sspai.png',
   bing: 'bing.svg',
   gold: 'gold.svg',
-};
+}
 
 // ============ 顶栏搜索 ============
 // 优先站内即时热词筛选 / 模糊搜源，兜底全网搜索引擎（必应/谷歌）。
@@ -138,168 +156,173 @@ const CARD_LOGOS = {
 const SEARCH_ENGINES = {
   bing: { name: '必应', url: 'https://www.bing.com/search?q=' },
   google: { name: '谷歌', url: 'https://www.google.com/search?q=' },
-};
+}
 
 // 常见模块拼音、缩写与别名映射表
 const EP_ALIASES = {
   '60s': ['60秒', '读懂世界', '每日早报', '简报', '新闻早报', '早报', '60s', 'news', 'zb'],
-  'history': ['历史上的今天', '历史', '今天', 'lishi', 'today', 'ls'],
-  'weibo': ['微博', '微博热搜', 'wb', 'weibo', '渣浪', '围脖'],
-  'zhihu': ['知乎', '知乎热榜', 'zh', 'zhihu', '逼乎'],
-  'bili': ['b站', '哔哩哔哩', 'bilibili', 'bili', '小破站', '弹幕', 'bz'],
-  'douyin': ['抖音', '抖音热点', 'dy', 'douyin', '字节', '短视频'],
-  'toutiao': ['今日头条', '头条', 'tt', 'toutiao', 'jrtt'],
-  'aljazeera': ['半岛', '半岛电视台', 'aljazeera', '国际新闻'],
-  'bbcnews': ['bbc', '英国广播公司', 'bbcnews'],
-  'cnnnews': ['cnn', 'cnnnews'],
-  'bdhot': ['百度', '百度热搜', 'bd', 'baidu', '百度热榜'],
-  'bdtieba': ['贴吧', '百度贴吧', 'tieba', 'tb', 'bdtieba'],
-  'quark': ['夸克', '夸克资讯', 'quark', 'qk'],
-  'ifeng': ['凤凰', '凤凰网', 'ifeng', '凤凰热榜', 'fh'],
-  'dongchedi': ['懂车帝', '汽车', 'dcd', 'dongchedi', '车'],
-  'hupu': ['虎扑', '虎扑步行街', 'hp', 'hupu', '步行街', '直男'],
-  'nodeseek': ['nodeseek', 'ns', '主机', 'vps'],
-  'v2ex': ['v2ex', 'v2', 'v站', '威凸'],
-  'let': ['lowendtalk', 'let'],
-  'hn': ['hackernews', 'hn', 'hacker news'],
-  'itnews': ['it资讯', 'it之家', '科技资讯'],
-  'kuan': ['酷安', '基安', 'kuan', 'ka', '数码'],
+  history: ['历史上的今天', '历史', '今天', 'lishi', 'today', 'ls'],
+  weibo: ['微博', '微博热搜', 'wb', 'weibo', '渣浪', '围脖'],
+  zhihu: ['知乎', '知乎热榜', 'zh', 'zhihu', '逼乎'],
+  bili: ['b站', '哔哩哔哩', 'bilibili', 'bili', '小破站', '弹幕', 'bz'],
+  douyin: ['抖音', '抖音热点', 'dy', 'douyin', '字节', '短视频'],
+  toutiao: ['今日头条', '头条', 'tt', 'toutiao', 'jrtt'],
+  aljazeera: ['半岛', '半岛电视台', 'aljazeera', '国际新闻'],
+  bbcnews: ['bbc', '英国广播公司', 'bbcnews'],
+  cnnnews: ['cnn', 'cnnnews'],
+  bdhot: ['百度', '百度热搜', 'bd', 'baidu', '百度热榜'],
+  bdtieba: ['贴吧', '百度贴吧', 'tieba', 'tb', 'bdtieba'],
+  quark: ['夸克', '夸克资讯', 'quark', 'qk'],
+  ifeng: ['凤凰', '凤凰网', 'ifeng', '凤凰热榜', 'fh'],
+  dongchedi: ['懂车帝', '汽车', 'dcd', 'dongchedi', '车'],
+  hupu: ['虎扑', '虎扑步行街', 'hp', 'hupu', '步行街', '直男'],
+  nodeseek: ['nodeseek', 'ns', '主机', 'vps'],
+  v2ex: ['v2ex', 'v2', 'v站', '威凸'],
+  let: ['lowendtalk', 'let'],
+  hn: ['hackernews', 'hn', 'hacker news'],
+  itnews: ['it资讯', 'it之家', '科技资讯'],
+  kuan: ['酷安', '基安', 'kuan', 'ka', '数码'],
   '36kr': ['36氪', '36kr', '36', 'kr', '创业'],
-  'sspai': ['少数派', 'sspai', '数字生活'],
-  'huxiu': ['虎嗅', 'huxiu', 'hx'],
-  'juejin': ['掘金', 'juejin', 'jj', '前端', '后端'],
+  sspai: ['少数派', 'sspai', '数字生活'],
+  huxiu: ['虎嗅', 'huxiu', 'hx'],
+  juejin: ['掘金', 'juejin', 'jj', '前端', '后端'],
   'gh-trending': ['github', 'git', 'gh', '开源', '代码', '项目'],
-  'cto51': ['51cto', 'cto', '博客'],
-  'itrank': ['it之家热榜', 'it之家', 'itrank'],
+  cto51: ['51cto', 'cto', '博客'],
+  itrank: ['it之家热榜', 'it之家', 'itrank'],
   'maoyan-showing': ['在映电影', '院线', '热映'],
   'maoyan-coming': ['待映电影', '即将上映', '预告'],
-  'maoyan': ['猫眼', '票房', '电影票房', 'my', 'maoyan'],
-  'douban': ['豆瓣', '豆瓣电影', 'db', 'douban', '影评'],
+  maoyan: ['猫眼', '票房', '电影票房', 'my', 'maoyan'],
+  douban: ['豆瓣', '豆瓣电影', 'db', 'douban', '影评'],
   'douban-tv-cn': ['华语剧集', '国产剧', '电视剧'],
   'douban-tv-global': ['全球剧集', '美剧', '韩剧', '日剧', '英剧'],
   'douban-show-cn': ['华语综艺', '国产综艺', '综艺'],
   'douban-show-global': ['全球综艺', '国外综艺'],
-  'bdtv': ['百度电视剧', '电视剧榜'],
-  'bdmovie': ['百度电影', '电影榜'],
+  bdtv: ['百度电视剧', '电视剧榜'],
+  bdmovie: ['百度电影', '电影榜'],
   'simkl-tv': ['流媒体剧集', 'netflix', 'hbo', 'disney', 'simkl'],
   'simkl-movies': ['流媒体电影', '流媒体动画'],
-  'youtube': ['油管', 'youtube', 'ytb', '游戏视频'],
-  'ncm': ['网易云', '网易云音乐', 'wyy', '163', '云音乐', '听歌'],
-  'applemusic': ['applemusic', 'apple music', '苹果音乐'],
-  'qqmusic': ['qq音乐', 'qq music', '企鹅音乐', '绿钻'],
-  'epic': ['epic', '喜加一', 'epic games', '白嫖'],
-  'steam': ['steam', '蒸汽平台', 'g胖', 'v社'],
-  'lyric': ['歌词', '查歌词', '搜歌词', 'geci'],
-  'changya': ['唱鸭', '弹唱'],
-  'baike': ['百度百科', '百科', '词条', 'baike', 'bk'],
-  'health': ['健康计算器', 'bmi', '体脂率', '基础代谢', '健康', '减肥'],
-  'qr': ['二维码', '二维码生成', 'qr', 'qrcode', 'erweima'],
-  'hash': ['哈希', 'md5', 'sha256', 'base64', 'hash', '加密'],
-  'wnow': ['天气', '实时天气', 'tq', 'weather', 'tianqi', '气温', '下雨', '温度'],
-  'wfc': ['天气预报', '预报', '7天天气', '未来天气'],
-  'exrate': ['汇率', '外汇', '美元', '欧元', '日元', '英镑', 'hl', 'huilv'],
-  'fuel': ['油价', '今日油价', '汽油', '柴油', '92', '95', '98', 'yj', 'youjia'],
-  'gold': ['金价', '黄金', '黄金价格', '周大福', 'gold', 'hj', 'huangjin'],
-  'calendar': ['日历', '万年历', '放假', '节假日', 'rili', 'wnl'],
-  'lunar': ['老黄历', '黄历', '农历', '阴历', '吉凶', '宜忌', 'hl'],
-  'moyu': ['摸鱼', '摸鱼办', '周五', '放假倒计时', 'moyu', 'my'],
-  'duanzi': ['段子', '搞笑', '笑话', 'duanzi'],
-  'dadjoke': ['冷笑话', '英文笑话', 'dadjoke'],
-  'hitokoto': ['一言', '句子', '语录', 'hitokoto', 'yiyan'],
-  'kfc': ['疯狂星期四', 'kfc', '肯德基', 'v50'],
-  'fabing': ['发疯文学', '发病', '发病文学'],
-  'geng': ['梗百科', '热梗', '梗', '小黑子', '吃瓜'],
-  'game2048': ['2048', '小游戏', '游戏', '2048游戏'],
-  'muyu': ['木鱼', '电子木鱼', '功德', '积德', '敲木鱼', 'muyu'],
-  'fanyi': ['翻译', '中英互译', '词典', 'fanyi', 'fy', 'translate']
-};
+  youtube: ['油管', 'youtube', 'ytb', '游戏视频'],
+  ncm: ['网易云', '网易云音乐', 'wyy', '163', '云音乐', '听歌'],
+  applemusic: ['applemusic', 'apple music', '苹果音乐'],
+  qqmusic: ['qq音乐', 'qq music', '企鹅音乐', '绿钻'],
+  epic: ['epic', '喜加一', 'epic games', '白嫖'],
+  steam: ['steam', '蒸汽平台', 'g胖', 'v社'],
+  lyric: ['歌词', '查歌词', '搜歌词', 'geci'],
+  changya: ['唱鸭', '弹唱'],
+  baike: ['百度百科', '百科', '词条', 'baike', 'bk'],
+  health: ['健康计算器', 'bmi', '体脂率', '基础代谢', '健康', '减肥'],
+  qr: ['二维码', '二维码生成', 'qr', 'qrcode', 'erweima'],
+  hash: ['哈希', 'md5', 'sha256', 'base64', 'hash', '加密'],
+  wnow: ['天气', '实时天气', 'tq', 'weather', 'tianqi', '气温', '下雨', '温度'],
+  wfc: ['天气预报', '预报', '7天天气', '未来天气'],
+  exrate: ['汇率', '外汇', '美元', '欧元', '日元', '英镑', 'hl', 'huilv'],
+  fuel: ['油价', '今日油价', '汽油', '柴油', '92', '95', '98', 'yj', 'youjia'],
+  gold: ['金价', '黄金', '黄金价格', '周大福', 'gold', 'hj', 'huangjin'],
+  calendar: ['日历', '万年历', '放假', '节假日', 'rili', 'wnl'],
+  lunar: ['老黄历', '黄历', '农历', '阴历', '吉凶', '宜忌', 'hl'],
+  moyu: ['摸鱼', '摸鱼办', '周五', '放假倒计时', 'moyu', 'my'],
+  duanzi: ['段子', '搞笑', '笑话', 'duanzi'],
+  dadjoke: ['冷笑话', '英文笑话', 'dadjoke'],
+  hitokoto: ['一言', '句子', '语录', 'hitokoto', 'yiyan'],
+  kfc: ['疯狂星期四', 'kfc', '肯德基', 'v50'],
+  fabing: ['发疯文学', '发病', '发病文学'],
+  geng: ['梗百科', '热梗', '梗', '小黑子', '吃瓜'],
+  game2048: ['2048', '小游戏', '游戏', '2048游戏'],
+  muyu: ['木鱼', '电子木鱼', '功德', '积德', '敲木鱼', 'muyu'],
+  fanyi: ['翻译', '中英互译', '词典', 'fanyi', 'fy', 'translate'],
+}
 
-const POPULAR_MODULE_IDS = ['weibo', 'zhihu', '60s', 'gh-trending', '36kr', 'wnow', 'fuel', 'bili'];
+const POPULAR_MODULE_IDS = ['weibo', 'zhihu', '60s', 'gh-trending', '36kr', 'wnow', 'fuel', 'bili']
 
 function highlightSearchQuery(text, query) {
-  if (!text) return '';
-  if (!query) return esc(text);
-  const qClean = query.trim();
-  if (!qClean) return esc(text);
-  const safeQ = qClean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const parts = text.split(new RegExp(`(${safeQ})`, 'gi'));
-  return parts.map(part => {
-    if (part.toLowerCase() === qClean.toLowerCase()) {
-      return `<mark>${esc(part)}</mark>`;
-    }
-    return esc(part);
-  }).join('');
+  if (!text) return ''
+  if (!query) return esc(text)
+  const qClean = query.trim()
+  if (!qClean) return esc(text)
+  const safeQ = qClean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const parts = text.split(new RegExp(`(${safeQ})`, 'gi'))
+  return parts
+    .map((part) => {
+      if (part.toLowerCase() === qClean.toLowerCase()) {
+        return `<mark>${esc(part)}</mark>`
+      }
+      return esc(part)
+    })
+    .join('')
 }
 
 function matchSearchModules(q) {
-  const query = q.trim().toLowerCase();
-  if (!query || (typeof EPS === 'undefined') || !Array.isArray(EPS)) return [];
-  const results = [];
+  const query = q.trim().toLowerCase()
+  if (!query || typeof EPS === 'undefined' || !Array.isArray(EPS)) return []
+  const results = []
   for (const ep of EPS) {
-    let score = 0;
-    const name = ep.name.toLowerCase();
-    const id = ep.id.toLowerCase();
-    const aliases = EP_ALIASES[ep.id] || [];
+    let score = 0
+    const name = ep.name.toLowerCase()
+    const id = ep.id.toLowerCase()
+    const aliases = EP_ALIASES[ep.id] || []
 
     if (name === query || id === query) {
-      score = 100;
-    } else if (aliases.some(a => a.toLowerCase() === query)) {
-      score = 95;
+      score = 100
+    } else if (aliases.some((a) => a.toLowerCase() === query)) {
+      score = 95
     } else if (name.startsWith(query)) {
-      score = 80;
+      score = 80
     } else if (name.includes(query)) {
-      score = 65;
-    } else if (aliases.some(a => a.toLowerCase().startsWith(query))) {
-      score = 60;
-    } else if (aliases.some(a => a.toLowerCase().includes(query))) {
-      score = 50;
+      score = 65
+    } else if (aliases.some((a) => a.toLowerCase().startsWith(query))) {
+      score = 60
+    } else if (aliases.some((a) => a.toLowerCase().includes(query))) {
+      score = 50
     } else if (id.startsWith(query)) {
-      score = 45;
+      score = 45
     } else if (id.includes(query)) {
-      score = 35;
+      score = 35
     } else {
-      const catObj = (typeof CATS !== 'undefined') ? CATS.find(c => c.id === ep.cat) : null;
+      const catObj = typeof CATS !== 'undefined' ? CATS.find((c) => c.id === ep.cat) : null
       if (catObj && catObj.name.toLowerCase().includes(query)) {
-        score = 25;
+        score = 25
       }
     }
 
     if (score > 0) {
-      results.push({ ep, score });
+      results.push({ ep, score })
     }
   }
-  return results.sort((a, b) => b.score - a.score).slice(0, 5).map(x => x.ep);
+  return results
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5)
+    .map((x) => x.ep)
 }
 
 function matchSearchHotItems(q) {
-  const query = q.trim().toLowerCase();
-  if (!query || !homeData) return { items: [], total: 0 };
-  const matched = [];
-  const seen = new Set();
+  const query = q.trim().toLowerCase()
+  if (!query || !homeData) return { items: [], total: 0 }
+  const matched = []
+  const seen = new Set()
 
-  for (const it of (homeData.items || [])) {
-    if (!it.title) continue;
-    const t = it.title.toLowerCase();
-    const d = (it.desc || '').toLowerCase();
+  for (const it of homeData.items || []) {
+    if (!it.title) continue
+    const t = it.title.toLowerCase()
+    const d = (it.desc || '').toLowerCase()
     if (t.includes(query) || d.includes(query)) {
-      const key = it.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 12);
+      const key = it.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 12)
       if (!seen.has(key)) {
-        seen.add(key);
-        matched.push(it);
+        seen.add(key)
+        matched.push(it)
       }
     }
   }
 
-  for (const plat in (homeData.lists || {})) {
-    for (const it of (homeData.lists[plat] || [])) {
-      if (!it.title) continue;
-      const t = it.title.toLowerCase();
-      const d = (it.desc || '').toLowerCase();
+  for (const plat in homeData.lists || {}) {
+    for (const it of homeData.lists[plat] || []) {
+      if (!it.title) continue
+      const t = it.title.toLowerCase()
+      const d = (it.desc || '').toLowerCase()
       if (t.includes(query) || d.includes(query)) {
-        const key = it.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 12);
+        const key = it.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 12)
         if (!seen.has(key)) {
-          seen.add(key);
-          matched.push(it);
+          seen.add(key)
+          matched.push(it)
         }
       }
     }
@@ -307,158 +330,164 @@ function matchSearchHotItems(q) {
 
   return {
     items: matched.slice(0, 6),
-    total: matched.length
-  };
+    total: matched.length,
+  }
 }
 
 function initSiteSearch() {
-  const form = document.getElementById('siteSearch');
-  const input = document.getElementById('ssInput');
-  const trigger = document.getElementById('ssEngineBtn');
-  const menu = document.getElementById('ssEngineMenu');
-  const clearBtn = document.getElementById('ssClearBtn');
-  const suggest = document.getElementById('ssSuggest');
-  if (!form || !input || !trigger || !menu || !suggest) return;
-  const items = [...menu.querySelectorAll('.ss-item')];
+  const form = document.getElementById('siteSearch')
+  const input = document.getElementById('ssInput')
+  const trigger = document.getElementById('ssEngineBtn')
+  const menu = document.getElementById('ssEngineMenu')
+  const clearBtn = document.getElementById('ssClearBtn')
+  const suggest = document.getElementById('ssSuggest')
+  if (!form || !input || !trigger || !menu || !suggest) return
+  const items = [...menu.querySelectorAll('.ss-item')]
 
-  let engine = 'bing';
+  let engine = 'bing'
   try {
-    const saved = localStorage.getItem('search-engine');
-    if (saved && SEARCH_ENGINES[saved]) engine = saved;
+    const saved = localStorage.getItem('search-engine')
+    if (saved && SEARCH_ENGINES[saved]) engine = saved
   } catch {}
 
-  let activeRowIndex = -1;
+  let activeRowIndex = -1
 
   // 维护搜索框 suggest-open 状态，确保浮层展开时 z-index 凌驾于顶栏右侧与时钟胶囊之上
   const updateSuggestOpenState = () => {
-    const isEngineOpen = menu.classList.contains('open');
-    const isSuggestVisible = !suggest.hidden;
-    form.classList.toggle('suggest-open', isEngineOpen || isSuggestVisible);
-  };
+    const isEngineOpen = menu.classList.contains('open')
+    const isSuggestVisible = !suggest.hidden
+    form.classList.toggle('suggest-open', isEngineOpen || isSuggestVisible)
+  }
 
   const setSuggestVisible = (visible) => {
-    suggest.hidden = !visible;
-    updateSuggestOpenState();
-  };
+    suggest.hidden = !visible
+    updateSuggestOpenState()
+  }
 
   // 开合唯一写入：引擎下拉菜单显隐
   const setEngineMenuOpen = (open) => {
-    menu.classList.toggle('open', open);
-    trigger.setAttribute('aria-expanded', String(open));
-    if (open) suggest.hidden = true;
-    updateSuggestOpenState();
-  };
+    menu.classList.toggle('open', open)
+    trigger.setAttribute('aria-expanded', String(open))
+    if (open) suggest.hidden = true
+    updateSuggestOpenState()
+  }
 
   const paint = () => {
-    trigger.dataset.engine = engine;
-    trigger.setAttribute('aria-label', '选择搜索引擎，当前为' + SEARCH_ENGINES[engine].name);
-    items.forEach(it => it.setAttribute('aria-selected', String(it.dataset.engine === engine)));
-    input.placeholder = '搜模块/热词，或回车' + SEARCH_ENGINES[engine].name + '搜…';
-  };
-  paint();
+    trigger.dataset.engine = engine
+    trigger.setAttribute('aria-label', '选择搜索引擎，当前为' + SEARCH_ENGINES[engine].name)
+    items.forEach((it) => it.setAttribute('aria-selected', String(it.dataset.engine === engine)))
+    input.placeholder = '搜模块/热词，或回车' + SEARCH_ENGINES[engine].name + '搜…'
+  }
+  paint()
 
   trigger.onclick = (e) => {
-    e.stopPropagation();
-    setEngineMenuOpen(!menu.classList.contains('open'));
-  };
+    e.stopPropagation()
+    setEngineMenuOpen(!menu.classList.contains('open'))
+  }
 
-  items.forEach(it => {
+  items.forEach((it) => {
     it.onclick = () => {
-      engine = it.dataset.engine;
-      try { localStorage.setItem('search-engine', engine); } catch {}
-      paint();
-      setEngineMenuOpen(false);
-      input.focus();
-      renderSuggest(input.value.trim());
-    };
-  });
+      engine = it.dataset.engine
+      try {
+        localStorage.setItem('search-engine', engine)
+      } catch {}
+      paint()
+      setEngineMenuOpen(false)
+      input.focus()
+      renderSuggest(input.value.trim())
+    }
+  })
 
   // 键盘：引擎按钮上下键进菜单
-  trigger.addEventListener('keydown', e => {
-    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-    e.preventDefault();
-    setEngineMenuOpen(true);
-    const cur = items.findIndex(it => it.dataset.engine === engine);
-    items[cur > -1 ? cur : 0].focus();
-  });
-  menu.addEventListener('keydown', e => {
-    const i = items.indexOf(document.activeElement);
-    if (i < 0 || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
-    e.preventDefault();
-    items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
-  });
+  trigger.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+    e.preventDefault()
+    setEngineMenuOpen(true)
+    const cur = items.findIndex((it) => it.dataset.engine === engine)
+    items[cur > -1 ? cur : 0].focus()
+  })
+  menu.addEventListener('keydown', (e) => {
+    const i = items.indexOf(document.activeElement)
+    if (i < 0 || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return
+    e.preventDefault()
+    items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus()
+  })
 
   const executeSelection = (type, payload) => {
-    setSuggestVisible(false);
+    setSuggestVisible(false)
     if (type === 'module') {
-      const ep = (typeof EPS !== 'undefined' && Array.isArray(EPS)) ? EPS.find(x => x.id === payload) : null;
+      const ep = typeof EPS !== 'undefined' && Array.isArray(EPS) ? EPS.find((x) => x.id === payload) : null
       if (ep && locateCardFn) {
-        locateCardFn(ep);
+        locateCardFn(ep)
       }
-      input.blur();
+      input.blur()
     } else if (type === 'hot') {
       if (payload) {
-        window.open(safeUrl(payload), '_blank', 'noopener');
+        window.open(safeUrl(payload), '_blank', 'noopener')
       }
     } else if (type === 'filter') {
       if (curView !== 'home' && switchToHomeFn) {
-        switchToHomeFn();
+        switchToHomeFn()
       }
       if (typeof window.toggleKeywordFilter === 'function') {
-        window.toggleKeywordFilter(payload);
+        window.toggleKeywordFilter(payload)
       }
-      input.blur();
+      input.blur()
     } else if (type === 'web') {
       if (payload) {
-        window.open(SEARCH_ENGINES[engine].url + encodeURIComponent(payload), '_blank', 'noopener');
+        window.open(SEARCH_ENGINES[engine].url + encodeURIComponent(payload), '_blank', 'noopener')
       }
-      input.blur();
+      input.blur()
     }
-  };
+  }
 
   const executeDefault = (q) => {
-    if (!q) { input.focus(); return; }
-    const modules = matchSearchModules(q);
-    const qLower = q.toLowerCase();
+    if (!q) {
+      input.focus()
+      return
+    }
+    const modules = matchSearchModules(q)
+    const qLower = q.toLowerCase()
     if (modules.length > 0) {
-      const best = modules[0];
-      const aliases = EP_ALIASES[best.id] || [];
+      const best = modules[0]
+      const aliases = EP_ALIASES[best.id] || []
       if (
         best.name.toLowerCase() === qLower ||
         best.id.toLowerCase() === qLower ||
         best.name.toLowerCase().includes(qLower) ||
-        aliases.some(a => a.toLowerCase() === qLower)
+        aliases.some((a) => a.toLowerCase() === qLower)
       ) {
-        executeSelection('module', best.id);
-        return;
+        executeSelection('module', best.id)
+        return
       }
     }
-    const hotResult = matchSearchHotItems(q);
+    const hotResult = matchSearchHotItems(q)
     if (hotResult.total > 0) {
-      executeSelection('filter', q);
-      return;
+      executeSelection('filter', q)
+      return
     }
-    executeSelection('web', q);
-  };
+    executeSelection('web', q)
+  }
 
   const renderSuggest = (q) => {
-    const query = (q || '').trim();
-    activeRowIndex = -1;
+    const query = (q || '').trim()
+    activeRowIndex = -1
 
     // 空输入态：全网热词云 + 常用数据源直达
     if (!query) {
-      let topKws = [];
+      let topKws = []
       try {
         if (typeof extractHotKeywords === 'function' && homeData) {
-          topKws = extractHotKeywords(homeData).slice(0, 6);
+          topKws = extractHotKeywords(homeData).slice(0, 6)
         }
       } catch {}
 
-      const popModules = (typeof EPS !== 'undefined' && Array.isArray(EPS))
-        ? POPULAR_MODULE_IDS.map(id => EPS.find(x => x.id === id)).filter(Boolean)
-        : [];
+      const popModules =
+        typeof EPS !== 'undefined' && Array.isArray(EPS)
+          ? POPULAR_MODULE_IDS.map((id) => EPS.find((x) => x.id === id)).filter(Boolean)
+          : []
 
-      let html = '';
+      let html = ''
       if (topKws.length > 0) {
         html += `
           <div class="ss-group">
@@ -467,10 +496,10 @@ function initSiteSearch() {
               <span class="ss-group-count">点击即筛选</span>
             </div>
             <div class="ss-pills-wrap">
-              ${topKws.map(kw => `<button type="button" class="ss-kw-pill" data-kw="${esc(kw.word)}">${esc(kw.word)} <span class="ss-kw-cnt">${kw.count}</span></button>`).join('')}
+              ${topKws.map((kw) => `<button type="button" class="ss-kw-pill" data-kw="${esc(kw.word)}">${esc(kw.word)} <span class="ss-kw-cnt">${kw.count}</span></button>`).join('')}
             </div>
           </div>
-        `;
+        `
       }
 
       if (popModules.length > 0) {
@@ -480,10 +509,10 @@ function initSiteSearch() {
               <span>🧭 常用数据源直达</span>
             </div>
             <div class="ss-pills-wrap">
-              ${popModules.map(ep => `<button type="button" class="ss-mod-pill" data-ep-id="${esc(ep.id)}"><span class="ss-pill-icon">${ep.icon}</span> ${esc(ep.name)}</button>`).join('')}
+              ${popModules.map((ep) => `<button type="button" class="ss-mod-pill" data-ep-id="${esc(ep.id)}"><span class="ss-pill-icon">${ep.icon}</span> ${esc(ep.name)}</button>`).join('')}
             </div>
           </div>
-        `;
+        `
       }
 
       html += `
@@ -492,17 +521,17 @@ function initSiteSearch() {
           <span><kbd>↑</kbd><kbd>↓</kbd> 导航</span>
           <span><kbd>Esc</kbd> 关闭</span>
         </div>
-      `;
-      suggest.innerHTML = html;
-      setSuggestVisible(true);
-      return;
+      `
+      suggest.innerHTML = html
+      setSuggestVisible(true)
+      return
     }
 
     // 非空态：数据源直达 + 站内热搜即时匹配 + 全网搜索兜底
-    const modules = matchSearchModules(query);
-    const hotResult = matchSearchHotItems(query);
+    const modules = matchSearchModules(query)
+    const hotResult = matchSearchHotItems(query)
 
-    let html = '';
+    let html = ''
 
     if (modules.length > 0) {
       html += `
@@ -511,10 +540,11 @@ function initSiteSearch() {
             <span>🧭 数据源直达</span>
             <span class="ss-group-count">${modules.length} 个结果</span>
           </div>
-          ${modules.map(ep => {
-            const catObj = (typeof CATS !== 'undefined') ? CATS.find(c => c.id === ep.cat) : null;
-            const catName = catObj ? catObj.name.replace(/^[^\u4e00-\u9fa5a-zA-Z0-9]+/, '') : ep.cat;
-            return `
+          ${modules
+            .map((ep) => {
+              const catObj = typeof CATS !== 'undefined' ? CATS.find((c) => c.id === ep.cat) : null
+              const catName = catObj ? catObj.name.replace(/^[^\u4e00-\u9fa5a-zA-Z0-9]+/, '') : ep.cat
+              return `
               <div class="ss-row ss-row-module" role="option" data-type="module" data-payload="${esc(ep.id)}">
                 <span class="ss-row-icon">${ep.icon}</span>
                 <div class="ss-row-body">
@@ -523,10 +553,11 @@ function initSiteSearch() {
                 </div>
                 <span class="ss-row-badge">直达 ↵</span>
               </div>
-            `;
-          }).join('')}
+            `
+            })
+            .join('')}
         </div>
-      `;
+      `
     }
 
     if (hotResult.items.length > 0) {
@@ -536,12 +567,15 @@ function initSiteSearch() {
             <span>🔥 站内热搜即时匹配</span>
             <span class="ss-group-count">${hotResult.total} 条相关</span>
           </div>
-          ${hotResult.items.map(it => {
-            const hot = typeof heatText === 'function' ? heatText(it) : (it.hot_index_text || it.hot_text || '');
-            const tagHtml = it.tag ? `<span class="ss-item-tag">${esc(it.tag)}</span>` : '';
-            const hotHtml = hot ? `<span class="ss-row-heat">${esc(hot)}</span>` : '';
-            const iconImg = it.source_icon ? `<img class="ss-source-icon" src="${esc(it.source_icon)}" alt="" onerror="this.style.display='none'">` : '<span class="ss-row-icon">📌</span>';
-            return `
+          ${hotResult.items
+            .map((it) => {
+              const hot = typeof heatText === 'function' ? heatText(it) : it.hot_index_text || it.hot_text || ''
+              const tagHtml = it.tag ? `<span class="ss-item-tag">${esc(it.tag)}</span>` : ''
+              const hotHtml = hot ? `<span class="ss-row-heat">${esc(hot)}</span>` : ''
+              const iconImg = it.source_icon
+                ? `<img class="ss-source-icon" src="${esc(it.source_icon)}" alt="" onerror="this.style.display='none'">`
+                : '<span class="ss-row-icon">📌</span>'
+              return `
               <div class="ss-row ss-row-hot" role="option" data-type="hot" data-payload="${esc(it.link || '')}">
                 ${iconImg}
                 <div class="ss-row-body">
@@ -552,8 +586,9 @@ function initSiteSearch() {
                 ${hotHtml}
                 <span class="ss-row-jump">↗</span>
               </div>
-            `;
-          }).join('')}
+            `
+            })
+            .join('')}
           <div class="ss-row ss-row-action" role="option" data-type="filter" data-payload="${esc(query)}">
             <span class="ss-row-icon">⚡</span>
             <div class="ss-row-body">
@@ -563,14 +598,14 @@ function initSiteSearch() {
             <span class="ss-row-badge">回车筛选 ↵</span>
           </div>
         </div>
-      `;
+      `
     } else if (modules.length === 0) {
       html += `
         <div class="ss-group">
           <div class="ss-group-title"><span>🔥 站内热搜</span></div>
           <div style="padding: 6px 10px; font-size: 12px; color: var(--text-dimmer);">站内暂无包含 “${esc(query)}” 的热搜</div>
         </div>
-      `;
+      `
     }
 
     html += `
@@ -587,172 +622,172 @@ function initSiteSearch() {
           <span class="ss-row-badge">全网 ↗</span>
         </div>
       </div>
-    `;
+    `
 
-    suggest.innerHTML = html;
-    setSuggestVisible(true);
-  };
+    suggest.innerHTML = html
+    setSuggestVisible(true)
+  }
 
   // 键盘操作：上下选择、回车确认、Esc 退出
   input.addEventListener('keydown', (e) => {
-    const rows = [...suggest.querySelectorAll('.ss-row')];
+    const rows = [...suggest.querySelectorAll('.ss-row')]
     if (e.key === 'ArrowDown') {
       if (suggest.hidden) {
-        renderSuggest(input.value.trim());
-        setSuggestVisible(true);
-        return;
+        renderSuggest(input.value.trim())
+        setSuggestVisible(true)
+        return
       }
-      if (rows.length === 0) return;
-      e.preventDefault();
-      activeRowIndex = (activeRowIndex + 1) % rows.length;
-      rows.forEach((r, idx) => r.classList.toggle('active', idx === activeRowIndex));
-      rows[activeRowIndex].scrollIntoView({ block: 'nearest' });
-      return;
+      if (rows.length === 0) return
+      e.preventDefault()
+      activeRowIndex = (activeRowIndex + 1) % rows.length
+      rows.forEach((r, idx) => r.classList.toggle('active', idx === activeRowIndex))
+      rows[activeRowIndex].scrollIntoView({ block: 'nearest' })
+      return
     }
     if (e.key === 'ArrowUp') {
-      if (suggest.hidden) return;
-      if (rows.length === 0) return;
-      e.preventDefault();
-      activeRowIndex = (activeRowIndex - 1 + rows.length) % rows.length;
-      rows.forEach((r, idx) => r.classList.toggle('active', idx === activeRowIndex));
-      rows[activeRowIndex].scrollIntoView({ block: 'nearest' });
-      return;
+      if (suggest.hidden) return
+      if (rows.length === 0) return
+      e.preventDefault()
+      activeRowIndex = (activeRowIndex - 1 + rows.length) % rows.length
+      rows.forEach((r, idx) => r.classList.toggle('active', idx === activeRowIndex))
+      rows[activeRowIndex].scrollIntoView({ block: 'nearest' })
+      return
     }
     if (e.key === 'Enter') {
-      e.preventDefault();
+      e.preventDefault()
       if (activeRowIndex >= 0 && rows[activeRowIndex]) {
-        const type = rows[activeRowIndex].dataset.type;
-        const payload = rows[activeRowIndex].dataset.payload;
-        executeSelection(type, payload);
+        const type = rows[activeRowIndex].dataset.type
+        const payload = rows[activeRowIndex].dataset.payload
+        executeSelection(type, payload)
       } else {
-        executeDefault(input.value.trim());
+        executeDefault(input.value.trim())
       }
-      return;
+      return
     }
     if (e.key === 'Escape') {
-      setSuggestVisible(false);
-      input.blur();
-      return;
+      setSuggestVisible(false)
+      input.blur()
+      return
     }
-  });
+  })
 
   // 输入监听
   input.addEventListener('input', () => {
-    const val = input.value.trim();
-    if (clearBtn) clearBtn.hidden = !input.value;
-    renderSuggest(val);
-  });
+    const val = input.value.trim()
+    if (clearBtn) clearBtn.hidden = !input.value
+    renderSuggest(val)
+  })
 
   input.addEventListener('focus', () => {
-    setEngineMenuOpen(false);
-    if (clearBtn) clearBtn.hidden = !input.value;
-    renderSuggest(input.value.trim());
-  });
+    setEngineMenuOpen(false)
+    if (clearBtn) clearBtn.hidden = !input.value
+    renderSuggest(input.value.trim())
+  })
 
   // 清空按钮
   if (clearBtn) {
     clearBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      input.value = '';
-      clearBtn.hidden = true;
-      renderSuggest('');
-      input.focus();
-    });
+      e.stopPropagation()
+      input.value = ''
+      clearBtn.hidden = true
+      renderSuggest('')
+      input.focus()
+    })
   }
 
   // 浮层交互点击代理
   suggest.addEventListener('click', (e) => {
-    const row = e.target.closest('.ss-row');
+    const row = e.target.closest('.ss-row')
     if (row) {
-      const type = row.dataset.type;
-      const payload = row.dataset.payload;
-      executeSelection(type, payload);
-      return;
+      const type = row.dataset.type
+      const payload = row.dataset.payload
+      executeSelection(type, payload)
+      return
     }
-    const kwPill = e.target.closest('.ss-kw-pill');
+    const kwPill = e.target.closest('.ss-kw-pill')
     if (kwPill) {
-      const kw = kwPill.dataset.kw;
-      input.value = kw;
-      if (clearBtn) clearBtn.hidden = false;
-      renderSuggest(kw);
-      input.focus();
-      return;
+      const kw = kwPill.dataset.kw
+      input.value = kw
+      if (clearBtn) clearBtn.hidden = false
+      renderSuggest(kw)
+      input.focus()
+      return
     }
-    const modPill = e.target.closest('.ss-mod-pill');
+    const modPill = e.target.closest('.ss-mod-pill')
     if (modPill) {
-      const epId = modPill.dataset.epId;
-      executeSelection('module', epId);
-      return;
+      const epId = modPill.dataset.epId
+      executeSelection('module', epId)
+      return
     }
-  });
+  })
 
   // 表单提交（兼容移动端软键盘搜索按钮）
   form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const rows = [...suggest.querySelectorAll('.ss-row')];
+    e.preventDefault()
+    const rows = [...suggest.querySelectorAll('.ss-row')]
     if (activeRowIndex >= 0 && rows[activeRowIndex]) {
-      const type = rows[activeRowIndex].dataset.type;
-      const payload = rows[activeRowIndex].dataset.payload;
-      executeSelection(type, payload);
+      const type = rows[activeRowIndex].dataset.type
+      const payload = rows[activeRowIndex].dataset.payload
+      executeSelection(type, payload)
     } else {
-      executeDefault(input.value.trim());
+      executeDefault(input.value.trim())
     }
-  });
+  })
 
   // 点击外部收起
   document.addEventListener('click', (e) => {
     if (!form.contains(e.target)) {
-      setEngineMenuOpen(false);
-      setSuggestVisible(false);
+      setEngineMenuOpen(false)
+      setSuggestVisible(false)
     }
-  });
+  })
 
   // 全局快捷键：/ 或 Ctrl+K / Cmd+K 聚焦呼出
   document.addEventListener('keydown', (e) => {
-    const tag = (e.target.tagName || '').toLowerCase();
-    const isInput = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
+    const tag = (e.target.tagName || '').toLowerCase()
+    const isInput = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable
     if (!isInput && (e.key === '/' || ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')))) {
-      e.preventDefault();
-      input.focus();
-      input.select();
-      setSuggestVisible(true);
-      renderSuggest(input.value.trim());
+      e.preventDefault()
+      input.focus()
+      input.select()
+      setSuggestVisible(true)
+      renderSuggest(input.value.trim())
     }
-  });
+  })
 }
 
 // 卡片标题首图：命中映射用品牌 Logo，否则沿用 emoji；
 // img 装载失败时整只换回 emoji，保证「看起来差一点」好过「显示破图」
 function iconHtml(ep) {
-  const file = CARD_LOGOS[ep.id];
-  if (!file) return ep.icon;
-  return `<img class="card-logo" src="/logos/${file}" alt="" loading="lazy" onerror="this.outerHTML='${ep.icon}'">`;
+  const file = CARD_LOGOS[ep.id]
+  if (!file) return ep.icon
+  return `<img class="card-logo" src="/logos/${file}" alt="" loading="lazy" onerror="this.outerHTML='${ep.icon}'">`
 }
 
 // 分组卡标题首图：分组本身无品牌属性，用组内首个成员的 Logo
 // （猫眼电影榜 → 猫眼、网易云歌单组 → 网易云、免费游戏组 → Epic）
 function groupIconHtml(group) {
-  const ep = EPS.find(e => e.id === group.tabs[0].ep);
-  return ep ? iconHtml(ep) : group.icon;
+  const ep = EPS.find((e) => e.id === group.tabs[0].ep)
+  return ep ? iconHtml(ep) : group.icon
 }
 
 // 「更新于」与卡片「x 分钟前」同一数据源：取所有已加载卡片时间戳的最大值——
 // 缓存命中显示的是这份数据当初落缓存的时刻、网络加载显示返回时刻，
 // 每次打开页面都如实反映当前所见数据的新鲜度，随卡片陆续就绪自动刷新
 function fmtFullTime(ts) {
-  const d = new Date(ts);
-  const p = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  const d = new Date(ts)
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
 }
 function heroRefreshTime() {
-  const el = document.getElementById('heroTime');
-  if (!el) return;
-  const times = Object.values(epLoadedAt);
-  if (times.length) el.textContent = fmtFullTime(Math.max(...times));
+  const el = document.getElementById('heroTime')
+  if (!el) return
+  const times = Object.values(epLoadedAt)
+  if (times.length) el.textContent = fmtFullTime(Math.max(...times))
 }
 // 分组标题装饰泡泡：纯装饰元素（绝对定位不占布局），默认 CSS 隐藏，
 // 标题启用 .anim-bubble 时显示；尺寸/时长/相位由 CSS nth-of-type 伪随机错开
-const TITLE_BUBBLES = '<i class="bubble" aria-hidden="true"></i>'.repeat(4);
+const TITLE_BUBBLES = '<i class="bubble" aria-hidden="true"></i>'.repeat(4)
 
 // ---- Hero 卡里的图形（全部内联 SVG）----
 // 三枚数据芯片原先用 emoji（🕒📊🗂）：字形随平台/字体变、彩色度也压不住灰度，
@@ -770,12 +805,12 @@ const HERO_FLAME_PATH =
   '16.71 20.97 13.37 22.79 12.76 22.79 12.46 23.10 10.94 23.10 6.98 20.97 4.86 18.84 ' +
   '3.64 16.71 3.64 15.80 3.34 15.50 3.34 12.46 3.64 12.15 3.64 11.24 3.94 10.94 4.25 9.72 ' +
   '4.25 10.63 4.55 11.24 6.38 13.06 6.98 13.06 7.29 12.76 7.29 12.15 6.98 11.85 6.98 9.11 ' +
-  '7.29 8.81 7.29 7.90 7.90 6.68 8.50 6.07 8.50 5.46 10.63 2.73 11.24 1.51 11.54 1.51Z';
+  '7.29 8.81 7.29 7.90 7.90 6.68 8.50 6.07 8.50 5.46 10.63 2.73 11.24 1.51 11.54 1.51Z'
 // 时钟图标：形状和效果图一致（圆环 + 指针），只把颜色从 currentColor 换成实测的蓝灰。
 // 效果图里芯片图标整体比标签文字更偏蓝更亮（实心堆叠块的腐蚀核心实测 #697085，
 // 而标签文字的等效墨色要灰得多），所以单独给色而不是跟着 currentColor。
 const HERO_ICON_CLOCK =
-  '<svg class="hc-i" viewBox="0 0 24 24" fill="none" stroke="#646b84" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.1"/><path d="M12 7.1V12l3.1 1.9"/></svg>';
+  '<svg class="hc-i" viewBox="0 0 24 24" fill="none" stroke="#646b84" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.1"/><path d="M12 7.1V12l3.1 1.9"/></svg>'
 // 「热榜模块」：三根实心圆头柱，绿→品红→青三色，右高左低，底边齐平。
 // 几何是量出来的（把效果图芯片2 的图标区做「彩度掩码」逐列扫描）：
 //   柱宽 2.5 / 2.5 / 3.0 CSS，缝 0.5 CSS，高 8.5 / 9.0 / 9.5 CSS，底边同在 CSS y99.25。
@@ -788,7 +823,7 @@ const HERO_ICON_BARS =
   '<svg class="hc-i" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
   '<rect x="3.40" y="4.27" width="5.70" height="18.86" rx="2.6" fill="#87d3b3"/>' +
   '<rect x="10.20" y="3.70" width="5.70" height="19.43" rx="2.6" fill="#c66ee7"/>' +
-  '<rect x="17.00" y="1.99" width="6.90" height="21.14" rx="2.6" fill="#19b9ea"/></svg>';
+  '<rect x="17.00" y="1.99" width="6.90" height="21.14" rx="2.6" fill="#19b9ea"/></svg>'
 // 「大分类」：实心堆叠（一块宽底板 + 顶部小块 + 底边中央一个小 V 缺口）。
 // 形状同样是量出来的：把效果图芯片3 的图标区按暗度掩码打成 device 分辨率的 ASCII 图，
 // 得到 —— 底板 device x675..690 / y185..196（16×12）、顶块 x680..684 / y182..185（5×3）、
@@ -800,7 +835,7 @@ const HERO_ICON_LAYERS =
   '<path d="M5.6 6.7 L9.0 6.7 L9.0 4.6 Q9.0 3.3 10.3 3.3 L13.7 3.3 Q14.7 3.3 14.7 4.6 ' +
   'L14.7 6.7 L18.4 6.7 Q20.7 6.7 20.7 9.0 L20.7 18.4 Q20.7 20.7 18.4 20.7 ' +
   'L13.1 20.7 L12.0 18.4 L10.9 20.7 L5.6 20.7 Q3.3 20.7 3.3 18.4 L3.3 9.0 ' +
-  'Q3.3 6.7 5.6 6.7 Z" fill="#646b84"/></svg>';
+  'Q3.3 6.7 5.6 6.7 Z" fill="#646b84"/></svg>'
 // 右侧装饰：三块磨砂玻璃面板（火焰 / 上扬箭头 / 柱状图）
 //
 // 这两张 SVG 的坐标系 = 面板自身坐标系（1 单位 = 1 CSS px，左上角为原点），
@@ -826,7 +861,7 @@ const HERO_ART_TREND =
   '<stop offset="1" stop-color="#f07128" stop-opacity="1"/></linearGradient></defs>' +
   '<path d="M38.2 37.8Q48.6 35.2 56.8 21.6" fill="none" stroke="url(#heroTrendGrad)" ' +
   'stroke-width="2.9" stroke-linecap="round"/>' +
-  '<path d="M62.25 13.5 61.34 23.71 53.64 19.05Z" fill="#f07128"/></svg>';
+  '<path d="M62.25 13.5 61.34 23.71 53.64 19.05Z" fill="#f07128"/></svg>'
 const HERO_ART_CHART =
   '<svg viewBox="0 0 82.3 59.15" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
   '<rect x="14.5" y="23.25" width="8.6" height="22" rx="4.3" fill="#b0bdea"/>' +
@@ -834,11 +869,11 @@ const HERO_ART_CHART =
   '<rect x="40.5" y="18.25" width="8.6" height="27" rx="4.3" fill="#adbdec"/>' +
   '<rect x="53.5" y="24.25" width="8.6" height="21" rx="4.3" fill="#cbb5d8"/>' +
   '<path d="M14.5 49.5h46.5" stroke="rgba(255,255,255,.78)" stroke-width="1.5" ' +
-  'stroke-dasharray="10.5 2.5"/></svg>';
+  'stroke-dasharray="10.5 2.5"/></svg>'
 
 function buildHero() {
-  const el = document.createElement('section');
-  el.className = 'hero';
+  const el = document.createElement('section')
+  el.className = 'hero'
   el.innerHTML = `
     <div class="hero-main">
       <div class="hero-icon" aria-hidden="true">
@@ -867,8 +902,8 @@ function buildHero() {
       <span class="ha-card ha-flame"><svg viewBox="3.34 0.6 17.02 22.5" preserveAspectRatio="none"><path d="${HERO_FLAME_PATH}" fill="#fff"/></svg></span>
       <span class="ha-card ha-trend">${HERO_ART_TREND}</span>
       <span class="ha-card ha-chart">${HERO_ART_CHART}</span>
-    </div>`;
-  return el;
+    </div>`
+  return el
 }
 
 // ============ 天气卡（右栏顶部 · 按访客 IP 自动定位） ============
@@ -876,19 +911,19 @@ function buildHero() {
 // 服务端主源为 UAPI、腾讯天气兜底，两者字段结构一致，前端无需区分（source.provider 会说明实际生效的一方）。
 // 走 cacheGet/cacheSet 的 30 分钟 TTL——天气变化慢，切分类重渲染也不必重复请求；
 // 请求失败静默隐藏，绝不因天气影响首屏其它内容
-let heroWeather = null;
+let heroWeather = null
 // 当前数据对应的缓存 key：手动指定城市与 IP 自动定位分开缓存，互不污染
-let heroWeatherKey = '';
-let heroWeatherLoading = false;
+let heroWeatherKey = ''
+let heroWeatherLoading = false
 // 天气卡的渲染状态：'idle' | 'loading' | 'ready' | 'failed'。
 // 卡片会在右栏与抽屉之间被搬来搬去，宿主重建时节点也可能被连带清掉；
 // 重建后必须按当前状态把卡补画回去，否则「定位中…」会一直挂着、
 // 或者已经失败的卡又诈尸成加载态。状态与 DOM 分离才不会有这个歧义。
-let heroWeatherState = 'idle';
+let heroWeatherState = 'idle'
 // 失败静默期：天气失败不打扰用户，也避免快速切分类时反复重试打上游
-let heroWeatherRetryAt = 0;
+let heroWeatherRetryAt = 0
 // 编辑态：点击天气区展开「重新定位 / 手动输入城市」浮层
-let heroWeatherEditing = false;
+let heroWeatherEditing = false
 
 // ---- 卡片落点：>1180px 在右栏，≤900px 在左侧抽屉，中间那段不显示 ----
 // 卡片是**单例节点**，在两个宿主之间搬家，同一时刻只存在于一处。
@@ -897,78 +932,92 @@ let heroWeatherEditing = false;
 // 否则重建时节点连同降水动画的相位一起被丢掉。
 // 两个宿主都用 display:contents：卡片不在时宿主不产生盒子，
 // 不会在菜单与深色模式之间、或右栏卡片之间留下空档。
-const HW_RAIL_MIN_WIDTH = 1180; // 大于这个宽度右栏才存在
-const HW_DRAWER_MAX_WIDTH = 900; // 小于等于这个宽度侧栏才收成抽屉
-let heroWeatherEl = null;
+const HW_RAIL_MIN_WIDTH = 1180 // 大于这个宽度右栏才存在
+const HW_DRAWER_MAX_WIDTH = 900 // 小于等于这个宽度侧栏才收成抽屉
+let heroWeatherEl = null
 
 function heroWeatherNode() {
   if (!heroWeatherEl) {
-    heroWeatherEl = document.createElement('aside');
-    heroWeatherEl.className = 'hero-weather';
-    heroWeatherEl.id = 'heroWeather';
-    heroWeatherEl.hidden = true;
+    heroWeatherEl = document.createElement('aside')
+    heroWeatherEl.className = 'hero-weather'
+    heroWeatherEl.id = 'heroWeather'
+    heroWeatherEl.hidden = true
   }
-  return heroWeatherEl;
+  return heroWeatherEl
 }
 
 // 当前视口下卡片该待在哪个宿主：>1180px 放在右栏顶部，≤1180px 放置在左侧菜单 Logo 正下方（#sbWeather，中间视口与抽屉共用）
 function weatherHost() {
-  const w = window.innerWidth;
-  if (w > HW_RAIL_MIN_WIDTH) return document.getElementById('railWeather');
-  return document.getElementById('sbWeather');
+  const w = window.innerWidth
+  if (w > HW_RAIL_MIN_WIDTH) return document.getElementById('railWeather')
+  return document.getElementById('sbWeather')
 }
 
 // 把卡片搬进当前宿主，返回它此刻是否落在页面里。
 // 同宿主重复调用是空操作（appendChild 到自己已有的父节点下不会改变顺序），
 // 只有跨断点时才会真的换父节点——所以可以在 renderRail 里放心地每次调用
 function placeWeatherCard() {
-  const host = weatherHost();
-  const node = heroWeatherNode();
+  const host = weatherHost()
+  const node = heroWeatherNode()
   if (!host) {
-    if (node.parentNode) node.remove();
-    return false;
+    if (node.parentNode) node.remove()
+    return false
   }
-  if (node.parentNode !== host) host.appendChild(node);
-  return true;
+  if (node.parentNode !== host) host.appendChild(node)
+  return true
 }
 
 // 手动指定的城市偏好：一旦设定就一直沿用它（跨刷新），点「重新定位」清除后回到 IP 定位
 function heroCityPref() {
-  try { return localStorage.getItem('hero-city') || ''; } catch { return ''; }
+  try {
+    return localStorage.getItem('hero-city') || ''
+  } catch {
+    return ''
+  }
 }
 function setHeroCityPref(v) {
-  try { v ? localStorage.setItem('hero-city', v) : localStorage.removeItem('hero-city'); } catch {}
+  try {
+    v ? localStorage.setItem('hero-city', v) : localStorage.removeItem('hero-city')
+  } catch {}
 }
 function heroWeatherCacheKey(city) {
-  return `cache:${CACHE_VERSION}:hero-weather${city ? `:${city}` : ''}`;
+  return `cache:${CACHE_VERSION}:hero-weather${city ? `:${city}` : ''}`
 }
 
 // 天空背景：按中文描述关键词匹配（比 weather_code 更抗上游编码变化），
 // 分白天/夜晚两套色；白字对比度由 CSS 里那层暗罩统一兜底
-const HW_SKY_LOADING = 'linear-gradient(160deg,#5a6472,#7c8797,#9aa4b1)';
-const HW_SKY_DAY = 'linear-gradient(160deg,#2f86d6,#6fb6ee,#b9e0fb)';
+const HW_SKY_LOADING = 'linear-gradient(160deg,#5a6472,#7c8797,#9aa4b1)'
+const HW_SKY_DAY = 'linear-gradient(160deg,#2f86d6,#6fb6ee,#b9e0fb)'
 
 function hwIsDay(d) {
-  const s = d.sunrise || {};
-  const now = new Date();
-  const minutes = now.getHours() * 60 + now.getMinutes();
-  const toMin = (t) => { const m = /(\d{1,2}):(\d{2})/.exec(t || ''); return m ? +m[1] * 60 + +m[2] : null; };
-  const rise = toMin(s.sunrise_desc), set = toMin(s.sunset_desc);
+  const s = d.sunrise || {}
+  const now = new Date()
+  const minutes = now.getHours() * 60 + now.getMinutes()
+  const toMin = (t) => {
+    const m = /(\d{1,2}):(\d{2})/.exec(t || '')
+    return m ? +m[1] * 60 + +m[2] : null
+  }
+  const rise = toMin(s.sunrise_desc),
+    set = toMin(s.sunset_desc)
   // 有日出日落就按真实时段判断，缺失时退回 6:00-18:00
-  return rise != null && set != null ? (minutes >= rise && minutes < set) : (now.getHours() >= 6 && now.getHours() < 18);
+  return rise != null && set != null ? minutes >= rise && minutes < set : now.getHours() >= 6 && now.getHours() < 18
 }
 
 function hwSkyGradient(d) {
-  const c = String((d.weather && d.weather.condition) || '');
-  const day = hwIsDay(d);
-  if (/雷/.test(c)) return 'linear-gradient(160deg,#2a3150,#3f4a75,#5c6797)';
-  if (/雪|冰|冻/.test(c)) return day ? 'linear-gradient(160deg,#7c8fa7,#a6b9cd,#d9e5f1)' : 'linear-gradient(160deg,#39445a,#5a6880,#8492a8)';
-  if (/雨/.test(c)) return day ? 'linear-gradient(160deg,#31506f,#4a6a8d,#6d8aa8)' : 'linear-gradient(160deg,#1b2b41,#2a3e58,#42597a)';
-  if (/雾|霾|沙|尘/.test(c)) return 'linear-gradient(160deg,#666c74,#90969d,#bcc1c7)';
-  if (/阴/.test(c)) return day ? 'linear-gradient(160deg,#57606c,#88919d,#b4bcc5)' : 'linear-gradient(160deg,#252b36,#3d4553,#5c6673)';
-  if (/多云/.test(c)) return day ? 'linear-gradient(160deg,#4a76a9,#79a2ce,#b1cbe5)' : 'linear-gradient(160deg,#242e4c,#3a486d,#58678e)';
-  if (/晴/.test(c)) return day ? HW_SKY_DAY : 'linear-gradient(160deg,#131c38,#242e59,#3b487d)';
-  return day ? 'linear-gradient(160deg,#587fb0,#88a7cb,#bacde1)' : 'linear-gradient(160deg,#222b45,#343f5e,#4c5a7e)';
+  const c = String((d.weather && d.weather.condition) || '')
+  const day = hwIsDay(d)
+  if (/雷/.test(c)) return 'linear-gradient(160deg,#2a3150,#3f4a75,#5c6797)'
+  if (/雪|冰|冻/.test(c))
+    return day ? 'linear-gradient(160deg,#7c8fa7,#a6b9cd,#d9e5f1)' : 'linear-gradient(160deg,#39445a,#5a6880,#8492a8)'
+  if (/雨/.test(c))
+    return day ? 'linear-gradient(160deg,#31506f,#4a6a8d,#6d8aa8)' : 'linear-gradient(160deg,#1b2b41,#2a3e58,#42597a)'
+  if (/雾|霾|沙|尘/.test(c)) return 'linear-gradient(160deg,#666c74,#90969d,#bcc1c7)'
+  if (/阴/.test(c))
+    return day ? 'linear-gradient(160deg,#57606c,#88919d,#b4bcc5)' : 'linear-gradient(160deg,#252b36,#3d4553,#5c6673)'
+  if (/多云/.test(c))
+    return day ? 'linear-gradient(160deg,#4a76a9,#79a2ce,#b1cbe5)' : 'linear-gradient(160deg,#242e4c,#3a486d,#58678e)'
+  if (/晴/.test(c)) return day ? HW_SKY_DAY : 'linear-gradient(160deg,#131c38,#242e59,#3b487d)'
+  return day ? 'linear-gradient(160deg,#587fb0,#88a7cb,#bacde1)' : 'linear-gradient(160deg,#222b45,#343f5e,#4c5a7e)'
 }
 
 // 天气装饰类型：背景渐变只表达「天空的色彩」，这里补上「看得见的天气符号」。
@@ -976,16 +1025,16 @@ function hwSkyGradient(d) {
 // 并区分昼夜——晴天白天出太阳、夜里出月亮。
 // 顺序即优先级：雷 > 雪 > 雨 > 雾霾 > 多云 > 阴 > 晴
 function hwFxKind(d) {
-  const c = String((d.weather && d.weather.condition) || '');
-  const day = hwIsDay(d);
-  if (/雷/.test(c)) return 'thunder';
-  if (/雪|冰|冻/.test(c)) return 'snow';
-  if (/雨/.test(c)) return 'rain';
-  if (/雾|霾|沙|尘/.test(c)) return 'fog';
-  if (/多云/.test(c)) return 'cloudy';
-  if (/阴/.test(c)) return 'overcast';
-  if (/晴/.test(c)) return day ? 'sun' : 'moon';
-  return day ? 'cloudy' : 'moon';
+  const c = String((d.weather && d.weather.condition) || '')
+  const day = hwIsDay(d)
+  if (/雷/.test(c)) return 'thunder'
+  if (/雪|冰|冻/.test(c)) return 'snow'
+  if (/雨/.test(c)) return 'rain'
+  if (/雾|霾|沙|尘/.test(c)) return 'fog'
+  if (/多云/.test(c)) return 'cloudy'
+  if (/阴/.test(c)) return 'overcast'
+  if (/晴/.test(c)) return day ? 'sun' : 'moon'
+  return day ? 'cloudy' : 'moon'
 }
 
 // ---- 降水强度分档（1 小 / 2 中 / 3 大 / 4 暴）----
@@ -995,30 +1044,30 @@ function hwFxKind(d) {
 // 文案笼统到判不出来（只写「雨」）时，才退回用降水量 precipitation 分档。
 // 阈值按中国气象局的**小时**降水量口径：小雨 ≤2.5 / 中雨 2.5~8 / 大雨 8~16 / 暴雨 >16（毫米）
 function hwPrecipLevel(d, kind) {
-  const w = d.weather || {};
-  const c = String(w.condition || '');
+  const w = d.weather || {}
+  const c = String(w.condition || '')
   if (kind === 'snow') {
-    if (/暴雪|大暴雪/.test(c)) return 4;
-    if (/大雪/.test(c)) return 3;
-    if (/中雪|雨夹雪|雨雪/.test(c)) return 2;
-    if (/小雪|阵雪|零星|飘雪|米雪/.test(c)) return 1;
+    if (/暴雪|大暴雪/.test(c)) return 4
+    if (/大雪/.test(c)) return 3
+    if (/中雪|雨夹雪|雨雪/.test(c)) return 2
+    if (/小雪|阵雪|零星|飘雪|米雪/.test(c)) return 1
     // 雪没有可用的数值口径（上游给的是水当量，和积雪深度差着一个量级），按中等处理
-    return 2;
+    return 2
   }
-  if (/特大暴雨|大暴雨|暴雨/.test(c)) return 4;
-  if (/大雨/.test(c)) return 3;
-  if (/中雨/.test(c)) return 2;
+  if (/特大暴雨|大暴雨|暴雨/.test(c)) return 4
+  if (/大雨/.test(c)) return 3
+  if (/中雨/.test(c)) return 2
   // 雷阵雨的雨势按大雨一档——「阵」字说明它是短时强降水，画面该是密的
-  if (/雷/.test(c)) return 3;
-  if (/小雨|阵雨|毛毛雨|细雨|微雨|零星/.test(c)) return 1;
-  const p = w.precipitation;
+  if (/雷/.test(c)) return 3
+  if (/小雨|阵雨|毛毛雨|细雨|微雨|零星/.test(c)) return 1
+  const p = w.precipitation
   if (Number.isFinite(p)) {
-    if (p >= 16) return 4;
-    if (p >= 8) return 3;
-    if (p >= 2.5) return 2;
-    if (p > 0) return 1;
+    if (p >= 16) return 4
+    if (p >= 8) return 3
+    if (p >= 2.5) return 2
+    if (p > 0) return 1
   }
-  return 2;
+  return 2
 }
 
 // ---- 降水层：雨滴 / 雪花的随机分布图块 ----
@@ -1059,98 +1108,101 @@ const HW_PRECIP = {
     front: { w: 360, h: 160, n: [10, 15, 22, 32], s: [0.85, 1.5], op: [0.55, 0.95] },
     back: { w: 300, h: 160, n: [5, 8, 12, 17], s: [0.6, 1.0], op: [0.3, 0.6] },
   },
-};
+}
 // 下落速度：沿用改造前那套动画的实测速度，保证「快慢手感」不变，只是图块变高了
 // 雨：前层 96px/4.2s ≈ 23 px/s，后层 68px/6.4s ≈ 10.6 px/s
 // 雪：前层 80px/15s ≈ 5.3 px/s，后层 54px/21s ≈ 2.6 px/s
 // 档位倍率：雨越大落得越快，雪同理（暴雪比小雪急）
-const HW_PRECIP_SPEED = { rain: { front: 23, back: 10.6 }, snow: { front: 5.3, back: 2.6 } };
-const HW_PRECIP_RATE = [0.87, 1, 1.16, 1.39];
+const HW_PRECIP_SPEED = { rain: { front: 23, back: 10.6 }, snow: { front: 5.3, back: 2.6 } }
+const HW_PRECIP_RATE = [0.87, 1, 1.16, 1.39]
 
 // 图块按 种类:层:档位 缓存。天气卡每次重绘都会重建 DOM，
 // 不缓存的话每次重绘所有雨滴都会瞬移一次（切视图回来能看到画面「抖一下」）
-const HW_TILE_CACHE = new Map();
+const HW_TILE_CACHE = new Map()
 
 function hwPrecipTile(kind, layer, level) {
-  const key = `${kind}:${layer}:${level}`;
-  const cached = HW_TILE_CACHE.get(key);
-  if (cached) return cached;
+  const key = `${kind}:${layer}:${level}`
+  const cached = HW_TILE_CACHE.get(key)
+  if (cached) return cached
 
-  const cfg = HW_PRECIP[kind][layer];
-  const count = cfg.n[level - 1];
-  const rnd = (a, b) => a + Math.random() * (b - a);
-  const parts = [];
+  const cfg = HW_PRECIP[kind][layer]
+  const count = cfg.n[level - 1]
+  const rnd = (a, b) => a + Math.random() * (b - a)
+  const parts = []
 
   if (kind === 'rain') {
     for (let i = 0; i < count; i++) {
-      const rx = rnd(cfg.rx[0], cfg.rx[1]);
+      const rx = rnd(cfg.rx[0], cfg.rx[1])
       // 长宽比随机：雨滴做更修长流线的纵向延伸（3.2~4.6 倍），在倾角旋转下形成极具动势的细雨丝
-      const ry = rx * rnd(3.2, 4.6);
+      const ry = rx * rnd(3.2, 4.6)
       // 内缩 2px：保证整颗雨滴落在图块内（见上面第 2 条约束）
-      const cx = rnd(rx + 2, cfg.w - rx - 2);
-      const cy = rnd(ry + 2, cfg.h - ry - 2);
+      const cx = rnd(rx + 2, cfg.w - rx - 2)
+      const cy = rnd(ry + 2, cfg.h - ry - 2)
       parts.push(
-        `<ellipse cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" rx="${rx.toFixed(2)}" ry="${ry.toFixed(2)}"`
-        + ` fill="#fff" fill-opacity="${rnd(cfg.op[0], cfg.op[1]).toFixed(2)}"/>`,
-      );
+        `<ellipse cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" rx="${rx.toFixed(2)}" ry="${ry.toFixed(2)}"` +
+          ` fill="#fff" fill-opacity="${rnd(cfg.op[0], cfg.op[1]).toFixed(2)}"/>`,
+      )
     }
   } else {
     // 雪花只在 defs 里画一次，其余全靠 <use> 引用——26 朵各写一遍路径太浪费
     parts.push(
-      '<defs><g id="f" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round">'
-      + '<path d="M8 1.4v13.2M2.28 4.7l11.44 6.6M13.72 4.7L2.28 11.3"/>'
-      + '<path d="M8 3.6L6.2 1.8M8 3.6l1.8-1.8M8 12.4l-1.8 1.8M8 12.4l1.8 1.8"/>'
-      + '</g></defs>',
-    );
+      '<defs><g id="f" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round">' +
+        '<path d="M8 1.4v13.2M2.28 4.7l11.44 6.6M13.72 4.7L2.28 11.3"/>' +
+        '<path d="M8 3.6L6.2 1.8M8 3.6l1.8-1.8M8 12.4l-1.8 1.8M8 12.4l1.8 1.8"/>' +
+        '</g></defs>',
+    )
     for (let i = 0; i < count; i++) {
-      const s = rnd(cfg.s[0], cfg.s[1]);
-      const half = 9 * s; // 雪花臂展约 ±9（局部坐标 8±7.4），按缩放后的半径留边
-      const x = rnd(half + 2, cfg.w - half - 2);
-      const y = rnd(half + 2, cfg.h - half - 2);
+      const s = rnd(cfg.s[0], cfg.s[1])
+      const half = 9 * s // 雪花臂展约 ±9（局部坐标 8±7.4），按缩放后的半径留边
+      const x = rnd(half + 2, cfg.w - half - 2)
+      const y = rnd(half + 2, cfg.h - half - 2)
       // 雪花中心在局部坐标 (8,8)：先平移到目标位置、再缩放，所以平移量要减掉 8s
       parts.push(
-        `<use href="#f" opacity="${rnd(cfg.op[0], cfg.op[1]).toFixed(2)}"`
-        + ` transform="translate(${(x - 8 * s).toFixed(1)} ${(y - 8 * s).toFixed(1)}) scale(${s.toFixed(2)})`
-        + ` rotate(${Math.round(rnd(0, 60))} 8 8)"/>`,
-      );
+        `<use href="#f" opacity="${rnd(cfg.op[0], cfg.op[1]).toFixed(2)}"` +
+          ` transform="translate(${(x - 8 * s).toFixed(1)} ${(y - 8 * s).toFixed(1)}) scale(${s.toFixed(2)})` +
+          ` rotate(${Math.round(rnd(0, 60))} 8 8)"/>`,
+      )
     }
   }
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${cfg.w} ${cfg.h}">${parts.join('')}</svg>`;
-  const uri = `data:image/svg+xml,${encodeURIComponent(svg)}`;
-  HW_TILE_CACHE.set(key, uri);
-  return uri;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${cfg.w} ${cfg.h}">${parts.join('')}</svg>`
+  const uri = `data:image/svg+xml,${encodeURIComponent(svg)}`
+  HW_TILE_CACHE.set(key, uri)
+  return uri
 }
 
 // 把图块落到 DOM 上。CSS 只写了平铺尺寸与下落动画，图块内容在这里注入——
 // 布局（尺寸/位移）留在 CSS 里，内容和密度归 JS，两边各管各的才不会互相打架。
 // 槽位沿用天气装饰层的约定：i3 = 近处，i6 = 远处
 function applyHeroWeatherFx(box) {
-  if (!box || !heroWeather) return;
-  const fx = box.querySelector('.hw-fx');
-  if (!fx) return;
-  const kind = hwFxKind(heroWeather);
+  if (!box || !heroWeather) return
+  const fx = box.querySelector('.hw-fx')
+  if (!fx) return
+  const kind = hwFxKind(heroWeather)
   // 雷雨的降水层与「雨」共用同一套雨滴图块
-  const pk = kind === 'snow' ? 'snow' : (kind === 'rain' || kind === 'thunder') ? 'rain' : null;
-  if (!pk) return;
-  const level = hwPrecipLevel(heroWeather, pk);
-  const rate = HW_PRECIP_RATE[level - 1];
-  [[3, 'front'], [6, 'back']].forEach(([slot, layer]) => {
-    const el = fx.querySelector(`i:nth-of-type(${slot})`);
-    if (!el) return;
-    el.style.backgroundImage = `url("${hwPrecipTile(pk, layer, level)}")`;
+  const pk = kind === 'snow' ? 'snow' : kind === 'rain' || kind === 'thunder' ? 'rain' : null
+  if (!pk) return
+  const level = hwPrecipLevel(heroWeather, pk)
+  const rate = HW_PRECIP_RATE[level - 1]
+  ;[
+    [3, 'front'],
+    [6, 'back'],
+  ].forEach(([slot, layer]) => {
+    const el = fx.querySelector(`i:nth-of-type(${slot})`)
+    if (!el) return
+    el.style.backgroundImage = `url("${hwPrecipTile(pk, layer, level)}")`
     // 时长 = 图块高度 ÷ (基准速度 × 档位倍率)。
     // 这里的高度、CSS 的 background-size 高度、keyframes 的位移量**必须三处一致**：
     // 位移量比图块高度小一截，循环接缝处就会「跳一下」；比它大则每次循环漏掉一段。
     // 改任一处都要同时改另外两处（tilecheck / raincheck 会校验这一点）。
-    const fallDur = (HW_PRECIP[pk][layer].h / (HW_PRECIP_SPEED[pk][layer] * rate)).toFixed(1);
+    const fallDur = (HW_PRECIP[pk][layer].h / (HW_PRECIP_SPEED[pk][layer] * rate)).toFixed(1)
     if (pk === 'snow') {
-      const swayDur = slot === 3 ? '8s' : '13s';
-      el.style.animationDuration = `${fallDur}s, ${swayDur}`;
+      const swayDur = slot === 3 ? '8s' : '13s'
+      el.style.animationDuration = `${fallDur}s, ${swayDur}`
     } else {
-      el.style.animationDuration = `${fallDur}s`;
+      el.style.animationDuration = `${fallDur}s`
     }
-  });
+  })
 }
 
 // ---- 天气装饰：云 ----
@@ -1159,37 +1211,41 @@ function applyHeroWeatherFx(box) {
 // 这正是「云画碎了」的来源。单路径只有一条外轮廓，任何尺寸下都不会有内部拼接痕。
 // viewBox 直接取路径的真实范围（x 0~24、y 4~20），云体贴满整个 box，定位时不必再算内边距。
 const HW_CLOUD_PATH =
-  'M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z';
+  'M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z'
 // 渐变的三段色写在 CSS（.hw-cloud-s1/2/3）：阴天只要换一套色值，不必准备两份 SVG。
 // 副云复用同一份渐变（paint server 按 id 在文档内共享），因此只有主云里带 <defs>
 // 路径用字符串拼接而不是模板字符串：这段内容是 SVG 标签，里面既有双引号又有 ${
 // 之类的字符，拼接写法读起来最不容易出错，也免得编辑器/格式化工具在反引号上做手脚
-const HW_CLOUD_SHAPE_A = '<path class="hw-cloud-shape" d="' + HW_CLOUD_PATH + '"/>';
+const HW_CLOUD_SHAPE_A = '<path class="hw-cloud-shape" d="' + HW_CLOUD_PATH + '"/>'
 const HW_CLOUD_SVG =
   '<svg class="hw-cloud hw-cloud-main" viewBox="0 4 24 16" aria-hidden="true">' +
   '<defs><linearGradient id="hwCloudGrad" x1="0" y1="0" x2="0" y2="1">' +
   '<stop offset="0" class="hw-cloud-s1"/><stop offset="0.62" class="hw-cloud-s2"/><stop offset="1" class="hw-cloud-s3"/>' +
-  '</linearGradient></defs>' + HW_CLOUD_SHAPE_A + '</svg>' +
+  '</linearGradient></defs>' +
+  HW_CLOUD_SHAPE_A +
+  '</svg>' +
   '<svg class="hw-cloud hw-cloud-sub" viewBox="0 4 24 16" aria-hidden="true">' +
-  HW_CLOUD_SHAPE_A + '</svg>';
+  HW_CLOUD_SHAPE_A +
+  '</svg>'
 
 // 会出云的天气：多云 / 阴 / 雨 / 雪 / 雷（雾霾走自己的雾带，不叠云）
-const HW_CLOUD_KINDS = new Set(['cloudy', 'overcast', 'rain', 'snow', 'thunder']);
+const HW_CLOUD_KINDS = new Set(['cloudy', 'overcast', 'rain', 'snow', 'thunder'])
 
 function heroWeatherHtml(d, editing) {
-  const w = d.weather || {};
-  const t = d.today || {};
-  const a = d.air_quality || {};
+  const w = d.weather || {}
+  const t = d.today || {}
+  const a = d.air_quality || {}
   // 城市名：优先 city（如「福州市」），去掉末尾「市」；定位失败时退化为 location.name
-  const city = String((d.location && (d.location.city || d.location.name)) || '').replace(/市$/, '');
+  const city = String((d.location && (d.location.city || d.location.name)) || '').replace(/市$/, '')
   // 未定位成功（用的是默认城市）时如实标注，避免用户误以为定位到了这里
-  const isDefault = !!(d.source && d.source.mode === 'default');
+  const isDefault = !!(d.source && d.source.mode === 'default')
   // 底部一行附加信息：今日区间 + 空气质量（无 AQI 时退回湿度）
-  const bits = [];
-  if (Number.isFinite(t.min_temperature) && Number.isFinite(t.max_temperature)) bits.push(`${t.min_temperature}° ~ ${t.max_temperature}°`);
+  const bits = []
+  if (Number.isFinite(t.min_temperature) && Number.isFinite(t.max_temperature))
+    bits.push(`${t.min_temperature}° ~ ${t.max_temperature}°`)
   // 海外城市常不返回 AQI 等级文案，此时退化成「AQI 数值」，避免只剩一个孤零零的数字
-  if (a.aqi != null) bits.push(a.quality ? `${a.quality} ${a.aqi}` : `AQI ${a.aqi}`);
-  else if (w.humidity != null) bits.push(`湿度 ${w.humidity}%`);
+  if (a.aqi != null) bits.push(a.quality ? `${a.quality} ${a.aqi}` : `AQI ${a.aqi}`)
+  else if (w.humidity != null) bits.push(`湿度 ${w.humidity}%`)
   // 槽位约定（六个层，样式见 style.css 的「天气装饰层」）：
   //   i1 主体：太阳 / 月亮                 （云已改用内联 SVG，见上面的 HW_CLOUD_SVG）
   //   i2 副体：星点 / 月晕                 （云同上；两朵云各自带漂移动画）
@@ -1197,10 +1253,8 @@ function heroWeatherHtml(d, editing) {
   //   i4 闪电
   //   i5 天光泛白（闪电时整块天空透亮）
   //   i6 备用
-  const condHtml = w.condition
-    ? `<span class="hw-sep">·</span><span class="hw-cond">${esc(w.condition)}</span>`
-    : '';
-  const kind = hwFxKind(d);
+  const condHtml = w.condition ? `<span class="hw-sep">·</span><span class="hw-cond">${esc(w.condition)}</span>` : ''
+  const kind = hwFxKind(d)
   return `<div class="hw-fx hw-fx-${kind}" aria-hidden="true">${HW_CLOUD_KINDS.has(kind) ? HW_CLOUD_SVG : ''}<i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="hw-city"><span class="hw-city-text"><span class="hw-city-name">${esc(city)}</span>${condHtml}</span><span class="hw-city-extra"><span class="hw-tip" aria-hidden="true">✎</span>${isDefault ? '<span class="hw-def">默认</span>' : ''}</span></div>
     <div class="hw-temp">${esc(String(w.temperature ?? '--'))}<span class="hw-unit">°</span></div>
@@ -1214,254 +1268,307 @@ function heroWeatherHtml(d, editing) {
         <button type="button" class="hw-btn hw-btn-go">查询</button>
         <button type="button" class="hw-btn hw-btn-cancel">取消</button>
       </div>
-    </div>`;
+    </div>`
 }
 
 function paintHeroWeather() {
-  if (!heroWeather) return;
+  if (!heroWeather) return
   // 状态先落定、再找节点：loadHeroWeather() 可能早于 renderRail()，
   // 那次绘制会落在一个还没入住的宿主上；但状态已经记下，
   // 宿主就绪后由 restoreHeroWeather() 重新贴回，不会丢
-  heroWeatherState = 'ready';
-  const box = heroWeatherNode();
-  box.innerHTML = heroWeatherHtml(heroWeather, heroWeatherEditing);
-  box.style.background = hwSkyGradient(heroWeather);
+  heroWeatherState = 'ready'
+  const box = heroWeatherNode()
+  box.innerHTML = heroWeatherHtml(heroWeather, heroWeatherEditing)
+  box.style.background = hwSkyGradient(heroWeather)
   // 雨滴 / 雪花的随机图块必须赶在绘制之后、绑定之前注入：
   // 它们不在 heroWeatherHtml 的模板里（那张图块是几百个字符的 data URI，
   // 塞进模板会让 HTML 字符串没法读），而是渲染完再按天气类型和强度算出来贴上去
-  applyHeroWeatherFx(box);
+  applyHeroWeatherFx(box)
   // 悬浮提示里交代清楚定位依据：定位成功显示探测到的 IP，失败则说明用的是默认城市
-  const src = heroWeather.source || {};
-  const srcText = src.mode === 'manual'
-    ? '手动指定城市 · 点击可更换'
-    : src.mode === 'default'
-      ? `未能按 IP 定位到城市（探测 IP：${src.ip || '未知'}），显示默认城市`
-      : `根据访问 IP 自动定位${src.ip ? `（${src.ip}）` : ''} · 点击可更换`;
+  const src = heroWeather.source || {}
+  const srcText =
+    src.mode === 'manual'
+      ? '手动指定城市 · 点击可更换'
+      : src.mode === 'default'
+        ? `未能按 IP 定位到城市（探测 IP：${src.ip || '未知'}），显示默认城市`
+        : `根据访问 IP 自动定位${src.ip ? `（${src.ip}）` : ''} · 点击可更换`
   // 实际生效的数据源：主源 UAPI 不可用时会回落到腾讯，这里如实标注，不谎报
-  const provider = src.provider === 'uapi' ? 'UAPI' : '腾讯天气';
-  box.title = `今日天气 · ${srcText} · 数据源：${provider}`;
-  box.hidden = false;
-  box.classList.toggle('editing', heroWeatherEditing);
-  bindHeroWeatherEvents(box);
+  const provider = src.provider === 'uapi' ? 'UAPI' : '腾讯天气'
+  box.title = `今日天气 · ${srcText} · 数据源：${provider}`
+  box.hidden = false
+  box.classList.toggle('editing', heroWeatherEditing)
+  bindHeroWeatherEvents(box)
 }
 
 // 编辑层交互绑定：innerHTML 重建后节点会换新，每次重绘都要重绑
 function bindHeroWeatherEvents(box) {
-  const input = box.querySelector('.hw-input');
-  const goBtn = box.querySelector('.hw-btn-go');
-  const locateBtn = box.querySelector('.hw-btn-locate');
-  const closeBtn = box.querySelector('.hw-edit-close');
+  const input = box.querySelector('.hw-input')
+  const goBtn = box.querySelector('.hw-btn-go')
+  const locateBtn = box.querySelector('.hw-btn-locate')
+  const closeBtn = box.querySelector('.hw-edit-close')
 
   const submitCity = () => {
-    const city = (input.value || '').trim();
-    if (!city) { input.focus(); return; }
-    setHeroCityPref(city);
-    closeHeroWeatherEdit();
+    const city = (input.value || '').trim()
+    if (!city) {
+      input.focus()
+      return
+    }
+    setHeroCityPref(city)
+    closeHeroWeatherEdit()
     // force：同时绕过本地 30 分钟缓存与服务端定位缓存，立刻按新城市取数
-    loadHeroWeather({ city, force: true });
-  };
+    loadHeroWeather({ city, force: true })
+  }
 
   // 编辑层内的交互统一 stopPropagation，避免冒泡到 box 又触发「打开编辑」
-  goBtn.onclick = (e) => { e.stopPropagation(); submitCity(); };
+  goBtn.onclick = (e) => {
+    e.stopPropagation()
+    submitCity()
+  }
   locateBtn.onclick = (e) => {
-    e.stopPropagation();
-    setHeroCityPref('');
-    closeHeroWeatherEdit();
-    loadHeroWeather({ city: '', force: true });
-  };
-  closeBtn.onclick = (e) => { e.stopPropagation(); closeHeroWeatherEdit(); };
+    e.stopPropagation()
+    setHeroCityPref('')
+    closeHeroWeatherEdit()
+    loadHeroWeather({ city: '', force: true })
+  }
+  closeBtn.onclick = (e) => {
+    e.stopPropagation()
+    closeHeroWeatherEdit()
+  }
   // 触屏端的「取消」与桌面端右上角的 × 是同一个动作
-  const cancelBtn = box.querySelector('.hw-btn-cancel');
-  if (cancelBtn) cancelBtn.onclick = (e) => { e.stopPropagation(); closeHeroWeatherEdit(); };
-  input.onclick = (e) => e.stopPropagation();
+  const cancelBtn = box.querySelector('.hw-btn-cancel')
+  if (cancelBtn)
+    cancelBtn.onclick = (e) => {
+      e.stopPropagation()
+      closeHeroWeatherEdit()
+    }
+  input.onclick = (e) => e.stopPropagation()
   input.onkeydown = (e) => {
-    e.stopPropagation();
-    if (e.key === 'Enter') submitCity();
-    else if (e.key === 'Escape') closeHeroWeatherEdit();
-  };
+    e.stopPropagation()
+    if (e.key === 'Enter') submitCity()
+    else if (e.key === 'Escape') closeHeroWeatherEdit()
+  }
   box.onclick = (e) => {
-    if (heroWeatherEditing) return;
-    e.stopPropagation();
-    openHeroWeatherEdit();
-  };
+    if (heroWeatherEditing) return
+    e.stopPropagation()
+    openHeroWeatherEdit()
+  }
 }
 
 // prefill：手动指定失败时把用户刚输入的城市带回来，方便改错字
 // 注意统一走 heroWeatherNode() 而不是 getElementById：卡片在 900~1180px
 // 这段是脱离文档的，按 id 查会落空，编辑层就打不开了
 function openHeroWeatherEdit(prefill) {
-  const box = heroWeatherNode();
-  heroWeatherEditing = true;
-  box.classList.add('editing');
-  const layer = box.querySelector('.hw-edit');
-  const input = box.querySelector('.hw-input');
-  if (layer) layer.hidden = false;
+  const box = heroWeatherNode()
+  heroWeatherEditing = true
+  box.classList.add('editing')
+  const layer = box.querySelector('.hw-edit')
+  const input = box.querySelector('.hw-input')
+  if (layer) layer.hidden = false
   if (input) {
-    input.value = prefill != null ? prefill : heroCityPref();
-    input.focus();
-    input.select();
+    input.value = prefill != null ? prefill : heroCityPref()
+    input.focus()
+    input.select()
   }
 }
 
 function closeHeroWeatherEdit() {
-  heroWeatherEditing = false;
-  const box = heroWeatherNode();
-  box.classList.remove('editing');
-  const layer = box.querySelector('.hw-edit');
-  if (layer) layer.hidden = true;
+  heroWeatherEditing = false
+  const box = heroWeatherNode()
+  box.classList.remove('editing')
+  const layer = box.querySelector('.hw-edit')
+  if (layer) layer.hidden = true
 }
 
 // 手动指定的城市查不到时：撤销偏好、展开编辑层并就地提示，避免用户反复踩同一个错
 function showHeroWeatherError(msg, city) {
-  setHeroCityPref('');
-  const box = heroWeatherNode();
-  if (heroWeather) paintHeroWeather();
-  openHeroWeatherEdit(city);
-  const err = box.querySelector('.hw-err');
+  setHeroCityPref('')
+  const box = heroWeatherNode()
+  if (heroWeather) paintHeroWeather()
+  openHeroWeatherEdit(city)
+  const err = box.querySelector('.hw-err')
   if (err) {
-    err.textContent = String(msg || '天气获取失败').replace(/^未找到城市[:：]\s*/, '未找到城市 ');
-    err.hidden = false;
+    err.textContent = String(msg || '天气获取失败').replace(/^未找到城市[:：]\s*/, '未找到城市 ')
+    err.hidden = false
   }
 }
 
 // 点击天气区以外 / Esc：收起编辑层
 document.addEventListener('click', (e) => {
-  if (!heroWeatherEditing) return;
-  const box = heroWeatherNode();
-  if (!box.contains(e.target)) closeHeroWeatherEdit();
-});
+  if (!heroWeatherEditing) return
+  const box = heroWeatherNode()
+  if (!box.contains(e.target)) closeHeroWeatherEdit()
+})
 document.addEventListener('keydown', (e) => {
-  if (heroWeatherEditing && e.key === 'Escape') closeHeroWeatherEdit();
-});
+  if (heroWeatherEditing && e.key === 'Escape') closeHeroWeatherEdit()
+})
 
 // 占位骨架：先占好位避免天气卡落点的高度跳一下
 function paintHeroWeatherLoading() {
-  if (heroWeather) return;
-  heroWeatherState = 'loading';
-  const box = heroWeatherNode();
-  box.innerHTML = '<div class="hw-city">定位中…</div><div class="hw-temp">--<span class="hw-unit">°C</span></div>';
-  box.style.background = HW_SKY_LOADING;
-  box.hidden = false;
+  if (heroWeather) return
+  heroWeatherState = 'loading'
+  const box = heroWeatherNode()
+  box.innerHTML = '<div class="hw-city">定位中…</div><div class="hw-temp">--<span class="hw-unit">°C</span></div>'
+  box.style.background = HW_SKY_LOADING
+  box.hidden = false
 }
 
 function hideHeroWeather() {
-  if (heroWeather) return;
-  heroWeatherState = 'failed';
-  heroWeatherNode().hidden = true;
+  if (heroWeather) return
+  heroWeatherState = 'failed'
+  heroWeatherNode().hidden = true
 }
 
 // 宿主重建 / 视口跨断点后，把天气卡按当前状态重新安置并补画回去
 // （见 heroWeatherState 与 placeWeatherCard 的注释）
 function restoreHeroWeather() {
-  if (!placeWeatherCard()) return;
-  if (heroWeatherState === 'ready') paintHeroWeather();
-  else if (heroWeatherState === 'loading') paintHeroWeatherLoading();
-  else if (heroWeatherState === 'failed') hideHeroWeather();
+  if (!placeWeatherCard()) return
+  if (heroWeatherState === 'ready') paintHeroWeather()
+  else if (heroWeatherState === 'loading') paintHeroWeatherLoading()
+  else if (heroWeatherState === 'failed') hideHeroWeather()
   // 'idle'：首次加载还没开始，节点保持 hidden，交给 loadHeroWeather 接管
 }
 
 // 视口跨过 1180 / 900 时卡片要换宿主。用 matchMedia 而不是 resize 监听：
 // resize 在拖拽窗口时每帧都触发，而真正需要搬家的只有跨过这两条线的那一瞬间。
 // 1181 负责「回到右栏」，1180 负责「进侧栏/抽屉 Logo 下方」，900 负责移动抽屉切换
-['(min-width: 1181px)', '(max-width: 1180px)', '(max-width: 900px)'].forEach((q) => {
-  const mq = window.matchMedia(q);
-  const onChange = () => restoreHeroWeather();
-  if (mq.addEventListener) mq.addEventListener('change', onChange);
-  else if (mq.addListener) mq.addListener(onChange); // 老 Safari 只认 addListener
-});
+;['(min-width: 1181px)', '(max-width: 1180px)', '(max-width: 900px)'].forEach((q) => {
+  const mq = window.matchMedia(q)
+  const onChange = () => restoreHeroWeather()
+  if (mq.addEventListener) mq.addEventListener('change', onChange)
+  else if (mq.addListener) mq.addListener(onChange) // 老 Safari 只认 addListener
+})
 
 async function loadHeroWeather(opts = {}) {
   // city：显式传入优先生效（含空串=清除手动偏好回到 IP 定位）；否则读本地偏好
-  const city = opts.city != null ? opts.city : heroCityPref();
-  const key = heroWeatherCacheKey(city);
-  const force = !!opts.force; // 用户主动「重新定位 / 查城市」：绕过本地与服务端缓存
+  const city = opts.city != null ? opts.city : heroCityPref()
+  const key = heroWeatherCacheKey(city)
+  const force = !!opts.force // 用户主动「重新定位 / 查城市」：绕过本地与服务端缓存
 
   // 内存命中（同一次会话内切换分类回来）：数据源一致就直接回填，不闪空、不发请求
-  if (!force && heroWeather && heroWeatherKey === key) { paintHeroWeather(); return; }
-  if (!force) {
-    const hit = cacheGet(key);
-    if (hit) { heroWeather = hit; heroWeatherKey = key; paintHeroWeather(); return; }
+  if (!force && heroWeather && heroWeatherKey === key) {
+    paintHeroWeather()
+    return
   }
-  if (heroWeatherLoading) return;
-  if (!force && Date.now() < heroWeatherRetryAt) return;
+  if (!force) {
+    const hit = cacheGet(key)
+    if (hit) {
+      heroWeather = hit
+      heroWeatherKey = key
+      paintHeroWeather()
+      return
+    }
+  }
+  if (heroWeatherLoading) return
+  if (!force && Date.now() < heroWeatherRetryAt) return
 
-  heroWeatherLoading = true;
+  heroWeatherLoading = true
   // 仅首次加载占位骨架：已有画面时静默替换，避免闪一下
-  if (!heroWeather) paintHeroWeatherLoading();
+  if (!heroWeather) paintHeroWeatherLoading()
   try {
-    const qs = [];
-    if (city) qs.push(`query=${encodeURIComponent(city)}`);
+    const qs = []
+    if (city) qs.push(`query=${encodeURIComponent(city)}`)
     // force-update：让服务端 cached() 跳过定位/出口 IP 的 TTL 缓存，重新走一遍完整定位
-    if (force) qs.push('force-update');
-    const r = await fetch(`${API}/v2/weather/local${qs.length ? `?${qs.join('&')}` : ''}`);
-    const j = await r.json();
+    if (force) qs.push('force-update')
+    const r = await fetch(`${API}/v2/weather/local${qs.length ? `?${qs.join('&')}` : ''}`)
+    const j = await r.json()
     if (j && j.code === 200 && j.data && j.data.weather) {
-      heroWeather = j.data;
-      heroWeatherKey = key;
-      cacheSet(key, j.data);
-      paintHeroWeather();
+      heroWeather = j.data
+      heroWeatherKey = key
+      cacheSet(key, j.data)
+      paintHeroWeather()
     } else {
-      heroWeatherRetryAt = Date.now() + 5 * 60 * 1000;
+      heroWeatherRetryAt = Date.now() + 5 * 60 * 1000
       // 手动输入的城市查不到：就地报错让用户改，别默默停在旧城市上
-      if (city) showHeroWeatherError(j && j.data && j.data.error, city);
-      else if (!heroWeather) hideHeroWeather();
+      if (city) showHeroWeatherError(j && j.data && j.data.error, city)
+      else if (!heroWeather) hideHeroWeather()
     }
   } catch {
-    heroWeatherRetryAt = Date.now() + 5 * 60 * 1000;
-    if (city) showHeroWeatherError('天气服务暂时不可用，请稍后再试', city);
-    else if (!heroWeather) hideHeroWeather();
+    heroWeatherRetryAt = Date.now() + 5 * 60 * 1000
+    if (city) showHeroWeatherError('天气服务暂时不可用，请稍后再试', city)
+    else if (!heroWeather) hideHeroWeather()
   } finally {
-    heroWeatherLoading = false;
+    heroWeatherLoading = false
   }
 }
 
 // ts 缺省为当前时刻；传 X-Data-Updated 时记录数据的真实时间，
 // 这样缓存命中时卡片显示的是「数据什么时候的」而非「什么时候存进本地缓存的」
+// 配额保护：移动端 Safari 上 70+ 卡片的榜单 JSON 迟早写满 5MB，写满时删最旧的
+// 缓存键（按 ts 排序）再试一次，还不行就 bypass——页面照常渲染，只是不缓存这次
 function cacheSet(key, data, ts) {
-  try { localStorage.setItem(key, JSON.stringify({ ts: ts || Date.now(), data })); } catch {}
+  const payload = JSON.stringify({ ts: ts || Date.now(), data })
+  try {
+    localStorage.setItem(key, payload)
+    return
+  } catch {}
+  try {
+    let oldest = null,
+      oldestTs = Infinity
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (!k || !k.startsWith('cache:')) continue
+      try {
+        const t = JSON.parse(localStorage.getItem(k)).ts
+        if (typeof t === 'number' && t < oldestTs) {
+          oldestTs = t
+          oldest = k
+        }
+      } catch {}
+    }
+    if (oldest) localStorage.removeItem(oldest)
+    localStorage.setItem(key, payload)
+  } catch {}
 }
 
 // 读服务端 X-Data-Updated：这份数据在服务端的抓取/缓存时刻。
 // 拿不到（旧版本部署、即抓即用型接口）就退回本地时刻，至少不比原来差
 function readDataTs(res) {
   try {
-    const ts = Number(res.headers.get('X-Data-Updated'));
-    return Number.isFinite(ts) && ts > 0 ? ts : Date.now();
-  } catch { return Date.now(); }
+    const ts = Number(res.headers.get('X-Data-Updated'))
+    return Number.isFinite(ts) && ts > 0 ? ts : Date.now()
+  } catch {
+    return Date.now()
+  }
 }
 
-function cacheKey(ep, url) { return `cache:${CACHE_VERSION}:${ep.id}:${url}`; }
-
-
+function cacheKey(ep, url) {
+  return `cache:${CACHE_VERSION}:${ep.id}:${url}`
+}
 
 // ============ 方案二：榜单 Top N 折叠 ============
 // 榜单类卡片（type:'list'）默认只渲染前 N 条，点击「展开全部」后本地重渲染全部条目，
 // 状态按卡片记忆（localStorage），刷新/切分类回来保持用户的展开偏好
-const LIST_COLLAPSE_N = 10;
+const LIST_COLLAPSE_N = 10
 // 各榜单最近一次渲染的原始数据，供展开/收起切换时免请求重渲染
-const listData = {};
+const listData = {}
 
 function isListExpanded(id) {
-  try { return localStorage.getItem('list-full:' + id) === '1'; } catch { return false; }
+  try {
+    return localStorage.getItem('list-full:' + id) === '1'
+  } catch {
+    return false
+  }
 }
 function setListExpanded(id, v) {
   try {
-    if (v) localStorage.setItem('list-full:' + id, '1');
-    else localStorage.removeItem('list-full:' + id);
+    if (v) localStorage.setItem('list-full:' + id, '1')
+    else localStorage.removeItem('list-full:' + id)
   } catch {}
 }
 
 // 清理过期缓存（每次 init 时调用）
 function cacheClean() {
   try {
-    const now = Date.now();
+    const now = Date.now()
     for (let i = localStorage.length - 1; i >= 0; i--) {
-      const k = localStorage.key(i);
+      const k = localStorage.key(i)
       if (k && k.startsWith('cache:')) {
         try {
-          const { ts } = JSON.parse(localStorage.getItem(k));
-          if (now - ts > CACHE_TTL * 2) localStorage.removeItem(k);
-        } catch { localStorage.removeItem(k); }
+          const { ts } = JSON.parse(localStorage.getItem(k))
+          if (now - ts > CACHE_TTL * 2) localStorage.removeItem(k)
+        } catch {
+          localStorage.removeItem(k)
+        }
       }
     }
   } catch {}
@@ -1476,190 +1583,862 @@ const CATS = [
   { id: 'life', name: '🌤️ 生活信息' },
   { id: 'fun', name: '🎯 趣味内容' },
   { id: 'trans', name: '📚 学习工具' },
-];
+]
 
 // type: news|list|kv|obj|text|json|qr|color|palette|pwd|fanyi|lyric|hash|weather|weatherfc|fuel|gold|lunar|calendar|bing|epic|steam|ncm|maoyan|moyu|whois|js|exchange|hist|ainews|kuan|36kr|reddit|game2048|muyu
 const EPS = [
   // 新闻
   // span:2 锚点卡片，桌面端跨两列（移动端单列回退，见 style.css 媒体查询）
-  { cat:'news', id:'60s', name:'60秒读懂世界', icon:'⏰', path:'/v2/60s', type:'news', auto:1, span:2 },
-  { cat:'news', id:'history', name:'历史上的今天', icon:'📜', path:'/v2/today-in-history', type:'hist', auto:1 },
-  { cat:'news', id:'weibo', name:'微博热搜', icon:'🔥', path:'/v2/weibo', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
-  { cat:'news', id:'zhihu', name:'知乎热榜', icon:'💡', path:'/v2/zhihu', type:'list', auto:1, f:{t:'title',h:'hot_value_desc',l:'link', d:'detail', p:'cover', ps:1} },
-  { cat:'news', id:'bili', name:'B站热门', icon:'📺', path:'/v2/bili', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
-  { cat:'news', id:'douyin', name:'抖音热点', icon:'🎵', path:'/v2/douyin', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link', p:'cover', ps:1} },
-  { cat:'news', id:'toutiao', name:'今日头条', icon:'📰', path:'/v2/toutiao', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link', p:'cover', ps:1} },
-  { cat:'news', id:'aljazeera', name:'Al Jazeera 头条', icon:'🌍', path:'/v2/world-news?source=aljazeera', type:'list', auto:1, f:{t:'title',h:null,l:'link'} },
-  { cat:'news', id:'bbcnews', name:'BBC News 头条', icon:'🇬🇧', path:'/v2/world-news?source=bbc', type:'list', auto:1, f:{t:'title',h:null,l:'link'} },
-  { cat:'news', id:'cnnnews', name:'CNN News 头条', icon:'📡', path:'/v2/world-news?source=cnn', type:'list', auto:1, f:{t:'title',h:null,l:'link'} },
-  { cat:'news', id:'bdhot', name:'百度热搜', icon:'🔍', path:'/v2/baidu/hot', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'url', d:'desc', p:'cover', ps:1} },
+  { cat: 'news', id: '60s', name: '60秒读懂世界', icon: '⏰', path: '/v2/60s', type: 'news', auto: 1, span: 2 },
+  { cat: 'news', id: 'history', name: '历史上的今天', icon: '📜', path: '/v2/today-in-history', type: 'hist', auto: 1 },
+  {
+    cat: 'news',
+    id: 'weibo',
+    name: '微博热搜',
+    icon: '🔥',
+    path: '/v2/weibo',
+    type: 'list',
+    auto: 1,
+    f: { t: 'title', h: 'hot_value', l: 'link' },
+  },
+  {
+    cat: 'news',
+    id: 'zhihu',
+    name: '知乎热榜',
+    icon: '💡',
+    path: '/v2/zhihu',
+    type: 'list',
+    auto: 1,
+    f: { t: 'title', h: 'hot_value_desc', l: 'link', d: 'detail', p: 'cover', ps: 1 },
+  },
+  {
+    cat: 'news',
+    id: 'bili',
+    name: 'B站热门',
+    icon: '📺',
+    path: '/v2/bili',
+    type: 'list',
+    auto: 1,
+    f: { t: 'title', h: 'hot_value', l: 'link' },
+  },
+  {
+    cat: 'news',
+    id: 'douyin',
+    name: '抖音热点',
+    icon: '🎵',
+    path: '/v2/douyin',
+    type: 'list',
+    auto: 1,
+    f: { t: 'title', h: 'hot_value', l: 'link', p: 'cover', ps: 1 },
+  },
+  {
+    cat: 'news',
+    id: 'toutiao',
+    name: '今日头条',
+    icon: '📰',
+    path: '/v2/toutiao',
+    type: 'list',
+    auto: 1,
+    f: { t: 'title', h: 'hot_value', l: 'link', p: 'cover', ps: 1 },
+  },
+  {
+    cat: 'news',
+    id: 'aljazeera',
+    name: 'Al Jazeera 头条',
+    icon: '🌍',
+    path: '/v2/world-news?source=aljazeera',
+    type: 'list',
+    auto: 1,
+    f: { t: 'title', h: null, l: 'link' },
+  },
+  {
+    cat: 'news',
+    id: 'bbcnews',
+    name: 'BBC News 头条',
+    icon: '🇬🇧',
+    path: '/v2/world-news?source=bbc',
+    type: 'list',
+    auto: 1,
+    f: { t: 'title', h: null, l: 'link' },
+  },
+  {
+    cat: 'news',
+    id: 'cnnnews',
+    name: 'CNN News 头条',
+    icon: '📡',
+    path: '/v2/world-news?source=cnn',
+    type: 'list',
+    auto: 1,
+    f: { t: 'title', h: null, l: 'link' },
+  },
+  {
+    cat: 'news',
+    id: 'bdhot',
+    name: '百度热搜',
+    icon: '🔍',
+    path: '/v2/baidu/hot',
+    type: 'list',
+    auto: 1,
+    f: { t: 'title', h: 'score_desc', l: 'url', d: 'desc', p: 'cover', ps: 1 },
+  },
   // 已移除百度实时热点：实测 /baidu/realtime 与 /baidu/hot 返回同一份数据，重复
-  { cat:'news', id:'bdtieba', name:'百度贴吧热议', icon:'💬', path:'/v2/baidu/tieba', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'link', d:'abstract', p:'avatar', ps:1} },
+  {
+    cat: 'news',
+    id: 'bdtieba',
+    name: '百度贴吧热议',
+    icon: '💬',
+    path: '/v2/baidu/tieba',
+    type: 'list',
+    auto: 1,
+    f: { t: 'title', h: 'score_desc', l: 'link', d: 'abstract', p: 'avatar', ps: 1 },
+  },
   // 已隐藏小红书热榜：上游私有接口凭证（2023 年抓包）已被风控拉黑，
   // 持续返回 300013「访问频繁」或空数据，后端 500。恢复需换新数据源。
   // { cat:'news', id:'rednote', name:'小红书热榜', icon:'📕', path:'/v2/rednote', type:'list', auto:1, f:{t:'title',h:'score',l:'link'} },
-  { cat:'news', id:'quark', name:'夸克每日资讯', icon:'☁️', path:'/v2/quark', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'summary', p:'cover', ps:1} },
-  { cat:'news', id:'ifeng', name:'凤凰热榜', icon:'🌀', path:'/v2/ifeng', type:'list', auto:1, f:{t:'title',h:'hot_value_desc',l:'link',d:'source',p:'cover',ps:1} },
-  { cat:'news', id:'dongchedi', name:'汽车热榜', icon:'🚗', path:'/v2/dongchedi', type:'list', auto:1, f:{t:'title',h:'score_desc',l:'url'} },
+  {
+    cat: 'news',
+    id: 'quark',
+    name: '夸克每日资讯',
+    icon: '☁️',
+    path: '/v2/quark',
+    type: 'list',
+    auto: 1,
+    f: { t: 'title', h: null, l: 'link', d: 'summary', p: 'cover', ps: 1 },
+  },
+  {
+    cat: 'news',
+    id: 'ifeng',
+    name: '凤凰热榜',
+    icon: '🌀',
+    path: '/v2/ifeng',
+    type: 'list',
+    auto: 1,
+    f: { t: 'title', h: 'hot_value_desc', l: 'link', d: 'source', p: 'cover', ps: 1 },
+  },
+  {
+    cat: 'news',
+    id: 'dongchedi',
+    name: '汽车热榜',
+    icon: '🚗',
+    path: '/v2/dongchedi',
+    type: 'list',
+    auto: 1,
+    f: { t: 'title', h: 'score_desc', l: 'url' },
+  },
   // 虎扑：官方无可用公开接口，数据来自 uapis 聚合源（见 src/modules/hupu.module.ts）
-  { cat:'news', id:'hupu', name:'虎扑热榜', icon:'🏀', path:'/v2/hupu', type:'list', auto:1, f:{t:'title',h:'hot_value',l:'link'} },
+  {
+    cat: 'news',
+    id: 'hupu',
+    name: '虎扑热榜',
+    icon: '🏀',
+    path: '/v2/hupu',
+    type: 'list',
+    auto: 1,
+    f: { t: 'title', h: 'hot_value', l: 'link' },
+  },
 
   // 科技
-  { cat:'tech', id:'nodeseek', name:'NodeSeek新帖', icon:'🌐', path:'/v2/nodeseek', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'description'} },
+  {
+    cat: 'tech',
+    id: 'nodeseek',
+    name: 'NodeSeek新帖',
+    icon: '🌐',
+    path: '/v2/nodeseek',
+    type: 'list',
+    auto: 1,
+    f: { t: 'title', h: null, l: 'link', d: 'description' },
+  },
   // V2EX 官方接口已被 Cloudflare JS 挑战挡住，改走 uapis 聚合源（见 src/modules/v2ex.module.ts）：
   // 该源不提供节点名与回复数，副标题因此改用作者（原为 node，会一直是空的）
-  { cat:'tech', id:'v2ex', name:'V2EX热帖', icon:'💬', path:'/v2/v2ex', type:'list', auto:1, f:{t:'title',h:'replies',l:'link', d:'author'} },
-  { cat:'tech', id:'let', name:'LowEndTalk', icon:'🖥️', path:'/v2/lowendtalk', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'description'} },
-  { cat:'tech', id:'hn', name:'Hacker News', icon:'🟧', path:'/v2/hacker-news/top', type:'list', auto:1, f:{t:'title',h:'score',l:'link'} },
+  {
+    cat: 'tech',
+    id: 'v2ex',
+    name: 'V2EX热帖',
+    icon: '💬',
+    path: '/v2/v2ex',
+    type: 'list',
+    auto: 1,
+    f: { t: 'title', h: 'replies', l: 'link', d: 'author' },
+  },
+  {
+    cat: 'tech',
+    id: 'let',
+    name: 'LowEndTalk',
+    icon: '🖥️',
+    path: '/v2/lowendtalk',
+    type: 'list',
+    auto: 1,
+    f: { t: 'title', h: null, l: 'link', d: 'description' },
+  },
+  {
+    cat: 'tech',
+    id: 'hn',
+    name: 'Hacker News',
+    icon: '🟧',
+    path: '/v2/hacker-news/top',
+    type: 'list',
+    auto: 1,
+    f: { t: 'title', h: 'score', l: 'link' },
+  },
   // 已移除 HN 最新帖：实测 /hacker-news/new 与 /hacker-news/top 返回同一份数据，重复
-  { cat:'tech', id:'itnews', name:'IT资讯', icon:'💻', path:'/v2/it-news', type:'list', auto:1, f:{t:'title',h:null,l:'link', d:'description'} },
-  { cat:'tech', id:'kuan', name:'酷安热榜', icon:'📱', path:'/v2/kuan', type:'kuan', auto:1 },
-  { cat:'tech', id:'36kr', name:'36氪热榜', icon:'📰', path:'/v2/36kr', type:'36kr', auto:1 },
-  { cat:'tech', id:'sspai', name:'少数派热榜', icon:'🎨', path:'/v2/sspai', type:'sspai', auto:1 },
-  { cat:'tech', id:'huxiu', name:'虎嗅热榜', icon:'🐯', path:'/v2/huxiu', type:'huxiu', auto:1 },
+  {
+    cat: 'tech',
+    id: 'itnews',
+    name: 'IT资讯',
+    icon: '💻',
+    path: '/v2/it-news',
+    type: 'list',
+    auto: 1,
+    f: { t: 'title', h: null, l: 'link', d: 'description' },
+  },
+  { cat: 'tech', id: 'kuan', name: '酷安热榜', icon: '📱', path: '/v2/kuan', type: 'kuan', auto: 1 },
+  { cat: 'tech', id: '36kr', name: '36氪热榜', icon: '📰', path: '/v2/36kr', type: '36kr', auto: 1 },
+  { cat: 'tech', id: 'sspai', name: '少数派热榜', icon: '🎨', path: '/v2/sspai', type: 'sspai', auto: 1 },
+  { cat: 'tech', id: 'huxiu', name: '虎嗅热榜', icon: '🐯', path: '/v2/huxiu', type: 'huxiu', auto: 1 },
   // 技术社区热榜：四张卡都走通用 list 渲染器，靠 f 做字段映射，无需专用 renderer
-  { cat:'tech', id:'juejin', name:'掘金热榜', icon:'💎', path:'/v2/juejin', type:'list', auto:1,
-    inputs:[{ n:'category', sel:[['backend','后端'],['frontend','前端'],['android','Android'],['ios','iOS'],['ai','人工智能'],['tools','开发工具'],['life','代码人生'],['read','阅读']], d:'backend' }],
-    f:{t:'title',h:'hot_value_desc',l:'link',d:'author'} },
-  { cat:'tech', id:'gh-trending', name:'GitHub 热榜', icon:'🐙', path:'/v2/github-trending', type:'list', auto:1,
-    inputs:[{ n:'since', sel:[['daily','今日榜'],['weekly','本周榜'],['monthly','本月榜']], d:'daily' },{ n:'lang', p:'语言，如 python' }],
-    f:{t:'title',h:'hot_value_desc',l:'link',d:'description'},
-    hint:'「语言」填英文名（python / typescript / go …），留空为全语言' },
+  {
+    cat: 'tech',
+    id: 'juejin',
+    name: '掘金热榜',
+    icon: '💎',
+    path: '/v2/juejin',
+    type: 'list',
+    auto: 1,
+    inputs: [
+      {
+        n: 'category',
+        sel: [
+          ['backend', '后端'],
+          ['frontend', '前端'],
+          ['android', 'Android'],
+          ['ios', 'iOS'],
+          ['ai', '人工智能'],
+          ['tools', '开发工具'],
+          ['life', '代码人生'],
+          ['read', '阅读'],
+        ],
+        d: 'backend',
+      },
+    ],
+    f: { t: 'title', h: 'hot_value_desc', l: 'link', d: 'author' },
+  },
+  {
+    cat: 'tech',
+    id: 'gh-trending',
+    name: 'GitHub 热榜',
+    icon: '🐙',
+    path: '/v2/github-trending',
+    type: 'list',
+    auto: 1,
+    inputs: [
+      {
+        n: 'since',
+        sel: [
+          ['daily', '今日榜'],
+          ['weekly', '本周榜'],
+          ['monthly', '本月榜'],
+        ],
+        d: 'daily',
+      },
+      { n: 'lang', p: '语言，如 python' },
+    ],
+    f: { t: 'title', h: 'hot_value_desc', l: 'link', d: 'description' },
+    hint: '「语言」填英文名（python / typescript / go …），留空为全语言',
+  },
   // 主源抓页（blog.51cto.com/ranking）在 Worker 上会被 EdgeOne 判成爬虫，
   // 后端会自动退到 uapis 聚合源；那个源没有作者、只有摘要，所以副标题写成「作者优先、摘要兜底」
-  { cat:'tech', id:'cto51', name:'51CTO 博客榜', icon:'📝', path:'/v2/51cto', type:'list', auto:1,
-    inputs:[{ n:'type', sel:[['day','日榜'],['week','周榜']], d:'day' }],
-    f:{t:'title',h:'hot_value_desc',l:'link',d:['author','description']} },
+  {
+    cat: 'tech',
+    id: 'cto51',
+    name: '51CTO 博客榜',
+    icon: '📝',
+    path: '/v2/51cto',
+    type: 'list',
+    auto: 1,
+    inputs: [
+      {
+        n: 'type',
+        sel: [
+          ['day', '日榜'],
+          ['week', '周榜'],
+        ],
+        d: 'day',
+      },
+    ],
+    f: { t: 'title', h: 'hot_value_desc', l: 'link', d: ['author', 'description'] },
+  },
   // 与上面的「IT资讯」同源不同榜：那张是 RSS 最新资讯，这张是站内热榜（接口早就有了，一直没接卡片）
-  { cat:'tech', id:'itrank', name:'IT之家热榜', icon:'🏠', path:'/v2/it-news/rank', type:'list', auto:1,
-    inputs:[{ n:'type', sel:[['day','日榜'],['week','周榜'],['month','月榜']], d:'day' }],
-    f:{t:'title',h:null,l:'link'} },
+  {
+    cat: 'tech',
+    id: 'itrank',
+    name: 'IT之家热榜',
+    icon: '🏠',
+    path: '/v2/it-news/rank',
+    type: 'list',
+    auto: 1,
+    inputs: [
+      {
+        n: 'type',
+        sel: [
+          ['day', '日榜'],
+          ['week', '周榜'],
+          ['month', '月榜'],
+        ],
+        d: 'day',
+      },
+    ],
+    f: { t: 'title', h: null, l: 'link' },
+  },
 
   // 娱乐
   // 分组卡片的显示位置由「组内首个成员在本列表中的位置」决定，
   // 故按 目标卡片顺序 排列：猫眼电影榜 → 豆瓣影视周榜 → 百度影视周榜 → 流媒体 → 音乐 → 免费游戏
   // 猫眼组：历史票房置后（标签页与折叠菜单顺序一致，故在映/待映排在历史票房之前）
-  { cat:'ent', id:'maoyan-showing', name:'猫眼在映电影', icon:'🎬', path:'/v2/maoyan/showing', type:'maoyan-movie', auto:1 },
-  { cat:'ent', id:'maoyan-coming', name:'猫眼待映电影', icon:'🗓️', path:'/v2/maoyan/coming', type:'maoyan-movie', auto:1 },
-  { cat:'ent', id:'maoyan', name:'猫眼历史票房', icon:'🍿', path:'/v2/maoyan/all/movie', type:'maoyan', auto:1 },
-  { cat:'ent', id:'douban', name:'豆瓣电影周榜', icon:'🎬', path:'/v2/douban/weekly/movie', type:'douban', auto:1 },
-  { cat:'ent', id:'douban-tv-cn', name:'豆瓣华语剧集周榜', icon:'📺', path:'/v2/douban/weekly/tv_chinese', type:'douban', auto:1 },
-  { cat:'ent', id:'douban-tv-global', name:'豆瓣全球剧集周榜', icon:'🎞️', path:'/v2/douban/weekly/tv_global', type:'douban', auto:1 },
-  { cat:'ent', id:'douban-show-cn', name:'豆瓣华语综艺周榜', icon:'🎤', path:'/v2/douban/weekly/show_chinese', type:'douban', auto:1 },
-  { cat:'ent', id:'douban-show-global', name:'豆瓣全球综艺周榜', icon:'🎪', path:'/v2/douban/weekly/show_global', type:'douban', auto:1 },
-  { cat:'ent', id:'bdtv', name:'百度电视剧榜', icon:'🎭', path:'/v2/baidu/teleplay', type:'baidu-show', auto:1 },
-  { cat:'ent', id:'bdmovie', name:'百度电影榜', icon:'🎥', path:'/v2/baidu/movie', type:'baidu-show', auto:1 },
-  { cat:'ent', id:'simkl-tv', name:'流媒体热门剧集', icon:'📺', path:'/v2/simkl-trending', type:'simkl', auto:1,
-    inputs:[{ n:'network', sel:['', 'Netflix', 'HBO', 'HBO Max', 'Disney+', 'Prime Video', 'Apple TV', 'Hulu', 'Paramount+'], d:'' }], hint:'可选播出平台过滤，数据来自 SIMKL' },
-  { cat:'ent', id:'simkl-movies', name:'流媒体热门电影', icon:'🍿', path:'/v2/simkl-trending', type:'simkl', auto:1,
-    inputs:[{ n:'type', sel:['movies', 'anime'], d:'movies' }], hint:'下拉可切换为动画榜；数据来自 SIMKL' },
+  {
+    cat: 'ent',
+    id: 'maoyan-showing',
+    name: '猫眼在映电影',
+    icon: '🎬',
+    path: '/v2/maoyan/showing',
+    type: 'maoyan-movie',
+    auto: 1,
+  },
+  {
+    cat: 'ent',
+    id: 'maoyan-coming',
+    name: '猫眼待映电影',
+    icon: '🗓️',
+    path: '/v2/maoyan/coming',
+    type: 'maoyan-movie',
+    auto: 1,
+  },
+  { cat: 'ent', id: 'maoyan', name: '猫眼历史票房', icon: '🍿', path: '/v2/maoyan/all/movie', type: 'maoyan', auto: 1 },
+  {
+    cat: 'ent',
+    id: 'douban',
+    name: '豆瓣电影周榜',
+    icon: '🎬',
+    path: '/v2/douban/weekly/movie',
+    type: 'douban',
+    auto: 1,
+  },
+  {
+    cat: 'ent',
+    id: 'douban-tv-cn',
+    name: '豆瓣华语剧集周榜',
+    icon: '📺',
+    path: '/v2/douban/weekly/tv_chinese',
+    type: 'douban',
+    auto: 1,
+  },
+  {
+    cat: 'ent',
+    id: 'douban-tv-global',
+    name: '豆瓣全球剧集周榜',
+    icon: '🎞️',
+    path: '/v2/douban/weekly/tv_global',
+    type: 'douban',
+    auto: 1,
+  },
+  {
+    cat: 'ent',
+    id: 'douban-show-cn',
+    name: '豆瓣华语综艺周榜',
+    icon: '🎤',
+    path: '/v2/douban/weekly/show_chinese',
+    type: 'douban',
+    auto: 1,
+  },
+  {
+    cat: 'ent',
+    id: 'douban-show-global',
+    name: '豆瓣全球综艺周榜',
+    icon: '🎪',
+    path: '/v2/douban/weekly/show_global',
+    type: 'douban',
+    auto: 1,
+  },
+  { cat: 'ent', id: 'bdtv', name: '百度电视剧榜', icon: '🎭', path: '/v2/baidu/teleplay', type: 'baidu-show', auto: 1 },
+  { cat: 'ent', id: 'bdmovie', name: '百度电影榜', icon: '🎥', path: '/v2/baidu/movie', type: 'baidu-show', auto: 1 },
+  {
+    cat: 'ent',
+    id: 'simkl-tv',
+    name: '流媒体热门剧集',
+    icon: '📺',
+    path: '/v2/simkl-trending',
+    type: 'simkl',
+    auto: 1,
+    inputs: [
+      {
+        n: 'network',
+        sel: ['', 'Netflix', 'HBO', 'HBO Max', 'Disney+', 'Prime Video', 'Apple TV', 'Hulu', 'Paramount+'],
+        d: '',
+      },
+    ],
+    hint: '可选播出平台过滤，数据来自 SIMKL',
+  },
+  {
+    cat: 'ent',
+    id: 'simkl-movies',
+    name: '流媒体热门电影',
+    icon: '🍿',
+    path: '/v2/simkl-trending',
+    type: 'simkl',
+    auto: 1,
+    inputs: [{ n: 'type', sel: ['movies', 'anime'], d: 'movies' }],
+    hint: '下拉可切换为动画榜；数据来自 SIMKL',
+  },
   // 官方 Data API 的 chart=mostPopular 需要 API Key，故走 Invidious / Piped 社区实例（多实例兜底，见后端模块注释）；
   // 榜单固定取「游戏」栏目且滤掉直播——实测默认栏目几乎全是直播，不适合当热榜看
-  { cat:'ent', id:'youtube', name:'YouTube 游戏热榜', icon:'▶️', path:'/v2/youtube', type:'list', auto:1,
-    inputs:[{ n:'region', sel:[['US','美国'],['HK','香港'],['TW','台湾'],['JP','日本'],['KR','韩国'],['GB','英国']], d:'US' }],
-    f:{t:'title',h:null,l:'link',d:'meta',p:'cover',ps:1} },
+  {
+    cat: 'ent',
+    id: 'youtube',
+    name: 'YouTube 游戏热榜',
+    icon: '▶️',
+    path: '/v2/youtube',
+    type: 'list',
+    auto: 1,
+    inputs: [
+      {
+        n: 'region',
+        sel: [
+          ['US', '美国'],
+          ['HK', '香港'],
+          ['TW', '台湾'],
+          ['JP', '日本'],
+          ['KR', '韩国'],
+          ['GB', '英国'],
+        ],
+        d: 'US',
+      },
+    ],
+    f: { t: 'title', h: null, l: 'link', d: 'meta', p: 'cover', ps: 1 },
+  },
   // 网易云音乐榜：不再拆成热歌/飙升/ACG/Billboard 四张卡，合并为一张卡 + 下拉选榜单，
   // 选项由后端 /v2/ncm-rank/list 给出（官方 60+ 个榜单，有多少个就有多少个选项），默认热歌榜
-  { cat:'ent', id:'ncm', name:'网易云音乐榜', icon:'🎵', path:'/v2/ncm-rank/3778678', type:'ncm', auto:1 },
+  { cat: 'ent', id: 'ncm', name: '网易云音乐榜', icon: '🎵', path: '/v2/ncm-rank/3778678', type: 'ncm', auto: 1 },
   // Apple Music：官方公开的 Marketing Tools RSS，免密钥、支持地区切换
-  { cat:'ent', id:'applemusic', name:'Apple Music 热歌榜', icon:'🎧', path:'/v2/apple-music', type:'list', auto:1,
-    inputs:[{ n:'region', sel:[['cn','中国'],['us','美国'],['jp','日本'],['kr','韩国'],['hk','香港'],['tw','台湾'],['gb','英国']], d:'cn' }],
-    f:{t:'title',h:null,l:'link',d:'meta',p:'cover',ps:1} },
+  {
+    cat: 'ent',
+    id: 'applemusic',
+    name: 'Apple Music 热歌榜',
+    icon: '🎧',
+    path: '/v2/apple-music',
+    type: 'list',
+    auto: 1,
+    inputs: [
+      {
+        n: 'region',
+        sel: [
+          ['cn', '中国'],
+          ['us', '美国'],
+          ['jp', '日本'],
+          ['kr', '韩国'],
+          ['hk', '香港'],
+          ['tw', '台湾'],
+          ['gb', '英国'],
+        ],
+        d: 'cn',
+      },
+    ],
+    f: { t: 'title', h: null, l: 'link', d: 'meta', p: 'cover', ps: 1 },
+  },
   // QQ 音乐：站点自有榜单接口，免登录但必须带 Referer（见后端模块注释）
-  { cat:'ent', id:'qqmusic', name:'QQ 音乐热榜', icon:'🎼', path:'/v2/qq-music', type:'list', auto:1,
-    inputs:[{ n:'topid', sel:[['26','热歌榜'],['62','飙升榜'],['27','新歌榜'],['60','抖音热歌榜'],['3','欧美榜'],['17','日本榜'],['16','韩国榜'],['59','香港地区榜'],['61','台湾地区榜']], d:'26' }],
-    f:{t:'title',h:null,l:'link',d:'meta',p:'cover',ps:1} },
-  { cat:'ent', id:'epic', name:'Epic免费游戏', icon:'🎮', path:'/v2/epic', type:'epic', auto:1 },
-  { cat:'ent', id:'steam', name:'Steam免费游戏', icon:'🎮', path:'/v2/steam', type:'steam', auto:1 },
-  { cat:'ent', id:'lyric', name:'歌词搜索', icon:'🎶', path:'/v2/lyric', type:'lyric', auto:0, inputs:[{n:'query',p:'歌名 歌手，如：稻香 周杰伦'}], hint:'精确搜索：使用「歌名 歌手」格式；避免只输入歌词片段' },
-  { cat:'ent', id:'changya', name:'唱鸭', icon:'🎤', path:'/v2/changya', type:'changya', auto:1 },
+  {
+    cat: 'ent',
+    id: 'qqmusic',
+    name: 'QQ 音乐热榜',
+    icon: '🎼',
+    path: '/v2/qq-music',
+    type: 'list',
+    auto: 1,
+    inputs: [
+      {
+        n: 'topid',
+        sel: [
+          ['26', '热歌榜'],
+          ['62', '飙升榜'],
+          ['27', '新歌榜'],
+          ['60', '抖音热歌榜'],
+          ['3', '欧美榜'],
+          ['17', '日本榜'],
+          ['16', '韩国榜'],
+          ['59', '香港地区榜'],
+          ['61', '台湾地区榜'],
+        ],
+        d: '26',
+      },
+    ],
+    f: { t: 'title', h: null, l: 'link', d: 'meta', p: 'cover', ps: 1 },
+  },
+  { cat: 'ent', id: 'epic', name: 'Epic免费游戏', icon: '🎮', path: '/v2/epic', type: 'epic', auto: 1 },
+  { cat: 'ent', id: 'steam', name: 'Steam免费游戏', icon: '🎮', path: '/v2/steam', type: 'steam', auto: 1 },
+  {
+    cat: 'ent',
+    id: 'lyric',
+    name: '歌词搜索',
+    icon: '🎶',
+    path: '/v2/lyric',
+    type: 'lyric',
+    auto: 0,
+    inputs: [{ n: 'query', p: '歌名 歌手，如：稻香 周杰伦' }],
+    hint: '精确搜索：使用「歌名 歌手」格式；避免只输入歌词片段',
+  },
+  { cat: 'ent', id: 'changya', name: '唱鸭', icon: '🎤', path: '/v2/changya', type: 'changya', auto: 1 },
 
   // 工具
-  { cat:'tools', id:'baike', name:'百度百科', icon:'📖', path:'/v2/baike', type:'baike', auto:0, inputs:[{n:'word',p:'关键词',d:'人工智能'}], hint:'查询百度百科词条摘要；输入任意关键词，返回定义、摘要与封面图' },
-  { cat:'tools', id:'health', name:'健康计算器', icon:'🧮', path:'/v2/health', type:'health', auto:0, inputs:[{n:'height',p:'身高 50-300cm',d:'175'},{n:'weight',p:'体重 10-300kg',d:'70'},{n:'gender',sel:[['male','男性'],['female','女性']],d:'male'},{n:'age',p:'年龄 1-150岁',d:'30'}], hint:'输入身高(cm)、体重(kg)，选择性别，输入年龄，计算 BMI、体脂率、基础代谢率等健康指标' },
-  { cat:'tools', id:'qr', name:'二维码生成', icon:'📱', path:'/v2/qrcode', type:'qr', auto:0, inputs:[{n:'text',p:'内容',d:'https://github.com/vikiboss/60s'},{n:'size',p:'尺寸',d:'256'}], hint:'内容支持任意文本或链接；尺寸为图片边长像素，默认 256' },
-  { cat:'tools', id:'hash', name:'哈希加密', icon:'#️⃣', path:'/v2/hash', type:'hash', auto:0, inputs:[{n:'content',p:'文本',d:'hello'}], hint:'一次性输出 MD5、SHA1/256/512、Base64、URL 编码等常用编解码结果' },
-  { cat:'tools', id:'og', name:'网页OG信息', icon:'🌐', path:'/v2/og', type:'og', auto:0, inputs:[{n:'url',p:'URL',d:'github.com'}], hint:'提取网页标题、描述、图标等 OG 元信息；输入域名即可，无需带协议' },
-  { cat:'tools', id:'ip', name:'IP查询', icon:'📍', path:'/v2/ip', type:'ip', auto:1, inputs:[{n:'ip',p:'输入 IP，留空查本机',d:''}], hint:'自动识别当前访问 IP 的归属地；输入指定 IP 可手动查询' },
-  { cat:'tools', id:'whois', name:'WHOIS查询', icon:'🔗', path:'/v2/whois', type:'whois', auto:0, inputs:[{n:'domain',p:'域名',d:'baidu.com'}], hint:'查询域名的注册商、注册/到期时间与 DNS 服务器等注册信息' },
-  { cat:'tools', id:'pwd', name:'密码生成', icon:'🔐', path:'/v2/password', type:'pwd', auto:0, inputs:[{n:'length',p:'长度',d:'16'}], hint:'生成含大小写字母、数字、符号的随机强密码；建议长度 16 位以上' },
-  { cat:'tools', id:'pwdchk', name:'密码强度检测', icon:'💪', path:'/v2/password/check', type:'pwdchk', auto:0, inputs:[{n:'password',p:'密码',d:'Test123456'}], hint:'评估密码强度与暴力破解耗时；出于安全考虑，请勿检测真实在用的密码' },
-  { cat:'tools', id:'color', name:'随机颜色', icon:'🎨', path:'/v2/color/random', type:'color', auto:1, hint:'随机生成一个颜色，含 RGB/HSL/CMYK 多格式与配色建议' },
-  { cat:'tools', id:'palette', name:'配色方案', icon:'🖌️', path:'/v2/color/palette', type:'palette', auto:0, inputs:[{n:'color',p:'hex',d:''}], hint:'输入 hex 颜色值（如 #6366F1）生成互补、类似、三角配色方案；留空则随机' },
+  {
+    cat: 'tools',
+    id: 'baike',
+    name: '百度百科',
+    icon: '📖',
+    path: '/v2/baike',
+    type: 'baike',
+    auto: 0,
+    inputs: [{ n: 'word', p: '关键词', d: '人工智能' }],
+    hint: '查询百度百科词条摘要；输入任意关键词，返回定义、摘要与封面图',
+  },
+  {
+    cat: 'tools',
+    id: 'health',
+    name: '健康计算器',
+    icon: '🧮',
+    path: '/v2/health',
+    type: 'health',
+    auto: 0,
+    inputs: [
+      { n: 'height', p: '身高 50-300cm', d: '175' },
+      { n: 'weight', p: '体重 10-300kg', d: '70' },
+      {
+        n: 'gender',
+        sel: [
+          ['male', '男性'],
+          ['female', '女性'],
+        ],
+        d: 'male',
+      },
+      { n: 'age', p: '年龄 1-150岁', d: '30' },
+    ],
+    hint: '输入身高(cm)、体重(kg)，选择性别，输入年龄，计算 BMI、体脂率、基础代谢率等健康指标',
+  },
+  {
+    cat: 'tools',
+    id: 'qr',
+    name: '二维码生成',
+    icon: '📱',
+    path: '/v2/qrcode',
+    type: 'qr',
+    auto: 0,
+    inputs: [
+      { n: 'text', p: '内容', d: 'https://github.com/vikiboss/60s' },
+      { n: 'size', p: '尺寸', d: '256' },
+    ],
+    hint: '内容支持任意文本或链接；尺寸为图片边长像素，默认 256',
+  },
+  {
+    cat: 'tools',
+    id: 'hash',
+    name: '哈希加密',
+    icon: '#️⃣',
+    path: '/v2/hash',
+    type: 'hash',
+    auto: 0,
+    inputs: [{ n: 'content', p: '文本', d: 'hello' }],
+    hint: '一次性输出 MD5、SHA1/256/512、Base64、URL 编码等常用编解码结果',
+  },
+  {
+    cat: 'tools',
+    id: 'og',
+    name: '网页OG信息',
+    icon: '🌐',
+    path: '/v2/og',
+    type: 'og',
+    auto: 0,
+    inputs: [{ n: 'url', p: 'URL', d: 'github.com' }],
+    hint: '提取网页标题、描述、图标等 OG 元信息；输入域名即可，无需带协议',
+  },
+  {
+    cat: 'tools',
+    id: 'ip',
+    name: 'IP查询',
+    icon: '📍',
+    path: '/v2/ip',
+    type: 'ip',
+    auto: 1,
+    inputs: [{ n: 'ip', p: '输入 IP，留空查本机', d: '' }],
+    hint: '自动识别当前访问 IP 的归属地；输入指定 IP 可手动查询',
+  },
+  {
+    cat: 'tools',
+    id: 'whois',
+    name: 'WHOIS查询',
+    icon: '🔗',
+    path: '/v2/whois',
+    type: 'whois',
+    auto: 0,
+    inputs: [{ n: 'domain', p: '域名', d: 'baidu.com' }],
+    hint: '查询域名的注册商、注册/到期时间与 DNS 服务器等注册信息',
+  },
+  {
+    cat: 'tools',
+    id: 'pwd',
+    name: '密码生成',
+    icon: '🔐',
+    path: '/v2/password',
+    type: 'pwd',
+    auto: 0,
+    inputs: [{ n: 'length', p: '长度', d: '16' }],
+    hint: '生成含大小写字母、数字、符号的随机强密码；建议长度 16 位以上',
+  },
+  {
+    cat: 'tools',
+    id: 'pwdchk',
+    name: '密码强度检测',
+    icon: '💪',
+    path: '/v2/password/check',
+    type: 'pwdchk',
+    auto: 0,
+    inputs: [{ n: 'password', p: '密码', d: 'Test123456' }],
+    hint: '评估密码强度与暴力破解耗时；出于安全考虑，请勿检测真实在用的密码',
+  },
+  {
+    cat: 'tools',
+    id: 'color',
+    name: '随机颜色',
+    icon: '🎨',
+    path: '/v2/color/random',
+    type: 'color',
+    auto: 1,
+    hint: '随机生成一个颜色，含 RGB/HSL/CMYK 多格式与配色建议',
+  },
+  {
+    cat: 'tools',
+    id: 'palette',
+    name: '配色方案',
+    icon: '🖌️',
+    path: '/v2/color/palette',
+    type: 'palette',
+    auto: 0,
+    inputs: [{ n: 'color', p: 'hex', d: '' }],
+    hint: '输入 hex 颜色值（如 #6366F1）生成互补、类似、三角配色方案；留空则随机',
+  },
 
   // 生活
-  { cat:'life', id:'wnow', name:'实时天气', icon:'☀️', path:'/v2/weather/realtime', type:'weather', auto:1, inputs:[{n:'query',p:'城市',d:'北京'}] },
-  { cat:'life', id:'wfc', name:'天气预报', icon:'🌦️', path:'/v2/weather/forecast', type:'weatherfc', auto:1, inputs:[{n:'query',p:'城市',d:'北京'}] },
-  { cat:'life', id:'exrate', name:'汇率', icon:'💱', path:'/v2/exchange-rate', type:'exchange', auto:1 },
-  { cat:'life', id:'fuel', name:'油价', icon:'⛽', path:'/v2/fuel-price', type:'fuel', auto:1, inputs:[{n:'region', p:'输入城市名，如：上海 / 广东 / 成都', d:'北京'}] },
-  { cat:'life', id:'gold', name:'金价', icon:'🥇', path:'/v2/gold-price', type:'gold', auto:1 },
-  { cat:'life', id:'calendar', name:'万年历', icon:'📅', path:'/v2/lunar/calendar', type:'calendar', auto:1 },
-  { cat:'life', id:'lunar', name:'农历信息', icon:'🌙', path:'/v2/lunar', type:'lunar', auto:1 },
-  { cat:'life', id:'moyu', name:'摸鱼日历', icon:'🐟', path:'/v2/moyu', type:'moyu', auto:1 },
+  {
+    cat: 'life',
+    id: 'wnow',
+    name: '实时天气',
+    icon: '☀️',
+    path: '/v2/weather/realtime',
+    type: 'weather',
+    auto: 1,
+    inputs: [{ n: 'query', p: '城市', d: '北京' }],
+  },
+  {
+    cat: 'life',
+    id: 'wfc',
+    name: '天气预报',
+    icon: '🌦️',
+    path: '/v2/weather/forecast',
+    type: 'weatherfc',
+    auto: 1,
+    inputs: [{ n: 'query', p: '城市', d: '北京' }],
+  },
+  { cat: 'life', id: 'exrate', name: '汇率', icon: '💱', path: '/v2/exchange-rate', type: 'exchange', auto: 1 },
+  {
+    cat: 'life',
+    id: 'fuel',
+    name: '油价',
+    icon: '⛽',
+    path: '/v2/fuel-price',
+    type: 'fuel',
+    auto: 1,
+    inputs: [{ n: 'region', p: '输入城市名，如：上海 / 广东 / 成都', d: '北京' }],
+  },
+  { cat: 'life', id: 'gold', name: '金价', icon: '🥇', path: '/v2/gold-price', type: 'gold', auto: 1 },
+  { cat: 'life', id: 'calendar', name: '万年历', icon: '📅', path: '/v2/lunar/calendar', type: 'calendar', auto: 1 },
+  { cat: 'life', id: 'lunar', name: '农历信息', icon: '🌙', path: '/v2/lunar', type: 'lunar', auto: 1 },
+  { cat: 'life', id: 'moyu', name: '摸鱼日历', icon: '🐟', path: '/v2/moyu', type: 'moyu', auto: 1 },
 
   // 趣味
-  { cat:'fun', id:'duanzi', name:'随机段子', icon:'😂', path:'/v2/duanzi', type:'quote', auto:1, dk:'duanzi' },
-  { cat:'fun', id:'dadjoke', name:'英文冷笑话', icon:'🤣', path:'/v2/dad-joke', type:'quote', auto:1, dk:'content' },
-  { cat:'fun', id:'hitokoto', name:'一言', icon:'💬', path:'/v2/hitokoto', type:'quote', auto:1, dk:'hitokoto' },
-  { cat:'fun', id:'kfc', name:'KFC疯狂星期四', icon:'🍗', path:'/v2/kfc', type:'quote', auto:1, dk:'kfc' },
-  { cat:'fun', id:'fabing', name:'发病文案', icon:'🤪', path:'/v2/fabing', type:'quote', auto:1, dk:'saying' },
+  { cat: 'fun', id: 'duanzi', name: '随机段子', icon: '😂', path: '/v2/duanzi', type: 'quote', auto: 1, dk: 'duanzi' },
+  {
+    cat: 'fun',
+    id: 'dadjoke',
+    name: '英文冷笑话',
+    icon: '🤣',
+    path: '/v2/dad-joke',
+    type: 'quote',
+    auto: 1,
+    dk: 'content',
+  },
+  {
+    cat: 'fun',
+    id: 'hitokoto',
+    name: '一言',
+    icon: '💬',
+    path: '/v2/hitokoto',
+    type: 'quote',
+    auto: 1,
+    dk: 'hitokoto',
+  },
+  { cat: 'fun', id: 'kfc', name: 'KFC疯狂星期四', icon: '🍗', path: '/v2/kfc', type: 'quote', auto: 1, dk: 'kfc' },
+  { cat: 'fun', id: 'fabing', name: '发病文案', icon: '🤪', path: '/v2/fabing', type: 'quote', auto: 1, dk: 'saying' },
   // 已隐藏今日运势：刷新即变、无参考价值；梗百科上移填补此位
   // { cat:'fun', id:'luck', name:'今日运势', icon:'🍀', path:'/v2/luck', type:'kv', auto:1, keys:[['luck_desc','综合运势'],['luck_rank','运势指数'],['luck_tip','今日提示']] },
-  { cat:'fun', id:'geng', name:'梗百科', icon:'🎭', path:'/v2/geng', type:'geng', auto:1 },
-  { cat:'fun', id:'answer', name:'答案之书', icon:'📖', path:'/v2/answer', type:'answer', auto:1, hint:'心中默念你的问题，点击 ↻ 揭晓答案' },
-  { cat:'fun', id:'g2048', name:'2048', icon:'🎮', path:'', type:'game2048', auto:1, noapi:1, fs:1, hint:'拖拽 / 滑动 / 方向键或 WASD 移动合并，凑出 2048' },
-  { cat:'fun', id:'muyu', name:'电子木鱼', icon:'🥁', path:'', type:'muyu', auto:1, noapi:1, fs:1, hint:'点击木鱼敲击，功德 +1，连续敲击自动计数' },
-  { cat:'fun', id:'bing', name:'必应壁纸', icon:'🖼️', path:'/v2/bing', type:'bing', auto:1 },
-  { cat:'fun', id:'awjs', name:'JS题目', icon:'🧩', path:'/v2/awesome-js', type:'js', auto:1 },
+  { cat: 'fun', id: 'geng', name: '梗百科', icon: '🎭', path: '/v2/geng', type: 'geng', auto: 1 },
+  {
+    cat: 'fun',
+    id: 'answer',
+    name: '答案之书',
+    icon: '📖',
+    path: '/v2/answer',
+    type: 'answer',
+    auto: 1,
+    hint: '心中默念你的问题，点击 ↻ 揭晓答案',
+  },
+  {
+    cat: 'fun',
+    id: 'g2048',
+    name: '2048',
+    icon: '🎮',
+    path: '',
+    type: 'game2048',
+    auto: 1,
+    noapi: 1,
+    fs: 1,
+    hint: '拖拽 / 滑动 / 方向键或 WASD 移动合并，凑出 2048',
+  },
+  {
+    cat: 'fun',
+    id: 'muyu',
+    name: '电子木鱼',
+    icon: '🥁',
+    path: '',
+    type: 'muyu',
+    auto: 1,
+    noapi: 1,
+    fs: 1,
+    hint: '点击木鱼敲击，功德 +1，连续敲击自动计数',
+  },
+  { cat: 'fun', id: 'bing', name: '必应壁纸', icon: '🖼️', path: '/v2/bing', type: 'bing', auto: 1 },
+  { cat: 'fun', id: 'awjs', name: 'JS题目', icon: '🧩', path: '/v2/awesome-js', type: 'js', auto: 1 },
 
   // 学习工具
-  { cat:'trans', id:'daily-eng', name:'每日一句英语', icon:'📖', path:'/v2/daily-eng', type:'daily-eng', auto:1 },
-  { cat:'trans', id:'fanyi', name:'有道翻译', icon:'🔤', path:'/v2/fanyi', type:'fanyi', auto:0, inputs:[{n:'text',p:'文本',d:'hello'},{n:'from',p:'源语言',d:'en'},{n:'to',p:'目标',d:'zh-CHS'}] },
-  { cat:'trans', id:'gtranslate', name:'Google 翻译', icon:'🈯', path:'/v2/google-translate', type:'fanyi', auto:0, inputs:[{n:'text',p:'文本',d:'hello'},{n:'from',p:'源语言',d:'en'},{n:'to',p:'目标',d:'zh-CN'}] },
-];
+  {
+    cat: 'trans',
+    id: 'daily-eng',
+    name: '每日一句英语',
+    icon: '📖',
+    path: '/v2/daily-eng',
+    type: 'daily-eng',
+    auto: 1,
+  },
+  {
+    cat: 'trans',
+    id: 'fanyi',
+    name: '有道翻译',
+    icon: '🔤',
+    path: '/v2/fanyi',
+    type: 'fanyi',
+    auto: 0,
+    inputs: [
+      { n: 'text', p: '文本', d: 'hello' },
+      { n: 'from', p: '源语言', d: 'en' },
+      { n: 'to', p: '目标', d: 'zh-CHS' },
+    ],
+  },
+  {
+    cat: 'trans',
+    id: 'gtranslate',
+    name: 'Google 翻译',
+    icon: '🈯',
+    path: '/v2/google-translate',
+    type: 'fanyi',
+    auto: 0,
+    inputs: [
+      { n: 'text', p: '文本', d: 'hello' },
+      { n: 'from', p: '源语言', d: 'en' },
+      { n: 'to', p: '目标', d: 'zh-CN' },
+    ],
+  },
+]
 
 // ============ 卡片分组（标签页整合） ============
 // 分组内多个数据源共用一张卡片，标签页切换；tabs 顺序即标签页顺序。
 // 分组卡片在分类中的位置由组内首个成员在 EPS 中的位置决定；
 // 搜索命中组内任一标签时整组显示，且只渲染命中的标签页
 const CARD_GROUPS = [
-  { id: 'maoyan-box', name: '猫眼电影榜', icon: '🍿', tabs: [
-    { ep: 'maoyan-showing', label: '在映' },
-    { ep: 'maoyan-coming', label: '待映' },
-    { ep: 'maoyan', label: '历史票房' },
-  ]},
-  { id: 'douban-week', name: '豆瓣影视周榜', icon: '🎭', tabs: [
-    { ep: 'douban', label: '电影' },
-    { ep: 'douban-tv-cn', label: '华语剧集' },
-    { ep: 'douban-tv-global', label: '全球剧集' },
-    { ep: 'douban-show-cn', label: '华语综艺' },
-    { ep: 'douban-show-global', label: '全球综艺' },
-  ]},
-  { id: 'baidu-week', name: '百度影视周榜', icon: '📊', tabs: [
-    { ep: 'bdtv', label: '电视剧' },
-    { ep: 'bdmovie', label: '电影' },
-  ]},
-  { id: 'simkl-hot', name: '国外流媒体影视榜', icon: '📺', tabs: [
-    { ep: 'simkl-tv', label: '剧集' },
-    { ep: 'simkl-movies', label: '电影' },
-  ]},
+  {
+    id: 'maoyan-box',
+    name: '猫眼电影榜',
+    icon: '🍿',
+    tabs: [
+      { ep: 'maoyan-showing', label: '在映' },
+      { ep: 'maoyan-coming', label: '待映' },
+      { ep: 'maoyan', label: '历史票房' },
+    ],
+  },
+  {
+    id: 'douban-week',
+    name: '豆瓣影视周榜',
+    icon: '🎭',
+    tabs: [
+      { ep: 'douban', label: '电影' },
+      { ep: 'douban-tv-cn', label: '华语剧集' },
+      { ep: 'douban-tv-global', label: '全球剧集' },
+      { ep: 'douban-show-cn', label: '华语综艺' },
+      { ep: 'douban-show-global', label: '全球综艺' },
+    ],
+  },
+  {
+    id: 'baidu-week',
+    name: '百度影视周榜',
+    icon: '📊',
+    tabs: [
+      { ep: 'bdtv', label: '电视剧' },
+      { ep: 'bdmovie', label: '电影' },
+    ],
+  },
+  {
+    id: 'simkl-hot',
+    name: '国外流媒体影视榜',
+    icon: '📺',
+    tabs: [
+      { ep: 'simkl-tv', label: '剧集' },
+      { ep: 'simkl-movies', label: '电影' },
+    ],
+  },
   // 网易云音乐榜：选项不写死，卡片挂载后拉一次后端榜单清单填充下拉
   // （官方有多少个榜单就有多少个选项）；选中后把榜单 id 拼进详情路径再加载。
   // tabs 只作为初始「种子项」，同时承担分组定位所需的成员 id
-  { id: 'music-rank', name: '网易云音乐榜', icon: '🎵', dyn: {
-    list: '/v2/ncm-rank/list',
-    detail: '/v2/ncm-rank/',
-  }, tabs: [
-    { ep: 'ncm', label: '热歌榜' },
-  ]},
-  { id: 'free-games', name: '免费游戏', icon: '🎮', tabs: [
-    { ep: 'epic', label: 'Epic' },
-    { ep: 'steam', label: 'Steam' },
-  ]},
-];
+  {
+    id: 'music-rank',
+    name: '网易云音乐榜',
+    icon: '🎵',
+    dyn: {
+      list: '/v2/ncm-rank/list',
+      detail: '/v2/ncm-rank/',
+    },
+    tabs: [{ ep: 'ncm', label: '热歌榜' }],
+  },
+  {
+    id: 'free-games',
+    name: '免费游戏',
+    icon: '🎮',
+    tabs: [
+      { ep: 'epic', label: 'Epic' },
+      { ep: 'steam', label: 'Steam' },
+    ],
+  },
+]
 // ep.id → 所属分组 的反查表（定位跳转用）
-const GROUP_OF = {};
-CARD_GROUPS.forEach(g => g.tabs.forEach(t => { GROUP_OF[t.ep] = g; }));
+const GROUP_OF = {}
+CARD_GROUPS.forEach((g) =>
+  g.tabs.forEach((t) => {
+    GROUP_OF[t.ep] = g
+  }),
+)
 
 // ============ 响应式判定：断点与输入能力（CSS 与 JS 共用同一口径） ============
 // MQ_TOUCH  ：主输入为触摸（手机/平板）——全屏分流用；触摸设备绕开系统 Fullscreen API，
@@ -1667,95 +2446,93 @@ CARD_GROUPS.forEach(g => g.tabs.forEach(t => { GROUP_OF[t.ep] = g; }));
 // MQ_MOBILE ：窄屏——移动端布局/交互判定。纯按视口宽度判定（≤820px），
 //             与 style.css 的 @media (max-width: 820px) 逐字一致，
 //             避免大屏触控笔记本（Surface / 触摸一体机等）被误判为移动端布局。
-const MQ_TOUCH = window.matchMedia('(pointer: coarse)');
-const MQ_MOBILE = window.matchMedia('(max-width: 820px)');
+const MQ_TOUCH = window.matchMedia('(pointer: coarse)')
+const MQ_MOBILE = window.matchMedia('(max-width: 820px)')
 // 三栏版式断点：≤900px 左侧栏收成抽屉（与 style.css 的抽屉媒体查询逐字一致）。
-const MQ_DRAWER = window.matchMedia('(max-width: 900px)');
+const MQ_DRAWER = window.matchMedia('(max-width: 900px)')
 // 移动端布局是否生效：原分散的 window.innerWidth <=/> 820 判断统一改用它，杜绝断点散落
-const isMobileLayout = () => MQ_MOBILE.matches;
+const isMobileLayout = () => MQ_MOBILE.matches
 
 // ============ 菜单目录数据与同步（分类=切换视图，模块=本页目录 TOC） ============
-let syncSpy = null; // init 内部赋值 setupScrollSpy：render 后按新卡片集合重建滚动监听
+let syncSpy = null // init 内部赋值 setupScrollSpy：render 后按新卡片集合重建滚动监听
 
 // 某分类按渲染顺序列出的「卡片」条目：分组成员合并为一个分组条目，与 appendCards 出卡逻辑一致
 function catTocEntries(catId) {
-  const out = [];
-  const seen = new Set();
-  EPS.filter(ep => ep.cat === catId).forEach(ep => {
-    const g = GROUP_OF[ep.id];
+  const out = []
+  const seen = new Set()
+  EPS.filter((ep) => ep.cat === catId).forEach((ep) => {
+    const g = GROUP_OF[ep.id]
     if (g) {
-      if (seen.has(g.id)) return;
-      seen.add(g.id);
-      out.push({ key: g.id, type: 'group', icon: groupIconHtml(g), name: g.name, epId: g.tabs[0].ep });
-      return;
+      if (seen.has(g.id)) return
+      seen.add(g.id)
+      out.push({ key: g.id, type: 'group', icon: groupIconHtml(g), name: g.name, epId: g.tabs[0].ep })
+      return
     }
-    out.push({ key: ep.id, type: 'ep', icon: iconHtml(ep), name: ep.name, epId: ep.id });
-  });
-  return out;
+    out.push({ key: ep.id, type: 'ep', icon: iconHtml(ep), name: ep.name, epId: ep.id })
+  })
+  return out
 }
 
 // 目录高亮的唯一写入口：点击定位与 scroll-spy 共用（高亮单元是卡片，分组成员归到分组条目）
 function setTocActive(key) {
-  document.querySelectorAll('.cat-toc-item').forEach(el => {
-    el.classList.toggle('active', !!key && el.dataset.key === key);
-  });
+  document.querySelectorAll('.cat-toc-item').forEach((el) => {
+    el.classList.toggle('active', !!key && el.dataset.key === key)
+  })
   // 分类页顶部的数据源便签行和侧边栏目录说的是同一件事（当前在看哪张卡），
   // 一并同步，避免两处高亮各说各话
-  let activePill = null;
-  document.querySelectorAll('.cat-filter-row .hf-pill').forEach(el => {
-    const on = !!key && el.dataset.card === key;
-    el.classList.toggle('active', on);
-    if (on) activePill = el;
-  });
+  let activePill = null
+  document.querySelectorAll('.cat-filter-row .hf-pill').forEach((el) => {
+    const on = !!key && el.dataset.card === key
+    el.classList.toggle('active', on)
+    if (on) activePill = el
+  })
   // 高亮换了才把它带进视野。侧边栏是纵向列表、条目总在视野里，看不出问题；
   // 而便签行是横向滚动的，靠后的分类（生活信息、趣味内容这些）滚动到时
   // 高亮根本不在可视区，等于白高亮。只在「高亮真的变了」时动手，
   // 否则用户手动横向翻看便签时会被滚动高亮不断拽回去
   if (key !== lastTocActiveKey) {
-    lastTocActiveKey = key;
-    if (activePill) ensurePillVisible(activePill);
+    lastTocActiveKey = key
+    if (activePill) ensurePillVisible(activePill)
   }
 }
 
 /** 用最小的横向滚动量把标签带进可视区（区别于点击时的 revealPill：那个会居中） */
 function ensurePillVisible(pill) {
-  if (!pill || !pill.isConnected) return;
+  if (!pill || !pill.isConnected) return
   // 必须延到下一帧：便签行多半是刚重建出来的，此刻浏览器还没做布局，
   // scrollWidth / clientWidth 都还是 0，「是否溢出」会直接判成不溢出而跳过——
   // 这正是「点击后标签没滚过去」的原因
   requestAnimationFrame(() => {
-    const scroller = pill.parentElement;
-    if (!scroller || !pill.isConnected) return;
-    if (scroller.scrollWidth <= scroller.clientWidth) return;
-    const el = pill.getBoundingClientRect();
-    const box = scroller.getBoundingClientRect();
-    if (el.left >= box.left && el.right <= box.right) return;
-    const pad = 12; // 留一点余量，别让标签紧贴边线
-    const delta = el.left < box.left ? el.left - box.left - pad : el.right - box.right + pad;
-    scroller.scrollBy({ left: delta, behavior: SMOOTH });
-  });
+    const scroller = pill.parentElement
+    if (!scroller || !pill.isConnected) return
+    if (scroller.scrollWidth <= scroller.clientWidth) return
+    const el = pill.getBoundingClientRect()
+    const box = scroller.getBoundingClientRect()
+    if (el.left >= box.left && el.right <= box.right) return
+    const pad = 12 // 留一点余量，别让标签紧贴边线
+    const delta = el.left < box.left ? el.left - box.left - pad : el.right - box.right + pad
+    scroller.scrollBy({ left: delta, behavior: SMOOTH })
+  })
 }
 
 // 分组条目上的「当前标签」徽章跟随卡片实际激活页；卡片未渲染时保留旧值，render 后会再同步
 function updateTocBadges() {
-  document.querySelectorAll('.cat-toc-item').forEach(el => {
-    const badge = el.querySelector('.tb');
-    if (!badge) return;
-    const label = el.dataset.type === 'group'
-      ? groupBadgeLabel(el.dataset.key)
-      : selectBadgeLabel(el.dataset.key);
-    badge.textContent = label;
-    badge.style.display = label ? '' : 'none';
-  });
+  document.querySelectorAll('.cat-toc-item').forEach((el) => {
+    const badge = el.querySelector('.tb')
+    if (!badge) return
+    const label = el.dataset.type === 'group' ? groupBadgeLabel(el.dataset.key) : selectBadgeLabel(el.dataset.key)
+    badge.textContent = label
+    badge.style.display = label ? '' : 'none'
+  })
 }
 
 /** 分组条目：取卡片当前激活的那一页标签（猫眼「在映」、免费游戏「Epic」…） */
 function groupBadgeLabel(key) {
-  const card = document.getElementById('card-' + key);
-  const activeEp = card && card.dataset.activeEp;
-  const g = CARD_GROUPS.find(x => x.id === key);
-  const tab = g && activeEp ? g.tabs.find(t => t.ep === activeEp) : null;
-  return tab ? tab.label : '';
+  const card = document.getElementById('card-' + key)
+  const activeEp = card && card.dataset.activeEp
+  const g = CARD_GROUPS.find((x) => x.id === key)
+  const tab = g && activeEp ? g.tabs.find((t) => t.ep === activeEp) : null
+  return tab ? tab.label : ''
 }
 
 /**
@@ -1765,218 +2542,259 @@ function groupBadgeLabel(key) {
  * 侧边栏就该把「现在选的是哪个」标出来，不然点进去才发现不是想看的那个
  */
 function selectBadgeLabel(epId) {
-  const ep = EPS.find(x => x.id === epId);
-  const sel = ep && ep.inputs && ep.inputs.find(i => i.sel);
-  if (!sel) return '';
-  const el = document.querySelector(`#card-${epId} select[name="${sel.n}"]`);
-  const value = el ? el.value : sel.d;
-  const opt = sel.sel.find(o => (Array.isArray(o) ? o[0] : o) === value);
-  if (opt === undefined) return '';
-  return Array.isArray(opt) ? opt[1] : String(opt);
+  const ep = EPS.find((x) => x.id === epId)
+  const sel = ep && ep.inputs && ep.inputs.find((i) => i.sel)
+  if (!sel) return ''
+  const el = document.querySelector(`#card-${epId} select[name="${sel.n}"]`)
+  const value = el ? el.value : sel.d
+  const opt = sel.sel.find((o) => (Array.isArray(o) ? o[0] : o) === value)
+  if (opt === undefined) return ''
+  return Array.isArray(opt) ? opt[1] : String(opt)
 }
 
 /** 条目是否需要「当前选中项」徽章：分组卡片恒有；普通卡片看它带不带下拉 */
 function hasSelectInput(e) {
-  if (e.type === 'group') return true;
-  const ep = EPS.find(x => x.id === e.epId);
-  return !!(ep && ep.inputs && ep.inputs.some(i => i.sel));
+  if (e.type === 'group') return true
+  const ep = EPS.find((x) => x.id === e.epId)
+  return !!(ep && ep.inputs && ep.inputs.some((i) => i.sel))
 }
 
 // 桌面 scroll-spy：观察当前分类的卡片，视口上部波段内最靠前的卡片即「正在阅读」的条目
-let spyObserver = null;
-const spyVisible = new Set();
+let spyObserver = null
+const spyVisible = new Set()
 function setupScrollSpy() {
-  if (spyObserver) { spyObserver.disconnect(); spyObserver = null; }
-  spyVisible.clear();
+  if (spyObserver) {
+    spyObserver.disconnect()
+    spyObserver = null
+  }
+  spyVisible.clear()
   // 首页没有卡片可观察；「全部」是分类分组长页，目录里没有对应卡片条目。
   // 这里不再排除窄屏：早先禁掉是因为移动端的模块目录是「呼出面板」，跟随滚动没意义；
   // 现在内容区顶部也多了一条数据源便签行，它同样是横向滚动的，
   // 「滚到哪张卡就把哪个标签带进视野」在手机上一样成立
-  if (curView === 'home' || curCat === 'all') return;
-  const keys = catTocEntries(curCat).map(e => e.key);
-  spyObserver = new IntersectionObserver(entries => {
-    for (const en of entries) {
-      const k = en.target.dataset.spyKey;
-      if (en.isIntersecting) spyVisible.add(k); else spyVisible.delete(k);
-    }
-    if (!spyVisible.size) return;
-    // 点击意图优先：点选的卡片仍有足量部分（≥140px）在视口内时，高亮不跟随滚动，
-    // 避免定位后的轻微滚动就让高亮跳走；卡片基本滚出视口后交还 scroll-spy
-    const activeKey = activeModuleId
-      ? (GROUP_OF[activeModuleId] ? GROUP_OF[activeModuleId].id : activeModuleId)
-      : null;
-    if (activeKey) {
-      const el = document.getElementById('card-' + activeKey);
-      const r = el && el.getBoundingClientRect();
-      const visible = r ? Math.min(window.innerHeight, r.bottom) - Math.max(0, r.top) : 0;
-      if (visible >= 140) { setTocActive(activeKey); return; }
-    }
-    // 网格同一行的卡片同时可见，取 TOC 顺序最前的作为「当前行」位置标记
-    const current = keys.find(k => spyVisible.has(k));
-    if (current) setTocActive(current);
-  }, { rootMargin: '-110px 0px -65% 0px', threshold: 0 });
-  keys.forEach(k => {
-    const el = document.getElementById('card-' + k);
-    if (!el) return;
-    el.dataset.spyKey = k;
-    spyObserver.observe(el);
-  });
+  if (curView === 'home' || curCat === 'all') return
+  const keys = catTocEntries(curCat).map((e) => e.key)
+  spyObserver = new IntersectionObserver(
+    (entries) => {
+      for (const en of entries) {
+        const k = en.target.dataset.spyKey
+        if (en.isIntersecting) spyVisible.add(k)
+        else spyVisible.delete(k)
+      }
+      if (!spyVisible.size) return
+      // 点击意图优先：点选的卡片仍有足量部分（≥140px）在视口内时，高亮不跟随滚动，
+      // 避免定位后的轻微滚动就让高亮跳走；卡片基本滚出视口后交还 scroll-spy
+      const activeKey = activeModuleId
+        ? GROUP_OF[activeModuleId]
+          ? GROUP_OF[activeModuleId].id
+          : activeModuleId
+        : null
+      if (activeKey) {
+        const el = document.getElementById('card-' + activeKey)
+        const r = el && el.getBoundingClientRect()
+        const visible = r ? Math.min(window.innerHeight, r.bottom) - Math.max(0, r.top) : 0
+        if (visible >= 140) {
+          setTocActive(activeKey)
+          return
+        }
+      }
+      // 网格同一行的卡片同时可见，取 TOC 顺序最前的作为「当前行」位置标记
+      const current = keys.find((k) => spyVisible.has(k))
+      if (current) setTocActive(current)
+    },
+    { rootMargin: '-110px 0px -65% 0px', threshold: 0 },
+  )
+  keys.forEach((k) => {
+    const el = document.getElementById('card-' + k)
+    if (!el) return
+    el.dataset.spyKey = k
+    spyObserver.observe(el)
+  })
 }
 // 跨越桌面/移动断点时重建监听（只有桌面需要 spy）
-MQ_MOBILE.addEventListener('change', () => setupScrollSpy());
+MQ_MOBILE.addEventListener('change', () => setupScrollSpy())
 
-let curCat = 'all';
+let curCat = 'all'
 /**
  * 顶层视图：'home' = 今日热榜聚合首页（跨平台混排榜单），'cat' = 分类卡片页。
  * 两者共用 #main 由 renderImpl 分流；右侧信息栏 #rail 在桌面端**所有视图**都显示
  * （>1180px 由 CSS 控制，≤1180px 整栏 display:none），装的都是与视图无关的全局信息。
  * 默认首页，hash 为某个分类 id 时才落回分类页。
  */
-let curView = 'home';
+let curView = 'home'
 // 首页聚合数据与平台筛选（'all' = 综合）
-let homeData = null;
-let homeFilter = 'all';
-let homeKeywordFilter = null; // 当前热词筛选（null 为不筛选）
+let homeData = null
+let homeFilter = 'all'
+let homeKeywordFilter = null // 当前热词筛选（null 为不筛选）
 // 首页每个榜单默认展示条数，超出折叠；homeExpanded 只在「当前这一屏」有效，换筛选即复位
-const HOME_COLLAPSE_N = 20;
-let homeExpanded = false;
-let activeModuleId = null; // 当前高亮的子菜单模块（点击模块菜单后记录）
-let syncSubs = null; // init 内部 refreshSubs 的对外钩子：分组卡片切标签页时同步子菜单高亮
-let locateCardFn = null; // init 内部 locateCard 的对外钩子：分类页数据源便签点击定位用
-let switchToHomeFn = null; // init 内部 switchToHome 的对外钩子：站内搜索切回首页用
-let centerSubChip = null; // init 内部 focusSubChip 的对外钩子：切标签页时让对应模块 chip 滚入可视区
-let fanyiLangs = null;
+const HOME_COLLAPSE_N = 20
+let homeExpanded = false
+let activeModuleId = null // 当前高亮的子菜单模块（点击模块菜单后记录）
+let syncSubs = null // init 内部 refreshSubs 的对外钩子：分组卡片切标签页时同步子菜单高亮
+let locateCardFn = null // init 内部 locateCard 的对外钩子：分类页数据源便签点击定位用
+let switchToHomeFn = null // init 内部 switchToHome 的对外钩子：站内搜索切回首页用
+let centerSubChip = null // init 内部 focusSubChip 的对外钩子：切标签页时让对应模块 chip 滚入可视区
+let fanyiLangs = null
 
 // ============ Splash 开屏：首批自动加载全部完成后渐隐 ============
 // 最短展示 600ms：缓存全命中时避免一闪而过显得突兀；
 // 最长 3.5s 兜底：个别接口挂起时不让遮罩长时间挡住页面
 const splash = (() => {
-  const MIN_SHOW = 600;
-  const MAX_SHOW = 3500;
-  let pending = 0, hidden = false, startedAt = 0, failSafe = null;
+  const MIN_SHOW = 600
+  const MAX_SHOW = 3500
+  let pending = 0,
+    hidden = false,
+    startedAt = 0,
+    failSafe = null
 
   function hideNow() {
-    if (hidden) return;
-    hidden = true;
-    clearTimeout(failSafe);
-    const el = document.getElementById('splash');
-    if (!el) return;
+    if (hidden) return
+    hidden = true
+    clearTimeout(failSafe)
+    const el = document.getElementById('splash')
+    if (!el) return
 
     // 火焰「归位」动画：从屏幕中央飞向左上角 logo，缩小到 logo 尺寸后随遮罩淡出
-    const icon = el.querySelector('.splash-icon');
-    const logo = document.querySelector('.logo svg');
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const icon = el.querySelector('.splash-icon')
+    const logo = document.querySelector('.logo svg')
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
     if (icon && logo && !reduced) {
-      const s = icon.getBoundingClientRect();
-      const d = logo.getBoundingClientRect();
-      const scale = d.width / s.width;
-      const dx = (d.left + d.width / 2) - (s.left + s.width / 2);
-      const dy = (d.top + d.height / 2) - (s.top + s.height / 2);
-      icon.style.animation = 'none';
-      icon.style.transition = 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+      const s = icon.getBoundingClientRect()
+      const d = logo.getBoundingClientRect()
+      const scale = d.width / s.width
+      const dx = d.left + d.width / 2 - (s.left + s.width / 2)
+      const dy = d.top + d.height / 2 - (s.top + s.height / 2)
+      icon.style.animation = 'none'
+      icon.style.transition = 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
       // 强制回流，确保 transition 从当前脉冲帧生效而非直接跳到终点
-      void icon.getBoundingClientRect();
-      icon.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
+      void icon.getBoundingClientRect()
+      icon.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`
     }
 
-    el.classList.add('splash-hide');
-    setTimeout(() => el.remove(), 700); // 等淡出/归位过渡结束再移除节点
+    el.classList.add('splash-hide')
+    setTimeout(() => el.remove(), 700) // 等淡出/归位过渡结束再移除节点
   }
   function hide() {
-    const wait = Math.max(0, MIN_SHOW - (Date.now() - startedAt));
-    if (wait) setTimeout(hideNow, wait); else hideNow();
+    const wait = Math.max(0, MIN_SHOW - (Date.now() - startedAt))
+    if (wait) setTimeout(hideNow, wait)
+    else hideNow()
   }
   return {
     begin(n) {
-      startedAt = Date.now();
-      if (n <= 0) { hide(); return; }
-      pending = n;
-      failSafe = setTimeout(hide, MAX_SHOW);
+      startedAt = Date.now()
+      if (n <= 0) {
+        hide()
+        return
+      }
+      pending = n
+      failSafe = setTimeout(hide, MAX_SHOW)
     },
-    step() { if (!hidden && --pending <= 0) hide(); },
-  };
-})();
-let firstRenderDone = false; // 仅首屏渲染触发开屏计数，切分类/搜索不再干预遮罩
+    step() {
+      if (!hidden && --pending <= 0) hide()
+    },
+  }
+})()
+let firstRenderDone = false // 仅首屏渲染触发开屏计数，切分类/搜索不再干预遮罩
 
 // Google 翻译内置语言表（代码与 translate.googleapis.com 端点一致）
 const G_LANGS = [
-  ['auto', '自动检测'], ['zh-CN', '简体中文'], ['zh-TW', '繁体中文'], ['en', '英语'],
-  ['ja', '日语'], ['ko', '韩语'], ['fr', '法语'], ['de', '德语'],
-  ['es', '西班牙语'], ['ru', '俄语'], ['pt', '葡萄牙语'], ['it', '意大利语'],
-  ['ar', '阿拉伯语'], ['th', '泰语'], ['vi', '越南语'], ['id', '印尼语'],
-];
+  ['auto', '自动检测'],
+  ['zh-CN', '简体中文'],
+  ['zh-TW', '繁体中文'],
+  ['en', '英语'],
+  ['ja', '日语'],
+  ['ko', '韩语'],
+  ['fr', '法语'],
+  ['de', '德语'],
+  ['es', '西班牙语'],
+  ['ru', '俄语'],
+  ['pt', '葡萄牙语'],
+  ['it', '意大利语'],
+  ['ar', '阿拉伯语'],
+  ['th', '泰语'],
+  ['vi', '越南语'],
+  ['id', '印尼语'],
+]
 
 // 语言代码 → 中文名（查不到时回退显示代码本身，避免结果区出现空占位）
 function gtLangLabel(code) {
-  const hit = G_LANGS.find(l => l[0] === code);
-  return hit ? hit[1] : code;
+  const hit = G_LANGS.find((l) => l[0] === code)
+  return hit ? hit[1] : code
 }
 
 // 加载有道翻译支持的语言列表（预加载，不依赖卡片渲染）
 async function loadFanyiLangs() {
-  if (fanyiLangs && fanyiLangs.length) { fillFanyiSelects(); return; }
+  if (fanyiLangs && fanyiLangs.length) {
+    fillFanyiSelects()
+    return
+  }
   try {
-    const r = await fetch(API + '/v2/fanyi/langs');
-    const j = await r.json();
+    const r = await fetch(API + '/v2/fanyi/langs')
+    const j = await r.json()
     // 空列表视为无效（后端冷启动语言表未就绪），不缓存，保留"加载中"等待重试
     if (j.code === 200 && Array.isArray(j.data) && j.data.length > 0) {
-      fanyiLangs = j.data.sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'));
-      fillFanyiSelects();
+      fanyiLangs = j.data.sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'))
+      fillFanyiSelects()
     }
-  } catch(e) {}
+  } catch (e) {}
 }
 
 function fillFanyiSelects() {
-  if (!fanyiLangs || !fanyiLangs.length) return;
-  const opts = fanyiLangs.map(l => `<option value="${esc(l.code)}">${esc(l.label)}</option>`).join('');
-  document.querySelectorAll('select[data-role="fanyi-lang"]').forEach(sel => {
-    const cur = sel.value;
-    sel.innerHTML = opts;
+  if (!fanyiLangs || !fanyiLangs.length) return
+  const opts = fanyiLangs.map((l) => `<option value="${esc(l.code)}">${esc(l.label)}</option>`).join('')
+  document.querySelectorAll('select[data-role="fanyi-lang"]').forEach((sel) => {
+    const cur = sel.value
+    sel.innerHTML = opts
     // 当前值不在新列表里时不能留着赋值失败的第一个 option（会静默提交错误语言），
     // 回退到卡片默认值；默认值也没有就插一个保底 option
-    if ([...sel.options].some(o => o.value === cur)) {
-      sel.value = cur;
+    if ([...sel.options].some((o) => o.value === cur)) {
+      sel.value = cur
     } else {
-      const def = sel.name === 'from' ? 'en' : 'zh-CHS';
-      if ([...sel.options].some(o => o.value === def)) {
-        sel.value = def;
+      const def = sel.name === 'from' ? 'en' : 'zh-CHS'
+      if ([...sel.options].some((o) => o.value === def)) {
+        sel.value = def
       } else {
-        sel.insertAdjacentHTML('afterbegin', `<option value="${def}">英语</option>`);
-        sel.value = def;
+        sel.insertAdjacentHTML('afterbegin', `<option value="${def}">英语</option>`)
+        sel.value = def
       }
     }
-  });
+  })
 }
 
 // ============ Init ============
-const $ = s => document.querySelector(s);
-const $$ = s => document.querySelectorAll(s);
+const $ = (s) => document.querySelector(s)
+const $$ = (s) => document.querySelectorAll(s)
 
 function esc(s) {
-  if (s == null) return '';
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  if (s == null) return ''
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 // 侧边栏菜单项内容：把「📰 新闻资讯」这类「图标 + 空格 + 名称」拆成两块——
 // 图标单独成一个色块（.mi），名称占满剩余宽度（.mn），
 // 计数徽章与展开箭头才能稳定贴到行尾（见 style.css 的 .sidebar .cat-pills 规则）
 function menuItemHtml(name) {
-  const s = String(name == null ? '' : name).trim();
-  const i = s.indexOf(' ');
-  if (i <= 0) return `<span class="mn">${esc(s)}</span>`;
-  return `<span class="mi">${esc(s.slice(0, i))}</span><span class="mn">${esc(s.slice(i + 1))}</span>`;
+  const s = String(name == null ? '' : name).trim()
+  const i = s.indexOf(' ')
+  if (i <= 0) return `<span class="mn">${esc(s)}</span>`
+  return `<span class="mi">${esc(s.slice(0, i))}</span><span class="mn">${esc(s.slice(i + 1))}</span>`
 }
 
 // 安全 URL 校验：仅放行 http/https/mailto，其余（javascript:、data: 等）替换为 #
 // 返回值还会进 href/src 等属性，引号 percent-encode 防止属性逃逸（引号本就不是合法 URL 字符）
 function safeUrl(u) {
-  if (!u) return '#';
+  if (!u) return '#'
   try {
-    const url = new URL(u, location.origin);
-    if (!['http:', 'https:', 'mailto:'].includes(url.protocol)) return '#';
-    return String(u).replace(/"/g, '%22').replace(/'/g, '%27');
+    const url = new URL(u, location.origin)
+    if (!['http:', 'https:', 'mailto:'].includes(url.protocol)) return '#'
+    return String(u).replace(/"/g, '%22').replace(/'/g, '%27')
   } catch {
-    return '#';
+    return '#'
   }
 }
 
@@ -1987,35 +2805,43 @@ function safeUrl(u) {
 // 全局只挂一对 mousemove/mouseup，用共享的 dragState 记录「当前在拖哪个容器」：
 // 首页每次切视图都会重建平台标签行并重新绑定，若按容器各挂一套全局监听，
 // 进一次首页就多两个常驻监听，会越积越多。
-let dragState = null;
+let dragState = null
 function enableDragScroll(container) {
-  if (!container) return;
+  if (!container) return
   container.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return; // 仅左键
-    dragState = { container, startX: e.clientX, startLeft: container.scrollLeft, dx: 0 };
-    container.classList.add('dragging');
-    document.body.style.cursor = 'grabbing';
-  });
+    if (e.button !== 0) return // 仅左键
+    dragState = { container, startX: e.clientX, startLeft: container.scrollLeft, dx: 0 }
+    container.classList.add('dragging')
+    document.body.style.cursor = 'grabbing'
+  })
 }
 window.addEventListener('mousemove', (e) => {
-  if (!dragState) return;
-  dragState.dx = e.clientX - dragState.startX;
-  dragState.container.scrollLeft = dragState.startLeft - dragState.dx;
-});
+  if (!dragState) return
+  dragState.dx = e.clientX - dragState.startX
+  dragState.container.scrollLeft = dragState.startLeft - dragState.dx
+})
 window.addEventListener('mouseup', () => {
-  if (!dragState) return;
-  const { container, dx } = dragState;
-  dragState = null;
-  container.classList.remove('dragging');
-  document.body.style.cursor = '';
+  if (!dragState) return
+  const { container, dx } = dragState
+  dragState = null
+  container.classList.remove('dragging')
+  document.body.style.cursor = ''
   // 发生过横向拖拽则本次点击视为拖拽结束，吞掉以免误触分类/平台筛选
   if (Math.abs(dx) > 6) {
-    container.addEventListener('click', (ev) => { ev.stopPropagation(); ev.preventDefault(); }, { capture: true, once: true });
+    container.addEventListener(
+      'click',
+      (ev) => {
+        ev.stopPropagation()
+        ev.preventDefault()
+      },
+      { capture: true, once: true },
+    )
   }
-});
+})
 
 // P1: 骨架屏 HTML
-const SKELETON_HTML = '<div class="skeleton">' +
+const SKELETON_HTML =
+  '<div class="skeleton">' +
   '<div class="skeleton-line" style="width:78%"></div>' +
   '<div class="skeleton-line" style="width:92%"></div>' +
   '<div class="skeleton-line" style="width:85%"></div>' +
@@ -2023,11 +2849,12 @@ const SKELETON_HTML = '<div class="skeleton">' +
   '<div class="skeleton-line" style="width:88%"></div>' +
   '<div class="skeleton-line" style="width:74%"></div>' +
   '<div class="skeleton-line" style="width:82%"></div>' +
-  '<div class="skeleton-line skeleton-line-short" style="width:55%"></div></div>';
+  '<div class="skeleton-line skeleton-line-short" style="width:55%"></div></div>'
 
 // 视图空态：复用免费游戏空态的视觉语言（图标+主文案+副说明），比一行灰字友好。
 // 搜索框已移除，这里只在分类数据缺失这类异常情况下兜底
-const EMPTY_HTML = '<div class="empty-state"><span class="es-icon">🍃</span><span class="es-text">这里还没有内容</span><span class="es-sub">换个分类看看吧</span></div>';
+const EMPTY_HTML =
+  '<div class="empty-state"><span class="es-icon">🍃</span><span class="es-text">这里还没有内容</span><span class="es-sub">换个分类看看吧</span></div>'
 
 // 数据源不可用时的友好提示：不暴露错误码/堆栈，保留重试入口
 function unavailableHTML(ep, detail) {
@@ -2036,17 +2863,19 @@ function unavailableHTML(ep, detail) {
     <span class="un-text">数据源开小差了，稍后再来看看</span>
     ${detail ? `<span class="un-detail">${esc(detail)}</span>` : ''}
     <button class="retry-btn" onclick="load(window._ep_${ep.id})">↻ 再试一次</button>
-  </div>`;
+  </div>`
 }
 
 // ============ 必应每日壁纸背景 ============
 // 壁纸开关：默认关闭（首屏更快也更省流量）；用户手动开启后写入 'wallpaper-off' = '0'——
 // 关闭态既不再请求壁纸，也由 html.wallpaper-off 停掉背景层绘制。
 // 首屏由 index.html 内联脚本提前打上 class，避免壁纸闪一下再消失
-let wallpaperOn = false;
-try { wallpaperOn = localStorage.getItem('wallpaper-off') === '0'; } catch {}
+let wallpaperOn = false
+try {
+  wallpaperOn = localStorage.getItem('wallpaper-off') === '0'
+} catch {}
 // 已加载标记：关闭后再开启时直接复用现有背景层，不再重复请求与挂 resize 监听
-let wallpaperBgLoaded = false;
+let wallpaperBgLoaded = false
 
 // 取 /v2/bing 当日壁纸：横屏优先 4K（UHD）原图、加载失败逐级回退 1920x1080；
 // 竖屏（含移动端）用必应 th 服务实时派生的 1080x1920 竖版（源图即 UHD，足够清晰）。
@@ -2054,206 +2883,234 @@ let wallpaperBgLoaded = false;
 // 旧缓存会被误判为当日有效，背景比壁纸卡片晚换 8 小时——不跟随每日更换的根因就在这
 async function loadWallpaperBg() {
   // 已关闭壁纸 / 已加载过：直接返回（重新开启由开关回调负责触发加载）
-  if (!wallpaperOn || wallpaperBgLoaded) return;
-  wallpaperBgLoaded = true;
+  if (!wallpaperOn || wallpaperBgLoaded) return
+  wallpaperBgLoaded = true
   try {
     // en-CA 输出 YYYY-MM-DD；与后端 localeDate 的 Asia/Shanghai 日界保持一致
-    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(new Date());
-    const key = 'bing-wallpaper';
-    let cover = null, cover4k = null, coverPortrait = null;
-    let cached = null;
-    try { cached = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) {}
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(new Date())
+    const key = 'bing-wallpaper'
+    let cover = null,
+      cover4k = null,
+      coverPortrait = null
+    let cached = null
+    try {
+      cached = JSON.parse(localStorage.getItem(key) || 'null')
+    } catch (e) {}
     const fromCache = (c) => {
-      cover = c.cover;
-      cover4k = c.cover4k || cover.replace('_1920x1080.jpg', '_UHD.jpg');
-      coverPortrait = c.coverPortrait || cover.replace('_1920x1080.jpg', '_1080x1920.jpg');
-    };
+      cover = c.cover
+      cover4k = c.cover4k || cover.replace('_1920x1080.jpg', '_UHD.jpg')
+      coverPortrait = c.coverPortrait || cover.replace('_1920x1080.jpg', '_1080x1920.jpg')
+    }
     if (cached && cached.date === today && cached.cover) {
-      fromCache(cached);
+      fromCache(cached)
     } else {
       try {
-        const r = await fetch(API + '/v2/bing');
-        const j = await r.json();
-        const d = j && j.data;
+        const r = await fetch(API + '/v2/bing')
+        const j = await r.json()
+        const d = j && j.data
         if (j.code === 200 && d && d.cover) {
-          cover = d.cover;
+          cover = d.cover
           // cover_4k 为 UHD 原图；后端缺该字段时按同一 id 规则派生
-          cover4k = d.cover_4k || cover.replace('_1920x1080.jpg', '_UHD.jpg');
+          cover4k = d.cover_4k || cover.replace('_1920x1080.jpg', '_UHD.jpg')
           // 由横版 URL 派生竖版裁切（必应 th 服务支持任意宽高参数，源图为 UHD 足够清晰）
-          coverPortrait = cover.replace('_1920x1080.jpg', '_1080x1920.jpg');
-          try { localStorage.setItem(key, JSON.stringify({ date: today, cover, cover4k, coverPortrait })); } catch (e) {}
+          coverPortrait = cover.replace('_1920x1080.jpg', '_1080x1920.jpg')
+          try {
+            localStorage.setItem(key, JSON.stringify({ date: today, cover, cover4k, coverPortrait }))
+          } catch (e) {}
         }
-      } catch (e) { /* 当日拉取失败：下方退回过期缓存，有壁纸总比没有好 */ }
-      if (!cover && cached && cached.cover) fromCache(cached);
+      } catch (e) {
+        /* 当日拉取失败：下方退回过期缓存，有壁纸总比没有好 */
+      }
+      if (!cover && cached && cached.cover) fromCache(cached)
     }
-    if (!cover) return;
+    if (!cover) return
 
     // 各方向候选链：横屏首选 4K、失败回退 1080P；省流模式直接 1080P 打头；
     // 竖屏只有派生竖版一档。
     // failed 记录本次会话加载失败的 URL：回退成功后 pick 不再包含死链，
     // 否则 onload 里的「首选已变」判断会让 1080P 与 4K 互相踢皮球死循环
-    const failed = new Set();
+    const failed = new Set()
     const chain = (portrait) => {
-      if (portrait) return [coverPortrait || cover];
-      if (prefersSaveData()) return [cover]; // 省流：跳过 UHD（体积约 3 倍）
-      return (cover4k && cover4k !== cover ? [cover4k, cover] : [cover]);
-    };
-    const pick = () => chain(window.innerHeight >= window.innerWidth).filter(u => !failed.has(u));
+      if (portrait) return [coverPortrait || cover]
+      if (prefersSaveData()) return [cover] // 省流：跳过 UHD（体积约 3 倍）
+      return cover4k && cover4k !== cover ? [cover4k, cover] : [cover]
+    }
+    const pick = () => chain(window.innerHeight >= window.innerWidth).filter((u) => !failed.has(u))
 
     // 统一走「目标图 onload 后才写入 background-image」：背景图未下载完成时该层
     // 什么都不画（旧图已被替换掉），等下载完才突然弹出——缩放窗口跨越横竖临界
     // （宽=高，典型窗口高度下紧邻移动端断点）时整页背景闪一下就是这个原因。
     // 候选链逐级回退：4K 失败静默换 1080P，全部失败保持当前画面不动，宁缺不闪
     function swapWallpaper(candidates, reveal) {
-      const el = document.getElementById('wallpaperBg');
-      const url = candidates[0];
-      if (!el || !url) return;
-      const im = new Image();
+      const el = document.getElementById('wallpaperBg')
+      const url = candidates[0]
+      if (!el || !url) return
+      const im = new Image()
       im.onload = () => {
-        if (pick()[0] !== url) { swapWallpaper(pick(), reveal); return; }
-        el.style.backgroundImage = `url("${url}")`;
+        if (pick()[0] !== url) {
+          swapWallpaper(pick(), reveal)
+          return
+        }
+        el.style.backgroundImage = `url("${url}")`
         if (reveal) {
-          el.hidden = false;
+          el.hidden = false
           // rAF 保证首帧绘制后再淡入；但后台/冻结标签页 rAF 永不触发，
           // 壁纸会加载成功却永远不显示——setTimeout 兜底（类幂等，重复加无害）
-          requestAnimationFrame(() => el.classList.add('show'));
-          setTimeout(() => el.classList.add('show'), 200);
+          requestAnimationFrame(() => el.classList.add('show'))
+          setTimeout(() => el.classList.add('show'), 200)
         }
-      };
-      im.onerror = () => { failed.add(url); swapWallpaper(pick(), reveal); };
-      im.src = url;
+      }
+      im.onerror = () => {
+        failed.add(url)
+        swapWallpaper(pick(), reveal)
+      }
+      im.src = url
     }
 
-    let lastPortrait = window.innerHeight >= window.innerWidth;
-    swapWallpaper(pick(), true);
+    let lastPortrait = window.innerHeight >= window.innerWidth
+    swapWallpaper(pick(), true)
     // 预载另一方向的首选图：首次跨越横竖临界时切换直接命中缓存，零等待
-    const otherHead = chain(!lastPortrait).find(u => !failed.has(u));
-    if (otherHead) new Image().src = otherHead;
+    const otherHead = chain(!lastPortrait).find((u) => !failed.has(u))
+    if (otherHead) new Image().src = otherHead
 
     // 旋转屏幕/缩放窗口跨越横竖临界时按当前方向切换横竖版裁切
     window.addEventListener('resize', () => {
-      const portrait = window.innerHeight >= window.innerWidth;
-      if (portrait === lastPortrait) return;
-      lastPortrait = portrait;
-      swapWallpaper(pick(), false);
-    });
-  } catch (e) { /* 壁纸加载失败不影响主功能 */ }
+      const portrait = window.innerHeight >= window.innerWidth
+      if (portrait === lastPortrait) return
+      lastPortrait = portrait
+      swapWallpaper(pick(), false)
+    })
+  } catch (e) {
+    /* 壁纸加载失败不影响主功能 */
+  }
 }
 
 // 弱网/省流场景：用户开启浏览器「省流量」时跳过 4K 原图直接用 1080p（体积约 1/3），
 // 与 4K 优先策略兼容——链表首位换成 1080p，失败回退路径不变
 function prefersSaveData() {
   try {
-    const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-    return !!(c && c.saveData);
-  } catch { return false; }
+    const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection
+    return !!(c && c.saveData)
+  } catch {
+    return false
+  }
 }
 
 function init() {
   // P0: 清理过期缓存
-  cacheClean();
+  cacheClean()
 
   // 顶栏搜索（默认必应，可切谷歌）
-  initSiteSearch();
+  initSiteSearch()
 
   // 万年历与农历胶囊弹窗
-  initCalendarModal();
+  initCalendarModal()
 
   // Theme：优先用用户手动保存的偏好，否则跟随系统日间/夜间模式
   // （prefers-color-scheme 在桌面 Chrome/Edge/Firefox 与移动端 Safari/Chrome 均已支持）
-  const savedTheme = localStorage.getItem('theme');
-  document.documentElement.dataset.theme = savedTheme === 'dark' || savedTheme === 'light'
-    ? savedTheme
-    : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const savedTheme = localStorage.getItem('theme')
+  document.documentElement.dataset.theme =
+    savedTheme === 'dark' || savedTheme === 'light'
+      ? savedTheme
+      : window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light'
   // 主题色跟随：手机浏览器地址栏颜色随主题切换（夜间深色 / 日间品牌橙）
-  const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+  const themeColorMeta = document.querySelector('meta[name="theme-color"]')
   function syncThemeColor() {
-    if (!themeColorMeta) return;
-    themeColorMeta.content = document.documentElement.dataset.theme === 'dark' ? '#14101a' : '#f97316';
+    if (!themeColorMeta) return
+    themeColorMeta.content = document.documentElement.dataset.theme === 'dark' ? '#14101a' : '#f97316'
   }
-  syncThemeColor();
+  syncThemeColor()
   $('#themeToggle').onclick = () => {
-    const cur = document.documentElement.dataset.theme;
-    const next = cur === 'dark' ? 'light' : 'dark';
-    document.documentElement.dataset.theme = next;
-    localStorage.setItem('theme', next);
-    syncThemeColor();
-  };
+    const cur = document.documentElement.dataset.theme
+    const next = cur === 'dark' ? 'light' : 'dark'
+    document.documentElement.dataset.theme = next
+    localStorage.setItem('theme', next)
+    syncThemeColor()
+  }
 
   // 系统主题跟随：仅在用户没手动切换过主题时生效（手动切换会写入 localStorage，视为固定偏好）。
   // change 事件覆盖桌面与移动端；iOS 在后台期间系统外观变化时 change 可能漏发，
   // 回前台再用 visibilitychange 复核一次；旧 WebKit 只实现了已废弃的 addListener，做能力回退
-  const systemDarkMQ = window.matchMedia('(prefers-color-scheme: dark)');
+  const systemDarkMQ = window.matchMedia('(prefers-color-scheme: dark)')
   function followSystemTheme() {
-    if (localStorage.getItem('theme')) return;
-    const next = systemDarkMQ.matches ? 'dark' : 'light';
-    if (document.documentElement.dataset.theme === next) return;
-    document.documentElement.dataset.theme = next;
-    syncThemeColor();
+    if (localStorage.getItem('theme')) return
+    const next = systemDarkMQ.matches ? 'dark' : 'light'
+    if (document.documentElement.dataset.theme === next) return
+    document.documentElement.dataset.theme = next
+    syncThemeColor()
   }
-  if (systemDarkMQ.addEventListener) systemDarkMQ.addEventListener('change', followSystemTheme);
-  else if (systemDarkMQ.addListener) systemDarkMQ.addListener(followSystemTheme);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) followSystemTheme(); });
+  if (systemDarkMQ.addEventListener) systemDarkMQ.addEventListener('change', followSystemTheme)
+  else if (systemDarkMQ.addListener) systemDarkMQ.addListener(followSystemTheme)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) followSystemTheme()
+  })
 
   // 壁纸开关（默认关闭）：开启即拉取并显形，关闭即停掉背景层绘制并记住偏好；
   // 重新开启时只有「本次会话还没加载过」才去拉取壁纸，否则直接显形
-  const wallpaperBtn = $('#wallpaperToggle');
+  const wallpaperBtn = $('#wallpaperToggle')
   const syncWallpaperBtn = () => {
-    document.documentElement.classList.toggle('wallpaper-off', !wallpaperOn);
-    if (!wallpaperBtn) return;
-    const label = wallpaperOn ? '关闭壁纸' : '开启壁纸';
-    wallpaperBtn.title = label;
-    wallpaperBtn.setAttribute('aria-label', label);
-    wallpaperBtn.setAttribute('aria-pressed', String(wallpaperOn));
-  };
-  syncWallpaperBtn();
+    document.documentElement.classList.toggle('wallpaper-off', !wallpaperOn)
+    if (!wallpaperBtn) return
+    const label = wallpaperOn ? '关闭壁纸' : '开启壁纸'
+    wallpaperBtn.title = label
+    wallpaperBtn.setAttribute('aria-label', label)
+    wallpaperBtn.setAttribute('aria-pressed', String(wallpaperOn))
+  }
+  syncWallpaperBtn()
   if (wallpaperBtn) {
     wallpaperBtn.onclick = () => {
-      wallpaperOn = !wallpaperOn;
-      try { localStorage.setItem('wallpaper-off', wallpaperOn ? '0' : '1'); } catch {}
-      syncWallpaperBtn();
-      if (wallpaperOn) loadWallpaperBg();
-    };
+      wallpaperOn = !wallpaperOn
+      try {
+        localStorage.setItem('wallpaper-off', wallpaperOn ? '0' : '1')
+      } catch {}
+      syncWallpaperBtn()
+      if (wallpaperOn) loadWallpaperBg()
+    }
   }
 
-
-
   // 从 URL hash 恢复视图状态（刷新不丢失）：#home 回首页，分类 id 回分类页
-  const hash = location.hash.replace('#', '');
-  if (hash === 'home') curView = 'home';
-  else if (hash && CATS.some(c => c.id === hash)) { curCat = hash; curView = 'cat'; }
+  const hash = location.hash.replace('#', '')
+  if (hash === 'home') curView = 'home'
+  else if (hash && CATS.some((c) => c.id === hash)) {
+    curCat = hash
+    curView = 'cat'
+  }
 
   // 必应每日壁纸背景：异步加载不阻塞首屏
-  loadWallpaperBg();
+  loadWallpaperBg()
 
-  const nav = $('#catNav');
+  const nav = $('#catNav')
   // 两段式结构：.cat-row 是外层行容器（还要容纳桌面手风琴子菜单 .cat-sub，
   // 它靠 flex-basis:100% 换到下一行），内层 .cat-scroll 专管分类 pill——
   // pill 行一律不换行，放不下就横向滚动，溢出时两端出现可点击的箭头
-  const catRow = document.createElement('div');
-  catRow.className = 'cat-row';
-  const catScroll = document.createElement('div');
-  catScroll.className = 'cat-scroll';
-  const catPills = document.createElement('div');
-  catPills.className = 'cat-pills';
-  const catArrowPrev = document.createElement('button');
-  catArrowPrev.type = 'button';
-  catArrowPrev.className = 'cat-arrow prev';
-  catArrowPrev.setAttribute('aria-label', '向左查看更多分类');
-  catArrowPrev.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
-  const catArrowNext = document.createElement('button');
-  catArrowNext.type = 'button';
-  catArrowNext.className = 'cat-arrow next';
-  catArrowNext.setAttribute('aria-label', '向右查看更多分类');
-  catArrowNext.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
-  catScroll.append(catArrowPrev, catPills, catArrowNext);
-  catRow.appendChild(catScroll);
+  const catRow = document.createElement('div')
+  catRow.className = 'cat-row'
+  const catScroll = document.createElement('div')
+  catScroll.className = 'cat-scroll'
+  const catPills = document.createElement('div')
+  catPills.className = 'cat-pills'
+  const catArrowPrev = document.createElement('button')
+  catArrowPrev.type = 'button'
+  catArrowPrev.className = 'cat-arrow prev'
+  catArrowPrev.setAttribute('aria-label', '向左查看更多分类')
+  catArrowPrev.innerHTML =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>'
+  const catArrowNext = document.createElement('button')
+  catArrowNext.type = 'button'
+  catArrowNext.className = 'cat-arrow next'
+  catArrowNext.setAttribute('aria-label', '向右查看更多分类')
+  catArrowNext.innerHTML =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>'
+  catScroll.append(catArrowPrev, catPills, catArrowNext)
+  catRow.appendChild(catScroll)
   // 鼠标拖拽横向滚动（桌面鼠标；触摸端原生支持滑动，不重复绑定）
-  enableDragScroll(catPills);
+  enableDragScroll(catPills)
   // 移动端模块面板：absolute 悬浮在吸顶分类行下方、不占文档流，
   // 吸顶高度恒定，定位系统无需再感知面板开合带来的布局变化
-  const catPanel = document.createElement('div');
-  catPanel.className = 'cat-panel';
+  const catPanel = document.createElement('div')
+  catPanel.className = 'cat-panel'
 
   // 面板 fixed 挂在 body 下（见 init 末尾的 appendChild）：不能做 .cat-nav 的子元素——
   // 吸顶栏自身带 backdrop-filter，会形成 backdrop root，其后代的毛玻璃只能采样
@@ -2261,57 +3118,58 @@ function init() {
   // 失效、退化成纯半透明。挂到 body 后 backdrop root 回到根元素才能磨砂壁纸。
   // top 跟随吸顶栏实测底边（吸顶后高度恒定，打开与窗口变化时校准即可）
   function placeCatPanel() {
-    if (!isMobileLayout()) return;
-    catPanel.style.top = nav.getBoundingClientRect().bottom + 'px';
+    if (!isMobileLayout()) return
+    catPanel.style.top = nav.getBoundingClientRect().bottom + 'px'
   }
   // 开合状态同步打在 nav（沿用 toc-open 语义）与面板本体（CSS 显示开关）上
   function setCatPanelOpen(open) {
-    nav.classList.toggle('toc-open', open);
-    catPanel.classList.toggle('open', open);
-    if (open) placeCatPanel();
+    nav.classList.toggle('toc-open', open)
+    catPanel.classList.toggle('open', open)
+    if (open) placeCatPanel()
   }
-  window.addEventListener('resize', placeCatPanel);
+  window.addEventListener('resize', placeCatPanel)
 
   // 生成某分类的子菜单项（模块名按钮，点击定位到对应卡片）
   function buildSubItems(container, catId) {
-    EPS.filter(ep => ep.cat === catId).forEach(ep => {
-      const item = document.createElement('button');
-      item.className = 'cat-subitem';
-      item.type = 'button';
-      item.dataset.ep = ep.id;
-      item.innerHTML = `<span class="ci">${iconHtml(ep)}</span>${esc(ep.name)}`;
-      item.title = `定位到「${ep.name}」`;
-      item.onclick = () => locateCard(ep);
-      container.appendChild(item);
-    });
+    EPS.filter((ep) => ep.cat === catId).forEach((ep) => {
+      const item = document.createElement('button')
+      item.className = 'cat-subitem'
+      item.type = 'button'
+      item.dataset.ep = ep.id
+      item.innerHTML = `<span class="ci">${iconHtml(ep)}</span>${esc(ep.name)}`
+      item.title = `定位到「${ep.name}」`
+      item.onclick = () => locateCard(ep)
+      container.appendChild(item)
+    })
   }
 
   // 桌面侧边栏「本页目录」：按渲染顺序列卡片，分组卡合并为单条目（徽章显示当前标签页）。
   // 目录内容是静态的（分类下的卡片集合不变），动态的只有徽章与高亮，故预构建一次
   function buildToc(container, catId) {
-    container.innerHTML = '';
-    catTocEntries(catId).forEach(e => {
-      const item = document.createElement('button');
-      item.type = 'button';
-      item.className = 'cat-toc-item';
-      item.dataset.key = e.key;
-      item.dataset.type = e.type;
-      item.title = `定位到「${e.name}」`;
-      item.innerHTML = `<span class="mm">` +
+    container.innerHTML = ''
+    catTocEntries(catId).forEach((e) => {
+      const item = document.createElement('button')
+      item.type = 'button'
+      item.className = 'cat-toc-item'
+      item.dataset.key = e.key
+      item.dataset.type = e.type
+      item.title = `定位到「${e.name}」`
+      item.innerHTML =
+        `<span class="mm">` +
         `<span class="ci">${e.icon}</span><span class="nm">${esc(e.name)}</span></span>` +
-        (hasSelectInput(e) ? '<span class="tb"></span>' : '');
+        (hasSelectInput(e) ? '<span class="tb"></span>' : '')
       item.onclick = () => {
         // 分组条目定位到其当前激活的标签页（卡片未渲染时回退首个标签页）
-        let target = EPS.find(x => x.id === e.epId);
+        let target = EPS.find((x) => x.id === e.epId)
         if (e.type === 'group') {
-          const card = document.getElementById('card-' + e.key);
-          const activeEp = card && card.dataset.activeEp;
-          if (activeEp) target = EPS.find(x => x.id === activeEp) || target;
+          const card = document.getElementById('card-' + e.key)
+          const activeEp = card && card.dataset.activeEp
+          if (activeEp) target = EPS.find((x) => x.id === activeEp) || target
         }
-        if (target) locateCard(target);
-      };
-      container.appendChild(item);
-    });
+        if (target) locateCard(target)
+      }
+      container.appendChild(item)
+    })
   }
 
   // 把元素水平居中到其可滚动容器可视区（分类 pill / 模块 chip 通用）。
@@ -2320,60 +3178,60 @@ function init() {
   // instant：定位跳转与页面纵向滚动同时发生，两个平滑动画叠加会让画面「乱窜」，
   // 所以跳转时要求瞬时对齐，只有用户主动切分类才用平滑滚动
   function centerInContainer(container, el, instant) {
-    if (!container || container.scrollWidth <= container.clientWidth) return;
-    const elRect = el.getBoundingClientRect();
-    const cRect = container.getBoundingClientRect();
+    if (!container || container.scrollWidth <= container.clientWidth) return
+    const elRect = el.getBoundingClientRect()
+    const cRect = container.getBoundingClientRect()
     container.scrollTo({
       left: Math.max(0, container.scrollLeft + (elRect.left - cRect.left) - (container.clientWidth - elRect.width) / 2),
       behavior: instant ? 'instant' : SMOOTH,
-    });
+    })
   }
 
   // 分类 pill 行左右的箭头：仅在溢出时出现，滚到某一端后该侧箭头隐藏。
   // 箭头本身会占宽度，但「显示箭头 → 可用宽度更小 → 更溢出」，不会反过来把溢出消掉，
   // 因此不存在显示/隐藏来回抖动的可能
   function setupCatArrows(scroller, prev, next) {
-    const step = () => Math.max(140, Math.round(scroller.clientWidth * 0.75));
+    const step = () => Math.max(140, Math.round(scroller.clientWidth * 0.75))
     const sync = () => {
-      const max = scroller.scrollWidth - scroller.clientWidth;
-      const overflow = max > 1;
-      prev.hidden = !overflow || scroller.scrollLeft <= 1;
-      next.hidden = !overflow || scroller.scrollLeft >= max - 1;
-    };
-    prev.onclick = () => scroller.scrollBy({ left: -step(), behavior: SMOOTH });
-    next.onclick = () => scroller.scrollBy({ left: step(), behavior: SMOOTH });
-    scroller.addEventListener('scroll', sync, { passive: true });
-    window.addEventListener('resize', sync);
+      const max = scroller.scrollWidth - scroller.clientWidth
+      const overflow = max > 1
+      prev.hidden = !overflow || scroller.scrollLeft <= 1
+      next.hidden = !overflow || scroller.scrollLeft >= max - 1
+    }
+    prev.onclick = () => scroller.scrollBy({ left: -step(), behavior: SMOOTH })
+    next.onclick = () => scroller.scrollBy({ left: step(), behavior: SMOOTH })
+    scroller.addEventListener('scroll', sync, { passive: true })
+    window.addEventListener('resize', sync)
     // 首帧与字体就绪后各测一次：字体替换会改变 pill 宽度，直接影响是否溢出
-    requestAnimationFrame(sync);
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(sync).catch(() => {});
+    requestAnimationFrame(sync)
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(sync).catch(() => {})
   }
 
   // 让某模块在菜单中滚入可视区（定位跳转与分组标签页切换共用）：
   // 桌面端目录条目滚动到可视即可；移动端仅在面板展开时把对应 chip 滚入面板可视区
   function focusSubChip(epId) {
-    const key = GROUP_OF[epId] ? GROUP_OF[epId].id : epId;
+    const key = GROUP_OF[epId] ? GROUP_OF[epId].id : epId
     if (!isMobileLayout()) {
-      const item = catRow.querySelector(`.cat-toc-item[data-key="${key}"]`);
+      const item = catRow.querySelector(`.cat-toc-item[data-key="${key}"]`)
       // behavior 显式传：scrollIntoView 的默认 'auto' 会继承 CSS 的 smooth，
       // 减少动态偏好下就降不下来了
-      if (item) item.scrollIntoView({ block: 'nearest', behavior: SMOOTH });
-      return;
+      if (item) item.scrollIntoView({ block: 'nearest', behavior: SMOOTH })
+      return
     }
-    if (!nav.classList.contains('toc-open')) return;
-    const chip = catPanel.querySelector(`.cat-subitem[data-ep="${epId}"]`);
-    if (chip) chip.scrollIntoView({ block: 'nearest', behavior: SMOOTH });
+    if (!nav.classList.contains('toc-open')) return
+    const chip = catPanel.querySelector(`.cat-subitem[data-ep="${epId}"]`)
+    if (chip) chip.scrollIntoView({ block: 'nearest', behavior: SMOOTH })
   }
 
   // 定位校正任务（模块级单例）：分类定位与模块定位共用一个计时器，
   // 保证同一时刻只有一个任务在滚动页面
-  let alignTimer = null;
-  let alignToken = 0;
+  let alignTimer = null
+  let alignToken = 0
 
   function stopAlign() {
     if (alignTimer) {
-      clearInterval(alignTimer);
-      alignTimer = null;
+      clearInterval(alignTimer)
+      alignTimer = null
     }
   }
 
@@ -2381,19 +3239,19 @@ function init() {
   // 必须先取消上一轮：分类定位留下来的是每 100ms 把页面拉回「分类标题」的任务，
   // 若新一轮卡片定位不先清掉它，两者会朝各自目标反复拉扯，表现就是精确定位失效
   function startAlign(fn, interval) {
-    stopAlign();
-    alignTimer = setInterval(fn, interval);
-    return ++alignToken;
+    stopAlign()
+    alignTimer = setInterval(fn, interval)
+    return ++alignToken
   }
 
   // 延时兜底专用：只有本轮仍是当前任务时才停止，
   // 避免上一轮遗留的 setTimeout 到期后误清新一轮的计时器
   function stopAlignIfCurrent(token) {
-    if (token === alignToken) stopAlign();
+    if (token === alignToken) stopAlign()
   }
 
   // 用户手动滚动立即让位。固定引用，便于 once 监听器去重
-  const abortAlign = () => stopAlign();
+  const abortAlign = () => stopAlign()
 
   // 滚动停靠位：移动端吸顶的是分类导航（单行 pill；模块面板是悬浮层，不影响高度），
   // 桌面端分类栏在侧边不遮挡内容、遮挡卡片的是吸顶顶栏——必须分端测量，
@@ -2403,131 +3261,152 @@ function init() {
     // 三栏版式下它位于左侧固定栏内（position: static），会遮挡卡片的只有内容区顶栏；
     // 这里按 computed position 实测判断，而不是按视口宽度猜断点——
     // 断点一改就失效的口径不要写第二遍。
-    const navEl = document.querySelector('.cat-nav');
+    const navEl = document.querySelector('.cat-nav')
     if (navEl && getComputedStyle(navEl).position === 'sticky') {
-      return navEl.getBoundingClientRect().bottom + 12;
+      return navEl.getBoundingClientRect().bottom + 12
     }
-    const topbar = document.querySelector('.topbar');
-    return (topbar ? topbar.getBoundingClientRect().bottom : 0) + 12;
+    const topbar = document.querySelector('.topbar')
+    return (topbar ? topbar.getBoundingClientRect().bottom : 0) + 12
   }
 
   // 刷新菜单与页面状态同步：桌面目录展开/高亮、移动面板 chips、分组卡标签徽章
   function refreshSubs() {
     // 首页视图没有「当前分类」，目录一律收起
-    catRow.querySelectorAll('.cat-sub').forEach(el => {
-      el.classList.toggle('open', curView !== 'home' && el.dataset.for === curCat);
-    });
+    catRow.querySelectorAll('.cat-sub').forEach((el) => {
+      el.classList.toggle('open', curView !== 'home' && el.dataset.for === curCat)
+    })
     // 移动端面板：EPS 级 chips，分组成员可直达对应标签页
-    catPanel.innerHTML = '';
-    if (curView !== 'home' && curCat !== 'all') buildSubItems(catPanel, curCat);
+    catPanel.innerHTML = ''
+    if (curView !== 'home' && curCat !== 'all') buildSubItems(catPanel, curCat)
     // 高亮单元是「卡片」：activeModuleId 属于分组成员时归到分组条目
-    const key = activeModuleId ? (GROUP_OF[activeModuleId] ? GROUP_OF[activeModuleId].id : activeModuleId) : null;
-    setTocActive(key);
-    catPanel.querySelectorAll('.cat-subitem').forEach(el => {
-      el.classList.toggle('active', el.dataset.ep === activeModuleId);
-    });
-    updateTocBadges();
+    const key = activeModuleId ? (GROUP_OF[activeModuleId] ? GROUP_OF[activeModuleId].id : activeModuleId) : null
+    setTocActive(key)
+    catPanel.querySelectorAll('.cat-subitem').forEach((el) => {
+      el.classList.toggle('active', el.dataset.ep === activeModuleId)
+    })
+    updateTocBadges()
   }
   // 暴露给顶层函数（分组卡片切标签页时同步子菜单高亮 + chip 滚入可视区；
   // render() 末尾也会调用以对齐重建后的 DOM）
-  syncSubs = refreshSubs;
-  centerSubChip = focusSubChip;
-  syncSpy = setupScrollSpy;
-  locateCardFn = locateCard;
+  syncSubs = refreshSubs
+  centerSubChip = focusSubChip
+  syncSpy = setupScrollSpy
+  locateCardFn = locateCard
 
   // 定位模块卡片：必要时切分类 → 滚动到卡片并闪烁高亮
   function locateCard(ep) {
     // 定位目标只存在于分类页：先确保视图已切回，否则 render 出来的仍是首页
-    curView = 'cat';
+    curView = 'cat'
     // 移动端模块面板是悬浮层：定位即收起，避免遮住落点卡片
-    setCatPanelOpen(false);
-    let switched = false;
+    setCatPanelOpen(false)
+    let switched = false
     if (curCat !== ep.cat) {
-      switched = true;
-      curCat = ep.cat;
+      switched = true
+      curCat = ep.cat
       // 定位跳转切换分类同样要解除折叠态，保证箭头朝向与目录展开状态一致
-      nav.classList.remove('sub-collapsed');
-      location.hash = ep.cat;
-      $$('.cat-pills > button').forEach(x => x.classList.remove('active'));
-      const btn = catRow.querySelector(`button[data-cat="${ep.cat}"]`);
+      nav.classList.remove('sub-collapsed')
+      location.hash = ep.cat
+      $$('.cat-pills > button').forEach((x) => x.classList.remove('active'))
+      const btn = catRow.querySelector(`button[data-cat="${ep.cat}"]`)
       if (btn) {
-        btn.classList.add('active');
+        btn.classList.add('active')
         // pill 行放不下时：让选中的分类滚回可视区（内部按宽度判断，够宽时跳过）。
         // instant：本次是「定位跳转」，紧接着页面会纵跳，横向若同时平滑滑动会互相干扰
-        centerInContainer(catPills, btn, true);
+        centerInContainer(catPills, btn, true)
       }
     }
-    activeModuleId = ep.id;
-    refreshSubs();
+    activeModuleId = ep.id
+    refreshSubs()
     // 窄屏：让选中的模块 chip 在 chips 条内居中（切分类时等 strip 重建后执行）
-    if (switched) setTimeout(() => focusSubChip(ep.id), 80); else focusSubChip(ep.id);
+    if (switched) setTimeout(() => focusSubChip(ep.id), 80)
+    else focusSubChip(ep.id)
     // sync=true：跳过 View Transition，保证 render() 返回时新 DOM 已就绪，
     // 下面才能量到正确坐标（VT 的回调要等下一帧，量到的会是旧 DOM）
-    render(true);
+    render(true)
     // 此时目标卡必然存在。
     // 不用 scrollIntoView：它会被可滚动祖先截胡且受布局变化影响，
     // 直接计算卡片绝对坐标用 window.scrollTo 定位最可靠。
     // 分组成员：定位目标是所属分组卡片，并激活 ep 对应的标签页
     // （activate 内部懒加载该标签页数据；activeModuleId 已在上方设置，无需重复）
-    const group = GROUP_OF[ep.id];
-    const card = group
-      ? document.getElementById('card-' + group.id)
-      : document.getElementById('card-' + ep.id);
-    if (card && group && typeof card._activateTab === 'function') card._activateTab(ep.id);
+    const group = GROUP_OF[ep.id]
+    const card = group ? document.getElementById('card-' + group.id) : document.getElementById('card-' + ep.id)
+    if (card && group && typeof card._activateTab === 'function') card._activateTab(ep.id)
     if (card) {
       // 若目标卡仍在视口懒加载队列中，立即触发加载，无需等待滚动动画到位
       if (card.dataset.lazyEp) {
-        const epId = card.dataset.lazyEp;
-        delete card.dataset.lazyEp;
-        delete card.dataset.forceUpdate;
-        if (cardLazyObserver) cardLazyObserver.unobserve(card);
-        const targetEp = EPS.find(e => e.id === epId) || ep;
-        load(targetEp);
+        const epId = card.dataset.lazyEp
+        delete card.dataset.lazyEp
+        delete card.dataset.forceUpdate
+        if (cardLazyObserver) cardLazyObserver.unobserve(card)
+        const targetEp = EPS.find((e) => e.id === epId) || ep
+        load(targetEp)
       }
       // 先停掉上一轮校正（可能是分类定位留下的）：它会持续把页面拉回分类标题，
       // 与本次卡片定位争抢滚动位置，是精确定位失效的直接原因
-      stopAlign();
+      stopAlign()
 
       // 懒渲染（content-visibility）与精确定位结构性冲突：目标卡处于视口外时
       // 高度是估算值，首跳必然偏；滚动过去后它实渲染、下方卡片也陆续实渲染，
       // 高度又变 → 校正反复追赶甚至过冲。定位前临时禁用懒渲染：目标卡真实布局
       // 立即参与计算，首跳即可精确；轮询稳定后恢复（移除类），懒渲染利益不受影响
-      card.classList.add('locate-force');
+      card.classList.add('locate-force')
 
       // 停靠位与分类定位共用 scrollDockTop()（分端测量顶栏/分类导航底边）
-      const absY = () => card.getBoundingClientRect().top + window.scrollY - scrollDockTop();
+      const absY = () => card.getBoundingClientRect().top + window.scrollY - scrollDockTop()
       // 首跳用 instant：smooth 动画在后台/遮挡标签页会被暂停导致定位中断，
       // 精确性优先于过渡动画；随后的轮询校正同样是瞬时对齐
-      window.scrollTo({ top: absY(), behavior: 'instant' });
+      window.scrollTo({ top: absY(), behavior: 'instant' })
       // 卡片数据/图片异步加载会改变前方卡片高度，轮询校正：
       // 250ms 间隔快速对齐（懒渲染下卡片陆续实渲染，高度渐进稳定，间隔太长会
       // 永远慢一拍）；「连续 4 次文档高度无变化且已对齐」提前退出，9s 超时兜底；
       // 用户手动滚动立即让位
-      let aligned = 0, stableH = 0, lastH = 0, tries = 0;
-      const finishAlign = () => card.classList.remove('locate-force');
+      let aligned = 0,
+        stableH = 0,
+        lastH = 0,
+        tries = 0
+      const finishAlign = () => card.classList.remove('locate-force')
       const token = startAlign(() => {
-        tries++;
-        const h = document.documentElement.scrollHeight;
-        stableH = (h === lastH) ? stableH + 1 : 0;
-        lastH = h;
+        tries++
+        const h = document.documentElement.scrollHeight
+        stableH = h === lastH ? stableH + 1 : 0
+        lastH = h
         if (!card.isConnected || tries > 36 || (aligned >= 1 && stableH >= 4)) {
-          stopAlign(); finishAlign(); return;
+          stopAlign()
+          finishAlign()
+          return
         }
         if (Math.abs(card.getBoundingClientRect().top - scrollDockTop()) < 20) {
-          aligned++;
-          return;
+          aligned++
+          return
         }
-        aligned = 0;
+        aligned = 0
         // behavior:'instant' 必须显式传：不带 behavior 的 scrollTo 会继承
         // html { scroll-behavior: smooth }，长距离 smooth 动画在后台/节流标签页
         // 被暂停导致校正永远追不上（滚动卡在半途）
-        window.scrollTo({ top: absY(), behavior: 'instant' });
-      }, 250);
-      window.addEventListener('wheel', () => { stopAlign(); finishAlign(); }, { once: true, passive: true });
-      window.addEventListener('touchmove', () => { stopAlign(); finishAlign(); }, { once: true, passive: true });
-      setTimeout(() => { stopAlignIfCurrent(token); finishAlign(); }, 9300);
-      card.classList.add('locate-flash');
-      setTimeout(() => card.classList.remove('locate-flash'), 3000);
+        window.scrollTo({ top: absY(), behavior: 'instant' })
+      }, 250)
+      window.addEventListener(
+        'wheel',
+        () => {
+          stopAlign()
+          finishAlign()
+        },
+        { once: true, passive: true },
+      )
+      window.addEventListener(
+        'touchmove',
+        () => {
+          stopAlign()
+          finishAlign()
+        },
+        { once: true, passive: true },
+      )
+      setTimeout(() => {
+        stopAlignIfCurrent(token)
+        finishAlign()
+      }, 9300)
+      card.classList.add('locate-flash')
+      setTimeout(() => card.classList.remove('locate-flash'), 3000)
     }
   }
 
@@ -2540,21 +3419,21 @@ function init() {
   // 跳过渲染时高度是估算值，定位算出的坐标会失准——校正在卡片依次渲染后自然收敛
   function scrollToCatTitle(catId) {
     // 取消上一轮校正（可能是模块定位留下的），避免两个计时器争抢滚动位置
-    stopAlign();
+    stopAlign()
 
     // 「全部」渲染的是所有分类的分组列表，本身就是从头看起，保持回到页面顶部
     if (catId === 'all') {
-      window.scrollTo({ top: 0, behavior: SMOOTH });
-      return;
+      window.scrollTo({ top: 0, behavior: SMOOTH })
+      return
     }
 
-    const title = document.querySelector(`.cat-section[data-cat="${catId}"] .cat-title`);
-    if (!title) return;
+    const title = document.querySelector(`.cat-section[data-cat="${catId}"] .cat-title`)
+    if (!title) return
 
-    const absY = () => Math.max(0, title.getBoundingClientRect().top + window.scrollY - scrollDockTop());
+    const absY = () => Math.max(0, title.getBoundingClientRect().top + window.scrollY - scrollDockTop())
 
     // 首跳 instant：smooth 会被随后的折叠过渡与布局变化打断，精确性优先
-    window.scrollTo({ top: absY(), behavior: 'instant' });
+    window.scrollTo({ top: absY(), behavior: 'instant' })
 
     // 轮询校正：卡片异步加载（含图片）会改变上方高度，每轮都按当前坐标重新对齐。
     // 两个关键点：
@@ -2564,228 +3443,247 @@ function init() {
     // ② 收敛判据用「文档高度连续 4 次不变」而不是只看坐标：数据还在陆续回来时，
     //    坐标可能恰好短暂不变，只按坐标会在 200ms 内就停掉校正，等剩余内容加载完位置就偏了。
     // 上限 4.5s；用户手动滚动（滚轮/触摸）立即让位。
-    let stableH = 0, lastH = 0, tries = 0;
+    let stableH = 0,
+      lastH = 0,
+      tries = 0
     const token = startAlign(() => {
-      if (++tries > 45) { stopAlign(); return; }
-      const h = document.documentElement.scrollHeight;
-      stableH = (h === lastH) ? stableH + 1 : 0;
-      lastH = h;
-      const delta = title.getBoundingClientRect().top - scrollDockTop();
-      if (Math.abs(delta) >= 2) {
-        window.scrollTo({ top: Math.max(0, window.scrollY + delta), behavior: 'instant' });
-        return;
+      if (++tries > 45) {
+        stopAlign()
+        return
       }
-      if (stableH >= 4) stopAlign();
-    }, 100);
+      const h = document.documentElement.scrollHeight
+      stableH = h === lastH ? stableH + 1 : 0
+      lastH = h
+      const delta = title.getBoundingClientRect().top - scrollDockTop()
+      if (Math.abs(delta) >= 2) {
+        window.scrollTo({ top: Math.max(0, window.scrollY + delta), behavior: 'instant' })
+        return
+      }
+      if (stableH >= 4) stopAlign()
+    }, 100)
 
-    window.addEventListener('wheel', abortAlign, { once: true, passive: true });
-    window.addEventListener('touchmove', abortAlign, { once: true, passive: true });
-    setTimeout(() => stopAlignIfCurrent(token), 5000);
+    window.addEventListener('wheel', abortAlign, { once: true, passive: true })
+    window.addEventListener('touchmove', abortAlign, { once: true, passive: true })
+    setTimeout(() => stopAlignIfCurrent(token), 5000)
   }
 
   // 首页入口：与分类按钮同住 .cat-pills，样式自动一致；点击切到聚合视图
-  const homeBtn = document.createElement('button');
-  homeBtn.type = 'button';
-  homeBtn.dataset.view = 'home';
-  homeBtn.setAttribute('aria-expanded', 'false');
-  homeBtn.innerHTML = menuItemHtml('🔥 今日热榜');
-  homeBtn.onclick = () => switchToHome();
-  catPills.appendChild(homeBtn);
-  if (curView === 'home') homeBtn.classList.add('active');
+  const homeBtn = document.createElement('button')
+  homeBtn.type = 'button'
+  homeBtn.dataset.view = 'home'
+  homeBtn.setAttribute('aria-expanded', 'false')
+  homeBtn.innerHTML = menuItemHtml('🔥 今日热榜')
+  homeBtn.onclick = () => switchToHome()
+  catPills.appendChild(homeBtn)
+  if (curView === 'home') homeBtn.classList.add('active')
 
   // 切回聚合首页：点亮首页入口、熄灭全部分类（含目录展开态），并回到页面顶部
   function switchToHome() {
     // 同样不关抽屉：抽屉里的任何一次点击都只负责「切视图」，关不关交给用户自己决定
-    curView = 'home';
-    activeModuleId = null;
-    location.hash = 'home';
-    $$('.cat-pills > button').forEach(x => {
-      x.classList.remove('active');
-      x.setAttribute('aria-expanded', 'false');
-    });
-    homeBtn.classList.add('active');
+    curView = 'home'
+    activeModuleId = null
+    location.hash = 'home'
+    $$('.cat-pills > button').forEach((x) => {
+      x.classList.remove('active')
+      x.setAttribute('aria-expanded', 'false')
+    })
+    homeBtn.classList.add('active')
     // 回首页 = 没有任何分类目录是展开的，所以这里要**加上** sub-collapsed 而不是移除。
     // 原来写成 remove：虽然首页本来就没有 .open 的目录、看不出区别，但箭头朝向是靠
     // sub-collapsed 推出来的，状态说反了就会在下次展开时丢掉动画（见 style.css 里
     // .cat-pills > button[data-cat]::before 的注释）。
-    nav.classList.add('sub-collapsed');
-    refreshSubs();
-    render(true);
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    nav.classList.add('sub-collapsed')
+    refreshSubs()
+    render(true)
+    window.scrollTo({ top: 0, behavior: 'instant' })
   }
-  switchToHomeFn = switchToHome;
+  switchToHomeFn = switchToHome
 
-  CATS.forEach(c => {
+  CATS.forEach((c) => {
     // 「全部」不再出现在侧边栏菜单里：首页已经是跨平台聚合视图，
     // 这个「把各分类卡片从头铺一遍」的长页没有额外价值。
     // 只跳过菜单按钮，curCat==='all' 的渲染分支保留——hash 直接写 #all 时仍能访问
-    if (c.id === 'all') return;
-    const b = document.createElement('button');
-    b.dataset.cat = c.id;
-    if (curView === 'cat' && c.id === curCat) b.classList.add('active');
+    if (c.id === 'all') return
+    const b = document.createElement('button')
+    b.dataset.cat = c.id
+    if (curView === 'cat' && c.id === curCat) b.classList.add('active')
     // aria-expanded：已激活分类的按钮兼有「展开/收起目录」语义（桌面手风琴/移动面板）
-    b.setAttribute('aria-expanded', curView === 'cat' && c.id === curCat && c.id !== 'all' ? 'true' : 'false');
+    b.setAttribute('aria-expanded', curView === 'cat' && c.id === curCat && c.id !== 'all' ? 'true' : 'false')
     // 计数徽章：分类下的模块数（移动端由 CSS 隐藏，pill 空间优先给名称）
-    const cnt = document.createElement('span');
-    cnt.className = 'cnt';
-    cnt.textContent = c.id === 'all' ? EPS.length : EPS.filter(ep => ep.cat === c.id).length;
-    b.innerHTML = menuItemHtml(c.name);
-    b.appendChild(cnt);
+    const cnt = document.createElement('span')
+    cnt.className = 'cnt'
+    cnt.textContent = c.id === 'all' ? EPS.length : EPS.filter((ep) => ep.cat === c.id).length
+    b.innerHTML = menuItemHtml(c.name)
+    b.appendChild(cnt)
     b.onclick = () => {
       // 从首页切回分类页：哪怕点的是「当前分类」也是一次视图切换，不走下面的开合分支
-      const fromHome = curView === 'home';
-      curView = 'cat';
+      const fromHome = curView === 'home'
+      curView = 'cat'
       // 这里不关抽屉：抽屉里点分类只是「换个分类继续看」，关掉反而要重新拉开。
       // 抽屉的关闭只留给点击遮罩 / ✕ 按钮 / Esc（见下面的绑定）
       if (curCat === c.id && !fromHome) {
-        if (c.id === 'all') return;
+        if (c.id === 'all') return
         // 重复点击当前分类 = 展开/收起它下面的数据源目录（移动端与桌面同一套手风琴）
-        nav.classList.toggle('sub-collapsed');
-        b.setAttribute('aria-expanded', nav.classList.contains('sub-collapsed') ? 'false' : 'true');
-        return;
+        nav.classList.toggle('sub-collapsed')
+        b.setAttribute('aria-expanded', nav.classList.contains('sub-collapsed') ? 'false' : 'true')
+        return
       }
-      curCat = c.id;
-      activeModuleId = null; // 切换分类后之前的模块高亮不再适用
+      curCat = c.id
+      activeModuleId = null // 切换分类后之前的模块高亮不再适用
       // 桌面：切换后必须展开新分类目录，否则箭头朝向与展开状态脱节；
       // 移动端面板保持当前开合——开着就地换内容，关着不打扰
-      nav.classList.remove('sub-collapsed');
-      location.hash = c.id;
-      $$('.cat-pills > button').forEach(x => {
-        x.classList.remove('active');
-        x.setAttribute('aria-expanded', 'false');
-      });
-      b.classList.add('active');
-      b.setAttribute('aria-expanded', c.id !== 'all' ? 'true' : 'false');
+      nav.classList.remove('sub-collapsed')
+      location.hash = c.id
+      $$('.cat-pills > button').forEach((x) => {
+        x.classList.remove('active')
+        x.setAttribute('aria-expanded', 'false')
+      })
+      b.classList.add('active')
+      b.setAttribute('aria-expanded', c.id !== 'all' ? 'true' : 'false')
       // pill 行放不下时把选中的分类居中（内部按宽度判断，够宽时跳过）
-      centerInContainer(catPills, b);
-      refreshSubs();
+      centerInContainer(catPills, b)
+      refreshSubs()
       // 切分类前先将滚动位置复位，避免上一页遗留的深层滚动偏移行导致下方视口外卡片被误判为可见
-      window.scrollTo({ top: 0, behavior: 'instant' });
+      window.scrollTo({ top: 0, behavior: 'instant' })
       // sync：scrollToCatTitle 紧接着要测量新渲染出来的分类标题位置
-      render(true);
-      scrollToCatTitle(c.id);
+      render(true)
+      scrollToCatTitle(c.id)
       // 抽屉开着时上面这次定位会被 overflow:hidden 吃掉，标记一下等关抽屉时补做
-      if (appShell && appShell.classList.contains('sidebar-open')) sidebarPendingLocate = true;
-    };
-    catPills.appendChild(b);
+      if (appShell && appShell.classList.contains('sidebar-open')) sidebarPendingLocate = true
+    }
+    catPills.appendChild(b)
     // 手风琴目录：紧跟所属分类按钮插进 .cat-pills 内部（而不是外层 .cat-row）。
     // 侧边栏是纵向列表，目录必须与按钮相邻才能「就地展开」；
     // inner 包装层供 grid-template-rows 0fr→1fr 展开动画使用
     if (c.id !== 'all') {
-      const sub = document.createElement('div');
-      sub.className = 'cat-sub';
-      sub.dataset.for = c.id;
-      const inner = document.createElement('div');
-      inner.className = 'cat-sub-inner';
-      buildToc(inner, c.id);
-      sub.appendChild(inner);
-      catPills.appendChild(sub);
+      const sub = document.createElement('div')
+      sub.className = 'cat-sub'
+      sub.dataset.for = c.id
+      const inner = document.createElement('div')
+      inner.className = 'cat-sub-inner'
+      buildToc(inner, c.id)
+      sub.appendChild(inner)
+      catPills.appendChild(sub)
     }
-  });
+  })
 
   // ===== 抽屉式侧边栏（窄屏）=====
   // 断点与 style.css 的 @media (max-width: 900px) 逐字一致：
   // 该宽度以下侧边栏是抽屉（点 ☰ 展开），以上常驻——两边共用一个口径，避免各写一套
-  const appShell = $('#appShell');
-  const sbMask = $('#sbMask');
-  const sbToggle = $('#sbToggle');
-  const sbClose = $('#sbClose');
-  let sidebarTimer = 0;
+  const appShell = $('#appShell')
+  const sbMask = $('#sbMask')
+  const sbToggle = $('#sbToggle')
+  const sbClose = $('#sbClose')
+  let sidebarTimer = 0
   // 抽屉打开期间选过分类的标记：见 setSidebarOpen 关闭分支里的补偿定位
-  let sidebarPendingLocate = false;
+  let sidebarPendingLocate = false
 
   function setSidebarOpen(open) {
-    if (!appShell) return;
-    const shouldOpen = !!open && MQ_DRAWER.matches;
-    appShell.classList.toggle('sidebar-open', shouldOpen);
-    if (sbToggle) sbToggle.setAttribute('aria-expanded', String(shouldOpen));
+    if (!appShell) return
+    const shouldOpen = !!open && MQ_DRAWER.matches
+    appShell.classList.toggle('sidebar-open', shouldOpen)
+    if (sbToggle) sbToggle.setAttribute('aria-expanded', String(shouldOpen))
     // 抽屉展开时锁住页面滚动，避免背后的列表跟着手指跑
-    document.body.classList.toggle('sb-locked', shouldOpen);
-    if (!sbMask) return;
-    clearTimeout(sidebarTimer);
+    document.body.classList.toggle('sb-locked', shouldOpen)
+    if (!sbMask) return
+    clearTimeout(sidebarTimer)
     if (shouldOpen) {
-      sbMask.hidden = false;
-      requestAnimationFrame(() => sbMask.classList.add('show'));
+      sbMask.hidden = false
+      requestAnimationFrame(() => sbMask.classList.add('show'))
     } else {
-      sbMask.classList.remove('show');
+      sbMask.classList.remove('show')
       // 等淡出过渡结束再真正隐藏，否则 display:none 会把过渡掐断
       sidebarTimer = setTimeout(() => {
-        if (!appShell.classList.contains('sidebar-open')) sbMask.hidden = true;
-      }, 260);
+        if (!appShell.classList.contains('sidebar-open')) sbMask.hidden = true
+      }, 260)
       // 补偿定位：抽屉开着时 body 是 overflow:hidden，点分类后那次 scrollToCatTitle
       // 会被吞掉（轮询校正也会因「文档高度连续不变」提前退出）。
       // 这里在解锁之后补一次，保证关掉抽屉时看到的就是刚选的那个分类
       if (sidebarPendingLocate) {
-        sidebarPendingLocate = false;
-        scrollToCatTitle(curCat);
+        sidebarPendingLocate = false
+        scrollToCatTitle(curCat)
       }
     }
   }
-  function closeSidebar() { setSidebarOpen(false); }
+  function closeSidebar() {
+    setSidebarOpen(false)
+  }
 
-  if (sbToggle) sbToggle.onclick = () => setSidebarOpen(!appShell.classList.contains('sidebar-open'));
+  if (sbToggle) sbToggle.onclick = () => setSidebarOpen(!appShell.classList.contains('sidebar-open'))
   // 抽屉的关闭路径就这三条：✕ 按钮、点遮罩空白处、Esc。
   // 菜单项自身的点击一律不关（点分类只是切换/展开，点完还想接着点）
-  if (sbClose) sbClose.onclick = closeSidebar;
-  if (sbMask) sbMask.onclick = closeSidebar;
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSidebar(); });
+  if (sbClose) sbClose.onclick = closeSidebar
+  if (sbMask) sbMask.onclick = closeSidebar
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeSidebar()
+  })
   // 视口变宽回到桌面版式时收起抽屉，避免 sidebar-open / sb-locked 残留
-  MQ_DRAWER.addEventListener('change', () => { if (!MQ_DRAWER.matches) setSidebarOpen(false); });
+  MQ_DRAWER.addEventListener('change', () => {
+    if (!MQ_DRAWER.matches) setSidebarOpen(false)
+  })
 
-  nav.appendChild(catRow);
+  nav.appendChild(catRow)
   // 面板挂 body 下而非 nav 内：nav 自身的 backdrop-filter 会成为 backdrop root，
   // 其后代的毛玻璃只能采样 root 内部内容，悬浮在壁纸上时采样为空、模糊失效
   // （退化成纯半透明）。挂 body 下让面板与 nav 平级，各自独立磨砂壁纸
-  document.body.appendChild(catPanel);
-  refreshSubs();
+  document.body.appendChild(catPanel)
+  refreshSubs()
   // 移动端模块面板的常规退出路径：点击面板外任意处 / Esc（定位点击由 locateCard 自己收起）
-  document.addEventListener('click', e => {
-    if (!isMobileLayout()) return;
-    if (!nav.classList.contains('toc-open')) return;
-    if (!nav.contains(e.target) && !catPanel.contains(e.target)) setCatPanelOpen(false);
-  });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') setCatPanelOpen(false);
-  });
+  document.addEventListener('click', (e) => {
+    if (!isMobileLayout()) return
+    if (!nav.classList.contains('toc-open')) return
+    if (!nav.contains(e.target) && !catPanel.contains(e.target)) setCatPanelOpen(false)
+  })
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') setCatPanelOpen(false)
+  })
   // 刷新/hash 恢复后：把当前激活的分类 pill 滚入视野，避免落在屏幕外
-  const activeBtn = catPills.querySelector('button.active');
-  if (activeBtn) centerInContainer(catPills, activeBtn);
+  const activeBtn = catPills.querySelector('button.active')
+  if (activeBtn) centerInContainer(catPills, activeBtn)
   // 箭头显隐由溢出状态驱动（首帧 + resize + 滚动 + 字体就绪都会重算）
-  setupCatArrows(catPills, catArrowPrev, catArrowNext);
+  setupCatArrows(catPills, catArrowPrev, catArrowNext)
 
   // 实时时钟（精确到秒）
   // 日期文本按可用宽度自适应，任何宽度下都不出现省略号（判定见 fitClocks）：
   //   完整版「今天是 2026年9月13日 周日」放得下就用完整版，放不下降级短版「9月13日 周日」；
   //   移动端连短版都放不下时，把时间胶囊整体换到独立一行，再按同一规则重判。
   // 一日进度填充：当前秒数 / 86400 * 100，0:00 起铺满到 24:00
-  const timeEls = [$('#clockTimeDesktop'), $('#clockTimeMobile')];
-  const dateDesktopEl = $('#clockDateDesktop');
-  const dateMobileEl = $('#clockDateMobile');
-  const clockElDesktop = $('#clockDesktop');
-  const clockElMobile = $('#clockMobile');
-  const fillEls = document.querySelectorAll('.clock-fill');
-  const clockEls = [clockElDesktop, clockElMobile];
-  const wdNames = ['日', '一', '二', '三', '四', '五', '六'];
-  function pad(n) { return String(n).padStart(2, '0'); }
+  const timeEls = [$('#clockTimeDesktop'), $('#clockTimeMobile')]
+  const dateDesktopEl = $('#clockDateDesktop')
+  const dateMobileEl = $('#clockDateMobile')
+  const clockElDesktop = $('#clockDesktop')
+  const clockElMobile = $('#clockMobile')
+  const fillEls = document.querySelectorAll('.clock-fill')
+  const clockEls = [clockElDesktop, clockElMobile]
+  const wdNames = ['日', '一', '二', '三', '四', '五', '六']
+  function pad(n) {
+    return String(n).padStart(2, '0')
+  }
   // 当前生效的日期档位，由 fitClocks 实测后写入：'full' 完整版 / 'short' 短版
-  const clockMode = { desktop: 'full', mobile: 'full' };
+  const clockMode = { desktop: 'full', mobile: 'full' }
   function clockDateText(d, mode) {
-    const md = `${d.getMonth() + 1}月${d.getDate()}日 周${wdNames[d.getDay()]}`;
-    return mode === 'short' ? md : `今天是 ${d.getFullYear()}年${md}`;
+    const md = `${d.getMonth() + 1}月${d.getDate()}日 周${wdNames[d.getDay()]}`
+    return mode === 'short' ? md : `今天是 ${d.getFullYear()}年${md}`
   }
   function tick() {
-    const d = new Date();
-    const t = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-    timeEls.forEach(el => { if (el) el.textContent = t; });
-    if (dateDesktopEl) dateDesktopEl.textContent = clockDateText(d, clockMode.desktop);
-    if (dateMobileEl) dateMobileEl.textContent = clockDateText(d, clockMode.mobile);
-    const pct = ((d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) / 86400) * 100;
+    const d = new Date()
+    const t = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+    timeEls.forEach((el) => {
+      if (el) el.textContent = t
+    })
+    if (dateDesktopEl) dateDesktopEl.textContent = clockDateText(d, clockMode.desktop)
+    if (dateMobileEl) dateMobileEl.textContent = clockDateText(d, clockMode.mobile)
+    const pct = ((d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) / 86400) * 100
     // 配合 CSS 的 scaleX：只改 transform 不触发布局（原来写 width 每秒都要重算 layout）
-    fillEls.forEach(el => { if (el) el.style.transform = `scaleX(${pct / 100})`; });
+    fillEls.forEach((el) => {
+      if (el) el.style.transform = `scaleX(${pct / 100})`
+    })
     // 泡泡层的可见区边界：与进度填充分享同一个百分比。CSS 用 clip-path 消费这个变量，
     // 于是泡泡的活动范围严格等于橙色渐变那块的宽度，并随时间一起变宽直到铺满全天
-    const dayProgress = `${pct.toFixed(2)}%`;
-    clockEls.forEach(el => { if (el) el.style.setProperty('--day-progress', dayProgress); });
+    const dayProgress = `${pct.toFixed(2)}%`
+    clockEls.forEach((el) => {
+      if (el) el.style.setProperty('--day-progress', dayProgress)
+    })
   }
 
   // 时钟日期自适应：从「最完整」开始逐档试，取第一个放得下的组合，绝不靠省略号收场。
@@ -2793,80 +3691,86 @@ function init() {
   // 所以放不下时一定表现为整行溢出，不会靠压缩子项悄悄消化掉。
   // 不用视口像素阈值：字体、系统语言、浏览器缩放有差异时同样准。
   function fitClocks() {
-    const d = new Date();
+    const d = new Date()
     const applyDate = (which, mode) => {
-      clockMode[which] = mode;
-      const el = which === 'desktop' ? dateDesktopEl : dateMobileEl;
-      if (el) el.textContent = clockDateText(d, mode);
-    };
+      clockMode[which] = mode
+      const el = which === 'desktop' ? dateDesktopEl : dateMobileEl
+      if (el) el.textContent = clockDateText(d, mode)
+    }
     // 判据：这一行「首个子元素左边缘 → 末个子元素右边缘」的跨度超过行宽即为溢出。
     // 不用 scrollWidth —— 行的 justify-content 是 flex-end，放不下时内容朝左溢出，
     // 而 scrollWidth 只统计朝右的溢出，这个方向下恒等于 clientWidth，「放不下」永远测不出来，
     // 日期也就永远不降级。改量首尾子元素的实际跨度则与对齐方向无关。
     // 只统计有宽度的子元素：两个时钟各有一个是 display:none，offsetWidth 为 0 需排除
     const rowOverflows = (row) => {
-      const kids = [...row.children].filter(el => el.offsetWidth);
-      if (kids.length < 2) return false;
-      const span = kids[kids.length - 1].getBoundingClientRect().right
-                 - kids[0].getBoundingClientRect().left;
-      return span > row.clientWidth + 1;
-    };
+      const kids = [...row.children].filter((el) => el.offsetWidth)
+      if (kids.length < 2) return false
+      const span = kids[kids.length - 1].getBoundingClientRect().right - kids[0].getBoundingClientRect().left
+      return span > row.clientWidth + 1
+    }
 
     // 桌面时钟：与按钮同处 .header-right（该容器靠 margin-left:auto 贴向行尾），
     // 这一行没有换行位，放不下只能降级日期，只有 完整 / 短版 两档
     if (dateDesktopEl && clockElDesktop && clockElDesktop.offsetWidth) {
       for (const m of ['full', 'short']) {
-        applyDate('desktop', m);
-        if (!rowOverflows(clockElDesktop.parentElement)) break;
+        applyDate('desktop', m)
+        if (!rowOverflows(clockElDesktop.parentElement)) break
       }
     }
 
     // 移动端时钟：顶栏固定两行（第一行 logo + 搜索框，第二行 时钟 + 4 个按钮），
     // 时钟不允许换行把按钮挤到第三行去，所以只在「完整版 / 短版」之间降级
     if (dateMobileEl && clockElMobile && clockElMobile.offsetWidth) {
-      const row = clockElMobile.parentElement;
+      const row = clockElMobile.parentElement
       for (const m of ['full', 'short']) {
-        applyDate('mobile', m);
-        if (!rowOverflows(row)) break;
+        applyDate('mobile', m)
+        if (!rowOverflows(row)) break
       }
     }
   }
 
-  tick();
-  setInterval(tick, 1000);
-  fitClocks();
+  tick()
+  setInterval(tick, 1000)
+  fitClocks()
   // resize 会重建整页布局，加一点防抖避免拖动窗口时反复测量
-  let clockFitTimer = 0;
+  let clockFitTimer = 0
   window.addEventListener('resize', () => {
-    clearTimeout(clockFitTimer);
-    clockFitTimer = setTimeout(fitClocks, 120);
-  });
+    clearTimeout(clockFitTimer)
+    clockFitTimer = setTimeout(fitClocks, 120)
+  })
   // 字体就绪后字宽会变（自定义/系统字体差异），需要再量一次
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitClocks);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitClocks)
 
   // 测量顶栏实际高度，写入 --topbar-h 供移动端分类栏 sticky 吸顶使用。
   // 手机窄屏下 header 会换行成两行，高度不固定，不能用硬编码。
   // 用 getBoundingClientRect 而非 offsetHeight：后者取整会让细边框在
   // 高 DPI 下丢掉小数部分，吸顶分类栏与顶栏底边出现 1px 级错位
-  const topbarEl = document.querySelector('.topbar');
+  const topbarEl = document.querySelector('.topbar')
   function syncTopbarH() {
-    if (topbarEl) document.documentElement.style.setProperty('--topbar-h', topbarEl.getBoundingClientRect().height + 'px');
+    if (topbarEl)
+      document.documentElement.style.setProperty('--topbar-h', topbarEl.getBoundingClientRect().height + 'px')
   }
-  syncTopbarH();
+  syncTopbarH()
   if (window.ResizeObserver && topbarEl) {
-    new ResizeObserver(syncTopbarH).observe(topbarEl);
+    new ResizeObserver(syncTopbarH).observe(topbarEl)
   }
-  window.addEventListener('resize', () => { syncTopbarH(); placeCatPanel(); });
-  window.addEventListener('load', () => { syncTopbarH(); placeCatPanel(); });
+  window.addEventListener('resize', () => {
+    syncTopbarH()
+    placeCatPanel()
+  })
+  window.addEventListener('load', () => {
+    syncTopbarH()
+    placeCatPanel()
+  })
 
-  render();
+  render()
 
   // P3: 键盘快捷键
-  initKeyboardShortcuts();
+  initKeyboardShortcuts()
 
   // P2: 注册 Service Worker
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
   }
 }
 
@@ -2877,81 +3781,86 @@ function init() {
 // startViewTransition 的回调要等浏览器捕获完旧快照才执行，render() 返回时 DOM 仍是旧的，
 // 此时算出的卡片/标题坐标全部过期——首跳必然偏，只能靠后续轮询校正追回来，
 // 表现就是「先跳到错误位置再慢慢修正」。而跳转本身就是瞬时定位，不需要这段过渡。
-let renderVTReady = false;
+let renderVTReady = false
 function render(sync) {
-  const doRender = () => { renderImpl(); };
-  const okVT = !sync && document.startViewTransition && renderVTReady
-    && !matchMedia('(prefers-reduced-motion: reduce)').matches;
-  renderVTReady = true;
+  const doRender = () => {
+    renderImpl()
+  }
+  const okVT =
+    !sync && document.startViewTransition && renderVTReady && !matchMedia('(prefers-reduced-motion: reduce)').matches
+  renderVTReady = true
   if (okVT) {
     // VT 期间抑制卡片自身的入场动画：整块快照已在淡入，
     // 卡片再各自 translateY(8px) 淡入就是双重动画，叠加后会互相干扰、看着「抖」
-    const root = document.documentElement;
-    root.classList.add('vt-run');
-    document.startViewTransition(doRender).finished.finally(() => root.classList.remove('vt-run'));
+    const root = document.documentElement
+    root.classList.add('vt-run')
+    document.startViewTransition(doRender).finished.finally(() => root.classList.remove('vt-run'))
   } else {
-    doRender();
+    doRender()
   }
 }
 
 // ============ 卡片视口懒加载（IntersectionObserver） ============
-let cardLazyObserver = null;
+let cardLazyObserver = null
 function setupCardLazyObserver() {
   if (cardLazyObserver) {
-    cardLazyObserver.disconnect();
-    cardLazyObserver = null;
+    cardLazyObserver.disconnect()
+    cardLazyObserver = null
   }
-  if (!('IntersectionObserver' in window)) return null;
+  if (!('IntersectionObserver' in window)) return null
 
-  cardLazyObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        const el = entry.target;
-        cardLazyObserver.unobserve(el);
-        const epId = el.dataset.lazyEp;
-        const force = el.dataset.forceUpdate === '1';
-        if (epId) {
-          delete el.dataset.lazyEp;
-          delete el.dataset.forceUpdate;
-          const ep = EPS.find(e => e.id === epId);
-          if (ep) load(ep, force).finally(() => splash.step());
+  cardLazyObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const el = entry.target
+          cardLazyObserver.unobserve(el)
+          const epId = el.dataset.lazyEp
+          const force = el.dataset.forceUpdate === '1'
+          if (epId) {
+            delete el.dataset.lazyEp
+            delete el.dataset.forceUpdate
+            const ep = EPS.find((e) => e.id === epId)
+            if (ep) load(ep, force).finally(() => splash.step())
+          }
         }
-      }
-    });
-  }, {
-    rootMargin: '200px 0px',
-    threshold: 0.01,
-  });
-  return cardLazyObserver;
+      })
+    },
+    {
+      rootMargin: '200px 0px',
+      threshold: 0.01,
+    },
+  )
+  return cardLazyObserver
 }
 
 function renderImpl() {
-  const main = $('#main');
-  main.innerHTML = '';
-  const rail = $('#rail');
+  const main = $('#main')
+  main.innerHTML = ''
+  const rail = $('#rail')
 
   // 聚合首页：跨平台混排榜单 + 右侧信息栏。与分类卡片页共用 #main，靠 curView 分流
   if (curView === 'home') {
-    if (rail) rail.hidden = false;
-    main.appendChild(buildHome());
+    if (rail) rail.hidden = false
+    main.appendChild(buildHome())
     // 右栏先立骨架（含天气卡占位），再取天气：天气卡现在住在右栏里，
     // 若等 applyHome 才建右栏，首屏这段时间右栏是一片空白、天气也没地方落。
     // 建完由 restoreHeroWeather 按当前状态补画（首次为 idle，交给 loadHeroWeather）
-    renderRail();
+    renderRail()
     // Hero 每次重建都要回填天气：缓存命中时同步绘制，否则发起一次请求
     // （不调 heroRefreshTime——首页没有卡片，时间戳随聚合数据一并由 applyHome 写入）
-    loadHeroWeather();
+    loadHeroWeather()
     // 首屏：开屏遮罩等聚合结果就绪后渐隐（splash 自身有 3.5s 兜底）
     if (!firstRenderDone) {
-      firstRenderDone = true;
-      splash.begin(1);
-      loadHome().finally(() => splash.step());
+      firstRenderDone = true
+      splash.begin(1)
+      loadHome().finally(() => splash.step())
     } else {
-      loadHome();
+      loadHome()
     }
-    if (syncSubs) syncSubs();
-    if (syncSpy) syncSpy();
-    return;
+    if (syncSubs) syncSubs()
+    if (syncSpy) syncSpy()
+    return
   }
 
   // 右栏在桌面端「所有页面常显」，不再随视图清空。
@@ -2965,102 +3874,100 @@ function renderImpl() {
   // 数据可能还没到（直接深链到 #news 时 homeData 是空的）：先出骨架，
   // ensureRailData() 会补一次聚合请求再重画。
   if (rail) {
-    rail.hidden = false;
+    rail.hidden = false
     // renderRail 内部会调 restoreHeroWeather()，天气卡若此刻住在右栏里会被
     // 连带摘出文档，正好由它重新安置（≤900px 时搬进抽屉），
     // 否则窄屏在分类页切来切去会把天气卡丢在文档外
-    renderRail();
-    ensureRailData();
+    renderRail()
+    ensureRailData()
   } else {
-    restoreHeroWeather();
+    restoreHeroWeather()
   }
 
   // 页首 Hero 卡：搜索框移除后所有视图都显示它
-  main.appendChild(buildHero());
-  heroRefreshTime();
+  main.appendChild(buildHero())
+  heroRefreshTime()
   // Hero 重建后回填天气：有内存/本地缓存则立即绘制，否则发起一次请求
-  loadHeroWeather();
+  loadHeroWeather()
 
   if (curCat === 'all') {
     // 全部：按分类分组，每类一个带装饰泡泡的标题条
-    CATS.filter(c => c.id !== 'all').forEach(c => {
-      const eps = EPS.filter(ep => ep.cat === c.id);
-      if (eps.length === 0) return;
-      const sec = document.createElement('div');
-      sec.className = 'cat-section';
-      sec.dataset.cat = c.id; // 供分类导航点击后定位到该分类标题
-      sec.innerHTML = `<div class="cat-title">${TITLE_BUBBLES}${c.name}<span class="count">${eps.length}</span></div>`;
-      const grid = document.createElement('div');
-      grid.className = 'grid';
-      appendCards(grid, eps);
-      sec.appendChild(grid);
-      main.appendChild(sec);
-    });
+    CATS.filter((c) => c.id !== 'all').forEach((c) => {
+      const eps = EPS.filter((ep) => ep.cat === c.id)
+      if (eps.length === 0) return
+      const sec = document.createElement('div')
+      sec.className = 'cat-section'
+      sec.dataset.cat = c.id // 供分类导航点击后定位到该分类标题
+      sec.innerHTML = `<div class="cat-title">${TITLE_BUBBLES}${c.name}<span class="count">${eps.length}</span></div>`
+      const grid = document.createElement('div')
+      grid.className = 'grid'
+      appendCards(grid, eps)
+      sec.appendChild(grid)
+      main.appendChild(sec)
+    })
   } else {
     // 只渲染选中的分类
-    const selCat = CATS.find(c => c.id === curCat);
+    const selCat = CATS.find((c) => c.id === curCat)
     if (selCat) {
-      const eps = EPS.filter(ep => ep.cat === curCat);
+      const eps = EPS.filter((ep) => ep.cat === curCat)
       if (eps.length > 0) {
-        const sec = document.createElement('div');
-        sec.className = 'cat-section';
-        sec.dataset.cat = curCat; // 供分类导航点击后定位到该分类标题
-        sec.innerHTML = `<div class="cat-title">${TITLE_BUBBLES}${selCat.name}<span class="count">${eps.length}</span></div>`;
+        const sec = document.createElement('div')
+        sec.className = 'cat-section'
+        sec.dataset.cat = curCat // 供分类导航点击后定位到该分类标题
+        sec.innerHTML = `<div class="cat-title">${TITLE_BUBBLES}${selCat.name}<span class="count">${eps.length}</span></div>`
         // 数据源便签行：Hero 与卡片之间的一条横向标签，点它筛选本分类的卡片。
         // 「全部」分类不显示——那个视图本身就是按分类分组的汇总，再列一遍数据源没有意义
-        sec.appendChild(buildCatFilterBar(curCat));
-        const grid = document.createElement('div');
-        grid.className = 'grid';
-        appendCards(grid, eps);
-        sec.appendChild(grid);
-        main.appendChild(sec);
+        sec.appendChild(buildCatFilterBar(curCat))
+        const grid = document.createElement('div')
+        grid.className = 'grid'
+        appendCards(grid, eps)
+        sec.appendChild(grid)
+        main.appendChild(sec)
       }
     }
   }
 
   if (main.children.length === 0) {
-    main.innerHTML = EMPTY_HTML;
-    return;
+    main.innerHTML = EMPTY_HTML
+    return
   }
 
   // Auto load — 视口感知懒加载：首屏可见卡片直接加载并通知开屏遮罩，视口外卡片交由 IntersectionObserver 按需拉取
   // 分组成员不出现在独立自动加载队列：分组卡片只加载当前激活的标签页，
   // 其余标签页由 activate() 在首次点开时懒加载
-  const autoEps = EPS.filter(ep => ep.auto && (curCat === 'all' || curCat === ep.cat) && !GROUP_OF[ep.id]);
-  document.querySelectorAll('.group-card').forEach(card => {
-    const ep = EPS.find(e => e.id === card.dataset.activeEp);
-    if (ep && ep.auto) autoEps.push(ep);
-  });
+  const autoEps = EPS.filter((ep) => ep.auto && (curCat === 'all' || curCat === ep.cat) && !GROUP_OF[ep.id])
+  document.querySelectorAll('.group-card').forEach((card) => {
+    const ep = EPS.find((e) => e.id === card.dataset.activeEp)
+    if (ep && ep.auto) autoEps.push(ep)
+  })
 
-  const observer = setupCardLazyObserver();
+  const observer = setupCardLazyObserver()
   if (!observer) {
     if (!firstRenderDone) {
-      firstRenderDone = true;
-      splash.begin(autoEps.length || 1);
+      firstRenderDone = true
+      splash.begin(autoEps.length || 1)
     }
     autoEps.forEach((ep, i) => {
-      setTimeout(() => load(ep).finally(() => splash.step()), i * 60);
-    });
+      setTimeout(() => load(ep).finally(() => splash.step()), i * 60)
+    })
   } else {
     if (!firstRenderDone) {
-      firstRenderDone = true;
-      splash.begin(1);
+      firstRenderDone = true
+      splash.begin(1)
     }
-    autoEps.forEach(ep => {
-      const cardId = 'card-' + (GROUP_OF[ep.id] ? GROUP_OF[ep.id].id : ep.id);
-      const cardEl = document.getElementById(cardId);
-      if (!cardEl) return;
-      cardEl.dataset.lazyEp = ep.id;
-      observer.observe(cardEl);
-    });
+    autoEps.forEach((ep) => {
+      const cardId = 'card-' + (GROUP_OF[ep.id] ? GROUP_OF[ep.id].id : ep.id)
+      const cardEl = document.getElementById(cardId)
+      if (!cardEl) return
+      cardEl.dataset.lazyEp = ep.id
+      observer.observe(cardEl)
+    })
   }
 
   // 菜单同步：目录徽章/高亮对齐刚重建的 DOM，并按新卡片集合重建 scroll-spy 监听
-  if (syncSubs) syncSubs();
-  if (syncSpy) syncSpy();
+  if (syncSubs) syncSubs()
+  if (syncSpy) syncSpy()
 }
-
-
 
 // ---- 卡片全屏按钮的两个图标（内联 SVG）----
 // 原来用的是字符 ⛶（U+26F6「四角框」）：字形随平台/字体变，13~14px 下笔画细、
@@ -3077,178 +3984,185 @@ const ICON_FS_ENTER =
   '<path d="M9 3.5H3.5V9"/><path d="M3.5 3.5 10 10"/>' +
   '<path d="M15 3.5h5.5V9"/><path d="M20.5 3.5 14 10"/>' +
   '<path d="M20.5 15v5.5H15"/><path d="M20.5 20.5 14 14"/>' +
-  '<path d="M3.5 15v5.5H9"/><path d="M3.5 20.5 10 14"/></svg>';
+  '<path d="M3.5 15v5.5H9"/><path d="M3.5 20.5 10 14"/></svg>'
 const ICON_FS_EXIT =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" ' +
   'stroke-linecap="round" aria-hidden="true">' +
-  '<path d="M6.5 6.5 17.5 17.5"/><path d="M17.5 6.5 6.5 17.5"/></svg>';
+  '<path d="M6.5 6.5 17.5 17.5"/><path d="M17.5 6.5 6.5 17.5"/></svg>'
 
 function makeCard(ep) {
   // 暴露 ep 到 window 供重试按钮使用
-  window['_ep_' + ep.id] = ep;
+  window['_ep_' + ep.id] = ep
 
-  const card = document.createElement('div');
-  card.className = 'card';
-  card.id = 'card-' + ep.id;
+  const card = document.createElement('div')
+  card.className = 'card'
+  card.id = 'card-' + ep.id
   // 方案一：锚点卡片跨两列（60s 早报 / Hacker News），移动端由媒体查询回退单列
-  if (ep.span === 2) card.classList.add('span-2');
+  if (ep.span === 2) card.classList.add('span-2')
 
-  const head = document.createElement('div');
-  head.className = 'card-head';
+  const head = document.createElement('div')
+  head.className = 'card-head'
   // noapi 纯前端卡（2048/木鱼/翻译类输入卡）没有「数据加载」概念，不显示相对时间
-  const showRel = !ep.noapi;
+  const showRel = !ep.noapi
   head.innerHTML = `<div class="card-title"><span class="icon">${iconHtml(ep)}</span>${ep.name}${showRel ? `<span class="rel-time" data-ep-loaded="${ep.id}" hidden></span>` : ''}</div>
     <div class="card-actions">
-      ${ep.fs /* fs:1 卡片恒显示全屏按钮，无 Fullscreen API 时由 cardFsToggle 回退伪全屏；
+      ${
+        ep.fs /* fs:1 卡片恒显示全屏按钮，无 Fullscreen API 时由 cardFsToggle 回退伪全屏；
                    全屏按屏幕真实方向自然渲染，✕ 退出还原。
                    两态各一个按钮同占位，由 CSS :fullscreen 驱动显隐（见 style.css） */
-        ? `<button class="btn-fs" type="button" title="全屏" aria-label="全屏">${ICON_FS_ENTER}</button><button class="btn-fs-exit" type="button" title="退出全屏" aria-label="退出全屏">${ICON_FS_EXIT}</button>`
-        : ''}
+          ? `<button class="btn-fs" type="button" title="全屏" aria-label="全屏">${ICON_FS_ENTER}</button><button class="btn-fs-exit" type="button" title="退出全屏" aria-label="退出全屏">${ICON_FS_EXIT}</button>`
+          : ''
+      }
       <button class="btn-refresh" title="刷新" aria-label="刷新数据"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button>
-    </div>`;
+    </div>`
   // head 的挂载点在函数末尾：fs:1 卡片会连同 body 一起包进 .fs-unit 布局单元
 
-  const body = document.createElement('div');
-  body.className = 'card-body';
-  body.id = 'body-' + ep.id;
+  const body = document.createElement('div')
+  body.className = 'card-body'
+  body.id = 'body-' + ep.id
 
   if (ep.inputs) {
     if (ep.id === 'fanyi' || ep.id === 'gtranslate') {
       // 翻译模块:专用布局（有道用接口拉语言表，Google 用内置语言表，互不混用）
-      const isGt = ep.id === 'gtranslate';
-      const fromDefault = ep.inputs.find(i => i.n === 'from')?.d || 'en';
-      const toDefault = ep.inputs.find(i => i.n === 'to')?.d || (isGt ? 'zh-CN' : 'zh-CHS');
-      const textInput = document.createElement('textarea');
-      textInput.className = 'fanyi-textarea';
-      textInput.name = 'text';
-      textInput.placeholder = '输入要翻译的文本…';
-      textInput.value = ep.inputs.find(i => i.n === 'text')?.d || '';
-      body.appendChild(textInput);
+      const isGt = ep.id === 'gtranslate'
+      const fromDefault = ep.inputs.find((i) => i.n === 'from')?.d || 'en'
+      const toDefault = ep.inputs.find((i) => i.n === 'to')?.d || (isGt ? 'zh-CN' : 'zh-CHS')
+      const textInput = document.createElement('textarea')
+      textInput.className = 'fanyi-textarea'
+      textInput.name = 'text'
+      textInput.placeholder = '输入要翻译的文本…'
+      textInput.value = ep.inputs.find((i) => i.n === 'text')?.d || ''
+      body.appendChild(textInput)
 
       // 语言选择行
-      const langRow = document.createElement('div');
-      langRow.className = 'fanyi-lang-row';
-      const fromSel = document.createElement('select');
-      fromSel.name = 'from';
-      const arrow = document.createElement('span');
-      arrow.className = 'arrow';
-      arrow.textContent = '⇄';
-      arrow.title = '交换语言';
-      const toSel = document.createElement('select');
-      toSel.name = 'to';
+      const langRow = document.createElement('div')
+      langRow.className = 'fanyi-lang-row'
+      const fromSel = document.createElement('select')
+      fromSel.name = 'from'
+      const arrow = document.createElement('span')
+      arrow.className = 'arrow'
+      arrow.textContent = '⇄'
+      arrow.title = '交换语言'
+      const toSel = document.createElement('select')
+      toSel.name = 'to'
       if (isGt) {
         // Google 翻译：内置常用语言表（代码与 Google 端点一致）
-        const opts = G_LANGS.map(([code, label]) => `<option value="${code}">${label}</option>`).join('');
-        fromSel.innerHTML = opts;
-        toSel.innerHTML = opts;
-        fromSel.value = fromDefault;
-        toSel.value = toDefault;
+        const opts = G_LANGS.map(([code, label]) => `<option value="${code}">${label}</option>`).join('')
+        fromSel.innerHTML = opts
+        toSel.innerHTML = opts
+        fromSel.value = fromDefault
+        toSel.value = toDefault
       } else {
-        fromSel.dataset.role = 'fanyi-lang';
-        toSel.dataset.role = 'fanyi-lang';
+        fromSel.dataset.role = 'fanyi-lang'
+        toSel.dataset.role = 'fanyi-lang'
         // 如果语言列表已缓存，直接填充；否则显示加载中
         if (fanyiLangs && fanyiLangs.length) {
-          const opts = fanyiLangs.map(l => `<option value="${esc(l.code)}">${esc(l.label)}</option>`).join('');
-          fromSel.innerHTML = opts;
-          toSel.innerHTML = opts;
-          fromSel.value = fromDefault;
-          toSel.value = toDefault;
+          const opts = fanyiLangs.map((l) => `<option value="${esc(l.code)}">${esc(l.label)}</option>`).join('')
+          fromSel.innerHTML = opts
+          toSel.innerHTML = opts
+          fromSel.value = fromDefault
+          toSel.value = toDefault
         } else {
-          fromSel.innerHTML = `<option value="${fromDefault}">加载中…</option>`;
-          toSel.innerHTML = `<option value="${toDefault}">加载中…</option>`;
+          fromSel.innerHTML = `<option value="${fromDefault}">加载中…</option>`
+          toSel.innerHTML = `<option value="${toDefault}">加载中…</option>`
         }
       }
       // 点击箭头交换语言
       arrow.onclick = () => {
-        const tmp = fromSel.value;
-        fromSel.value = toSel.value;
-        toSel.value = tmp;
-      };
-      langRow.appendChild(fromSel);
-      langRow.appendChild(arrow);
-      langRow.appendChild(toSel);
-      body.appendChild(langRow);
+        const tmp = fromSel.value
+        fromSel.value = toSel.value
+        toSel.value = tmp
+      }
+      langRow.appendChild(fromSel)
+      langRow.appendChild(arrow)
+      langRow.appendChild(toSel)
+      body.appendChild(langRow)
 
       // 翻译按钮（独立一行，全宽，触屏友好）
-      const go = document.createElement('button');
-      go.className = 'fanyi-submit';
-      go.textContent = '翻译';
-      go.onclick = () => load(ep);
-      body.appendChild(go);
+      const go = document.createElement('button')
+      go.className = 'fanyi-submit'
+      go.textContent = '翻译'
+      go.onclick = () => load(ep)
+      body.appendChild(go)
 
       // 异步加载有道语言列表（如果尚未加载；Google 卡用内置表无需拉取）
-      if (!isGt && !(fanyiLangs && fanyiLangs.length)) loadFanyiLangs();
+      if (!isGt && !(fanyiLangs && fanyiLangs.length)) loadFanyiLangs()
     } else {
-      const row = document.createElement('div');
-      row.className = 'input-row';
-      ep.inputs.forEach(inp => {
+      const row = document.createElement('div')
+      row.className = 'input-row'
+      ep.inputs.forEach((inp) => {
         // sel 字段存在则生成下拉框，否则生成文本输入框
-        const el = document.createElement(inp.sel ? 'select' : 'input');
+        const el = document.createElement(inp.sel ? 'select' : 'input')
         if (inp.sel) {
-          inp.sel.forEach(op => {
-            const o = document.createElement('option');
+          inp.sel.forEach((op) => {
+            const o = document.createElement('option')
             // 支持 ['值', '显示名'] 对：显示中文、提交英文值（如性别 男性→male）
-            const pair = Array.isArray(op);
-            o.value = pair ? op[0] : op;
-            o.textContent = pair ? op[1] : (op === '' ? '全部平台' : op);
-            el.appendChild(o);
-          });
+            const pair = Array.isArray(op)
+            o.value = pair ? op[0] : op
+            o.textContent = pair ? op[1] : op === '' ? '全部平台' : op
+            el.appendChild(o)
+          })
         } else {
-          el.type = 'text';
-          el.placeholder = inp.p;
+          el.type = 'text'
+          el.placeholder = inp.p
         }
-        el.name = inp.n;
-        el.value = inp.d || '';
+        el.name = inp.n
+        el.value = inp.d || ''
         // 下拉切换即时生效，无需点查询；顺带刷新侧边栏条目上的「当前选中项」徽章
-        if (inp.sel) el.onchange = () => { load(ep); updateTocBadges(); };
-        row.appendChild(el);
-      });
-      const go = document.createElement('button');
-      go.className = 'go';
-      go.textContent = '查询';
-      go.onclick = () => load(ep);
-      row.appendChild(go);
-      body.appendChild(row);
+        if (inp.sel)
+          el.onchange = () => {
+            load(ep)
+            updateTocBadges()
+          }
+        row.appendChild(el)
+      })
+      const go = document.createElement('button')
+      go.className = 'go'
+      go.textContent = '查询'
+      go.onclick = () => load(ep)
+      row.appendChild(go)
+      body.appendChild(row)
     }
   }
 
   if (ep.hint) {
-    const tip = document.createElement('div');
-    tip.className = 'news-tip';
+    const tip = document.createElement('div')
+    tip.className = 'news-tip'
     // 用 innerHTML 而非 textContent：emoji 由 emoji.js 统一替换成本地 SVG 图标，
     // 而 textContent 不解析 HTML（详见 emoji.js 顶部说明）
-    tip.innerHTML = '💡 ' + esc(ep.hint);
-    body.appendChild(tip);
+    tip.innerHTML = '💡 ' + esc(ep.hint)
+    body.appendChild(tip)
   }
 
-  const content = document.createElement('div');
-  content.id = 'content-' + ep.id;
+  const content = document.createElement('div')
+  content.id = 'content-' + ep.id
   // P1: 使用骨架屏替代简单文字
   // 翻译卡：placeholder 用"点击翻译获取结果"；Google 卡额外加粗网络提示
-  const placeholder = ep.id === 'gtranslate'
-    ? '<div class="placeholder"><b>需正常访问 Google 网络</b>，点击翻译获取结果</div>'
-    : (ep.id === 'fanyi'
+  const placeholder =
+    ep.id === 'gtranslate'
+      ? '<div class="placeholder"><b>需正常访问 Google 网络</b>，点击翻译获取结果</div>'
+      : ep.id === 'fanyi'
         ? '<div class="placeholder">点击翻译获取结果</div>'
-        : '<div class="placeholder">点击查询获取数据</div>');
-  content.innerHTML = ep.auto ? SKELETON_HTML : placeholder;
-  body.appendChild(content);
+        : '<div class="placeholder">点击查询获取数据</div>'
+  content.innerHTML = ep.auto ? SKELETON_HTML : placeholder
+  body.appendChild(content)
 
   // fs:1 卡片（2048/木鱼）：头部（✕/↻）与内容区同包进 .fs-unit 布局单元——
   // 全屏时该单元是 flex 布局宿主（头部按钮 + 游戏区纵向排布）；
   // 非全屏时是普通静态容器，无任何视觉影响
   if (ep.fs) {
-    const unit = document.createElement('div');
-    unit.className = 'fs-unit';
-    unit.appendChild(head);
-    unit.appendChild(body);
-    card.appendChild(unit);
+    const unit = document.createElement('div')
+    unit.className = 'fs-unit'
+    unit.appendChild(head)
+    unit.appendChild(body)
+    card.appendChild(unit)
   } else {
-    card.appendChild(head);
-    card.appendChild(body);
+    card.appendChild(head)
+    card.appendChild(body)
   }
-  card.querySelector('.btn-refresh').onclick = () => load(ep, true);
+  card.querySelector('.btn-refresh').onclick = () => load(ep, true)
 
-  return card;
+  return card
 }
 
 // ============ 分组卡片（标签页整合） ============
@@ -3257,232 +4171,245 @@ function makeCard(ep) {
 // 重试按钮等既有机制按 ep.id 工作无需任何改造。
 // 非激活标签页首次点开时才加载数据（懒加载），已加载过的直接复用 DOM。
 function makeGroupCard(group, eps) {
-  const card = document.createElement('div');
-  card.className = 'card group-card';
-  card.id = 'card-' + group.id;
+  const card = document.createElement('div')
+  card.className = 'card group-card'
+  card.id = 'card-' + group.id
 
-  const head = document.createElement('div');
-  head.className = 'card-head';
+  const head = document.createElement('div')
+  head.className = 'card-head'
   head.innerHTML = `<div class="card-title"><span class="icon">${groupIconHtml(group)}</span>${group.name}</div>
     <div class="card-actions">
       <button class="btn-refresh" title="刷新" aria-label="刷新数据"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button>
-    </div>`;
-  card.appendChild(head);
+    </div>`
+  card.appendChild(head)
 
-  const activeEp = () => EPS.find(e => e.id === card.dataset.activeEp);
-  head.querySelector('.btn-refresh').onclick = () => { const ep = activeEp(); if (ep) load(ep, true); };
+  const activeEp = () => EPS.find((e) => e.id === card.dataset.activeEp)
+  head.querySelector('.btn-refresh').onclick = () => {
+    const ep = activeEp()
+    if (ep) load(ep, true)
+  }
 
   // 数据源选择用下拉，而不是原先的胶囊标签行：
   // 一个分组内可能只有两项（Epic/Steam），也可能有六十多项（网易云榜单），
   // 胶囊行放不下会换行或横向滚动，下拉一屏就能选完，也更省纵向空间
-  const selectRow = document.createElement('div');
-  selectRow.className = 'card-select-row';
-  const select = document.createElement('select');
-  select.className = 'card-select';
-  select.setAttribute('aria-label', group.name + ' 数据源');
-  selectRow.appendChild(select);
-  card.appendChild(selectRow);
+  const selectRow = document.createElement('div')
+  selectRow.className = 'card-select-row'
+  const select = document.createElement('select')
+  select.className = 'card-select'
+  select.setAttribute('aria-label', group.name + ' 数据源')
+  selectRow.appendChild(select)
+  card.appendChild(selectRow)
 
   const addOption = (value, label) => {
-    const opt = document.createElement('option');
-    opt.value = value;
-    opt.textContent = label;
-    select.appendChild(opt);
-    return opt;
-  };
+    const opt = document.createElement('option')
+    opt.value = value
+    opt.textContent = label
+    select.appendChild(opt)
+    return opt
+  }
 
   // 动态分组（group.dyn）：卡片里只有一个数据源槽位，
   // 选项在挂载后异步从后端榜单清单拿（有多少个榜单就有多少个选项）
-  const seedEp = group.dyn ? eps[0] : null;
+  const seedEp = group.dyn ? eps[0] : null
   if (seedEp) {
-    addOption(seedEp.id, (group.tabs.find(t => t.ep === seedEp.id) || {}).label || seedEp.name);
+    addOption(seedEp.id, (group.tabs.find((t) => t.ep === seedEp.id) || {}).label || seedEp.name)
   } else {
-    eps.forEach(ep => addOption(ep.id, (group.tabs.find(t => t.ep === ep.id) || {}).label || ep.name));
+    eps.forEach((ep) => addOption(ep.id, (group.tabs.find((t) => t.ep === ep.id) || {}).label || ep.name))
   }
 
-  const panes = [];
+  const panes = []
   eps.forEach((ep, i) => {
     // 复用 makeCard 的 body 构建（输入控件 / hint / content 容器），外壳弃用
-    const sub = makeCard(ep);
-    const body = sub.querySelector('.card-body');
-    const pane = document.createElement('div');
-    pane.className = 'card-pane';
-    pane.dataset.ep = ep.id;
-    while (body.firstChild) pane.appendChild(body.firstChild);
-    if (i > 0) pane.hidden = true;
-    panes.push({ ep, pane });
-  });
-  panes.forEach(p => card.appendChild(p.pane));
+    const sub = makeCard(ep)
+    const body = sub.querySelector('.card-body')
+    const pane = document.createElement('div')
+    pane.className = 'card-pane'
+    pane.dataset.ep = ep.id
+    while (body.firstChild) pane.appendChild(body.firstChild)
+    if (i > 0) pane.hidden = true
+    panes.push({ ep, pane })
+  })
+  panes.forEach((p) => card.appendChild(p.pane))
 
-  const loaded = new Set();
+  const loaded = new Set()
   function activate(epId, opts = {}) {
-    const idx = panes.findIndex(p => p.ep.id === epId);
-    if (idx < 0) return;
-    card.dataset.activeEp = panes[idx].ep.id;
-    select.value = panes[idx].ep.id;
-    panes.forEach((p, j) => { p.pane.hidden = j !== idx; });
+    const idx = panes.findIndex((p) => p.ep.id === epId)
+    if (idx < 0) return
+    card.dataset.activeEp = panes[idx].ep.id
+    select.value = panes[idx].ep.id
+    panes.forEach((p, j) => {
+      p.pane.hidden = j !== idx
+    })
     // 懒加载：首次激活该数据源且为自动加载类型时才请求
     if (opts.load !== false && panes[idx].ep.auto && !loaded.has(panes[idx].ep.id)) {
-      loaded.add(panes[idx].ep.id);
-      load(panes[idx].ep);
+      loaded.add(panes[idx].ep.id)
+      load(panes[idx].ep)
     }
   }
   // 初始激活第一个数据源；数据加载由 render() 的自动加载队列统一调度
-  activate(eps[0].id, { load: false });
+  activate(eps[0].id, { load: false })
 
   select.onchange = () => {
     // 动态分组：换榜单 = 改详情路径后重新加载同一块内容区（缓存键含完整 URL，各榜单互不串数据）
     if (seedEp) {
-      seedEp.path = group.dyn.detail + select.value;
-      load(seedEp, true);
-      return;
+      seedEp.path = group.dyn.detail + select.value
+      load(seedEp, true)
+      return
     }
-    activate(select.value);
+    activate(select.value)
     // 手动切换时同步子菜单高亮（定位跳转路径由 locateCard 自己维护）
-    activeModuleId = select.value;
-    if (syncSubs) syncSubs();
+    activeModuleId = select.value
+    if (syncSubs) syncSubs()
     // 双向同步：让对应模块 chip / 侧边栏子项滚入可视区
-    if (centerSubChip) centerSubChip(select.value);
-  };
+    if (centerSubChip) centerSubChip(select.value)
+  }
 
   // 动态分组：拉一次榜单清单把下拉填满；失败就保留种子项，不影响主流程
   if (seedEp) {
     fetch(API + group.dyn.list)
-      .then(r => r.json())
-      .then(res => {
-        const list = Array.isArray(res && res.data) ? res.data : [];
-        if (!list.length) return;
-        const current = seedEp.path.split('/').pop();
-        select.innerHTML = '';
-        list.forEach(item => {
-          const opt = addOption(String(item.id), item.name || String(item.id));
-          if (String(item.id) === current) opt.selected = true;
-        });
+      .then((r) => r.json())
+      .then((res) => {
+        const list = Array.isArray(res && res.data) ? res.data : []
+        if (!list.length) return
+        const current = seedEp.path.split('/').pop()
+        select.innerHTML = ''
+        list.forEach((item) => {
+          const opt = addOption(String(item.id), item.name || String(item.id))
+          if (String(item.id) === current) opt.selected = true
+        })
       })
-      .catch(() => {});
+      .catch(() => {})
   }
 
   // 供 locateCard 定位到本卡片
-  card._activateTab = (epId) => activate(epId);
+  card._activateTab = (epId) => activate(epId)
 
-  return card;
+  return card
 }
 
 // 网格填充：分组成员不单独出卡，命中组内任一成员时整组出卡（仅渲染命中的标签页）
 function appendCards(grid, eps) {
-  const emitted = new Set();
+  const emitted = new Set()
   eps.forEach((ep, i) => {
-    const group = GROUP_OF[ep.id];
+    const group = GROUP_OF[ep.id]
     if (group) {
-      if (emitted.has(group.id)) return;
-      emitted.add(group.id);
-      const members = group.tabs.map(t => eps.find(e => e.id === t.ep)).filter(Boolean);
-      if (!members.length) return;
-      grid.appendChild(makeGroupCard(group, members));
-      return;
+      if (emitted.has(group.id)) return
+      emitted.add(group.id)
+      const members = group.tabs.map((t) => eps.find((e) => e.id === t.ep)).filter(Boolean)
+      if (!members.length) return
+      grid.appendChild(makeGroupCard(group, members))
+      return
     }
-    const card = makeCard(ep);
-    card.style.animationDelay = (i * 0.03) + 's';
-    grid.appendChild(card);
-  });
+    const card = makeCard(ep)
+    card.style.animationDelay = i * 0.03 + 's'
+    grid.appendChild(card)
+  })
 }
 
 // P0 + P1: load() with cache, skeleton, retry
 async function load(ep, forceUpdate = false) {
-  const c = document.getElementById('content-' + ep.id);
-  if (!c) return;
+  const c = document.getElementById('content-' + ep.id)
+  if (!c) return
   // 纯前端卡片（noapi:1）：不发请求、不走缓存，直接渲染（↻ 刷新即重置状态）
-  if (ep.noapi) { renderData(ep, null, c); return; }
-  c.innerHTML = SKELETON_HTML;
+  if (ep.noapi) {
+    renderData(ep, null, c)
+    return
+  }
+  c.innerHTML = SKELETON_HTML
 
-  let url = API + ep.path;
-  const params = new URLSearchParams();
+  let url = API + ep.path
+  const params = new URLSearchParams()
   if (ep.inputs) {
     // 分组卡片内数据源 id 与卡片 id 不一致（卡片 id 是分组 id），
     // 故输入控件容器回退到 content 的最近 .card 祖先
-    const card = document.getElementById('card-' + ep.id) || c.closest('.card');
-    if (!card) return;
-    ep.inputs.forEach(inp => {
-      const sel = card.querySelector(`select[name="${inp.n}"]`);
-      if (sel && sel.value) { params.set(inp.n, sel.value); return; }
-      const el = card.querySelector(`*[name="${inp.n}"]`);
-      if (el && el.value) params.set(inp.n, el.value);
-    });
+    const card = document.getElementById('card-' + ep.id) || c.closest('.card')
+    if (!card) return
+    ep.inputs.forEach((inp) => {
+      const sel = card.querySelector(`select[name="${inp.n}"]`)
+      if (sel && sel.value) {
+        params.set(inp.n, sel.value)
+        return
+      }
+      const el = card.querySelector(`*[name="${inp.n}"]`)
+      if (el && el.value) params.set(inp.n, el.value)
+    })
   }
-  if (ep.type === 'qr') params.set('encoding', 'json');
-  const qs = params.toString();
-  if (qs) url += '?' + qs;
+  if (ep.type === 'qr') params.set('encoding', 'json')
+  const qs = params.toString()
+  if (qs) url += '?' + qs
 
   // 缓存键不含 force-update：它只是回源手段，计入 key 会让刷新结果写到另一个键，
   // 之后普通加载仍命中旧缓存，等于白刷
-  const ck = cacheKey(ep, url);
+  const ck = cacheKey(ep, url)
 
   // 手动刷新时额外告知后端绕过其服务端缓存，否则 TTL 内点 ↻ 会拿回同一份数据
-  const requestUrl = forceUpdate ? `${url}${url.includes('?') ? '&' : '?'}force-update=1` : url;
+  const requestUrl = forceUpdate ? `${url}${url.includes('?') ? '&' : '?'}force-update=1` : url
 
   // 密码生成/检测不读缓存：同参数再次查询必须重新生成/重算，
   // 否则 30 分钟 TTL 内点「查询」会拿回旧密码与旧耗时
-  const noCacheTool = ep.type === 'pwd' || ep.type === 'pwdchk';
+  const noCacheTool = ep.type === 'pwd' || ep.type === 'pwdchk'
 
   // 非强制刷新时检查缓存：命中直接渲染，不再后台重复请求
   if (!forceUpdate && !noCacheTool) {
-    const cached = cacheGetWithTs(ck);
+    const cached = cacheGetWithTs(ck)
     if (cached !== null) {
       if (ep.type === 'qr') {
-        c.innerHTML = qrWrapHTML(cached.data);
+        c.innerHTML = qrWrapHTML(cached.data)
       } else {
-        renderData(ep, cached.data, c);
+        renderData(ep, cached.data, c)
       }
       // 缓存命中的时间戳 = 这份数据当初落缓存的时刻（不是当前），相对时间如实反映
-      markEpLoaded(ep.id, cached.ts);
-      return;
+      markEpLoaded(ep.id, cached.ts)
+      return
     }
   }
 
   // Google 翻译：优先浏览器直连 Google 免费端点（用户 IP 不被风控），失败走自建后端
-  if (ep.id === 'gtranslate') return gtranslateLoad(ep, params, requestUrl, ck, c, forceUpdate);
+  if (ep.id === 'gtranslate') return gtranslateLoad(ep, params, requestUrl, ck, c, forceUpdate)
 
-  await fetchWithRetry(ep, requestUrl, ck, c, 2);
+  await fetchWithRetry(ep, requestUrl, ck, c, 2)
 }
 
 // Google 翻译加载器：浏览器直连 clients5.google.com（允许任意 Origin 的 CORS）；
 // 直连失败（如大陆网络）再回退自建 /v2/google-translate（CF 出口被 Google 间歇拦截，尽力而为）
 async function gtranslateLoad(ep, params, url, ck, c, forceUpdate) {
-  const text = params.get('text');
-  const from = params.get('from') || 'auto';
-  const to = params.get('to') || 'zh-CN';
+  const text = params.get('text')
+  const from = params.get('from') || 'auto'
+  const to = params.get('to') || 'zh-CN'
   if (text) {
     try {
       const res = await fetch(
         `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=${encodeURIComponent(from)}&tl=${encodeURIComponent(to)}&q=${encodeURIComponent(text)}`,
         { signal: AbortSignal.timeout(8000) },
-      );
+      )
       if (res.ok) {
-        const raw = await res.json();
+        const raw = await res.json()
         if (Array.isArray(raw)) {
-          let detected = from;
+          let detected = from
           const trans = raw
-            .map(el => {
+            .map((el) => {
               if (Array.isArray(el)) {
-                if (typeof el[1] === 'string') detected = el[1];
-                return String(el[0] ?? '');
+                if (typeof el[1] === 'string') detected = el[1]
+                return String(el[0] ?? '')
               }
-              return String(el ?? '');
+              return String(el ?? '')
             })
-            .join('');
+            .join('')
           const data = {
             source: { text, type: detected, type_desc: gtLangLabel(detected) },
             target: { text: trans, type: to, type_desc: gtLangLabel(to) },
-          };
-          cacheSet(ck, data);
-          renderData(ep, data, c);
-          markEpLoaded(ep.id, Date.now());
-          return;
+          }
+          cacheSet(ck, data)
+          renderData(ep, data, c)
+          markEpLoaded(ep.id, Date.now())
+          return
         }
       }
-    } catch (e) { /* 直连失败，走后端兜底 */ }
+    } catch (e) {
+      /* 直连失败，走后端兜底 */
+    }
   }
-  await fetchWithRetry(ep, url, ck, c, 2);
+  await fetchWithRetry(ep, url, ck, c, 2)
 }
 
 // 二维码卡：白色衬底相框（保证深色主题下扫码对比度）+ 下载按钮
@@ -3492,13 +4419,13 @@ function qrWrapHTML(blobUrl) {
     <div class="qr-frame"><img src="${esc(blobUrl)}" alt="QR"></div>
     <div class="qr-tip">📱 扫码识别内容</div>
     <a class="qr-download" href="${esc(blobUrl)}" download="qrcode.png">⬇ 下载 PNG</a>
-  </div>`;
+  </div>`
 }
 
 // P1: 带重试的 fetch（处理速率限制 + 网络错误）
 async function fetchWithRetry(ep, url, ck, c, retriesLeft) {
   try {
-    const res = await fetch(url);
+    const res = await fetch(url)
 
     // 速率限制或服务器错误：等待后重试
     if (res.status === 429 || res.status >= 500) {
@@ -3506,304 +4433,388 @@ async function fetchWithRetry(ep, url, ck, c, retriesLeft) {
       // 只重试一次——三轮叠加会让加载动画转 30 秒以上才出现错误提示
       if (res.status >= 500) {
         if (retriesLeft >= 2) {
-          await new Promise(r => setTimeout(r, 1500));
-          return fetchWithRetry(ep, url, ck, c, 1);
+          await new Promise((r) => setTimeout(r, 1500))
+          return fetchWithRetry(ep, url, ck, c, 1)
         }
-        c.innerHTML = unavailableHTML(ep, `HTTP ${res.status}`);
-        return;
+        c.innerHTML = unavailableHTML(ep, `HTTP ${res.status}`)
+        return
       }
       if (retriesLeft > 0) {
-        await new Promise(r => setTimeout(r, 1500));
-        return fetchWithRetry(ep, url, ck, c, retriesLeft - 1);
+        await new Promise((r) => setTimeout(r, 1500))
+        return fetchWithRetry(ep, url, ck, c, retriesLeft - 1)
       }
     }
 
     if (ep.type === 'qr') {
-      const json = await res.json();
+      const json = await res.json()
       if (json.code !== 200) {
         if (retriesLeft > 0) {
-          await new Promise(r => setTimeout(r, 1000));
-          return fetchWithRetry(ep, url, ck, c, retriesLeft - 1);
+          await new Promise((r) => setTimeout(r, 1000))
+          return fetchWithRetry(ep, url, ck, c, retriesLeft - 1)
         }
-        c.innerHTML = unavailableHTML(ep, json.message);
-        return;
+        c.innerHTML = unavailableHTML(ep, json.message)
+        return
       }
-      const dataUri = json.data?.data_uri;
-      cacheSet(ck, dataUri);
-      c.innerHTML = qrWrapHTML(dataUri);
-      return;
+      const dataUri = json.data?.data_uri
+      cacheSet(ck, dataUri)
+      c.innerHTML = qrWrapHTML(dataUri)
+      return
     }
-    const json = await res.json();
+    const json = await res.json()
     if (json.code !== 200) {
       // 速率限制（JSON body 内的 429）：等待后重试
       if ((json.code === 429 || json.code === 428) && retriesLeft > 0) {
-        await new Promise(r => setTimeout(r, 1500));
-        return fetchWithRetry(ep, url, ck, c, retriesLeft - 1);
+        await new Promise((r) => setTimeout(r, 1500))
+        return fetchWithRetry(ep, url, ck, c, retriesLeft - 1)
       }
       // 400 参数错误重试也不会变：立即展示原因，不再空转两轮
       if (json.code === 400) {
-        c.innerHTML = unavailableHTML(ep, json.message);
-        return;
+        c.innerHTML = unavailableHTML(ep, json.message)
+        return
       }
       if (retriesLeft > 0) {
-        await new Promise(r => setTimeout(r, 1000));
-        return fetchWithRetry(ep, url, ck, c, retriesLeft - 1);
+        await new Promise((r) => setTimeout(r, 1000))
+        return fetchWithRetry(ep, url, ck, c, retriesLeft - 1)
       }
-      c.innerHTML = unavailableHTML(ep, json.message);
-      return;
+      c.innerHTML = unavailableHTML(ep, json.message)
+      return
     }
     // 密码生成/检测不写缓存（同 load 侧的 noCacheTool）：同参数再次查询必须重新生成/重算
     // 时间以服务端数据时间为准：服务端缓存命中的旧数据不会被标成「刚刚」
-    const dataTs = readDataTs(res);
-    if (ep.type !== 'pwd' && ep.type !== 'pwdchk') cacheSet(ck, json.data, dataTs);
-    renderData(ep, json.data, c);
-    markEpLoaded(ep.id, dataTs);
-  } catch(e) {
+    const dataTs = readDataTs(res)
+    if (ep.type !== 'pwd' && ep.type !== 'pwdchk') cacheSet(ck, json.data, dataTs)
+    renderData(ep, json.data, c)
+    markEpLoaded(ep.id, dataTs)
+  } catch (e) {
     if (retriesLeft > 0) {
-      await new Promise(r => setTimeout(r, 1000));
-      return fetchWithRetry(ep, url, ck, c, retriesLeft - 1);
+      await new Promise((r) => setTimeout(r, 1000))
+      return fetchWithRetry(ep, url, ck, c, retriesLeft - 1)
     }
-    c.innerHTML = unavailableHTML(ep, '网络异常');
+    c.innerHTML = unavailableHTML(ep, '网络异常')
   }
 }
 
 // ============ Renderers ============
 function renderData(ep, d, c) {
-  const fn = {
-    news: rNews, list: rList, douban: rDouban, ainews: rAINews, hist: rHist,
-    kv: rKV, obj: rObj, text: rText, qr: () => {}, color: rColor, palette: rPalette,
-    pwd: rPwd, fanyi: rFanyi, lyric: rLyric, hash: rHash, weather: rWeather, changya: rChangya,
-    weatherfc: rWeatherFC, fuel: rFuel, gold: rGold, lunar: rLunar, bing: rBing,
-    epic: rEpic, steam: rSteam, ncm: rNCM, maoyan: rMaoyan, moyu: rMoyu, whois: rWhois,
-    js: rJS, exchange: rExchange, og: rOG, answer: rAnswer, quote: rQuote,
-    kuan: rKuan, '36kr': r36Kr, reddit: rReddit, sspai: rSspai, huxiu: rHuxiu,
-    'maoyan-movie': rMaoyanMovie,
-    'baidu-show': rBaiduShow,
-    baike: rBaike, health: rHealth, geng: rGeng, 'daily-eng': rDailyEng, simkl: rSimkl,
-    ip: rIP, pwdchk: rPwdChk, calendar: rCalendar, game2048: rGame2048, muyu: rMuyu,
-  }[ep.type] || rJSON;
-  fn(d, c, ep);
+  const fn =
+    {
+      news: rNews,
+      list: rList,
+      douban: rDouban,
+      ainews: rAINews,
+      hist: rHist,
+      kv: rKV,
+      obj: rObj,
+      text: rText,
+      qr: () => {},
+      color: rColor,
+      palette: rPalette,
+      pwd: rPwd,
+      fanyi: rFanyi,
+      lyric: rLyric,
+      hash: rHash,
+      weather: rWeather,
+      changya: rChangya,
+      weatherfc: rWeatherFC,
+      fuel: rFuel,
+      gold: rGold,
+      lunar: rLunar,
+      bing: rBing,
+      epic: rEpic,
+      steam: rSteam,
+      ncm: rNCM,
+      maoyan: rMaoyan,
+      moyu: rMoyu,
+      whois: rWhois,
+      js: rJS,
+      exchange: rExchange,
+      og: rOG,
+      answer: rAnswer,
+      quote: rQuote,
+      kuan: rKuan,
+      '36kr': r36Kr,
+      reddit: rReddit,
+      sspai: rSspai,
+      huxiu: rHuxiu,
+      'maoyan-movie': rMaoyanMovie,
+      'baidu-show': rBaiduShow,
+      baike: rBaike,
+      health: rHealth,
+      geng: rGeng,
+      'daily-eng': rDailyEng,
+      simkl: rSimkl,
+      ip: rIP,
+      pwdchk: rPwdChk,
+      calendar: rCalendar,
+      game2048: rGame2048,
+      muyu: rMuyu,
+    }[ep.type] || rJSON
+  fn(d, c, ep)
 }
 
 function rNews(d, c) {
-  let h = '';
+  let h = ''
   if (d.date || d.day_of_week) {
-    h += '<div class="news-header">';
-    if (d.date) h += `<span>📅 ${esc(d.date)}</span>`;
-    if (d.day_of_week) h += `<span>${esc(d.day_of_week)}</span>`;
-    if (d.lunar_date) h += `<span>🌙 ${esc(d.lunar_date)}</span>`;
-    h += '</div>';
+    h += '<div class="news-header">'
+    if (d.date) h += `<span>📅 ${esc(d.date)}</span>`
+    if (d.day_of_week) h += `<span>${esc(d.day_of_week)}</span>`
+    if (d.lunar_date) h += `<span>🌙 ${esc(d.lunar_date)}</span>`
+    h += '</div>'
   }
-  (d.news || []).forEach((n, i) => {
-    const t = typeof n === 'string' ? n : n.title;
-    const l = typeof n === 'string' ? '' : n.link;
-    h += `<div class="news-item"><span class="num">${i+1}</span>`;
-    h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener">${esc(t)}</a>` : `<span class="nt">${esc(t)}</span>`;
-    h += '</div>';
-  });
-  if (d.tip) h += `<div class="news-tip">💡 ${esc(d.tip)}</div>`;
-  c.innerHTML = h;
+  ;(d.news || []).forEach((n, i) => {
+    const t = typeof n === 'string' ? n : n.title
+    const l = typeof n === 'string' ? '' : n.link
+    h += `<div class="news-item"><span class="num">${i + 1}</span>`
+    h += l
+      ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener">${esc(t)}</a>`
+      : `<span class="nt">${esc(t)}</span>`
+    h += '</div>'
+  })
+  if (d.tip) h += `<div class="news-tip">💡 ${esc(d.tip)}</div>`
+  c.innerHTML = h
 }
 
 function rList(d, c, ep) {
-  if (!Array.isArray(d)) return rJSON(d, c);
-  if (!d.length) { c.innerHTML = '<div class="placeholder">暂无数据</div>'; return; }
-  const f = ep.f || {};
+  if (!Array.isArray(d)) return rJSON(d, c)
+  if (!d.length) {
+    c.innerHTML = '<div class="placeholder">暂无数据</div>'
+    return
+  }
+  const f = ep.f || {}
   // Top N 折叠：默认只渲染前 N 条，展开状态按卡片记忆；记录原始数据供切换时免请求重渲染
-  const expanded = isListExpanded(ep.id);
-  const items = expanded ? d : d.slice(0, LIST_COLLAPSE_N);
-  listData[ep.id] = d;
-  let h = '';
+  const expanded = isListExpanded(ep.id)
+  const items = expanded ? d : d.slice(0, LIST_COLLAPSE_N)
+  listData[ep.id] = d
+  let h = ''
   items.forEach((it, i) => {
-    const rank = it.rank || (i + 1);
-    const cls = rank <= 3 ? `top${rank}` : '';
-    const t = it[f.t] || it.title || '';
-    const l = it[f.l] || it.link || it.url || '';
-    const hot = f.h ? it[f.h] : '';
+    const rank = it.rank || i + 1
+    const cls = rank <= 3 ? `top${rank}` : ''
+    const t = it[f.t] || it.title || ''
+    const l = it[f.l] || it.link || it.url || ''
+    const hot = f.h ? it[f.h] : ''
     // f.d 支持数组：按顺序取第一个非空字段。主源与兜底源的副标题字段未必同名
     // （例：51CTO 主源有 author、uapis 兜底只有 description），
     // 这样同一张卡片就能同时适配两种数据源，不必为兜底另写一套渲染
-    const desc = f.d ? (Array.isArray(f.d) ? f.d : [f.d]).map(k => it[k]).find(Boolean) || '' : '';
+    const desc = f.d ? (Array.isArray(f.d) ? f.d : [f.d]).map((k) => it[k]).find(Boolean) || '' : ''
     // 仅显式配置 f.p 的榜单启用海报模式，避免数据里带 cover 的模块误显示缩略图；
     // f.ps 为方形缩略图变体（新闻/科技封面多为横图，方形裁切更合适）
-    const poster = f.p ? (it[f.p] || '') : '';
-    const sqCls = f.ps ? ' with-cover' : '';
-    let meta = '';
-    if (hot) meta += `<span class="hot">🔥 ${esc(String(hot))}</span>`;
+    const poster = f.p ? it[f.p] || '' : ''
+    const sqCls = f.ps ? ' with-cover' : ''
+    let meta = ''
+    if (hot) meta += `<span class="hot">🔥 ${esc(String(hot))}</span>`
     if (poster) {
       // 海报模式：序号内联在标题行首（与流媒体榜 rSimkl 一致）
-      h += `<div class="item with-poster${sqCls}">`;
-      h += `<img class="poster${f.ps ? ' cover-square' : ''}" src="${esc(poster)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
-      h += `<div class="body-wrap">`;
-      h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(t)}</a>` : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(t)}</span>`;
-      if (meta) h += `<div class="meta">${meta}</div>`;
-      if (desc) h += `<div class="desc">${esc(String(desc).slice(0, 80))}${String(desc).length > 80 ? '…' : ''}</div>`;
-      h += '</div></div>';
+      h += `<div class="item with-poster${sqCls}">`
+      h += `<img class="poster${f.ps ? ' cover-square' : ''}" src="${esc(poster)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+      h += `<div class="body-wrap">`
+      h += l
+        ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(t)}</a>`
+        : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(t)}</span>`
+      if (meta) h += `<div class="meta">${meta}</div>`
+      if (desc) h += `<div class="desc">${esc(String(desc).slice(0, 80))}${String(desc).length > 80 ? '…' : ''}</div>`
+      h += '</div></div>'
     } else {
       // 无海报模式：保持原有布局，序号徽章独立在左与标题并排
-      h += `<div class="item"><span class="rank ${cls}">${rank}</span><div class="body">`;
-      h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener">${esc(t)}</a>` : `<span class="t">${esc(t)}</span>`;
-      if (meta) h += `<div class="meta">${meta}</div>`;
-      if (desc) h += `<div class="desc">${esc(String(desc).slice(0, 80))}${String(desc).length > 80 ? '…' : ''}</div>`;
-      h += '</div></div>';
+      h += `<div class="item"><span class="rank ${cls}">${rank}</span><div class="body">`
+      h += l
+        ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener">${esc(t)}</a>`
+        : `<span class="t">${esc(t)}</span>`
+      if (meta) h += `<div class="meta">${meta}</div>`
+      if (desc) h += `<div class="desc">${esc(String(desc).slice(0, 80))}${String(desc).length > 80 ? '…' : ''}</div>`
+      h += '</div></div>'
     }
-  });
+  })
   if (d.length > LIST_COLLAPSE_N) {
-    h += `<button class="list-toggle" type="button" data-list-toggle="${ep.id}">` +
+    h +=
+      `<button class="list-toggle" type="button" data-list-toggle="${ep.id}">` +
       (expanded ? `收起，仅看 Top ${LIST_COLLAPSE_N}` : `展开全部 ${d.length} 条`) +
-      `</button>`;
+      `</button>`
   }
-  c.innerHTML = h;
+  c.innerHTML = h
   // 展开态同步到卡片 class：span-2 宽卡片收起时走双栏排布，展开时回退单列滚动
-  const card = document.getElementById('card-' + ep.id) || c.closest('.card');
-  if (card) card.classList.toggle('expanded', expanded);
+  const card = document.getElementById('card-' + ep.id) || c.closest('.card')
+  if (card) card.classList.toggle('expanded', expanded)
 }
 
 // 展开/收起切换：事件委托统一处理，用 listData 里已缓存的原始数据本地重渲染，不重新请求
-document.addEventListener('click', e => {
-  const btn = e.target.closest('[data-list-toggle]');
-  if (!btn) return;
-  const id = btn.dataset.listToggle;
-  const ep = window['_ep_' + id];
-  const c = document.getElementById('content-' + id);
-  const d = listData[id];
-  if (!ep || !c || !d) return;
-  setListExpanded(id, !isListExpanded(id));
-  rList(d, c, ep);
-});
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-list-toggle]')
+  if (!btn) return
+  const id = btn.dataset.listToggle
+  const ep = window['_ep_' + id]
+  const c = document.getElementById('content-' + id)
+  const d = listData[id]
+  if (!ep || !c || !d) return
+  setListExpanded(id, !isListExpanded(id))
+  rList(d, c, ep)
+})
 
 // ============ 万年历（calendar） ============
 // 各卡当前浏览的年月（切换月份的本地状态）
-const calState = {};
+const calState = {}
 
 function rCalendar(d, c, ep) {
-  if (!d || !Array.isArray(d.weeks)) return rJSON(d, c);
-  calState[ep.id] = { y: d.year, m: d.month, todayStr: d.today };
-  const isCurrentMonth = `${d.year}-${String(d.month).padStart(2, '0')}` === d.today.slice(0, 7);
+  if (!d || !Array.isArray(d.weeks)) return rJSON(d, c)
+  calState[ep.id] = { y: d.year, m: d.month, todayStr: d.today }
+  const isCurrentMonth = `${d.year}-${String(d.month).padStart(2, '0')}` === d.today.slice(0, 7)
 
-  let h = '<div class="cal">';
-  h += '<div class="cal-head">' +
+  let h = '<div class="cal">'
+  h +=
+    '<div class="cal-head">' +
     `<button class="cal-nav" type="button" data-cal-id="${ep.id}" data-cal-nav="-1" title="上个月">‹</button>` +
     `<span class="cal-title">${d.year} 年 ${d.month} 月</span>` +
     `<button class="cal-nav" type="button" data-cal-id="${ep.id}" data-cal-nav="1" title="下个月">›</button>` +
-    (isCurrentMonth ? '' : `<button class="cal-today" type="button" data-cal-today data-cal-id="${ep.id}" title="回到本月">今天</button>`) +
-    '</div>';
-  h += '<div class="cal-weeks">' +
-    ['一', '二', '三', '四', '五', '六', '日'].map((w, i) => `<span${i > 4 ? ' class="wk"' : ''}>${w}</span>`).join('') +
-    '</div>';
-  h += '<div class="cal-grid">';
-  d.weeks.forEach(week => week.forEach(cell => {
-    if (!cell) { h += '<div class="cal-cell blank"></div>'; return; }
-    const cls = ['cal-cell'];
-    if (cell.is_weekend) cls.push('wk');
-    if (cell.is_today) cls.push('today');
-    const mark = cell.holiday ? (cell.holiday.is_work ? '<i class="cal-mark work">班</i>' : '<i class="cal-mark rest">休</i>') : '';
-    h += `<div class="${cls.join(' ')}" title="${esc(cell.date)}">` +
-      `<div class="cal-d">${mark}${cell.day}</div>` +
-      `<div class="cal-l${cell.label_is_special ? ' sp' : ''}">${esc(cell.label)}</div>` +
-      '</div>';
-  }));
-  h += '</div>';
-  h += '</div>';
-  c.innerHTML = h;
+    (isCurrentMonth
+      ? ''
+      : `<button class="cal-today" type="button" data-cal-today data-cal-id="${ep.id}" title="回到本月">今天</button>`) +
+    '</div>'
+  h +=
+    '<div class="cal-weeks">' +
+    ['一', '二', '三', '四', '五', '六', '日']
+      .map((w, i) => `<span${i > 4 ? ' class="wk"' : ''}>${w}</span>`)
+      .join('') +
+    '</div>'
+  h += '<div class="cal-grid">'
+  d.weeks.forEach((week) =>
+    week.forEach((cell) => {
+      if (!cell) {
+        h += '<div class="cal-cell blank"></div>'
+        return
+      }
+      const cls = ['cal-cell']
+      if (cell.is_weekend) cls.push('wk')
+      if (cell.is_today) cls.push('today')
+      const mark = cell.holiday
+        ? cell.holiday.is_work
+          ? '<i class="cal-mark work">班</i>'
+          : '<i class="cal-mark rest">休</i>'
+        : ''
+      h +=
+        `<div class="${cls.join(' ')}" title="${esc(cell.date)}">` +
+        `<div class="cal-d">${mark}${cell.day}</div>` +
+        `<div class="cal-l${cell.label_is_special ? ' sp' : ''}">${esc(cell.label)}</div>` +
+        '</div>'
+    }),
+  )
+  h += '</div>'
+  h += '</div>'
+  c.innerHTML = h
 }
 
 // 月份切换 / 回到本月：带查询参数重新请求，正常走缓存管线
 async function calLoad(id) {
-  const ep = window['_ep_' + id];
-  const c = document.getElementById('content-' + id);
-  const st = calState[id];
-  if (!ep || !c || !st) return;
-  const url = `${API}${ep.path}?year=${st.y}&month=${st.m}`;
-  const ck = cacheKey(ep, url);
-  const cached = cacheGet(ck);
-  if (cached !== null) { renderData(ep, cached, c); return; }
-  c.innerHTML = SKELETON_HTML;
+  const ep = window['_ep_' + id]
+  const c = document.getElementById('content-' + id)
+  const st = calState[id]
+  if (!ep || !c || !st) return
+  const url = `${API}${ep.path}?year=${st.y}&month=${st.m}`
+  const ck = cacheKey(ep, url)
+  const cached = cacheGet(ck)
+  if (cached !== null) {
+    renderData(ep, cached, c)
+    return
+  }
+  c.innerHTML = SKELETON_HTML
   try {
-    const res = await fetch(url);
-    const json = await res.json();
-    if (json.code !== 200) { c.innerHTML = unavailableHTML(ep, json.message); return; }
-    const dataTs = readDataTs(res);
-    cacheSet(ck, json.data, dataTs);
-    renderData(ep, json.data, c);
-    markEpLoaded(ep.id, dataTs);
+    const res = await fetch(url)
+    const json = await res.json()
+    if (json.code !== 200) {
+      c.innerHTML = unavailableHTML(ep, json.message)
+      return
+    }
+    const dataTs = readDataTs(res)
+    cacheSet(ck, json.data, dataTs)
+    renderData(ep, json.data, c)
+    markEpLoaded(ep.id, dataTs)
   } catch (e) {
-    c.innerHTML = unavailableHTML(ep, e.message);
+    c.innerHTML = unavailableHTML(ep, e.message)
   }
 }
 
-document.addEventListener('click', e => {
-  const nav = e.target.closest('[data-cal-nav]');
+document.addEventListener('click', (e) => {
+  const nav = e.target.closest('[data-cal-nav]')
   if (nav) {
-    const id = nav.dataset.calId;
-    const st = calState[id];
-    if (!st) return;
-    st.m += +nav.dataset.calNav;
-    if (st.m > 12) { st.m = 1; st.y++; }
-    if (st.m < 1) { st.m = 12; st.y--; }
-    calLoad(id);
-    return;
+    const id = nav.dataset.calId
+    const st = calState[id]
+    if (!st) return
+    st.m += +nav.dataset.calNav
+    if (st.m > 12) {
+      st.m = 1
+      st.y++
+    }
+    if (st.m < 1) {
+      st.m = 12
+      st.y--
+    }
+    calLoad(id)
+    return
   }
-  const todayBtn = e.target.closest('[data-cal-today]');
+  const todayBtn = e.target.closest('[data-cal-today]')
   if (todayBtn) {
-    const id = todayBtn.dataset.calId;
-    const todayStr = calState[id] && calState[id].todayStr;
+    const id = todayBtn.dataset.calId
+    const todayStr = calState[id] && calState[id].todayStr
     if (todayStr) {
-      calState[id] = { y: +todayStr.slice(0, 4), m: +todayStr.slice(5, 7), todayStr };
-      calLoad(id);
+      calState[id] = { y: +todayStr.slice(0, 4), m: +todayStr.slice(5, 7), todayStr }
+      calLoad(id)
     }
   }
-});
+})
 
 // ============ 万年历 / 农历 / 节假日弹窗 ============
 function initCalendarModal() {
-  const overlay = document.getElementById('calModalOverlay');
-  const card = document.getElementById('calModalCard');
-  const closeBtn = document.getElementById('calModalClose');
-  const body = document.getElementById('calModalBody');
-  const clockDesktop = document.getElementById('clockDesktop');
-  const clockMobile = document.getElementById('clockMobile');
+  const overlay = document.getElementById('calModalOverlay')
+  const card = document.getElementById('calModalCard')
+  const closeBtn = document.getElementById('calModalClose')
+  const body = document.getElementById('calModalBody')
+  const clockDesktop = document.getElementById('clockDesktop')
+  const clockMobile = document.getElementById('clockMobile')
 
-  if (!overlay || !card || !closeBtn || !body) return;
+  if (!overlay || !card || !closeBtn || !body) return
 
-  const now = new Date();
-  let calModalYear = now.getFullYear();
-  let calModalMonth = now.getMonth() + 1;
-  let calModalLunarData = null;
-  const calModalCalendarCache = new Map();
-  let calModalLoading = false;
+  const now = new Date()
+  let calModalYear = now.getFullYear()
+  let calModalMonth = now.getMonth() + 1
+  let calModalLunarData = null
+  const calModalCalendarCache = new Map()
+  let calModalLoading = false
 
   const renderModalContent = () => {
-    let html = '';
+    let html = ''
 
     // 1. 今日农历详情
     if (calModalLunarData) {
-      const d = calModalLunarData;
-      const s = d.solar || {};
-      const l = d.lunar || {};
-      const z = d.zodiac || {};
-      const sixty = d.sixty_cycle?.year?.name || '';
-      const term = d.term;
-      const termTxt = term ? (term.today ? `今日${term.today}` : (term.stage?.name ? `${term.stage.name} 第${term.stage.position}天` : '')) : '';
-      const f = d.festival;
-      const festival = f ? (f.both_desc || [f.solar, f.lunar].filter(Boolean).join('、')) : '';
-      const constellation = d.constellation?.name || '';
-      const phase = d.phase?.name || '';
-      const taboo = d.taboo?.day;
+      const d = calModalLunarData
+      const s = d.solar || {}
+      const l = d.lunar || {}
+      const z = d.zodiac || {}
+      const sixty = d.sixty_cycle?.year?.name || ''
+      const term = d.term
+      const termTxt = term
+        ? term.today
+          ? `今日${term.today}`
+          : term.stage?.name
+            ? `${term.stage.name} 第${term.stage.position}天`
+            : ''
+        : ''
+      const f = d.festival
+      const festival = f ? f.both_desc || [f.solar, f.lunar].filter(Boolean).join('、') : ''
+      const constellation = d.constellation?.name || ''
+      const phase = d.phase?.name || ''
+      const taboo = d.taboo?.day
 
-      let tabooYi = '';
-      let tabooJi = '';
+      let tabooYi = ''
+      let tabooJi = ''
       if (taboo) {
         if (taboo.recommends) {
-          tabooYi = taboo.recommends.split('.').filter(Boolean).slice(0, 8).join(' · ');
+          tabooYi = taboo.recommends.split('.').filter(Boolean).slice(0, 8).join(' · ')
         }
         if (taboo.avoids) {
-          tabooJi = taboo.avoids.split('.').filter(Boolean).slice(0, 8).join(' · ');
+          tabooJi = taboo.avoids.split('.').filter(Boolean).slice(0, 8).join(' · ')
         }
       }
 
-      const lunarRaw = (l.desc_short || '').replace(/^农历/, '').trim();
-      const lunarText = lunarRaw ? `农历 ${lunarRaw}` : '';
+      const lunarRaw = (l.desc_short || '').replace(/^农历/, '').trim()
+      const lunarText = lunarRaw ? `农历 ${lunarRaw}` : ''
 
       html += `
         <div class="cal-today-box">
@@ -3818,327 +4829,390 @@ function initCalendarModal() {
             ${constellation ? `<span class="cal-badge">✨ ${esc(constellation)}</span>` : ''}
             ${phase ? `<span class="cal-badge">🌓 ${esc(phase)}</span>` : ''}
           </div>
-          ${(tabooYi || tabooJi) ? `
+          ${
+            tabooYi || tabooJi
+              ? `
             <div style="display:flex; flex-direction:column; gap:6px; margin-top:2px;">
               ${tabooYi ? `<div class="cal-taboo-row"><span class="cal-taboo-label yi">宜</span><span class="cal-taboo-val">${esc(tabooYi)}</span></div>` : ''}
               ${tabooJi ? `<div class="cal-taboo-row"><span class="cal-taboo-label ji">忌</span><span class="cal-taboo-val">${esc(tabooJi)}</span></div>` : ''}
             </div>
-          ` : ''}
+          `
+              : ''
+          }
         </div>
-      `;
+      `
     } else if (calModalLoading) {
       html += `
         <div class="cal-today-box" style="align-items:center; justify-content:center; min-height:80px; color:var(--text-dim);">
           <span>⏳ 正在获取今日农历、节气与宜忌信息…</span>
         </div>
-      `;
+      `
     }
 
     // 2. 月历与节假日安排
-    const cacheKey = `${calModalYear}-${calModalMonth}`;
-    const calData = calModalCalendarCache.get(cacheKey);
+    const cacheKey = `${calModalYear}-${calModalMonth}`
+    const calData = calModalCalendarCache.get(cacheKey)
 
     if (calData && Array.isArray(calData.weeks)) {
-      const todayDate = new Date();
-      const isCurrentMonth = (calModalYear === todayDate.getFullYear() && calModalMonth === (todayDate.getMonth() + 1));
+      const todayDate = new Date()
+      const isCurrentMonth = calModalYear === todayDate.getFullYear() && calModalMonth === todayDate.getMonth() + 1
 
-      html += '<div class="cal">';
-      html += '<div class="cal-head">' +
+      html += '<div class="cal">'
+      html +=
+        '<div class="cal-head">' +
         `<button class="cal-nav" type="button" data-cal-modal-nav="-1" title="上个月">‹</button>` +
         `<span class="cal-title">${calModalYear} 年 ${calModalMonth} 月</span>` +
         `<button class="cal-nav" type="button" data-cal-modal-nav="1" title="下个月">›</button>` +
-        (isCurrentMonth ? '' : `<button class="cal-today" type="button" data-cal-modal-today title="回到本月">今天</button>`) +
-        '</div>';
-      html += '<div class="cal-weeks">' +
-        ['一', '二', '三', '四', '五', '六', '日'].map((w, i) => `<span${i > 4 ? ' class="wk"' : ''}>${w}</span>`).join('') +
-        '</div>';
-      html += '<div class="cal-grid">';
-      calData.weeks.forEach(week => week.forEach(cell => {
-        if (!cell) { html += '<div class="cal-cell blank"></div>'; return; }
-        const cls = ['cal-cell'];
-        if (cell.is_weekend) cls.push('wk');
-        if (cell.is_today) cls.push('today');
-        const mark = cell.holiday ? (cell.holiday.is_work ? '<i class="cal-mark work">班</i>' : '<i class="cal-mark rest">休</i>') : '';
-        html += `<div class="${cls.join(' ')}" title="${esc(cell.date || '')}">` +
-          `<div class="cal-d">${mark}${cell.day}</div>` +
-          `<div class="cal-l${cell.label_is_special ? ' sp' : ''}">${esc(cell.label || '')}</div>` +
-          '</div>';
-      }));
-      html += '</div>';
-      html += '</div>';
+        (isCurrentMonth
+          ? ''
+          : `<button class="cal-today" type="button" data-cal-modal-today title="回到本月">今天</button>`) +
+        '</div>'
+      html +=
+        '<div class="cal-weeks">' +
+        ['一', '二', '三', '四', '五', '六', '日']
+          .map((w, i) => `<span${i > 4 ? ' class="wk"' : ''}>${w}</span>`)
+          .join('') +
+        '</div>'
+      html += '<div class="cal-grid">'
+      calData.weeks.forEach((week) =>
+        week.forEach((cell) => {
+          if (!cell) {
+            html += '<div class="cal-cell blank"></div>'
+            return
+          }
+          const cls = ['cal-cell']
+          if (cell.is_weekend) cls.push('wk')
+          if (cell.is_today) cls.push('today')
+          const mark = cell.holiday
+            ? cell.holiday.is_work
+              ? '<i class="cal-mark work">班</i>'
+              : '<i class="cal-mark rest">休</i>'
+            : ''
+          html +=
+            `<div class="${cls.join(' ')}" title="${esc(cell.date || '')}">` +
+            `<div class="cal-d">${mark}${cell.day}</div>` +
+            `<div class="cal-l${cell.label_is_special ? ' sp' : ''}">${esc(cell.label || '')}</div>` +
+            '</div>'
+        }),
+      )
+      html += '</div>'
+      html += '</div>'
     } else if (calModalLoading) {
       html += `
         <div style="display:flex; align-items:center; justify-content:center; min-height:160px; color:var(--text-dim); font-size:13px;">
           <span>⏳ 正在加载万年历与节假日数据…</span>
         </div>
-      `;
+      `
     } else {
       html += `
         <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:140px; gap:8px; color:var(--text-dim);">
           <span>万年历数据加载失败</span>
           <button type="button" class="btn" data-cal-modal-retry style="padding:4px 12px; font-size:12px;">重新加载</button>
         </div>
-      `;
+      `
     }
 
-    body.innerHTML = html;
-  };
+    body.innerHTML = html
+  }
 
   const loadModalData = async (year, month) => {
-    calModalLoading = true;
-    renderModalContent();
+    calModalLoading = true
+    renderModalContent()
 
-    const promises = [];
+    const promises = []
     if (!calModalLunarData) {
       promises.push(
         fetch(`${API}/v2/lunar`)
-          .then(r => r.json())
-          .then(res => {
-            if (res.code === 200 && res.data) calModalLunarData = res.data;
+          .then((r) => r.json())
+          .then((res) => {
+            if (res.code === 200 && res.data) calModalLunarData = res.data
           })
-          .catch(() => {})
-      );
+          .catch(() => {}),
+      )
     }
 
-    const key = `${year}-${month}`;
+    const key = `${year}-${month}`
     if (!calModalCalendarCache.has(key)) {
       promises.push(
         fetch(`${API}/v2/lunar/calendar?year=${year}&month=${month}`)
-          .then(r => r.json())
-          .then(res => {
-            if (res.code === 200 && res.data) calModalCalendarCache.set(key, res.data);
+          .then((r) => r.json())
+          .then((res) => {
+            if (res.code === 200 && res.data) calModalCalendarCache.set(key, res.data)
           })
-          .catch(() => {})
-      );
+          .catch(() => {}),
+      )
     }
 
-    await Promise.all(promises);
-    calModalLoading = false;
-    renderModalContent();
-  };
+    await Promise.all(promises)
+    calModalLoading = false
+    renderModalContent()
+  }
 
   const openModal = () => {
-    overlay.hidden = false;
-    document.body.style.overflow = 'hidden';
-    const d = new Date();
-    calModalYear = d.getFullYear();
-    calModalMonth = d.getMonth() + 1;
-    loadModalData(calModalYear, calModalMonth);
-    closeBtn.focus();
-  };
+    overlay.hidden = false
+    document.body.style.overflow = 'hidden'
+    const d = new Date()
+    calModalYear = d.getFullYear()
+    calModalMonth = d.getMonth() + 1
+    loadModalData(calModalYear, calModalMonth)
+    closeBtn.focus()
+  }
 
   const closeModal = () => {
-    if (overlay.hidden) return;
-    overlay.hidden = true;
-    document.body.style.overflow = '';
-  };
+    if (overlay.hidden) return
+    overlay.hidden = true
+    document.body.style.overflow = ''
+  }
 
-  [clockDesktop, clockMobile].forEach(btn => {
-    if (!btn) return;
-    btn.addEventListener('click', openModal);
+  ;[clockDesktop, clockMobile].forEach((btn) => {
+    if (!btn) return
+    btn.addEventListener('click', openModal)
     btn.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        openModal();
+        e.preventDefault()
+        openModal()
       }
-    });
-  });
+    })
+  })
 
-  closeBtn.addEventListener('click', closeModal);
+  closeBtn.addEventListener('click', closeModal)
   overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) closeModal();
-  });
+    if (e.target === overlay) closeModal()
+  })
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !overlay.hidden) closeModal();
-  });
+    if (e.key === 'Escape' && !overlay.hidden) closeModal()
+  })
 
   body.addEventListener('click', (e) => {
-    const nav = e.target.closest('[data-cal-modal-nav]');
+    const nav = e.target.closest('[data-cal-modal-nav]')
     if (nav) {
-      const step = parseInt(nav.dataset.calModalNav, 10);
-      calModalMonth += step;
-      if (calModalMonth > 12) { calModalMonth = 1; calModalYear++; }
-      if (calModalMonth < 1) { calModalMonth = 12; calModalYear--; }
-      loadModalData(calModalYear, calModalMonth);
-      return;
+      const step = parseInt(nav.dataset.calModalNav, 10)
+      calModalMonth += step
+      if (calModalMonth > 12) {
+        calModalMonth = 1
+        calModalYear++
+      }
+      if (calModalMonth < 1) {
+        calModalMonth = 12
+        calModalYear--
+      }
+      loadModalData(calModalYear, calModalMonth)
+      return
     }
-    const todayBtn = e.target.closest('[data-cal-modal-today]');
+    const todayBtn = e.target.closest('[data-cal-modal-today]')
     if (todayBtn) {
-      const d = new Date();
-      calModalYear = d.getFullYear();
-      calModalMonth = d.getMonth() + 1;
-      loadModalData(calModalYear, calModalMonth);
-      return;
+      const d = new Date()
+      calModalYear = d.getFullYear()
+      calModalMonth = d.getMonth() + 1
+      loadModalData(calModalYear, calModalMonth)
+      return
     }
-    const retryBtn = e.target.closest('[data-cal-modal-retry]');
+    const retryBtn = e.target.closest('[data-cal-modal-retry]')
     if (retryBtn) {
-      loadModalData(calModalYear, calModalMonth);
-      return;
+      loadModalData(calModalYear, calModalMonth)
+      return
     }
-  });
+  })
 }
 
 // ============ 2048 小游戏（纯前端，noapi） ============
 // 棋局状态按卡片 id 存内存，最高分 localStorage 持久化；
 // 操控统一走 Pointer Events（鼠标拖拽 = 触屏滑动），另支持键盘方向键/WASD
-const g2048 = {};
-let g2048Seq = 0;
+const g2048 = {}
+let g2048Seq = 0
 
 function g2048New(id) {
-  const st = g2048[id] = {
-    tiles: [],            // { id, v, r, c, isNew, merged } 持久方块，动画靠 DOM 复用
-    score: 0, best: g2048Best(), over: false,
-    won: false, wonAck: false,  // 2048 达成一次提示，wonAck = 用户点了“继续”
-    hist: null,           // 单步撤销快照
-    ghosts: [], cleanT: 0
-  };
-  g2048Spawn(st);
-  g2048Spawn(st);
-  return st;
+  const st = (g2048[id] = {
+    tiles: [], // { id, v, r, c, isNew, merged } 持久方块，动画靠 DOM 复用
+    score: 0,
+    best: g2048Best(),
+    over: false,
+    won: false,
+    wonAck: false, // 2048 达成一次提示，wonAck = 用户点了“继续”
+    hist: null, // 单步撤销快照
+    ghosts: [],
+    cleanT: 0,
+  })
+  g2048Spawn(st)
+  g2048Spawn(st)
+  return st
 }
 
 function g2048Spawn(st) {
-  const occ = new Set(st.tiles.map(t => t.r * 4 + t.c));
-  const empty = [];
-  for (let i = 0; i < 16; i++) if (!occ.has(i)) empty.push(i);
-  if (!empty.length) return;
-  const i = empty[Math.random() * empty.length | 0];
-  st.tiles.push({ id: ++g2048Seq, v: Math.random() < 0.9 ? 2 : 4, r: i / 4 | 0, c: i % 4, isNew: true });
+  const occ = new Set(st.tiles.map((t) => t.r * 4 + t.c))
+  const empty = []
+  for (let i = 0; i < 16; i++) if (!occ.has(i)) empty.push(i)
+  if (!empty.length) return
+  const i = empty[(Math.random() * empty.length) | 0]
+  st.tiles.push({ id: ++g2048Seq, v: Math.random() < 0.9 ? 2 : 4, r: (i / 4) | 0, c: i % 4, isNew: true })
 }
 
 function g2048Best() {
-  try { return +localStorage.getItem('g2048-best') || 0; } catch { return 0; }
+  try {
+    return +localStorage.getItem('g2048-best') || 0
+  } catch {
+    return 0
+  }
 }
 
 function g2048CanMove(st) {
-  if (st.tiles.length < 16) return true;
-  const g = Array(16).fill(0);
-  for (const t of st.tiles) g[t.r * 4 + t.c] = t.v;
-  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
-    const v = g[r * 4 + c];
-    if (c < 3 && v === g[r * 4 + c + 1]) return true;
-    if (r < 3 && v === g[(r + 1) * 4 + c]) return true;
-  }
-  return false;
+  if (st.tiles.length < 16) return true
+  const g = Array(16).fill(0)
+  for (const t of st.tiles) g[t.r * 4 + t.c] = t.v
+  for (let r = 0; r < 4; r++)
+    for (let c = 0; c < 4; c++) {
+      const v = g[r * 4 + c]
+      if (c < 3 && v === g[r * 4 + c + 1]) return true
+      if (r < 3 && v === g[(r + 1) * 4 + c]) return true
+    }
+  return false
 }
 
 // 触感反馈：合并 15ms / 敲击 10ms 短震（支持的设备才生效，配合全局震动开关）
-let hapticOn = true;
-try { hapticOn = localStorage.getItem('haptic-off') !== '1'; } catch {}
+let hapticOn = true
+try {
+  hapticOn = localStorage.getItem('haptic-off') !== '1'
+} catch {}
 function haptic(ms) {
-  if (hapticOn && navigator.vibrate) { try { navigator.vibrate(ms); } catch {} }
+  if (hapticOn && navigator.vibrate) {
+    try {
+      navigator.vibrate(ms)
+    } catch {}
+  }
 }
 
 // 数字滚动（count-up）：值变化时从旧值 200ms 滚到新值；reduced-motion 时直接跳终值。
 // 竞态处理：新动画开始前取消旧动画，快速连击不会叠加多个 rAF 循环
-const countUps = new WeakMap();
+const countUps = new WeakMap()
 function countUp(el, target, format) {
-  if (!el) return;
-  const fmt = format || (n => n.toLocaleString('zh-CN'));
-  const prev = countUps.get(el);
-  const from = typeof prev?.value === 'number' ? prev.value : null;
-  if (prev?.raf) cancelAnimationFrame(prev.raf);
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!el) return
+  const fmt = format || ((n) => n.toLocaleString('zh-CN'))
+  const prev = countUps.get(el)
+  const from = typeof prev?.value === 'number' ? prev.value : null
+  if (prev?.raf) cancelAnimationFrame(prev.raf)
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
   if (from === null || reduced || from === target) {
-    countUps.set(el, { value: target, raf: 0 });
-    el.textContent = fmt(target);
-    return;
+    countUps.set(el, { value: target, raf: 0 })
+    el.textContent = fmt(target)
+    return
   }
-  const t0 = performance.now(), dur = 200;
-  const tick = now => {
-    const k = Math.min(1, (now - t0) / dur);
-    const v = Math.round(from + (target - from) * k);
-    el.textContent = fmt(v);
-    if (k < 1) countUps.get(el).raf = requestAnimationFrame(tick);
-    else countUps.set(el, { value: target, raf: 0 });
-  };
-  countUps.set(el, { value: from, raf: requestAnimationFrame(tick) });
+  const t0 = performance.now(),
+    dur = 200
+  const tick = (now) => {
+    const k = Math.min(1, (now - t0) / dur)
+    const v = Math.round(from + (target - from) * k)
+    el.textContent = fmt(v)
+    if (k < 1) countUps.get(el).raf = requestAnimationFrame(tick)
+    else countUps.set(el, { value: target, raf: 0 })
+  }
+  countUps.set(el, { value: from, raf: requestAnimationFrame(tick) })
 }
 
 function g2048Move(id, dir) {
-  const st = g2048[id];
-  if (!st || st.over || (st.won && !st.wonAck)) return;
-  const vertical = dir === 'up' || dir === 'down';
-  const rev = dir === 'right' || dir === 'down';
+  const st = g2048[id]
+  if (!st || st.over || (st.won && !st.wonAck)) return
+  const vertical = dir === 'up' || dir === 'down'
+  const rev = dir === 'right' || dir === 'down'
   // 落子前快照（撤销用）；无效移动时还原，避免空耗一步撤销机会
-  const prevHist = st.hist;
+  const prevHist = st.hist
   st.hist = {
-    tiles: st.tiles.map(t => ({ id: t.id, v: t.v, r: t.r, c: t.c })),
-    score: st.score, won: st.won, wonAck: st.wonAck
-  };
-  st.tiles.forEach(t => { t.merged = false; t.isNew = false; });
+    tiles: st.tiles.map((t) => ({ id: t.id, v: t.v, r: t.r, c: t.c })),
+    score: st.score,
+    won: st.won,
+    wonAck: st.wonAck,
+  }
+  st.tiles.forEach((t) => {
+    t.merged = false
+    t.isNew = false
+  })
 
-  const ghosts = []; // 被合并掉的方块：滑到目标位做动画，之后由 paint 延迟清理
-  let moved = false, gained = 0;
+  const ghosts = [] // 被合并掉的方块：滑到目标位做动画，之后由 paint 延迟清理
+  let moved = false,
+    gained = 0
   for (let i = 0; i < 4; i++) {
     const line = st.tiles
-      .filter(t => vertical ? t.c === i : t.r === i)
-      .sort((a, b) => vertical ? a.r - b.r : a.c - b.c);
-    if (rev) line.reverse();
-    const out = [];
+      .filter((t) => (vertical ? t.c === i : t.r === i))
+      .sort((a, b) => (vertical ? a.r - b.r : a.c - b.c))
+    if (rev) line.reverse()
+    const out = []
     for (const t of line) {
-      const last = out[out.length - 1];
+      const last = out[out.length - 1]
       // last.merged 防止 [2,2,4] 连环并成 8（正确结果是 [4,4]）
       if (last && last.v === t.v && !last.merged) {
-        last.v *= 2; last.merged = true; gained += last.v;
-        if (last.v >= 2048 && !st.won) st.won = true;
-        ghosts.push({ ...t, target: last });
+        last.v *= 2
+        last.merged = true
+        gained += last.v
+        if (last.v >= 2048 && !st.won) st.won = true
+        ghosts.push({ ...t, target: last })
       } else {
-        out.push(t);
+        out.push(t)
       }
     }
     out.forEach((t, j) => {
-      const pos = rev ? 3 - j : j;
-      const nr = vertical ? pos : i, nc = vertical ? i : pos;
-      if (t.r !== nr || t.c !== nc) moved = true;
-      t.r = nr; t.c = nc;
-    });
+      const pos = rev ? 3 - j : j
+      const nr = vertical ? pos : i,
+        nc = vertical ? i : pos
+      if (t.r !== nr || t.c !== nc) moved = true
+      t.r = nr
+      t.c = nc
+    })
   }
-  if (ghosts.length) moved = true; // 合并发生即有效（存活块可能原地不动）
-  if (!moved) { st.hist = prevHist; return; }
+  if (ghosts.length) moved = true // 合并发生即有效（存活块可能原地不动）
+  if (!moved) {
+    st.hist = prevHist
+    return
+  }
 
-  st.tiles = st.tiles.filter(t => !ghosts.some(g => g.id === t.id));
-  for (const g of ghosts) { g.r = g.target.r; g.c = g.target.c; } // 幽灵滑向合并目标
-  st.ghosts = ghosts;
-  st.score += gained;
+  st.tiles = st.tiles.filter((t) => !ghosts.some((g) => g.id === t.id))
+  for (const g of ghosts) {
+    g.r = g.target.r
+    g.c = g.target.c
+  } // 幽灵滑向合并目标
+  st.ghosts = ghosts
+  st.score += gained
   if (st.score > st.best) {
-    st.best = st.score;
-    try { localStorage.setItem('g2048-best', String(st.best)); } catch {}
+    st.best = st.score
+    try {
+      localStorage.setItem('g2048-best', String(st.best))
+    } catch {}
   }
-  g2048Spawn(st);
-  if (!g2048CanMove(st)) st.over = true;
-  g2048Paint(id);
-  if (gained) { g2048Float(id, gained); haptic(15); }
+  g2048Spawn(st)
+  if (!g2048CanMove(st)) st.over = true
+  g2048Paint(id)
+  if (gained) {
+    g2048Float(id, gained)
+    haptic(15)
+  }
 }
 
 function g2048Undo(id) {
-  const st = g2048[id];
-  if (!st || !st.hist) return;
-  const h = st.hist;
-  st.tiles = h.tiles.map(t => ({ ...t }));
-  st.score = h.score;
-  st.won = h.won;
-  st.wonAck = h.wonAck;
-  st.over = false; // 游戏结束也可撤销自救
-  st.hist = null;
-  st.ghosts = [];
-  g2048Paint(id);
+  const st = g2048[id]
+  if (!st || !st.hist) return
+  const h = st.hist
+  st.tiles = h.tiles.map((t) => ({ ...t }))
+  st.score = h.score
+  st.won = h.won
+  st.wonAck = h.wonAck
+  st.over = false // 游戏结束也可撤销自救
+  st.hist = null
+  st.ghosts = []
+  g2048Paint(id)
 }
 
 function g2048Float(id, n) {
-  const wrap = document.querySelector(`[data-g2048="${id}"]`);
-  const box = wrap && wrap.querySelector('.g2048-scorebox');
-  if (!box) return;
-  const s = document.createElement('span');
-  s.className = 'g-add';
-  s.textContent = '+' + n;
-  box.appendChild(s);
-  s.addEventListener('animationend', () => s.remove());
+  const wrap = document.querySelector(`[data-g2048="${id}"]`)
+  const box = wrap && wrap.querySelector('.g2048-scorebox')
+  if (!box) return
+  const s = document.createElement('span')
+  s.className = 'g-add'
+  s.textContent = '+' + n
+  box.appendChild(s)
+  s.addEventListener('animationend', () => s.remove())
 }
 
 function rGame2048(_, c, ep) {
-  const id = ep.id;
-  const st = g2048New(id);
+  const id = ep.id
+  const st = g2048New(id)
 
   c.innerHTML = `<div class="g2048" data-g2048="${id}">
     <div class="g2048-main">
@@ -4157,153 +5231,185 @@ function rGame2048(_, c, ep) {
         <div class="g2048-over" hidden></div>
       </div>
     </div>
-  </div>`;
-  g2048Paint(id);
-  g2048Bind(id);
-  cardFsSync(); // 全屏中刷新重渲后，同步侧栏全屏按钮文案
-  const b = wrap2048Board(id);
-  if (b) b.focus({ preventScroll: true });
+  </div>`
+  g2048Paint(id)
+  g2048Bind(id)
+  cardFsSync() // 全屏中刷新重渲后，同步侧栏全屏按钮文案
+  const b = wrap2048Board(id)
+  if (b) b.focus({ preventScroll: true })
 }
 
 function wrap2048Board(id) {
-  const wrap = document.querySelector(`[data-g2048="${id}"]`);
-  return wrap ? wrap.querySelector('.g2048-board') : null;
+  const wrap = document.querySelector(`[data-g2048="${id}"]`)
+  return wrap ? wrap.querySelector('.g2048-board') : null
 }
 
 function g2048Paint(id) {
-  const st = g2048[id];
-  const wrap = document.querySelector(`[data-g2048="${id}"]`);
-  if (!st || !wrap) return;
-  const layer = wrap.querySelector('.g2048-layer');
+  const st = g2048[id]
+  const wrap = document.querySelector(`[data-g2048="${id}"]`)
+  if (!st || !wrap) return
+  const layer = wrap.querySelector('.g2048-layer')
 
   // 立即清掉不属于当前棋局的遗留元素（重开 / 撤销 / 上一手未清完的幽灵）
-  const keep = new Set([...st.tiles.map(t => t.id), ...st.ghosts.map(g => g.id)]);
-  layer.querySelectorAll('.g-tile[data-id]').forEach(el => {
-    if (!keep.has(+el.dataset.id)) el.remove();
-  });
+  const keep = new Set([...st.tiles.map((t) => t.id), ...st.ghosts.map((g) => g.id)])
+  layer.querySelectorAll('.g-tile[data-id]').forEach((el) => {
+    if (!keep.has(+el.dataset.id)) el.remove()
+  })
 
   // 存活方块：按 id 复用元素，只改坐标（--r/--c）与数值，滑动交给 CSS transition
   for (const t of st.tiles) {
-    let el = layer.querySelector(`[data-id="${t.id}"]`);
+    let el = layer.querySelector(`[data-id="${t.id}"]`)
     if (!el) {
-      el = document.createElement('div');
-      el.dataset.id = t.id;
-      const ti = document.createElement('div');
-      ti.className = 'ti'; // .ti 内层负责视觉/弹出动画，漏掉则无色块、不居中
-      el.appendChild(ti);
-      layer.appendChild(el);
+      el = document.createElement('div')
+      el.dataset.id = t.id
+      const ti = document.createElement('div')
+      ti.className = 'ti' // .ti 内层负责视觉/弹出动画，漏掉则无色块、不居中
+      el.appendChild(ti)
+      layer.appendChild(el)
     }
-    el.className = `g-tile t${t.v <= 2048 ? t.v : 'x'} d${String(t.v).length}` +
-      (t.isNew ? ' new' : '') + (t.merged ? ' merged' : '');
-    el.style.setProperty('--r', t.r);
-    el.style.setProperty('--c', t.c);
-    el.firstChild.textContent = t.v;
-    t.isNew = false;
-    t.merged = false;
+    el.className =
+      `g-tile t${t.v <= 2048 ? t.v : 'x'} d${String(t.v).length}` +
+      (t.isNew ? ' new' : '') +
+      (t.merged ? ' merged' : '')
+    el.style.setProperty('--r', t.r)
+    el.style.setProperty('--c', t.c)
+    el.firstChild.textContent = t.v
+    t.isNew = false
+    t.merged = false
   }
   // 幽灵方块：定位到合并目标位滑行，220ms 后由下方清理移除
   for (const g of st.ghosts) {
-    const el = layer.querySelector(`[data-id="${g.id}"]`);
+    const el = layer.querySelector(`[data-id="${g.id}"]`)
     if (el) {
-      el.className = `g-tile ghost t${g.v <= 2048 ? g.v : 'x'} d${String(g.v).length}`;
-      el.style.setProperty('--r', g.r);
-      el.style.setProperty('--c', g.c);
+      el.className = `g-tile ghost t${g.v <= 2048 ? g.v : 'x'} d${String(g.v).length}`
+      el.style.setProperty('--r', g.r)
+      el.style.setProperty('--c', g.c)
     }
   }
-  st.ghosts = [];
-  clearTimeout(st.cleanT);
+  st.ghosts = []
+  clearTimeout(st.cleanT)
   st.cleanT = setTimeout(() => {
-    const cur = g2048[id], w = document.querySelector(`[data-g2048="${id}"]`);
-    if (!cur || !w) return;
-    const live = new Set(cur.tiles.map(t => t.id));
-    w.querySelectorAll('.g-tile[data-id]').forEach(el => {
-      if (!live.has(+el.dataset.id)) el.remove();
-    });
-  }, 220);
+    const cur = g2048[id],
+      w = document.querySelector(`[data-g2048="${id}"]`)
+    if (!cur || !w) return
+    const live = new Set(cur.tiles.map((t) => t.id))
+    w.querySelectorAll('.g-tile[data-id]').forEach((el) => {
+      if (!live.has(+el.dataset.id)) el.remove()
+    })
+  }, 220)
 
-  countUp(wrap.querySelector('.g-sv'), st.score);
-  wrap.querySelector('.g-bv').textContent = st.best;
-  wrap.querySelector('[data-g2048-undo]').disabled = !st.hist;
+  countUp(wrap.querySelector('.g-sv'), st.score)
+  wrap.querySelector('.g-bv').textContent = st.best
+  wrap.querySelector('[data-g2048-undo]').disabled = !st.hist
 
-  const over = wrap.querySelector('.g2048-over');
+  const over = wrap.querySelector('.g2048-over')
   if (st.over) {
     over.innerHTML = `<div class="go-title">游戏结束</div><div class="go-score">得分 <b>${st.score}</b></div>
       <div class="go-row"><button class="go-btn" type="button" data-g2048-new="${id}">再来一局</button>
-      <button class="go-btn ghost" type="button" data-g2048-undo="${id}">↶ 撤销一步</button></div>`;
-    over.hidden = false;
+      <button class="go-btn ghost" type="button" data-g2048-undo="${id}">↶ 撤销一步</button></div>`
+    over.hidden = false
   } else if (st.won && !st.wonAck) {
     over.innerHTML = `<div class="go-title">🎉 2048 达成</div><div class="go-score">得分 <b>${st.score}</b>，可继续挑战更高分</div>
       <div class="go-row"><button class="go-btn" type="button" data-g2048-continue="${id}">继续游戏</button>
-      <button class="go-btn ghost" type="button" data-g2048-new="${id}">重开</button></div>`;
-    over.hidden = false;
+      <button class="go-btn ghost" type="button" data-g2048-new="${id}">重开</button></div>`
+    over.hidden = false
   } else {
-    over.hidden = true;
+    over.hidden = true
   }
 }
 
 function g2048Bind(id) {
-  const wrap = document.querySelector(`[data-g2048="${id}"]`);
-  if (!wrap) return;
-  const board = wrap.querySelector('.g2048-board');
-  let sx = 0, sy = 0, tracking = false, fired = false;
-  wrap.addEventListener('pointerdown', e => {
-    tracking = true; fired = false; sx = e.clientX; sy = e.clientY;
+  const wrap = document.querySelector(`[data-g2048="${id}"]`)
+  if (!wrap) return
+  const board = wrap.querySelector('.g2048-board')
+  let sx = 0,
+    sy = 0,
+    tracking = false,
+    fired = false
+  wrap.addEventListener('pointerdown', (e) => {
+    tracking = true
+    fired = false
+    sx = e.clientX
+    sy = e.clientY
     // 按钮等交互控件上不捕获指针：setPointerCapture 会把后续 click 重定向到 wrap，
     // 委托在 document 的按钮点击（全屏/撤销/重开）就再也匹配不到目标——桌面鼠标
     // 必现；触摸端因点击前常先有滚动、capture 时序不同而侥幸可用。滑动手势只
     // 需要在棋盘上生效，这里放行按钮，手势逻辑不受影响
-    if (e.target.closest('button, a, input, select, textarea, label')) return;
-    try { wrap.setPointerCapture(e.pointerId); } catch {}
-    board.focus({ preventScroll: true });
-  });
-  wrap.addEventListener('pointermove', e => {
-    if (!tracking || fired) return;
-    let dx = e.clientX - sx, dy = e.clientY - sy;
+    if (e.target.closest('button, a, input, select, textarea, label')) return
+    try {
+      wrap.setPointerCapture(e.pointerId)
+    } catch {}
+    board.focus({ preventScroll: true })
+  })
+  wrap.addEventListener('pointermove', (e) => {
+    if (!tracking || fired) return
+    let dx = e.clientX - sx,
+      dy = e.clientY - sy
     // 阈值随棋盘宽度缩放（约 8%），小屏不迟钝、大屏不误触
-    const th = Math.max(18, board.clientWidth * 0.08);
-    if (Math.abs(dx) < th && Math.abs(dy) < th) return;
-    fired = true;
-    g2048Move(id, Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
-  });
-  const end = () => { tracking = false; };
-  wrap.addEventListener('pointerup', end);
-  wrap.addEventListener('pointercancel', end);
-  board.addEventListener('keydown', e => {
+    const th = Math.max(18, board.clientWidth * 0.08)
+    if (Math.abs(dx) < th && Math.abs(dy) < th) return
+    fired = true
+    g2048Move(id, Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up')
+  })
+  const end = () => {
+    tracking = false
+  }
+  wrap.addEventListener('pointerup', end)
+  wrap.addEventListener('pointercancel', end)
+  board.addEventListener('keydown', (e) => {
     // toLowerCase：兼容 CapsLock / Shift 下的大写 WASD
-    const map = { arrowleft: 'left', arrowright: 'right', arrowup: 'up', arrowdown: 'down', a: 'left', d: 'right', w: 'up', s: 'down' };
-    const dir = map[e.key.toLowerCase()];
-    if (dir) { e.preventDefault(); g2048Move(id, dir); }
-  });
+    const map = {
+      arrowleft: 'left',
+      arrowright: 'right',
+      arrowup: 'up',
+      arrowdown: 'down',
+      a: 'left',
+      d: 'right',
+      w: 'up',
+      s: 'down',
+    }
+    const dir = map[e.key.toLowerCase()]
+    if (dir) {
+      e.preventDefault()
+      g2048Move(id, dir)
+    }
+  })
 }
 
-document.addEventListener('click', e => {
+document.addEventListener('click', (e) => {
   // （游戏区内的全屏 / 退出按钮由底部统一入口处理，这里只管其余按钮）
-  const newBtn = e.target.closest('[data-g2048-new]');
+  const newBtn = e.target.closest('[data-g2048-new]')
   if (newBtn) {
-    const id = newBtn.dataset.g2048New;
-    g2048New(id);
-    g2048Paint(id);
-    const b = wrap2048Board(id);
-    if (b) b.focus({ preventScroll: true });
-    return;
+    const id = newBtn.dataset.g2048New
+    g2048New(id)
+    g2048Paint(id)
+    const b = wrap2048Board(id)
+    if (b) b.focus({ preventScroll: true })
+    return
   }
-  const undoBtn = e.target.closest('[data-g2048-undo]');
-  if (undoBtn) { g2048Undo(undoBtn.dataset.g2048Undo); return; }
-  const contBtn = e.target.closest('[data-g2048-continue]');
+  const undoBtn = e.target.closest('[data-g2048-undo]')
+  if (undoBtn) {
+    g2048Undo(undoBtn.dataset.g2048Undo)
+    return
+  }
+  const contBtn = e.target.closest('[data-g2048-continue]')
   if (contBtn) {
-    const id = contBtn.dataset.g2048Continue;
-    const st = g2048[id];
-    if (st) { st.wonAck = true; g2048Paint(id); }
+    const id = contBtn.dataset.g2048Continue
+    const st = g2048[id]
+    if (st) {
+      st.wonAck = true
+      g2048Paint(id)
+    }
   }
-});
+})
 
 // ============ 电子木鱼（纯前端，noapi） ============
 // 点击敲击：木槌下摆 + 木鱼受击挤压回弹 + 功德飘字 + 金色涟漪 + Web Audio 合成木鱼声；
 // 功德总数 localStorage 持久化，重置按钮清零；音效静音状态同样持久化
-const muyu = {};
-let muyuActx = null;
+const muyu = {}
+let muyuActx = null
 // 卡片伪全屏状态表（card → { rot, prevScroller }），Fullscreen API 模式不需要
-const fsState = new Map();
+const fsState = new Map()
 
 // 木鱼造型（内联 SVG，现代扁平拟物风）：圆润团鱼形木鱼坐于红木锦垫上——
 // 单一暖木色球面渐变 + 一圈车削高光环 + 顶部音槽与侧腹螺旋雕纹，干净不喧宾；
@@ -4311,7 +5417,7 @@ const fsState = new Map();
 // .my-fish / .my-mallet / .my-spark 供 CSS 做受击挤压、挥槌与金星动画；槌尾支点保持 (322,36)，
 // viewBox 高宽比 260/360 不变（全屏布局按此反推宽度）
 const MY_BODY =
-  'M 58,148 C 56,100 98,62 152,62 C 206,62 246,98 246,148 C 246,188 208,216 152,216 C 96,216 60,190 58,148 Z';
+  'M 58,148 C 56,100 98,62 152,62 C 206,62 246,98 246,148 C 246,188 208,216 152,216 C 96,216 60,190 58,148 Z'
 const MUYU_SVG = `<svg class="muyu-svg" viewBox="0 0 360 260" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <defs>
     <radialGradient id="myBody" cx="38%" cy="26%" r="85%">
@@ -4415,107 +5521,116 @@ const MUYU_SVG = `<svg class="muyu-svg" viewBox="0 0 360 260" xmlns="http://www.
     <circle cx="322" cy="36" r="2.2" fill="rgba(255,232,196,.55)"/>
     <path d="M 318.5,31.5 L 315.5,41.5 M 314.5,33 L 311.5,43 M 310.5,34.5 L 307.5,44.5" stroke="rgba(110,60,18,.5)" stroke-width="1.8" stroke-linecap="round"/>
   </g>
-</svg>`;
+</svg>`
 
 // 合成木鱼声：中频音体（频率快速下滑的"咚"）+ 低频腔体余韵 + 高频短噪声（木质感"嗒"），
 // 每次敲击音高轻微随机，避免连击时的机械感
 function muyuKnock() {
   try {
-    muyuActx = muyuActx || new (window.AudioContext || window.webkitAudioContext)();
-    if (muyuActx.state === 'suspended') muyuActx.resume();
-    const t = muyuActx.currentTime;
-    const dt = 0.94 + Math.random() * 0.12;
-    const out = muyuActx.createGain();
-    out.gain.value = 0.9;
-    out.connect(muyuActx.destination);
+    muyuActx = muyuActx || new (window.AudioContext || window.webkitAudioContext)()
+    if (muyuActx.state === 'suspended') muyuActx.resume()
+    const t = muyuActx.currentTime
+    const dt = 0.94 + Math.random() * 0.12
+    const out = muyuActx.createGain()
+    out.gain.value = 0.9
+    out.connect(muyuActx.destination)
 
-    const osc = muyuActx.createOscillator();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(920 * dt, t);
-    osc.frequency.exponentialRampToValueAtTime(480 * dt, t + 0.08);
-    const g1 = muyuActx.createGain();
-    g1.gain.setValueAtTime(0.55, t);
-    g1.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
-    osc.connect(g1).connect(out);
-    osc.start(t); osc.stop(t + 0.16);
+    const osc = muyuActx.createOscillator()
+    osc.type = 'triangle'
+    osc.frequency.setValueAtTime(920 * dt, t)
+    osc.frequency.exponentialRampToValueAtTime(480 * dt, t + 0.08)
+    const g1 = muyuActx.createGain()
+    g1.gain.setValueAtTime(0.55, t)
+    g1.gain.exponentialRampToValueAtTime(0.001, t + 0.14)
+    osc.connect(g1).connect(out)
+    osc.start(t)
+    osc.stop(t + 0.16)
 
-    const o2 = muyuActx.createOscillator();
-    o2.type = 'sine';
-    o2.frequency.setValueAtTime(185 * dt, t);
-    const g2 = muyuActx.createGain();
-    g2.gain.setValueAtTime(0.3, t);
-    g2.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
-    o2.connect(g2).connect(out);
-    o2.start(t); o2.stop(t + 0.3);
+    const o2 = muyuActx.createOscillator()
+    o2.type = 'sine'
+    o2.frequency.setValueAtTime(185 * dt, t)
+    const g2 = muyuActx.createGain()
+    g2.gain.setValueAtTime(0.3, t)
+    g2.gain.exponentialRampToValueAtTime(0.001, t + 0.28)
+    o2.connect(g2).connect(out)
+    o2.start(t)
+    o2.stop(t + 0.3)
 
-    const len = Math.floor(muyuActx.sampleRate * 0.03);
-    const buf = muyuActx.createBuffer(1, len, muyuActx.sampleRate);
-    const ch = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len);
-    const noise = muyuActx.createBufferSource();
-    noise.buffer = buf;
-    const bp = muyuActx.createBiquadFilter();
-    bp.type = 'bandpass';
-    bp.frequency.value = 2100 * dt;
-    bp.Q.value = 1.2;
-    const g3 = muyuActx.createGain();
-    g3.gain.setValueAtTime(0.5, t);
-    g3.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
-    noise.connect(bp).connect(g3).connect(out);
-    noise.start(t);
+    const len = Math.floor(muyuActx.sampleRate * 0.03)
+    const buf = muyuActx.createBuffer(1, len, muyuActx.sampleRate)
+    const ch = buf.getChannelData(0)
+    for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len)
+    const noise = muyuActx.createBufferSource()
+    noise.buffer = buf
+    const bp = muyuActx.createBiquadFilter()
+    bp.type = 'bandpass'
+    bp.frequency.value = 2100 * dt
+    bp.Q.value = 1.2
+    const g3 = muyuActx.createGain()
+    g3.gain.setValueAtTime(0.5, t)
+    g3.gain.exponentialRampToValueAtTime(0.001, t + 0.03)
+    noise.connect(bp).connect(g3).connect(out)
+    noise.start(t)
   } catch {}
 }
 
 function muyuPaint(id) {
-  const el = document.querySelector(`[data-muyu="${id}"]`);
-  const st = muyu[id];
-  if (!el || !st) return;
-  countUp(el.querySelector('.m-count'), st.count);
-  el.querySelector('.m-combo-b').textContent = st.combo > 1 ? `×${st.combo}` : '—';
+  const el = document.querySelector(`[data-muyu="${id}"]`)
+  const st = muyu[id]
+  if (!el || !st) return
+  countUp(el.querySelector('.m-count'), st.count)
+  el.querySelector('.m-combo-b').textContent = st.combo > 1 ? `×${st.combo}` : '—'
 }
 
 function muyuStrike(id) {
-  const st = muyu[id];
-  const el = document.querySelector(`[data-muyu="${id}"]`);
-  if (!st || !el) return;
-  st.count++;
-  const now = Date.now();
-  st.combo = now - st.lastHit < 1400 ? st.combo + 1 : 1;
-  st.lastHit = now;
-  try { localStorage.setItem('muyu-merit', String(st.count)); } catch {}
+  const st = muyu[id]
+  const el = document.querySelector(`[data-muyu="${id}"]`)
+  if (!st || !el) return
+  st.count++
+  const now = Date.now()
+  st.combo = now - st.lastHit < 1400 ? st.combo + 1 : 1
+  st.lastHit = now
+  try {
+    localStorage.setItem('muyu-merit', String(st.count))
+  } catch {}
 
   // 挥槌 + 挤压动画（重触发：移除类 → 强制回流 → 加回，连点每次都重播）
-  const svg = el.querySelector('.muyu-svg');
-  svg.classList.remove('hit');
-  void el.offsetWidth;
-  svg.classList.add('hit');
+  const svg = el.querySelector('.muyu-svg')
+  svg.classList.remove('hit')
+  void el.offsetWidth
+  svg.classList.add('hit')
 
   // 功德飘字（位置在木鱼上方，横向轻微随机）
-  const stage = el.querySelector('.muyu-stage');
-  const add = document.createElement('span');
-  add.className = 'm-add';
-  add.textContent = '功德 +1';
-  add.style.left = 42 + Math.random() * 16 + '%';
-  stage.appendChild(add);
-  add.addEventListener('animationend', () => add.remove());
+  const stage = el.querySelector('.muyu-stage')
+  const add = document.createElement('span')
+  add.className = 'm-add'
+  add.textContent = '功德 +1'
+  add.style.left = 42 + Math.random() * 16 + '%'
+  stage.appendChild(add)
+  add.addEventListener('animationend', () => add.remove())
 
   // 敲击点金色涟漪
-  const rip = document.createElement('span');
-  rip.className = 'm-rip';
-  stage.appendChild(rip);
-  rip.addEventListener('animationend', () => rip.remove());
+  const rip = document.createElement('span')
+  rip.className = 'm-rip'
+  stage.appendChild(rip)
+  rip.addEventListener('animationend', () => rip.remove())
 
-  haptic(10);
-  if (!st.mute) muyuKnock();
-  muyuPaint(id);
+  haptic(10)
+  if (!st.mute) muyuKnock()
+  muyuPaint(id)
 }
 
 function rMuyu(_, c, ep) {
-  const id = ep.id;
-  let saved = 0, mute = false;
-  try { saved = parseInt(localStorage.getItem('muyu-merit'), 10) || 0; } catch {}
-  try { mute = localStorage.getItem('muyu-mute') === '1'; } catch {}
-  muyu[id] = { count: saved, combo: 0, lastHit: 0, mute };
+  const id = ep.id
+  let saved = 0,
+    mute = false
+  try {
+    saved = parseInt(localStorage.getItem('muyu-merit'), 10) || 0
+  } catch {}
+  try {
+    mute = localStorage.getItem('muyu-mute') === '1'
+  } catch {}
+  muyu[id] = { count: saved, combo: 0, lastHit: 0, mute }
 
   c.innerHTML = `<div class="muyu" data-muyu="${id}">
     <div class="muyu-main">
@@ -4530,33 +5645,42 @@ function rMuyu(_, c, ep) {
         ${MUYU_SVG}
       </div>
     </div>
-  </div>`;
+  </div>`
 
-  const el = c.querySelector(`[data-muyu="${id}"]`);
-  const stage = el.querySelector('.muyu-stage');
-  stage.addEventListener('pointerdown', e => {
-    e.preventDefault();
-    stage.focus({ preventScroll: true });
-    muyuStrike(id);
-  });
-  stage.addEventListener('keydown', e => {
-    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); muyuStrike(id); }
-  });
+  const el = c.querySelector(`[data-muyu="${id}"]`)
+  const stage = el.querySelector('.muyu-stage')
+  stage.addEventListener('pointerdown', (e) => {
+    e.preventDefault()
+    stage.focus({ preventScroll: true })
+    muyuStrike(id)
+  })
+  stage.addEventListener('keydown', (e) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault()
+      muyuStrike(id)
+    }
+  })
   el.querySelector('[data-muyu-reset]').onclick = () => {
-    const st = muyu[id];
-    st.count = 0; st.combo = 0; st.lastHit = 0;
-    try { localStorage.setItem('muyu-merit', '0'); } catch {}
-    muyuPaint(id);
-  };
+    const st = muyu[id]
+    st.count = 0
+    st.combo = 0
+    st.lastHit = 0
+    try {
+      localStorage.setItem('muyu-merit', '0')
+    } catch {}
+    muyuPaint(id)
+  }
   // （data-muyu-fs 全屏按钮由底部统一点击入口处理）
-  cardFsSync(); // 全屏中刷新重渲后，同步侧栏全屏按钮文案
-  el.querySelector('[data-muyu-mute]').onclick = ev => {
-    const st = muyu[id];
-    st.mute = !st.mute;
-    try { localStorage.setItem('muyu-mute', st.mute ? '1' : '0'); } catch {}
+  cardFsSync() // 全屏中刷新重渲后，同步侧栏全屏按钮文案
+  el.querySelector('[data-muyu-mute]').onclick = (ev) => {
+    const st = muyu[id]
+    st.mute = !st.mute
+    try {
+      localStorage.setItem('muyu-mute', st.mute ? '1' : '0')
+    } catch {}
     // innerHTML 才能让 emoji 走 emoji.js 的统一替换（textContent 不解析 HTML）
-    ev.currentTarget.innerHTML = st.mute ? '🔇 静音中' : '🔊 音效';
-  };
+    ev.currentTarget.innerHTML = st.mute ? '🔇 静音中' : '🔊 音效'
+  }
 }
 
 // 卡片入场动画（CSS 的 .card { animation: fadeIn ... both }）跑完就摘掉。
@@ -4568,11 +5692,11 @@ function rMuyu(_, c, ep) {
 //      （opacity:0 + translateY(8px)），等完延迟再淡入 250ms。
 //      退出全屏时就是「闪一下 + 整卡上滑 8px」，即用户报的抖动。
 // 用委托而不是逐个卡片绑：卡片在每次 render 时整体重建，绑在 document 上一次就够。
-document.addEventListener('animationend', e => {
-  if (e.animationName !== 'fadeIn') return;
-  const card = e.target;
-  if (card && card.classList && card.classList.contains('card')) card.style.animation = 'none';
-});
+document.addEventListener('animationend', (e) => {
+  if (e.animationName !== 'fadeIn') return
+  const card = e.target
+  if (card && card.classList && card.classList.contains('card')) card.style.animation = 'none'
+})
 
 // ============ 卡片全屏（2048 / 电子木鱼，EPS 注册项带 fs:1） ============
 // 桌面 / Android 走 Fullscreen API（全屏对象是整张卡片）；iOS Safari 无该 API、
@@ -4586,13 +5710,14 @@ function cardFsEl() {
   // 真实原生全屏元素。现代 API 存在时以其为准：个别 WebView（内嵌 Electron 等）在
   // 全屏请求挂起期间 webkitFullscreenElement 会残留旧值误报「原生全屏中」，令 ✕
   // 走错分支而失灵；仅当 unprefixed API 不存在（老 webkit 浏览器）才采信前缀属性
-  if (document.fullscreenElement) return document.fullscreenElement;
-  if (document.fullscreenElement === undefined && document.webkitFullscreenElement) return document.webkitFullscreenElement;
-  return null;
+  if (document.fullscreenElement) return document.fullscreenElement
+  if (document.fullscreenElement === undefined && document.webkitFullscreenElement)
+    return document.webkitFullscreenElement
+  return null
 }
 
 function cardFsActive(card) {
-  return cardFsEl() ? cardFsEl().contains(card) : card.classList.contains('fs-fake');
+  return cardFsEl() ? cardFsEl().contains(card) : card.classList.contains('fs-fake')
 }
 
 // 进入伪全屏（iOS 无 Fullscreen API / 全屏请求被拒/挂起的兜底）。
@@ -4604,80 +5729,103 @@ function cardFsActive(card) {
 // 记录的 prevScroller/prevScrollY——否则二次进入把「已锁住的 hidden」当成原值，
 // 退出后页面永久无法滚动
 function fsEnterFake(card, prevScrollY) {
-  const prev = fsState.get(card);
-  card.classList.add('fs-fake');
-  document.documentElement.classList.add('fs-fake-on');
+  const prev = fsState.get(card)
+  card.classList.add('fs-fake')
+  document.documentElement.classList.add('fs-fake-on')
   fsState.set(card, {
-    prevScroller: prev && typeof prev.prevScroller === 'string' ? prev.prevScroller : document.documentElement.style.overflow,
-    prevScrollY: typeof prevScrollY === 'number' ? prevScrollY
-               : (prev && typeof prev.prevScrollY === 'number' ? prev.prevScrollY : window.scrollY),
-  });
-  document.documentElement.style.overflow = 'hidden'; // 锁背景滚动
-  cardFsSync();
+    prevScroller:
+      prev && typeof prev.prevScroller === 'string' ? prev.prevScroller : document.documentElement.style.overflow,
+    prevScrollY:
+      typeof prevScrollY === 'number'
+        ? prevScrollY
+        : prev && typeof prev.prevScrollY === 'number'
+          ? prev.prevScrollY
+          : window.scrollY,
+  })
+  document.documentElement.style.overflow = 'hidden' // 锁背景滚动
+  cardFsSync()
 }
 
 // 原生全屏确认生效后落状态：onFsChange 进入分支已建 {native} 骨架，这里补记滚动基准。
 function fsMarkNative(card, prevScrollY) {
-  const el = cardFsEl();
-  if (!el || !el.contains(card)) return; // 全屏未生效（请求失败）：不落状态
-  if (!fsState.has(card)) fsState.set(card, { native: true });
-  const st = fsState.get(card);
+  const el = cardFsEl()
+  if (!el || !el.contains(card)) return // 全屏未生效（请求失败）：不落状态
+  if (!fsState.has(card)) fsState.set(card, { native: true })
+  const st = fsState.get(card)
   if (st.native && typeof st.prevScrollY !== 'number' && typeof prevScrollY === 'number') {
-    st.prevScrollY = prevScrollY;
+    st.prevScrollY = prevScrollY
   }
 }
 
 function cardFsToggle(card) {
-  if (cardFsActive(card)) { fsExitCard(card); return; }
+  if (cardFsActive(card)) {
+    fsExitCard(card)
+    return
+  }
   // 触摸设备统一走伪全屏：不调用系统 Fullscreen API，规避 Android / 内嵌 WebView 在
   // 进入全屏时把屏幕强制旋转为横屏（网页无法可靠锁定方向，只能从源头绕开）。
   // 桌面端无此问题，仍走原生全屏以获得真沉浸体验。
   if (MQ_TOUCH.matches) {
-    fsEnterFake(card);
+    fsEnterFake(card)
   } else {
-    const req = card.requestFullscreen || card.webkitRequestFullscreen;
+    const req = card.requestFullscreen || card.webkitRequestFullscreen
     // 原生全屏期间元素脱离文档流、文档变矮，scrollY 会被钳制；进入前先记滚动基准
-    const prevY = window.scrollY;
+    const prevY = window.scrollY
     if (req) {
-      let p = null;
-      try { p = req.call(card); } catch { p = null; } // 个别 WebView 同步抛错：视同不可用
+      let p = null
+      try {
+        p = req.call(card)
+      } catch {
+        p = null
+      } // 个别 WebView 同步抛错：视同不可用
       if (p && p.then) {
-        let settled = false;
-        p.then(() => { settled = true; fsMarkNative(card, prevY); cardFsSync(); })
-         .catch(() => { settled = true; fsEnterFake(card, prevY); }); // 请求被拒：伪全屏兜底，不让全屏按钮失灵
+        let settled = false
+        p.then(() => {
+          settled = true
+          fsMarkNative(card, prevY)
+          cardFsSync()
+        }).catch(() => {
+          settled = true
+          fsEnterFake(card, prevY)
+        }) // 请求被拒：伪全屏兜底，不让全屏按钮失灵
         // 个别内嵌 WebView 的全屏请求无限挂起（既不成功也不失败）：400ms 内
         // 无任何进展（无全屏元素、未进伪全屏）则回退伪全屏
         setTimeout(() => {
-          if (settled || cardFsEl() || card.classList.contains('fs-fake')) return;
-          fsEnterFake(card, prevY);
-        }, 400);
+          if (settled || cardFsEl() || card.classList.contains('fs-fake')) return
+          fsEnterFake(card, prevY)
+        }, 400)
       } else {
-        setTimeout(() => { fsMarkNative(card, prevY); cardFsSync(); }, 200); // 旧 webkit 无返回值，延时探测
+        setTimeout(() => {
+          fsMarkNative(card, prevY)
+          cardFsSync()
+        }, 200) // 旧 webkit 无返回值，延时探测
       }
     } else {
-      fsEnterFake(card);
+      fsEnterFake(card)
     }
   }
   // 进入后聚焦棋盘（若有）：方向键无需先点一下
-  setTimeout(() => { card.querySelector('.g2048-board')?.focus({ preventScroll: true }); }, 60);
+  setTimeout(() => {
+    card.querySelector('.g2048-board')?.focus({ preventScroll: true })
+  }, 60)
 }
 
 function fsExitCard(card) {
   if (cardFsEl()) {
     // 原生全屏退出：状态清理与滚动恢复由 fullscreenchange → onFsChange 统一处理
     // （ESC / 系统手势退出不走这里，也靠 onFsChange 兜底）
-    if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
-    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-    return;
+    if (document.exitFullscreen) document.exitFullscreen().catch(() => {})
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen()
+    return
   }
-  const st = fsState.get(card) || {}; // 状态意外缺失也照常拆类还原，别把用户锁在伪全屏里
-  card.classList.remove('fs-fake');
-  document.documentElement.classList.remove('fs-fake-on');
-  document.documentElement.style.overflow = st.prevScroller || '';
-  fsState.delete(card);
-  cardFsSync();
+  const st = fsState.get(card) || {} // 状态意外缺失也照常拆类还原，别把用户锁在伪全屏里
+  card.classList.remove('fs-fake')
+  document.documentElement.classList.remove('fs-fake-on')
+  document.documentElement.style.overflow = st.prevScroller || ''
+  fsState.delete(card)
+  cardFsSync()
   // 恢复进入前的滚动位置并校验卡片停靠位（overflow:hidden 期间浏览器已把位置清零）
-  fsRestoreScroll(card, st.prevScrollY);
+  fsRestoreScroll(card, st.prevScrollY)
 }
 
 // 退出全屏的滚动恢复：先回进入前的 scrollY，再校验卡片是否停靠在 sticky 顶栏/
@@ -4695,27 +5843,27 @@ function fsExitCard(card) {
 // 现在改为扫描候选元素、只认「横向 + 贴顶 + 可见」的那些（判据见下），
 // 竖向侧栏/抽屉的 nav 会被 width 那一关直接筛掉，不再依赖版式分支。
 function fsDockTop() {
-  const vw = window.innerWidth;
-  const vh = window.innerHeight || document.documentElement.clientHeight;
-  let bottom = 0;
+  const vw = window.innerWidth
+  const vh = window.innerHeight || document.documentElement.clientHeight
+  let bottom = 0
   for (const el of document.querySelectorAll('.topbar, .cat-nav')) {
-    const cs = getComputedStyle(el);
-    if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+    const cs = getComputedStyle(el)
+    if (cs.display === 'none' || cs.visibility === 'hidden') continue
     // 只有 sticky / fixed 才可能悬在内容之上；static 的竖向导航不参与
-    if (cs.position !== 'sticky' && cs.position !== 'fixed') continue;
-    const r = el.getBoundingClientRect();
-    if (r.height <= 0 || r.width <= 0) continue;
+    if (cs.position !== 'sticky' && cs.position !== 'fixed') continue
+    const r = el.getBoundingClientRect()
+    if (r.height <= 0 || r.width <= 0) continue
     // 横条判据：宽度占视口一半以上，且纵向停在视口上半部
-    if (r.width < vw * 0.5) continue;
-    if (r.bottom <= 0 || r.top >= vh * 0.5) continue;
-    bottom = Math.max(bottom, r.bottom);
+    if (r.width < vw * 0.5) continue
+    if (r.bottom <= 0 || r.top >= vh * 0.5) continue
+    bottom = Math.max(bottom, r.bottom)
   }
-  return bottom + 12;
+  return bottom + 12
 }
 
 function fsRestoreScroll(card, prevScrollY, verifyOnly) {
   if (!verifyOnly && typeof prevScrollY === 'number' && prevScrollY >= 0) {
-    window.scrollTo({ top: prevScrollY, behavior: 'instant' });
+    window.scrollTo({ top: prevScrollY, behavior: 'instant' })
   }
   // 只在「卡片确实不可见」时补正，两种情况：
   //   · 被 sticky 顶栏 / 分类导航压住（top 跑到停靠线上方）
@@ -4723,22 +5871,27 @@ function fsRestoreScroll(card, prevScrollY, verifyOnly) {
   // 原来只判断 |top − 停靠线| > 60，会把一张停在视口中部的卡片强行吸到顶部：
   // 实测从卡片中部进入全屏、退出时页面被多滚 222px，那一下就是用户看到的抖动。
   // 卡片本来完整可见时必须一个像素都不动。
-  const r = card.getBoundingClientRect();
-  const dock = fsDockTop();
-  const vh = window.innerHeight || document.documentElement.clientHeight;
-  const hiddenAbove = r.top < dock - 8;
-  const offScreen = r.bottom < dock + 8 || r.top > vh - 24;
-  if (hiddenAbove || offScreen) window.scrollBy({ top: r.top - dock, behavior: 'instant' });
+  const r = card.getBoundingClientRect()
+  const dock = fsDockTop()
+  const vh = window.innerHeight || document.documentElement.clientHeight
+  const hiddenAbove = r.top < dock - 8
+  const offScreen = r.bottom < dock + 8 || r.top > vh - 24
+  if (hiddenAbove || offScreen) window.scrollBy({ top: r.top - dock, behavior: 'instant' })
 }
 
 // 全屏状态变化时，同步游戏区内按钮文案与图标（全屏 / 退出）。
 // 用 innerHTML 而不是 textContent：图标是内联 SVG，文字节点顶不住
 function cardFsSync() {
-  const el = cardFsEl();
-  const card = el ? (el.classList.contains('card') ? el : el.querySelector('.card'))
-                  : document.querySelector('.card.fs-fake');
-  const label = card ? `${ICON_FS_EXIT} 退出` : `${ICON_FS_ENTER} 全屏`;
-  document.querySelectorAll('[data-g2048-fs], [data-muyu-fs]').forEach(b => { b.innerHTML = label; });
+  const el = cardFsEl()
+  const card = el
+    ? el.classList.contains('card')
+      ? el
+      : el.querySelector('.card')
+    : document.querySelector('.card.fs-fake')
+  const label = card ? `${ICON_FS_EXIT} 退出` : `${ICON_FS_ENTER} 全屏`
+  document.querySelectorAll('[data-g2048-fs], [data-muyu-fs]').forEach((b) => {
+    b.innerHTML = label
+  })
 }
 
 // 原生全屏状态变化：进入时落状态骨架（基准由 fsMarkNative 补记）；退出时
@@ -4746,59 +5899,68 @@ function cardFsSync() {
 // scrollY 被钳制，退出时浏览器自身的滚动恢复不可靠（Chromium 常见），故等退出
 // 处理完、卡片回流的下一帧再恢复
 function onFsChange() {
-  const el = cardFsEl();
+  const el = cardFsEl()
   if (el) {
-    const card = el.classList.contains('card') ? el : el.querySelector('.card');
+    const card = el.classList.contains('card') ? el : el.querySelector('.card')
     if (card) {
       // 看门狗已回退伪全屏后原生全屏才姗姗来迟：升级为原生（体验更好），
       // 拆掉伪全屏痕迹并沿用其滚动基准
       if (card.classList.contains('fs-fake')) {
-        const fake = fsState.get(card);
-        card.classList.remove('fs-fake');
-        document.documentElement.classList.remove('fs-fake-on');
-        document.documentElement.style.overflow = fake ? fake.prevScroller || '' : '';
-        fsState.set(card, { native: true, prevScrollY: fake && fake.prevScrollY });
+        const fake = fsState.get(card)
+        card.classList.remove('fs-fake')
+        document.documentElement.classList.remove('fs-fake-on')
+        document.documentElement.style.overflow = fake ? fake.prevScroller || '' : ''
+        fsState.set(card, { native: true, prevScrollY: fake && fake.prevScrollY })
       } else if (!fsState.has(card)) {
-        fsState.set(card, { native: true });
+        fsState.set(card, { native: true })
       }
     }
-    cardFsSync();
-    return;
+    cardFsSync()
+    return
   }
-  const restores = [];
+  const restores = []
   fsState.forEach((st, card) => {
-    if (st.native) { restores.push({ card, y: st.prevScrollY }); fsState.delete(card); }
-  });
+    if (st.native) {
+      restores.push({ card, y: st.prevScrollY })
+      fsState.delete(card)
+    }
+  })
   restores.forEach(({ card, y }) => {
-    if (!card.isConnected) return;
-    requestAnimationFrame(() => { if (card.isConnected) fsRestoreScroll(card, y); });
-    setTimeout(() => { if (card.isConnected) fsRestoreScroll(card, y, true); }, 350);
-  });
-  cardFsSync();
+    if (!card.isConnected) return
+    requestAnimationFrame(() => {
+      if (card.isConnected) fsRestoreScroll(card, y)
+    })
+    setTimeout(() => {
+      if (card.isConnected) fsRestoreScroll(card, y, true)
+    }, 350)
+  })
+  cardFsSync()
 }
-document.addEventListener('fullscreenchange', onFsChange);
-document.addEventListener('webkitfullscreenchange', onFsChange);
+document.addEventListener('fullscreenchange', onFsChange)
+document.addEventListener('webkitfullscreenchange', onFsChange)
 
 // 全屏按钮统一入口：卡片头部的全屏 / 退出按钮与游戏区内按钮都走这里（↻ 刷新不在此列）
-document.addEventListener('click', e => {
-  const fsBtn = e.target.closest('.btn-fs, .btn-fs-exit, [data-g2048-fs], [data-muyu-fs]');
-  if (!fsBtn) return;
-  const card = fsBtn.closest('.card');
-  if (card) cardFsToggle(card);
-});
+document.addEventListener('click', (e) => {
+  const fsBtn = e.target.closest('.btn-fs, .btn-fs-exit, [data-g2048-fs], [data-muyu-fs]')
+  if (!fsBtn) return
+  const card = fsBtn.closest('.card')
+  if (card) cardFsToggle(card)
+})
 
 // ============ 「今日热榜」聚合首页 ============
 // 数据来自 /v2/hot/aggregate —— 后端已把各平台榜单归一化后混排（见 hot-aggregate.module.ts），
 // 前端只负责渲染与「按平台筛选」：筛选是纯本地过滤，不再打后端。
-const HOME_CACHE_KEY = `cache:${CACHE_VERSION}:hot:aggregate`;
+const HOME_CACHE_KEY = `cache:${CACHE_VERSION}:hot:aggregate`
 
 function buildHome() {
-  const wrap = document.createElement('div');
-  wrap.className = 'home';
+  const wrap = document.createElement('div')
+  wrap.className = 'home'
   // 页首复用分类页那套 Hero（站点简介 + 数据统计 + 按访客 IP 定位的今日天气）。
   // 首页不再单独做一张头图：同一张卡只有一份实现，天气/「更新于」的口径也不会两处分叉
-  wrap.appendChild(buildHero());
-  wrap.insertAdjacentHTML('beforeend', `
+  wrap.appendChild(buildHero())
+  wrap.insertAdjacentHTML(
+    'beforeend',
+    `
     <div class="home-filter-row">
       <button class="hf-arrow prev" type="button" aria-label="向左查看更多平台" hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
@@ -4808,13 +5970,14 @@ function buildHome() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
     </div>
-    <div class="home-list" id="homeList"></div>`);
+    <div class="home-list" id="homeList"></div>`,
+  )
   homeFilterSync = bindPillArrows(
     wrap.querySelector('#homeFilter'),
     wrap.querySelector('.hf-arrow.prev'),
     wrap.querySelector('.hf-arrow.next'),
-  );
-  return wrap;
+  )
+  return wrap
 }
 
 // ============ 分类页的数据源便签行 ============
@@ -4824,8 +5987,8 @@ function buildHome() {
 // 单卡又撑不满中栏，右侧空出一大块，观感反而更差——所以退回「保留全部卡片 + 定位」。
 // 条目走 catTocEntries：它已做过分组合并（猫眼/豆瓣这类同源多榜只算一个），与出卡逻辑同口径
 function buildCatFilterBar(catId) {
-  const wrap = document.createElement('div');
-  wrap.className = 'home-filter-row cat-filter-row';
+  const wrap = document.createElement('div')
+  wrap.className = 'home-filter-row cat-filter-row'
   wrap.innerHTML = `
     <button class="hf-arrow prev" type="button" aria-label="向左查看更多数据源" hidden>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
@@ -4833,124 +5996,124 @@ function buildCatFilterBar(catId) {
     <div class="home-filter" id="catFilter"></div>
     <button class="hf-arrow next" type="button" aria-label="向右查看更多数据源" hidden>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-    </button>`;
+    </button>`
 
-  const box = wrap.querySelector('#catFilter');
+  const box = wrap.querySelector('#catFilter')
   // 高亮单元与侧边栏目录一致：分组成员归到分组条目
-  const activeKey = activeModuleId
-    ? (GROUP_OF[activeModuleId] ? GROUP_OF[activeModuleId].id : activeModuleId)
-    : null;
+  const activeKey = activeModuleId ? (GROUP_OF[activeModuleId] ? GROUP_OF[activeModuleId].id : activeModuleId) : null
   const pill = (key, epId, icon, name) =>
     `<button class="hf-pill${key === activeKey ? ' active' : ''}" type="button" data-card="${esc(key)}" data-ep="${esc(epId)}">` +
-    (icon ? `<span class="ci">${icon}</span>` : '') + `${esc(name)}</button>`;
+    (icon ? `<span class="ci">${icon}</span>` : '') +
+    `${esc(name)}</button>`
 
   // 不设「全部」标签：进分类页本来就是全部卡片都在，这个入口没有实际作用
-  box.innerHTML = catTocEntries(catId).map(e => pill(e.key, e.epId, e.icon, e.name)).join('');
+  box.innerHTML = catTocEntries(catId)
+    .map((e) => pill(e.key, e.epId, e.icon, e.name))
+    .join('')
 
   // 便签内容是静态的（每次 render 重建整行），不需要回存 sync 供后续重算
-  bindPillArrows(
-    box,
-    wrap.querySelector('.hf-arrow.prev'),
-    wrap.querySelector('.hf-arrow.next'),
-  );
+  bindPillArrows(box, wrap.querySelector('.hf-arrow.prev'), wrap.querySelector('.hf-arrow.next'))
   // 整行刚重建、scrollLeft 归零，清掉上次的高亮记录，
   // 让紧接着的 setTocActive 把当前选中项带进视野（否则会被当成「高亮没变」而跳过）
-  lastTocActiveKey = null;
-  return wrap;
+  lastTocActiveKey = null
+  return wrap
 }
 
 // 便签点击：定位到对应卡片（滚动 + 闪烁高亮），复用侧边栏目录那套 locateCard
-document.addEventListener('click', e => {
-  const pill = e.target.closest('.cat-filter-row .hf-pill');
-  if (!pill) return;
-  revealPill(pill);
-  const ep = EPS.find(x => x.id === pill.dataset.ep);
-  if (ep && locateCardFn) locateCardFn(ep);
-});
+document.addEventListener('click', (e) => {
+  const pill = e.target.closest('.cat-filter-row .hf-pill')
+  if (!pill) return
+  revealPill(pill)
+  const ep = EPS.find((x) => x.id === pill.dataset.ep)
+  if (ep && locateCardFn) locateCardFn(ep)
+})
 
 // 筛选行的左右箭头：只在溢出时出现，滚到某一端后该侧箭头隐藏。
 // 横向不换行 + 可拖拽 + 两端箭头，首页平台行与分类页数据源行共用这一份实现。
 // 返回 sync，供调用方在标签内容变化后重算箭头显隐
-let homeFilterSync = null;
+let homeFilterSync = null
 // 上一次同步到便签行的卡片 key：用来判断「高亮是否真的变了」，
 // 变了才去滚标签，避免滚动高亮和用户手动横滑互相打架
-let lastTocActiveKey = null;
+let lastTocActiveKey = null
 // 按容器缓存 ResizeObserver：同一元素重复绑定先断开旧的；
 // 元素随视图重建被丢弃后，WeakMap 条目与 observer 一并回收
-const pillArrowROs = new WeakMap();
+const pillArrowROs = new WeakMap()
 function bindPillArrows(scroller, prev, next) {
-  if (!scroller || !prev || !next) return null;
+  if (!scroller || !prev || !next) return null
 
-  const step = () => Math.max(120, Math.round(scroller.clientWidth * 0.7));
+  const step = () => Math.max(120, Math.round(scroller.clientWidth * 0.7))
   const sync = () => {
-    const max = scroller.scrollWidth - scroller.clientWidth;
-    const overflow = max > 1;
-    prev.hidden = !overflow || scroller.scrollLeft <= 1;
-    next.hidden = !overflow || scroller.scrollLeft >= max - 1;
-  };
+    const max = scroller.scrollWidth - scroller.clientWidth
+    const overflow = max > 1
+    prev.hidden = !overflow || scroller.scrollLeft <= 1
+    next.hidden = !overflow || scroller.scrollLeft >= max - 1
+  }
 
-  prev.onclick = () => scroller.scrollBy({ left: -step(), behavior: SMOOTH });
-  next.onclick = () => scroller.scrollBy({ left: step(), behavior: SMOOTH });
-  scroller.addEventListener('scroll', sync, { passive: true });
-  enableDragScroll(scroller);
+  prev.onclick = () => scroller.scrollBy({ left: -step(), behavior: SMOOTH })
+  next.onclick = () => scroller.scrollBy({ left: step(), behavior: SMOOTH })
+  scroller.addEventListener('scroll', sync, { passive: true })
+  enableDragScroll(scroller)
 
   // 不挂 window.resize：视图重建后旧元素已丢弃，按元素注册的全局监听会留下悬空引用；
   // observer 在目标元素移除后自然停止上报，生命周期只跟着这一轮的容器走
-  const old = pillArrowROs.get(scroller);
-  if (old) old.disconnect();
-  const ro = new ResizeObserver(sync);
-  ro.observe(scroller);
-  pillArrowROs.set(scroller, ro);
+  const old = pillArrowROs.get(scroller)
+  if (old) old.disconnect()
+  const ro = new ResizeObserver(sync)
+  ro.observe(scroller)
+  pillArrowROs.set(scroller, ro)
 
-  requestAnimationFrame(sync);
+  requestAnimationFrame(sync)
   // 字体就绪后标签宽度会变，是否溢出要重算（与分类 pill 行同一处理）
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(sync).catch(() => {});
-  return sync;
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(sync).catch(() => {})
+  return sync
 }
 
 async function loadHome(force = false) {
-  const list = $('#homeList');
-  if (!list) return;
+  const list = $('#homeList')
+  if (!list) return
   // 非强制刷新时先吃本地缓存：切视图来回切不必每次重打接口
   if (!force) {
-    const cached = cacheGetWithTs(HOME_CACHE_KEY);
-    if (cached) { applyHome(cached.data, cached.ts); return; }
+    const cached = cacheGetWithTs(HOME_CACHE_KEY)
+    if (cached) {
+      applyHome(cached.data, cached.ts)
+      return
+    }
   }
-  list.innerHTML = `<div class="home-skeleton">${SKELETON_HTML}</div>`;
+  list.innerHTML = `<div class="home-skeleton">${SKELETON_HTML}</div>`
   try {
     // limit=20 + per=3：综合榜 6 家各顶 3 席刚好铺满，不必靠回填凑数（回填会让某家前排变多）
-    const res = await fetch(`${API}/v2/hot/aggregate?limit=20&per=3${force ? '&force-update=1' : ''}`);
-    const json = await res.json();
-    const data = json && json.data;
-    if (!data || !Array.isArray(data.items)) throw new Error('bad payload');
-    cacheSet(HOME_CACHE_KEY, data);
-    applyHome(data, Date.now());
+    const res = await fetch(`${API}/v2/hot/aggregate?limit=20&per=3${force ? '&force-update=1' : ''}`)
+    const json = await res.json()
+    const data = json && json.data
+    if (!data || !Array.isArray(data.items)) throw new Error('bad payload')
+    cacheSet(HOME_CACHE_KEY, data)
+    applyHome(data, Date.now())
   } catch {
     // 异步期间可能已切走视图，DOM 不在了就别再落笔
-    if (!$('#homeList')) return;
+    if (!$('#homeList')) return
     list.innerHTML = `<div class="card-unavailable">
       <span class="un-icon">📡</span>
       <span class="un-text">热榜聚合获取失败</span>
       <span class="un-detail">上游数据源可能被限流，稍后再试</span>
       <button class="retry-btn" type="button">重试</button>
-    </div>`;
-    const retry = list.querySelector('.retry-btn');
-    if (retry) retry.onclick = () => loadHome(true);
+    </div>`
+    const retry = list.querySelector('.retry-btn')
+    if (retry) retry.onclick = () => loadHome(true)
   }
 }
 
 function applyHome(data, ts) {
-  if (!$('#homeList')) return;
-  homeData = data;
+  if (!$('#homeList')) return
+  homeData = data
   // Hero 芯片上的「更新于」直接取聚合数据的时间：首页没有卡片，
   // epLoadedAt 里没有可用时间戳，走 heroRefreshTime() 只会拿到切过来的旧值
-  const heroTimeEl = $('#heroTime');
-  if (heroTimeEl) heroTimeEl.textContent = fmtFullTime(ts);
+  const heroTimeEl = $('#heroTime')
+  if (heroTimeEl) heroTimeEl.textContent = fmtFullTime(ts)
   // 刷新后该平台若缺席，筛选值回落「综合」，避免停在空列表上
-  if (homeFilter !== 'all' && !data.platforms.some(p => p.id === homeFilter && p.ok)) homeFilter = 'all';
-  renderHomeFilter();
-  renderHomeList();
-  renderRail();
+  if (homeFilter !== 'all' && !data.platforms.some((p) => p.id === homeFilter && p.ok)) homeFilter = 'all'
+  renderHomeFilter()
+  renderHomeList()
+  renderRail()
 }
 
 /**
@@ -4958,39 +6121,47 @@ function applyHome(data, ts) {
  * 「综合」= 后端跨平台加权混排的结果；单平台 = 该平台自己的完整榜单（原样、不混排、不重排热度）。
  */
 function filteredItems() {
-  if (!homeData) return [];
+  if (!homeData) return []
   if (homeKeywordFilter) {
-    const kw = homeKeywordFilter.toLowerCase();
+    const kw = homeKeywordFilter.toLowerCase()
     // 选定单平台时只在该平台搜
     if (homeFilter !== 'all') {
-      const own = homeData.lists && homeData.lists[homeFilter];
-      const list = Array.isArray(own) && own.length ? own : homeData.items.filter(it => it.source === homeFilter);
-      return list.filter(it => (it.title && it.title.toLowerCase().includes(kw)) || (it.desc && it.desc.toLowerCase().includes(kw)));
+      const own = homeData.lists && homeData.lists[homeFilter]
+      const list = Array.isArray(own) && own.length ? own : homeData.items.filter((it) => it.source === homeFilter)
+      return list.filter(
+        (it) => (it.title && it.title.toLowerCase().includes(kw)) || (it.desc && it.desc.toLowerCase().includes(kw)),
+      )
     }
     // 处于「综合」模式时，跨全网所有平台列表（homeData.lists）聚合呈现该热词的所有事件
-    const results = [];
-    const seen = new Set();
+    const results = []
+    const seen = new Set()
     // 先收录综合榜已有条目
     for (const it of homeData.items || []) {
       if ((it.title && it.title.toLowerCase().includes(kw)) || (it.desc && it.desc.toLowerCase().includes(kw))) {
-        const key = it.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 10);
-        if (!seen.has(key)) { seen.add(key); results.push(it); }
+        const key = it.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 10)
+        if (!seen.has(key)) {
+          seen.add(key)
+          results.push(it)
+        }
       }
     }
     // 再收录各平台榜单条目
     for (const k in homeData.lists || {}) {
       for (const it of homeData.lists[k] || []) {
         if ((it.title && it.title.toLowerCase().includes(kw)) || (it.desc && it.desc.toLowerCase().includes(kw))) {
-          const key = it.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 10);
-          if (!seen.has(key)) { seen.add(key); results.push(it); }
+          const key = it.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 10)
+          if (!seen.has(key)) {
+            seen.add(key)
+            results.push(it)
+          }
         }
       }
     }
-    return results;
+    return results
   }
-  if (homeFilter === 'all') return homeData.items;
-  const own = homeData.lists && homeData.lists[homeFilter];
-  return Array.isArray(own) && own.length ? own : homeData.items.filter(it => it.source === homeFilter);
+  if (homeFilter === 'all') return homeData.items
+  const own = homeData.lists && homeData.lists[homeFilter]
+  return Array.isArray(own) && own.length ? own : homeData.items.filter((it) => it.source === homeFilter)
 }
 
 /**
@@ -4999,8 +6170,8 @@ function filteredItems() {
  * 单平台榜则显示该平台自己的原始热度——此时榜单就是它自己的顺序，口径天然一致。
  */
 function heatText(it) {
-  if (homeFilter === 'all') return it.hot_index_text || it.hot_text || '';
-  return it.hot_text || it.hot_index_text || '';
+  if (homeFilter === 'all') return it.hot_index_text || it.hot_text || ''
+  return it.hot_text || it.hot_index_text || ''
 }
 
 /**
@@ -5008,84 +6179,90 @@ function heatText(it) {
  * fill 走 currentColor——选中态是橙底白字，图标必须跟着一起变白。
  * 几何：方块 8.4、间隙 1.2，整体 3→21，四周留 3 的余量。
  */
-const GRID_SVG = '<svg class="hf-grid" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+const GRID_SVG =
+  '<svg class="hf-grid" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
   '<rect x="3" y="3" width="8.4" height="8.4" rx="1.8"/>' +
   '<rect x="12.6" y="3" width="8.4" height="8.4" rx="1.8"/>' +
   '<rect x="3" y="12.6" width="8.4" height="8.4" rx="1.8"/>' +
   '<rect x="12.6" y="12.6" width="8.4" height="8.4" rx="1.8"/>' +
-  '</svg>';
+  '</svg>'
 
 function renderHomeFilter() {
-  const box = $('#homeFilter');
-  if (!box || !homeData) return;
+  const box = $('#homeFilter')
+  if (!box || !homeData) return
   // 全部平台都出标签，抓取失败的那家置灰保留而不是直接消失：
   // 标签忽有忽无会让人以为功能坏了，而且每次刷新都可能导致标签行整体位移
   // 图标两种来源：平台给的是图片路径（/logos/xxx.svg → <img>），
   // 「综合」没有品牌图，直接给一段 SVG 片段——不能塞进 <img src> 里
   const pillIcon = (icon) => {
-    if (!icon) return '';
-    if (icon.startsWith('<')) return icon;
-    return `<img src="${esc(icon)}" alt="" loading="lazy" onerror="this.remove()">`;
-  };
+    if (!icon) return ''
+    if (icon.startsWith('<')) return icon
+    return `<img src="${esc(icon)}" alt="" loading="lazy" onerror="this.remove()">`
+  }
   const pill = (id, name, icon, ok = true) =>
     `<button class="hf-pill${homeFilter === id ? ' active' : ''}${ok ? '' : ' hf-pill-off'}" type="button"` +
     ` data-plat="${esc(id)}"${ok ? '' : ' title="该数据源暂时不可用"'} aria-disabled="${ok ? 'false' : 'true'}">` +
     pillIcon(icon) +
-    `${esc(name)}</button>`;
-  box.innerHTML = pill('all', '综合', GRID_SVG) +
-    homeData.platforms.map(p => pill(p.id, p.name, p.icon, p.ok)).join('');
+    `${esc(name)}</button>`
+  box.innerHTML =
+    pill('all', '综合', GRID_SVG) + homeData.platforms.map((p) => pill(p.id, p.name, p.icon, p.ok)).join('')
   // 平台数量或名称变化都会改变总宽，箭头显隐要跟着重算
-  if (homeFilterSync) homeFilterSync();
+  if (homeFilterSync) homeFilterSync()
 }
 
 function renderHomeList() {
-  const list = $('#homeList');
-  if (!list || !homeData) return;
-  const all = filteredItems();
+  const list = $('#homeList')
+  if (!list || !homeData) return
+  const all = filteredItems()
   const filterBarHtml = homeKeywordFilter
     ? `<div class="hl-filter-bar">
         <div class="hl-filter-info"><span class="hl-filter-tag">热词筛选</span>包含 <strong>“${esc(homeKeywordFilter)}”</strong> 的热搜（共 ${all.length} 条）</div>
         <button class="hl-filter-clear" type="button" onclick="clearKeywordFilter()">✕ 清除筛选</button>
       </div>`
-    : '';
+    : ''
 
   if (!all.length) {
-    list.innerHTML = filterBarHtml +
+    list.innerHTML =
+      filterBarHtml +
       `<div class="empty-state">
         <span class="es-icon">${homeKeywordFilter ? '🔍' : '🍃'}</span>
         <span class="es-text">${homeKeywordFilter ? `未找到包含 “${esc(homeKeywordFilter)}” 的热搜` : '暂无热榜数据'}</span>
         ${homeKeywordFilter ? '<button class="retry-btn" type="button" onclick="clearKeywordFilter()">清除筛选</button>' : '<span class="es-sub">换个平台筛选看看吧</span>'}
-      </div>`;
-    return;
+      </div>`
+    return
   }
   // 默认只渲染前 N 条，多出来的折起来（点击展开）；折叠态下不显示「已经到底了」；
   // 热词筛选激活时由于结果通常精简（5~15条），直接展示全部，不折叠
-  const collapsible = !homeKeywordFilter && all.length > HOME_COLLAPSE_N;
-  const collapsed = collapsible && !homeExpanded;
-  const items = collapsed ? all.slice(0, HOME_COLLAPSE_N) : all;
+  const collapsible = !homeKeywordFilter && all.length > HOME_COLLAPSE_N
+  const collapsed = collapsible && !homeExpanded
+  const items = collapsed ? all.slice(0, HOME_COLLAPSE_N) : all
 
   // 排名按「当前所见顺序」重编：筛选到单平台后原全局名次会跳号
-  list.innerHTML = filterBarHtml + items.map((it, i) => {
-    const rank = i + 1;
-    const cls = rank <= 3 ? ` top${rank}` : '';
-    const title = it.link
-      ? `<a href="${safeUrl(it.link)}" target="_blank" rel="noopener">${esc(it.title)}</a>`
-      : esc(it.title);
-    const tag = it.tag ? `<span class="hl-tag">${esc(it.tag)}</span>` : '';
-    const desc = it.desc ? `<div class="hl-desc">${esc(it.desc)}</div>` : '';
-    const thumbImg = it.cover
-      ? `<img class="hl-thumb" src="${esc(it.cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.hl-thumb-link')?.remove() || this.remove()">`
-      : '';
-    const thumb = thumbImg
-      ? (it.link ? `<a class="hl-thumb-link" href="${safeUrl(it.link)}" target="_blank" rel="noopener" tabindex="-1">${thumbImg}</a>` : thumbImg)
-      : '';
-    // 综合榜展示指数，该平台原始热度放进悬停提示保留可追溯性；单平台榜直接展示原始热度
-    const hotNum = heatText(it);
-    const hotTip = homeFilter === 'all' && it.hot_text
-      ? ` title="${esc(it.source_name + '原始热度 ' + it.hot_text)}"`
-      : '';
-    const hot = hotNum ? `<span class="hl-hot"${hotTip}>${esc(hotNum)}</span>` : '<span class="hl-hot"></span>';
-    return `<div class="hl-item${cls}">
+  list.innerHTML =
+    filterBarHtml +
+    items
+      .map((it, i) => {
+        const rank = i + 1
+        const cls = rank <= 3 ? ` top${rank}` : ''
+        const title = it.link
+          ? `<a href="${safeUrl(it.link)}" target="_blank" rel="noopener">${esc(it.title)}</a>`
+          : esc(it.title)
+        const tag = it.tag ? `<span class="hl-tag">${esc(it.tag)}</span>` : ''
+        const desc = it.desc ? `<div class="hl-desc">${esc(it.desc)}</div>` : ''
+        const thumbImg = it.cover
+          ? `<img class="hl-thumb" src="${esc(it.cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.hl-thumb-link')?.remove() || this.remove()">`
+          : ''
+        const thumb = thumbImg
+          ? it.link
+            ? `<a class="hl-thumb-link" href="${safeUrl(it.link)}" target="_blank" rel="noopener" tabindex="-1">${thumbImg}</a>`
+            : thumbImg
+          : ''
+        // 综合榜展示指数，该平台原始热度放进悬停提示保留可追溯性；单平台榜直接展示原始热度
+        const hotNum = heatText(it)
+        const hotTip =
+          homeFilter === 'all' && it.hot_text ? ` title="${esc(it.source_name + '原始热度 ' + it.hot_text)}"` : ''
+        const hot = hotNum ? `<span class="hl-hot"${hotTip}>${esc(hotNum)}</span>` : '<span class="hl-hot"></span>'
+        return `<div class="hl-item${cls}">
       <span class="hl-rank">${rank}</span>
       <div class="hl-body">
         <div class="hl-title">${title}</div>
@@ -5099,14 +6276,15 @@ function renderHomeList() {
         </div>
         ${hot}
       </div>
-    </div>`;
-  }).join('')
-    + (collapsed
-        ? `<button class="hl-toggle" type="button">展开全部 ${all.length} 条</button>`
-        : (collapsible
-            ? `<button class="hl-toggle" type="button">收起，仅看前 ${HOME_COLLAPSE_N} 条</button>`
-            : ''))
-    + (collapsed ? '' : '<div class="hl-end">已经到底了</div>');
+    </div>`
+      })
+      .join('') +
+    (collapsed
+      ? `<button class="hl-toggle" type="button">展开全部 ${all.length} 条</button>`
+      : collapsible
+        ? `<button class="hl-toggle" type="button">收起，仅看前 ${HOME_COLLAPSE_N} 条</button>`
+        : '') +
+    (collapsed ? '' : '<div class="hl-end">已经到底了</div>')
 }
 
 /** 右侧信息栏：天气卡 + 热搜平台九宫格 + 热门话题（后两者跟随 homeFilter 联动） */
@@ -5114,7 +6292,7 @@ function renderHomeList() {
 // 搬进来（>1180px）或搬进抽屉的 #sbWeather（≤900px）。
 // 宿主用 display:contents，卡片直接成为 .rail 的 flex 子项——若宿主自己也是一个
 // flex 项，卡片 hidden 时 .rail 的 gap 会在它身上多算一次，右栏顶部会多出一条空档
-const RAIL_WEATHER_SLOT_HTML = '<div class="rail-weather-slot" id="railWeather"></div>';
+const RAIL_WEATHER_SLOT_HTML = '<div class="rail-weather-slot" id="railWeather"></div>'
 
 // 右栏现在所有页面都显示，但分类页上 homeData 可能是空的——直接深链到 #news 时
 // 从没走过首页那条加载路径。loadHome() 不能复用：它开头就 `if (!$('#homeList')) return`，
@@ -5122,182 +6300,308 @@ const RAIL_WEATHER_SLOT_HTML = '<div class="rail-weather-slot" id="railWeather">
 // 内存 → 本地缓存 → 接口，拿到只调 renderRail()。
 // 不担心与首页打架：applyHome 只认 #homeList，首页自己会重画一遍；
 // 反过来这里补的数据也让首页切回去时能直接命中内存。
-let railDataPending = false;
+let railDataPending = false
 async function ensureRailData(force = false) {
-  if (homeData && !force) { renderRail(); return; }
-  if (railDataPending) return;
-  if (!force) {
-    const cached = cacheGetWithTs(HOME_CACHE_KEY);
-    if (cached) { homeData = cached.data; renderRail(); return; }
+  if (homeData && !force) {
+    renderRail()
+    return
   }
-  railDataPending = true;
+  if (railDataPending) return
+  if (!force) {
+    const cached = cacheGetWithTs(HOME_CACHE_KEY)
+    if (cached) {
+      homeData = cached.data
+      renderRail()
+      return
+    }
+  }
+  railDataPending = true
   try {
-    const res = await fetch(`${API}/v2/hot/aggregate?limit=20&per=3${force ? '&force-update=1' : ''}`);
-    const json = await res.json();
-    const data = json && json.data;
-    if (!data || !Array.isArray(data.items)) throw new Error('bad payload');
-    cacheSet(HOME_CACHE_KEY, data);
-    homeData = data;
+    const res = await fetch(`${API}/v2/hot/aggregate?limit=20&per=3${force ? '&force-update=1' : ''}`)
+    const json = await res.json()
+    const data = json && json.data
+    if (!data || !Array.isArray(data.items)) throw new Error('bad payload')
+    cacheSet(HOME_CACHE_KEY, data)
+    homeData = data
     // 期间可能已经切回首页：那边有自己的加载流程在画，别抢着落笔
-    if (curView !== 'home' && $('#rail')) renderRail();
+    if (curView !== 'home' && $('#rail')) renderRail()
   } catch {
     // 取不到就维持骨架，不影响正文。右栏不是主内容，不值得为它弹错误态
   } finally {
-    railDataPending = false;
+    railDataPending = false
   }
 }
 
 // 停用词库：过滤中文高频虚词、句式起承转合词与无信息量动词
 const HW_STOP_WORDS = new Set([
-  '可以', '可能', '因为', '所以', '如果', '但是', '通过', '进行', '成为', '开始', '目前', '表示', '我们', '他们',
-  '这个', '那个', '什么', '怎么', '如何', '为什么', '已经', '还是', '正在', '一个', '没有', '出现', '引发', '背后',
-  '曝光', '最新', '到底', '究竟', '登上', '回应', '热议', '网友', '官方', '发布', '现场', '今天', '今年', '昨日',
-  '明天', '相关', '来看', '知道', '觉得', '看到', '关注', '发生', '第一', '男子', '女子', '妻子', '丈夫', '有人',
-  '自己', '真的', '直接', '全面', '宣布', '确认', '揭秘', '冲上', '再次', '竟然', '结果', '这些', '那些', '这样',
-  '那样', '其中', '以及', '带来', '造成', '导致', '认为', '不仅', '而且', '虽然', '尽管', '还有', '并且', '不过',
-  '对此', '随后', '对于', '关于', '作为', '随着', '为了', '由于', '其实', '看来', '希望', '突然', '要求', '建议',
-  '评价', '如何评价', '这是', '那是', '不是', '就是', '也是', '只是', '还是', '不能', '不要', '不会', '成了',
-  '小时', '分钟', '时间', '地方', '情况', '问题', '原因', '影响', '大家', '世界', '全国', '事件', '部分', '人员'
-]);
+  '可以',
+  '可能',
+  '因为',
+  '所以',
+  '如果',
+  '但是',
+  '通过',
+  '进行',
+  '成为',
+  '开始',
+  '目前',
+  '表示',
+  '我们',
+  '他们',
+  '这个',
+  '那个',
+  '什么',
+  '怎么',
+  '如何',
+  '为什么',
+  '已经',
+  '还是',
+  '正在',
+  '一个',
+  '没有',
+  '出现',
+  '引发',
+  '背后',
+  '曝光',
+  '最新',
+  '到底',
+  '究竟',
+  '登上',
+  '回应',
+  '热议',
+  '网友',
+  '官方',
+  '发布',
+  '现场',
+  '今天',
+  '今年',
+  '昨日',
+  '明天',
+  '相关',
+  '来看',
+  '知道',
+  '觉得',
+  '看到',
+  '关注',
+  '发生',
+  '第一',
+  '男子',
+  '女子',
+  '妻子',
+  '丈夫',
+  '有人',
+  '自己',
+  '真的',
+  '直接',
+  '全面',
+  '宣布',
+  '确认',
+  '揭秘',
+  '冲上',
+  '再次',
+  '竟然',
+  '结果',
+  '这些',
+  '那些',
+  '这样',
+  '那样',
+  '其中',
+  '以及',
+  '带来',
+  '造成',
+  '导致',
+  '认为',
+  '不仅',
+  '而且',
+  '虽然',
+  '尽管',
+  '还有',
+  '并且',
+  '不过',
+  '对此',
+  '随后',
+  '对于',
+  '关于',
+  '作为',
+  '随着',
+  '为了',
+  '由于',
+  '其实',
+  '看来',
+  '希望',
+  '突然',
+  '要求',
+  '建议',
+  '评价',
+  '如何评价',
+  '这是',
+  '那是',
+  '不是',
+  '就是',
+  '也是',
+  '只是',
+  '还是',
+  '不能',
+  '不要',
+  '不会',
+  '成了',
+  '小时',
+  '分钟',
+  '时间',
+  '地方',
+  '情况',
+  '问题',
+  '原因',
+  '影响',
+  '大家',
+  '世界',
+  '全国',
+  '事件',
+  '部分',
+  '人员',
+])
 
 /** 纯前端根据当前筛选范围（全网或指定平台）提取突发飙升事件（爆/沸/新与高热度前排加权） */
 function extractSurgingItems(data, filter = 'all') {
-  if (!data) return [];
-  let all = [];
+  if (!data) return []
+  let all = []
   if (!filter || filter === 'all') {
-    all = [...(data.items || [])];
+    all = [...(data.items || [])]
     for (const k in data.lists || {}) {
-      if (Array.isArray(data.lists[k])) all.push(...data.lists[k]);
+      if (Array.isArray(data.lists[k])) all.push(...data.lists[k])
     }
   } else {
     all = Array.isArray(data.lists?.[filter])
       ? [...data.lists[filter]]
-      : (data.items || []).filter(it => it.source === filter);
+      : (data.items || []).filter((it) => it.source === filter)
   }
 
-  const candidates = [];
-  const seen = new Set();
+  const candidates = []
+  const seen = new Set()
 
   for (const it of all) {
-    if (!it || !it.title) continue;
+    if (!it || !it.title) continue
     // 提取纯文本键用于去重，避免类似事件重复上榜
-    const key = it.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 8);
-    if (seen.has(key)) continue;
-    seen.add(key);
+    const key = it.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 8)
+    if (seen.has(key)) continue
+    seen.add(key)
 
-    let score = 0;
-    const tag = it.tag || '';
-    if (tag === '爆') score += 120;
-    else if (tag === '沸') score += 90;
-    else if (tag === '新') score += 75;
-    else if (tag === '热') score += 60;
+    let score = 0
+    const tag = it.tag || ''
+    if (tag === '爆') score += 120
+    else if (tag === '沸') score += 90
+    else if (tag === '新') score += 75
+    else if (tag === '热') score += 60
 
-    if (it.rank === 1) score += 60;
-    else if (it.rank === 2) score += 40;
-    else if (it.rank === 3) score += 25;
+    if (it.rank === 1) score += 60
+    else if (it.rank === 2) score += 40
+    else if (it.rank === 3) score += 25
 
-    if (it.hot && it.hot > 2000000) score += 30;
+    if (it.hot && it.hot > 2000000) score += 30
 
     // 单平台时热点标通常较少，适当放宽门槛，保证前排重点事件能顺利上榜
-    const minScore = (!filter || filter === 'all') ? 35 : 20;
+    const minScore = !filter || filter === 'all' ? 35 : 20
     if (score > minScore) {
-      candidates.push({ ...it, surgingScore: score });
+      candidates.push({ ...it, surgingScore: score })
     }
   }
 
-  candidates.sort((a, b) => b.surgingScore - a.surgingScore);
+  candidates.sort((a, b) => b.surgingScore - a.surgingScore)
   // 兜底补齐：若带标候选少于 3 条，用当前筛选范围前排补充
   if (candidates.length < 3) {
-    const fallbackList = (!filter || filter === 'all')
-      ? (data.items || [])
-      : (data.lists?.[filter] || (data.items || []).filter(it => it.source === filter));
+    const fallbackList =
+      !filter || filter === 'all'
+        ? data.items || []
+        : data.lists?.[filter] || (data.items || []).filter((it) => it.source === filter)
     for (const it of fallbackList) {
-      if (candidates.length >= 3) break;
-      const key = it.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 8);
+      if (candidates.length >= 3) break
+      const key = it.title.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').slice(0, 8)
       if (!seen.has(key)) {
-        seen.add(key);
-        candidates.push({ ...it, surgingScore: 10 });
+        seen.add(key)
+        candidates.push({ ...it, surgingScore: 10 })
       }
     }
   }
-  return candidates.slice(0, 3);
+  return candidates.slice(0, 3)
 }
 
 /** 基于现代浏览器原生 Intl.Segmenter 的中文分词与热词聚合（跟随全网/单平台筛选动态计算） */
 function extractHotKeywords(data, filter = 'all') {
-  if (!data) return [];
-  const allTitles = [];
+  if (!data) return []
+  const allTitles = []
   if (!filter || filter === 'all') {
-    for (const it of data.items || []) allTitles.push({ title: it.title, src: it.source || 'all' });
+    for (const it of data.items || []) allTitles.push({ title: it.title, src: it.source || 'all' })
     for (const k in data.lists || {}) {
       if (Array.isArray(data.lists[k])) {
-        for (const it of data.lists[k]) allTitles.push({ title: it.title, src: k });
+        for (const it of data.lists[k]) allTitles.push({ title: it.title, src: k })
       }
     }
   } else {
     const list = Array.isArray(data.lists?.[filter])
       ? data.lists[filter]
-      : (data.items || []).filter(it => it.source === filter);
+      : (data.items || []).filter((it) => it.source === filter)
     for (const it of list) {
-      if (it && it.title) allTitles.push({ title: it.title, src: filter });
+      if (it && it.title) allTitles.push({ title: it.title, src: filter })
     }
   }
 
-  let seg;
+  let seg
   try {
-    seg = new Intl.Segmenter('zh-CN', { granularity: 'word' });
+    seg = new Intl.Segmenter('zh-CN', { granularity: 'word' })
   } catch {
-    seg = null;
+    seg = null
   }
 
-  const counts = new Map();
-  const plats = new Map();
+  const counts = new Map()
+  const plats = new Map()
 
   for (const { title, src } of allTitles) {
-    if (!title) continue;
-    const clauses = title.split(/[，。！？、：；“”"'（）()—\-–·#\s【】《》]+/);
+    if (!title) continue
+    const clauses = title.split(/[，。！？、：；“”"'（）()—\-–·#\s【】《》]+/)
     for (const clause of clauses) {
-      if (!clause || clause.length < 2) continue;
-      const matchedInClause = new Set();
+      if (!clause || clause.length < 2) continue
+      const matchedInClause = new Set()
       if (seg) {
-        const tokens = Array.from(seg.segment(clause)).filter(t => t.isWordLike).map(t => t.segment);
+        const tokens = Array.from(seg.segment(clause))
+          .filter((t) => t.isWordLike)
+          .map((t) => t.segment)
         for (let i = 0; i < tokens.length; i++) {
-          const w = tokens[i];
+          const w = tokens[i]
           if (w.length >= 2 && !/^\d+$/.test(w) && !HW_STOP_WORDS.has(w)) {
-            matchedInClause.add(w);
+            matchedInClause.add(w)
           }
           // 拼接相邻两个词元，识别被默认词典切散的专有名词（如 亚 + 运会 -> 亚运会，神 + 舟 -> 神舟）
           if (i + 1 < tokens.length) {
-            const combo = tokens[i] + tokens[i + 1];
+            const combo = tokens[i] + tokens[i + 1]
             if (combo.length >= 2 && combo.length <= 6 && !/^\d+$/.test(combo) && !HW_STOP_WORDS.has(combo)) {
-              matchedInClause.add(combo);
+              matchedInClause.add(combo)
             }
           }
         }
       } else {
-        const words = clause.match(/[\u4e00-\u9fa5]{2,4}/g) || [];
+        const words = clause.match(/[\u4e00-\u9fa5]{2,4}/g) || []
         for (const w of words) {
-          if (!HW_STOP_WORDS.has(w)) matchedInClause.add(w);
+          if (!HW_STOP_WORDS.has(w)) matchedInClause.add(w)
         }
       }
       for (const w of matchedInClause) {
-        counts.set(w, (counts.get(w) || 0) + 1);
-        if (!plats.has(w)) plats.set(w, new Set());
-        plats.get(w).add(src);
+        counts.set(w, (counts.get(w) || 0) + 1)
+        if (!plats.has(w)) plats.set(w, new Set())
+        plats.get(w).add(src)
       }
     }
   }
 
   // 抑制被拼接组合包含的短碎片词（如已有高频的「亚运会」，则去除单纯的「运会」）
-  const keys = Array.from(counts.keys());
+  const keys = Array.from(counts.keys())
   for (const short of keys) {
-    const sCount = counts.get(short);
+    const sCount = counts.get(short)
     for (const long of keys) {
       if (long.length > short.length && long.includes(short)) {
-        const lCount = counts.get(long);
+        const lCount = counts.get(long)
         if (lCount && lCount >= sCount * 0.7) {
-          counts.delete(short);
-          break;
+          counts.delete(short)
+          break
         }
       }
     }
@@ -5305,76 +6609,83 @@ function extractHotKeywords(data, filter = 'all') {
 
   let list = Array.from(counts.entries())
     .map(([w, c]) => {
-      const pCount = (plats.get(w) || new Set()).size;
+      const pCount = (plats.get(w) || new Set()).size
       // 全网模式跨平台共振加权；单平台模式下按频次与长度
-      const score = (!filter || filter === 'all') ? c * (1 + (pCount - 1) * 0.45) : c;
-      return { word: w, count: c, platCount: pCount, score };
+      const score = !filter || filter === 'all' ? c * (1 + (pCount - 1) * 0.45) : c
+      return { word: w, count: c, platCount: pCount, score }
     })
-    .filter(x => x.word.length >= 2 && x.word.length <= 6);
+    .filter((x) => x.word.length >= 2 && x.word.length <= 6)
 
   if (!filter || filter === 'all') {
-    list = list.filter(x => x.count >= 2);
+    list = list.filter((x) => x.count >= 2)
   } else {
     // 单平台下（样本通常 30~50 条）：优先选频次 >= 2 的高频热词；
     // 若不足 12 个，再允许频次为 1 的前排有意义词补充，确保词云丰满且聚焦
-    const highFreq = list.filter(x => x.count >= 2);
+    const highFreq = list.filter((x) => x.count >= 2)
     if (highFreq.length >= 12) {
-      list = highFreq;
+      list = highFreq
     } else {
-      list = list.filter(x => x.count >= 1);
+      list = list.filter((x) => x.count >= 1)
     }
   }
 
-  return list
-    .sort((a, b) => b.score - a.score || b.count - a.count || b.word.length - a.word.length)
-    .slice(0, 18);
+  return list.sort((a, b) => b.score - a.score || b.count - a.count || b.word.length - a.word.length).slice(0, 18)
 }
 
-window.toggleKeywordFilter = function(word) {
+window.toggleKeywordFilter = function (word) {
   if (homeKeywordFilter === word) {
-    homeKeywordFilter = null;
+    homeKeywordFilter = null
   } else {
-    homeKeywordFilter = word;
+    homeKeywordFilter = word
   }
-  renderHomeList();
-  renderRailInsights();
-  const list = $('#homeList');
+  renderHomeList()
+  renderRailInsights()
+  const list = $('#homeList')
   if (list) {
-    const rect = list.getBoundingClientRect();
+    const rect = list.getBoundingClientRect()
     if (rect.top < 0) {
-      window.scrollTo({ top: window.scrollY + rect.top - 80, behavior: SMOOTH });
+      window.scrollTo({ top: window.scrollY + rect.top - 80, behavior: SMOOTH })
     }
   }
-};
+}
 
-window.clearKeywordFilter = function() {
-  homeKeywordFilter = null;
-  renderHomeList();
-  renderRailInsights();
-};
+window.clearKeywordFilter = function () {
+  homeKeywordFilter = null
+  renderHomeList()
+  renderRailInsights()
+}
 
 function renderRail() {
-  const rail = $('#rail');
-  if (!rail || rail.hidden) return;
+  const rail = $('#rail')
+  if (!rail || rail.hidden) return
   if (!homeData) {
-    rail.innerHTML = RAIL_WEATHER_SLOT_HTML +
+    rail.innerHTML =
+      RAIL_WEATHER_SLOT_HTML +
       '<section class="rail-card"><div class="rail-title">热搜平台</div>' +
-      `<div class="home-skeleton">${SKELETON_HTML}</div></section>`;
+      `<div class="home-skeleton">${SKELETON_HTML}</div></section>`
     // innerHTML 重建把宿主换成了新节点，必须重新安置并补画卡片
-    restoreHeroWeather();
-    return;
+    restoreHeroWeather()
+    return
   }
   // 与顶部标签行同口径：抓取失败的平台也保留格子（置灰），不因一次失败就少一格
-  const plats = homeData.platforms;
-  const okCount = plats.filter(p => p.ok).length;
-  rail.innerHTML = RAIL_WEATHER_SLOT_HTML + `
+  const plats = homeData.platforms
+  const okCount = plats.filter((p) => p.ok).length
+  rail.innerHTML =
+    RAIL_WEATHER_SLOT_HTML +
+    `
     <section class="rail-card">
       <div class="rail-title">热搜平台<span class="rt-sub">${okCount}/${plats.length} 个来源</span></div>
       <div class="rail-grid" id="railGrid">
-        ${plats.map(p => `<button class="rail-plat${homeFilter === p.id ? ' active' : ''}${p.ok ? '' : ' hf-pill-off'}" type="button" data-plat="${esc(p.id)}" title="${esc(p.name)}${p.ok ? '' : '（暂时不可用）'}">
+        ${plats
+          .map(
+            (
+              p,
+            ) => `<button class="rail-plat${homeFilter === p.id ? ' active' : ''}${p.ok ? '' : ' hf-pill-off'}" type="button" data-plat="${esc(p.id)}" title="${esc(p.name)}${p.ok ? '' : '（暂时不可用）'}">
           <img src="${esc(p.icon)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
           <span>${esc(p.name)}</span>
-        </button>`).join('')}
+        </button>`,
+          )
+          .join('')}
       </div>
     </section>
     <section class="rail-card rail-insights">
@@ -5391,46 +6702,56 @@ function renderRail() {
         <span class="rt-sub" id="wcFilterSub">点击热词联动</span>
       </div>
       <div class="rail-wordcloud" id="railWordCloud"></div>
-    </section>`;
-  renderRailInsights();
+    </section>`
+  renderRailInsights()
   // innerHTML 重建把宿主换成了新节点，必须重新安置并补画卡片
-  restoreHeroWeather();
+  restoreHeroWeather()
 }
 
 function renderRailInsights() {
-  if (!homeData) return;
-  const surgingBox = $('#railSurging');
-  const cloudBox = $('#railWordCloud');
-  const filterSub = $('#wcFilterSub');
-  const rsTitle = $('#rsTitleLabel');
-  const rsSub = $('#rsSubLabel');
-  const wcTitle = $('#wcTitleLabel');
+  if (!homeData) return
+  const surgingBox = $('#railSurging')
+  const cloudBox = $('#railWordCloud')
+  const filterSub = $('#wcFilterSub')
+  const rsTitle = $('#rsTitleLabel')
+  const rsSub = $('#rsSubLabel')
+  const wcTitle = $('#wcTitleLabel')
 
-  let scopeName = '全网';
+  let scopeName = '全网'
   if (homeFilter && homeFilter !== 'all') {
-    const p = homeData.platforms ? homeData.platforms.find(x => x.id === homeFilter) : null;
-    scopeName = p ? p.name : homeFilter;
+    const p = homeData.platforms ? homeData.platforms.find((x) => x.id === homeFilter) : null
+    scopeName = p ? p.name : homeFilter
   }
 
-  if (rsTitle) rsTitle.textContent = `${scopeName}飙升速报`;
-  if (rsSub) rsSub.textContent = homeFilter === 'all' ? '实时热点' : `${scopeName}实时`;
-  if (wcTitle) wcTitle.textContent = `${scopeName}热词词云`;
+  if (rsTitle) rsTitle.textContent = `${scopeName}飙升速报`
+  if (rsSub) rsSub.textContent = homeFilter === 'all' ? '实时热点' : `${scopeName}实时`
+  if (wcTitle) wcTitle.textContent = `${scopeName}热词词云`
 
   if (surgingBox) {
-    const surging = extractSurgingItems(homeData, homeFilter);
+    const surging = extractSurgingItems(homeData, homeFilter)
     if (!surging.length) {
-      surgingBox.innerHTML = '<div class="hl-end">暂无突发热点</div>';
+      surgingBox.innerHTML = '<div class="hl-end">暂无突发热点</div>'
     } else {
-      surgingBox.innerHTML = surging.map(it => {
-        let tagClass = 'tag-hot';
-        let tagText = it.tag || '热';
-        if (it.tag === '爆') { tagClass = 'tag-bao'; tagText = '爆'; }
-        else if (it.tag === '沸') { tagClass = 'tag-fei'; tagText = '沸'; }
-        else if (it.tag === '新') { tagClass = 'tag-xin'; tagText = '新'; }
-        else if (it.rank === 1) { tagClass = 'tag-top'; tagText = 'TOP 1'; }
+      surgingBox.innerHTML = surging
+        .map((it) => {
+          let tagClass = 'tag-hot'
+          let tagText = it.tag || '热'
+          if (it.tag === '爆') {
+            tagClass = 'tag-bao'
+            tagText = '爆'
+          } else if (it.tag === '沸') {
+            tagClass = 'tag-fei'
+            tagText = '沸'
+          } else if (it.tag === '新') {
+            tagClass = 'tag-xin'
+            tagText = '新'
+          } else if (it.rank === 1) {
+            tagClass = 'tag-top'
+            tagText = 'TOP 1'
+          }
 
-        const heat = it.hot_text || (it.hot ? formatHot(it.hot) : '');
-        return `<a class="rs-item" href="${safeUrl(it.link)}" target="_blank" rel="noopener">
+          const heat = it.hot_text || (it.hot ? formatHot(it.hot) : '')
+          return `<a class="rs-item" href="${safeUrl(it.link)}" target="_blank" rel="noopener">
           <div class="rs-header">
             <span class="rs-tag ${tagClass}">${esc(tagText)}</span>
             <span class="rs-title" title="${esc(it.title)}">${esc(it.title)}</span>
@@ -5440,342 +6761,409 @@ function renderRailInsights() {
             <span>${esc(it.source_name)}</span>
             ${heat ? `<span>· ${esc(heat)}</span>` : ''}
           </div>
-        </a>`;
-      }).join('');
+        </a>`
+        })
+        .join('')
     }
   }
 
   if (cloudBox) {
-    const keywords = extractHotKeywords(homeData, homeFilter);
+    const keywords = extractHotKeywords(homeData, homeFilter)
     if (!keywords.length) {
-      cloudBox.innerHTML = '<div class="hl-end">暂无热词</div>';
+      cloudBox.innerHTML = '<div class="hl-end">暂无热词</div>'
     } else {
-      cloudBox.innerHTML = keywords.map((kw, i) => {
-        const tierCls = i < 3 ? 'wc-t1' : (i < 8 ? 'wc-t2' : 'wc-t3');
-        const activeCls = homeKeywordFilter === kw.word ? ' active' : '';
-        return `<button type="button" class="wc-tag ${tierCls}${activeCls}" onclick="toggleKeywordFilter('${esc(kw.word)}')" title="${kw.count} 条相关热搜 · 点击联动筛选">
+      cloudBox.innerHTML = keywords
+        .map((kw, i) => {
+          const tierCls = i < 3 ? 'wc-t1' : i < 8 ? 'wc-t2' : 'wc-t3'
+          const activeCls = homeKeywordFilter === kw.word ? ' active' : ''
+          return `<button type="button" class="wc-tag ${tierCls}${activeCls}" onclick="toggleKeywordFilter('${esc(kw.word)}')" title="${kw.count} 条相关热搜 · 点击联动筛选">
           <span class="wc-text">${esc(kw.word)}</span>
           <span class="wc-count">${kw.count}</span>
-        </button>`;
-      }).join('');
+        </button>`
+        })
+        .join('')
     }
   }
 
   if (filterSub) {
     if (homeKeywordFilter) {
-      filterSub.innerHTML = `已筛选: “${esc(homeKeywordFilter)}” <span class="wc-clear-inline" onclick="clearKeywordFilter()">[清除]</span>`;
+      filterSub.innerHTML = `已筛选: “${esc(homeKeywordFilter)}” <span class="wc-clear-inline" onclick="clearKeywordFilter()">[清除]</span>`
     } else {
-      filterSub.textContent = '点击热词联动';
+      filterSub.textContent = '点击热词联动'
     }
   }
 }
 
 function setHomeFilter(id) {
-  homeFilter = id;
-  homeExpanded = false; // 换榜单后重新折叠，避免带着上一份榜单的展开态进来
-  homeKeywordFilter = null; // 切换平台筛选时复位热词过滤
-  let activePill = null;
-  $$('#homeFilter .hf-pill').forEach(b => {
-    const on = b.dataset.plat === id;
-    b.classList.toggle('active', on);
-    if (on) activePill = b;
-  });
-  $$('#railGrid .rail-plat').forEach(b => b.classList.toggle('active', b.dataset.plat === id));
+  homeFilter = id
+  homeExpanded = false // 换榜单后重新折叠，避免带着上一份榜单的展开态进来
+  homeKeywordFilter = null // 切换平台筛选时复位热词过滤
+  let activePill = null
+  $$('#homeFilter .hf-pill').forEach((b) => {
+    const on = b.dataset.plat === id
+    b.classList.toggle('active', on)
+    if (on) activePill = b
+  })
+  $$('#railGrid .rail-plat').forEach((b) => b.classList.toggle('active', b.dataset.plat === id))
   // 选中的标签自动滚进可视区：窄窗口下标签行要横向滚动，
   // 从右栏九宫格点过来的平台很可能停在屏幕外，不拉回来就看不见选中态
-  revealPill(activePill);
-  renderHomeList();
-  renderRailInsights();
+  revealPill(activePill)
+  renderHomeList()
+  renderRailInsights()
 }
 
 /** 把某个标签滚入可视区（已完整可见则原样不动）。滚动容器即标签的直接父节点 */
 function revealPill(pill) {
-  const scroller = pill && pill.parentElement;
-  if (!scroller || !pill) return;
-  const el = pill.getBoundingClientRect();
-  const box = scroller.getBoundingClientRect();
-  if (el.left >= box.left - 1 && el.right <= box.right + 1) return;
+  const scroller = pill && pill.parentElement
+  if (!scroller || !pill) return
+  const el = pill.getBoundingClientRect()
+  const box = scroller.getBoundingClientRect()
+  if (el.left >= box.left - 1 && el.right <= box.right + 1) return
   // 居中而非「贴边」：贴边只能保证露出，居中才看得出是它被选中
-  const left = scroller.scrollLeft + (el.left - box.left) - (scroller.clientWidth - el.width) / 2;
-  scroller.scrollTo({ left: Math.max(0, left), behavior: SMOOTH });
+  const left = scroller.scrollLeft + (el.left - box.left) - (scroller.clientWidth - el.width) / 2
+  scroller.scrollTo({ left: Math.max(0, left), behavior: SMOOTH })
 }
 
 // 平台筛选的点击统一走事件委托：pill 与九宫格两处入口共用同一状态
-document.addEventListener('click', e => {
-  const el = e.target.closest('.hf-pill, .rail-plat');
-  if (!el || !el.dataset.plat) return;
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('.hf-pill, .rail-plat')
+  if (!el || !el.dataset.plat) return
   // 先取出平台 id：切首页会把右栏整块重建，el 随即脱离文档，之后就读不到了
-  const plat = el.dataset.plat;
+  const plat = el.dataset.plat
   // 右栏九宫格在所有页面都在，但榜单只有首页有。从分类页点平台要先回首页，
   // 否则筛选值改了、renderHomeList() 却因为 #homeList 不在而静默 no-op，
   // 用户看到的是「点了没反应」。走首页入口按钮而不是直接改 curView，
   // 是为了复用它的整套副作用（hash、pill 高亮、手风琴复位、回到顶部）
   if (curView !== 'home' && el.classList.contains('rail-plat')) {
-    const homeBtn = document.querySelector('.cat-pills > button[data-view="home"]');
-    if (homeBtn) homeBtn.click();
+    const homeBtn = document.querySelector('.cat-pills > button[data-view="home"]')
+    if (homeBtn) homeBtn.click()
   }
-  setHomeFilter(plat);
-});
+  setHomeFilter(plat)
+})
 
 // 榜单折叠/展开：纯本地重渲染，不重新请求
-document.addEventListener('click', e => {
-  if (!e.target.closest('.hl-toggle')) return;
-  homeExpanded = !homeExpanded;
-  renderHomeList();
-});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.hl-toggle')) return
+  homeExpanded = !homeExpanded
+  renderHomeList()
+})
 
 // ============ 全部刷新 ============
 // 当前视图内所有可见卡片 ↻（noapi 卡走 renderData 重置）。
 // 错峰 60ms/张，避免同时打满上游触发限流；过程中按钮转圈防重复点击
 function refreshAll() {
-  const btn = $('#btnRefreshAll');
-  if (btn?.classList.contains('busy')) return;
-  if (btn) btn.classList.add('busy');
+  const btn = $('#btnRefreshAll')
+  if (btn?.classList.contains('busy')) return
+  if (btn) btn.classList.add('busy')
 
   // 首页视图：需要刷新的只有聚合结果，带上 force-update 让后端绕过聚合缓存
   if (curView === 'home') {
-    loadHome(true).finally(() => { if (btn) btn.classList.remove('busy'); });
-    return;
+    loadHome(true).finally(() => {
+      if (btn) btn.classList.remove('busy')
+    })
+    return
   }
 
-  const visEps = EPS.filter(ep => (curCat === 'all' || curCat === ep.cat) && !GROUP_OF[ep.id]);
-  document.querySelectorAll('.group-card').forEach(card => {
-    const ep = EPS.find(e => e.id === card.dataset.activeEp);
-    if (ep) visEps.push(ep);
-  });
+  const visEps = EPS.filter((ep) => (curCat === 'all' || curCat === ep.cat) && !GROUP_OF[ep.id])
+  document.querySelectorAll('.group-card').forEach((card) => {
+    const ep = EPS.find((e) => e.id === card.dataset.activeEp)
+    if (ep) visEps.push(ep)
+  })
 
-  const vh = window.innerHeight || 800;
-  const immediateEps = [];
+  const vh = window.innerHeight || 800
+  const immediateEps = []
 
-  visEps.forEach(ep => {
-    const cardId = 'card-' + (GROUP_OF[ep.id] ? GROUP_OF[ep.id].id : ep.id);
-    const cardEl = document.getElementById(cardId);
+  visEps.forEach((ep) => {
+    const cardId = 'card-' + (GROUP_OF[ep.id] ? GROUP_OF[ep.id].id : ep.id)
+    const cardEl = document.getElementById(cardId)
     if (!cardLazyObserver || !cardEl) {
-      immediateEps.push(ep);
-      return;
+      immediateEps.push(ep)
+      return
     }
-    const rect = cardEl.getBoundingClientRect();
+    const rect = cardEl.getBoundingClientRect()
     if (rect.top < vh + 400 && rect.bottom > -200) {
-      immediateEps.push(ep);
+      immediateEps.push(ep)
     } else {
-      cardEl.dataset.lazyEp = ep.id;
-      cardEl.dataset.forceUpdate = '1';
-      cardLazyObserver.observe(cardEl);
+      cardEl.dataset.lazyEp = ep.id
+      cardEl.dataset.forceUpdate = '1'
+      cardLazyObserver.observe(cardEl)
     }
-  });
+  })
 
   immediateEps.forEach((ep, i) => {
-    setTimeout(() => load(ep, true).catch(() => {}), i * 60);
-  });
+    setTimeout(() => load(ep, true).catch(() => {}), i * 60)
+  })
   // 右栏现在所有页面常显，它的聚合数据也得跟着「全部刷新」一起刷，
   // 否则正文刷新了、右栏还停在上一次的热搜平台与话题上
-  ensureRailData(true);
-  const done = () => { if (btn) btn.classList.remove('busy'); };
-  setTimeout(done, Math.max(600, immediateEps.length * 60 + 400));
+  ensureRailData(true)
+  const done = () => {
+    if (btn) btn.classList.remove('busy')
+  }
+  setTimeout(done, Math.max(600, immediateEps.length * 60 + 400))
 }
-document.addEventListener('click', e => {
-  if (e.target.closest('#btnRefreshAll')) refreshAll();
-});
+document.addEventListener('click', (e) => {
+  if (e.target.closest('#btnRefreshAll')) refreshAll()
+})
 
 // ============ 下拉刷新（pull-to-refresh） ============
 // 仅触屏 + 页面在顶部时激活：下拉 12px 出指示器、拉满 64px 松手触发全部刷新，
 // 未拉满回弹。与系统 overscroll 的差别：跟随手指的转圈指示器 + 统一刷新入口。
 // touchmove 在 document 上被动监听：浏览器默认把竖直触摸给页面滚动，
 // 顶部时 scrollY=0 拉不动，才轮到我们接管（无 CSS overscroll-behavior 改动，不与系统冲突）
-(function setupPullToRefresh() {
-  if (!window.matchMedia('(pointer: coarse)').matches) return;
-  const ind = () => document.getElementById('ptrIndicator');
-  const TRIGGER = 64, SHOW = 12;
-  let startY = 0, pulling = false, dist = 0, animating = false;
+;(function setupPullToRefresh() {
+  if (!window.matchMedia('(pointer: coarse)').matches) return
+  const ind = () => document.getElementById('ptrIndicator')
+  const TRIGGER = 64,
+    SHOW = 12
+  let startY = 0,
+    pulling = false,
+    dist = 0,
+    animating = false
 
   const apply = () => {
-    const el = ind();
-    if (!el) return;
-    const k = Math.min(1, dist / TRIGGER);
-    el.style.opacity = dist > SHOW ? String(Math.min(1, (dist - SHOW) / 30)) : '0';
-    el.style.transform = `translateY(${Math.max(0, dist - SHOW)}px)`;
-    el.classList.toggle('ready', dist >= TRIGGER);
-  };
+    const el = ind()
+    if (!el) return
+    const k = Math.min(1, dist / TRIGGER)
+    el.style.opacity = dist > SHOW ? String(Math.min(1, (dist - SHOW) / 30)) : '0'
+    el.style.transform = `translateY(${Math.max(0, dist - SHOW)}px)`
+    el.classList.toggle('ready', dist >= TRIGGER)
+  }
   const retract = () => {
-    const el = ind();
-    if (!el) return;
-    animating = true;
-    el.style.transition = 'transform .25s ease, opacity .25s ease';
-    el.style.transform = 'translateY(0)';
-    el.style.opacity = '0';
-    el.classList.remove('ready');
-    setTimeout(() => { if (el) el.style.transition = ''; animating = false; }, 260);
-  };
+    const el = ind()
+    if (!el) return
+    animating = true
+    el.style.transition = 'transform .25s ease, opacity .25s ease'
+    el.style.transform = 'translateY(0)'
+    el.style.opacity = '0'
+    el.classList.remove('ready')
+    setTimeout(() => {
+      if (el) el.style.transition = ''
+      animating = false
+    }, 260)
+  }
 
-  document.addEventListener('touchstart', e => {
-    if (window.scrollY > 0 || e.touches.length !== 1) { pulling = false; return; }
-    // 从游戏卡/输入框/可滚动卡片内容区起手不接管：会跟棋盘滑动、文本选择打架
-    const t = e.target;
-    if (t.closest('.g2048, .muyu, .fs-fake, .fanyi-textarea, .input-row, .card-body, .cat-sub, .card-pane, .sidebar, .rail')) { pulling = false; return; }
-    startY = e.touches[0].clientY;
-    pulling = true; dist = 0;
-  }, { passive: true });
+  document.addEventListener(
+    'touchstart',
+    (e) => {
+      if (window.scrollY > 0 || e.touches.length !== 1) {
+        pulling = false
+        return
+      }
+      // 从游戏卡/输入框/可滚动卡片内容区起手不接管：会跟棋盘滑动、文本选择打架
+      const t = e.target
+      if (
+        t.closest(
+          '.g2048, .muyu, .fs-fake, .fanyi-textarea, .input-row, .card-body, .cat-sub, .card-pane, .sidebar, .rail',
+        )
+      ) {
+        pulling = false
+        return
+      }
+      startY = e.touches[0].clientY
+      pulling = true
+      dist = 0
+    },
+    { passive: true },
+  )
 
-  document.addEventListener('touchmove', e => {
-    if (!pulling || animating) return;
-    dist = e.touches[0].clientY - startY;
-    if (dist <= 0) { dist = 0; apply(); return; }
-    // 顶部下拉：阻力渐增（越拉越沉），手指移动 2px 指示器走 1px 上下
-    dist = Math.min(TRIGGER * 1.35, dist * 0.5 + Math.min(dist, 40) * 0.5);
-    apply();
-  }, { passive: true });
+  document.addEventListener(
+    'touchmove',
+    (e) => {
+      if (!pulling || animating) return
+      dist = e.touches[0].clientY - startY
+      if (dist <= 0) {
+        dist = 0
+        apply()
+        return
+      }
+      // 顶部下拉：阻力渐增（越拉越沉），手指移动 2px 指示器走 1px 上下
+      dist = Math.min(TRIGGER * 1.35, dist * 0.5 + Math.min(dist, 40) * 0.5)
+      apply()
+    },
+    { passive: true },
+  )
 
-  document.addEventListener('touchend', () => {
-    if (!pulling) return;
-    pulling = false;
-    if (dist >= TRIGGER) {
-      haptic(20);
-      retract();
-      refreshAll();
-    } else {
-      retract();
-    }
-    dist = 0;
-  }, { passive: true });
-})();
+  document.addEventListener(
+    'touchend',
+    () => {
+      if (!pulling) return
+      pulling = false
+      if (dist >= TRIGGER) {
+        haptic(20)
+        retract()
+        refreshAll()
+      } else {
+        retract()
+      }
+      dist = 0
+    },
+    { passive: true },
+  )
+})()
 
 function rDouban(d, c) {
-  if (!Array.isArray(d)) return rJSON(d, c);
-  let h = '';
+  if (!Array.isArray(d)) return rJSON(d, c)
+  let h = ''
   d.forEach((it, i) => {
-    const rank = it.rank || (i + 1);
-    const cls = rank <= 3 ? `top${rank}` : '';
-    const l = it.url || it.link || '';
-    const poster = it.cover_proxy || it.cover || '';
-    let meta = '';
-    if (it.rating) meta += `⭐ ${esc(String(it.rating))} `;
-    if (it.rating_count) meta += `(${esc(String(it.rating_count))}) `;
-    if (it.card_subtitle) meta += ` · ${esc(it.card_subtitle)}`;
+    const rank = it.rank || i + 1
+    const cls = rank <= 3 ? `top${rank}` : ''
+    const l = it.url || it.link || ''
+    const poster = it.cover_proxy || it.cover || ''
+    let meta = ''
+    if (it.rating) meta += `⭐ ${esc(String(it.rating))} `
+    if (it.rating_count) meta += `(${esc(String(it.rating_count))}) `
+    if (it.card_subtitle) meta += ` · ${esc(it.card_subtitle)}`
     if (poster) {
       // 海报模式：序号内联在标题行首（与流媒体榜 rSimkl 一致）
-      h += `<div class="item with-poster">`;
-      h += `<img class="poster" src="${esc(poster)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
-      h += `<div class="body-wrap">`;
-      h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</a>` : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</span>`;
-      if (meta) h += `<div class="meta">${meta}</div>`;
-      h += '</div></div>';
+      h += `<div class="item with-poster">`
+      h += `<img class="poster" src="${esc(poster)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+      h += `<div class="body-wrap">`
+      h += l
+        ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</a>`
+        : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</span>`
+      if (meta) h += `<div class="meta">${meta}</div>`
+      h += '</div></div>'
     } else {
       // 无海报时回退原有布局，序号徽章独立在左与标题并排
-      h += `<div class="item"><span class="rank ${cls}">${rank}</span><div class="body">`;
-      h += l ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener">${esc(it.title)}</a>` : `<span class="t">${esc(it.title)}</span>`;
-      if (meta) h += `<div class="meta">${meta}</div>`;
-      h += '</div></div>';
+      h += `<div class="item"><span class="rank ${cls}">${rank}</span><div class="body">`
+      h += l
+        ? `<a href="${safeUrl(l)}" target="_blank" rel="noopener">${esc(it.title)}</a>`
+        : `<span class="t">${esc(it.title)}</span>`
+      if (meta) h += `<div class="meta">${meta}</div>`
+      h += '</div></div>'
     }
-  });
-  c.innerHTML = h;
+  })
+  c.innerHTML = h
 }
 
 function rAINews(d, c) {
-  let h = '';
-  if (d.date) h += `<div class="news-header"><span>📅 ${esc(d.date)}</span></div>`;
-  (d.news || []).forEach((n, i) => {
-    h += `<div class="news-item"><span class="num">${i+1}</span>`;
-    h += n.link ? `<a href="${safeUrl(n.link)}" target="_blank" rel="noopener">${esc(n.title)}</a>` : `<span class="nt">${esc(n.title)}</span>`;
-    h += '</div>';
-    if (n.summary) h += `<div class="desc" style="margin-left:22px;font-size:11px;color:var(--text-dim);margin-bottom:2px;">${esc(n.summary)}</div>`;
-  });
-  c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
+  let h = ''
+  if (d.date) h += `<div class="news-header"><span>📅 ${esc(d.date)}</span></div>`
+  ;(d.news || []).forEach((n, i) => {
+    h += `<div class="news-item"><span class="num">${i + 1}</span>`
+    h += n.link
+      ? `<a href="${safeUrl(n.link)}" target="_blank" rel="noopener">${esc(n.title)}</a>`
+      : `<span class="nt">${esc(n.title)}</span>`
+    h += '</div>'
+    if (n.summary)
+      h += `<div class="desc" style="margin-left:22px;font-size:11px;color:var(--text-dim);margin-bottom:2px;">${esc(n.summary)}</div>`
+  })
+  c.innerHTML = h || '<div class="placeholder">暂无数据</div>'
 }
 
 // 历史上的今天：时间轴布局，事件/出生/逝世 三类彩色标签 + 年份徽章 + 摘要
 function rHist(d, c) {
-  const items = d.items || [];
-  const TYPE = { event: ['事件', ''], birth: ['出生', 'birth'], death: ['逝世', 'death'] };
+  const items = d.items || []
+  const TYPE = { event: ['事件', ''], birth: ['出生', 'birth'], death: ['逝世', 'death'] }
   // 公元前年份（负数）显示为「前N」
-  const yearText = y => {
-    const n = parseInt(y, 10);
-    return isNaN(n) ? String(y) : (n < 0 ? `前${-n}` : `${n}`);
-  };
-  const counts = { event: 0, birth: 0, death: 0 };
-  items.forEach(it => { const k = TYPE[it.event_type] ? it.event_type : 'event'; counts[k]++; });
+  const yearText = (y) => {
+    const n = parseInt(y, 10)
+    return isNaN(n) ? String(y) : n < 0 ? `前${-n}` : `${n}`
+  }
+  const counts = { event: 0, birth: 0, death: 0 }
+  items.forEach((it) => {
+    const k = TYPE[it.event_type] ? it.event_type : 'event'
+    counts[k]++
+  })
 
   let h = `<div class="hist-head">
     <span class="hist-date">📅 ${esc(d.month)}月${esc(d.day)}日</span>
     <span class="hist-legend"><b>${items.length}</b> 条大事记
       ${counts.event ? ` · 事件 ${counts.event}` : ''}${counts.birth ? ` · 出生 ${counts.birth}` : ''}${counts.death ? ` · 逝世 ${counts.death}` : ''}
     </span>
-  </div>`;
-  items.forEach(it => {
-    const [label, mod] = TYPE[it.event_type] || TYPE.event;
-    const year = yearText(it.year);
-    h += `<div class="hist-item">`;
-    h += `<span class="hist-year ${mod}">${esc(year)}</span>`;
-    h += `<div class="hist-body">`;
-    h += `<div class="hist-title"><span class="hist-tag ${mod}">${label}</span>`;
-    h += it.link ? `<a href="${safeUrl(it.link)}" target="_blank" rel="noopener">${esc(it.title)}</a>` : `<span class="t">${esc(it.title)}</span>`;
-    h += `</div>`;
-    if (it.description) h += `<div class="hist-desc">${esc(it.description)}</div>`;
-    h += `</div></div>`;
-  });
-  c.innerHTML = h;
+  </div>`
+  items.forEach((it) => {
+    const [label, mod] = TYPE[it.event_type] || TYPE.event
+    const year = yearText(it.year)
+    h += `<div class="hist-item">`
+    h += `<span class="hist-year ${mod}">${esc(year)}</span>`
+    h += `<div class="hist-body">`
+    h += `<div class="hist-title"><span class="hist-tag ${mod}">${label}</span>`
+    h += it.link
+      ? `<a href="${safeUrl(it.link)}" target="_blank" rel="noopener">${esc(it.title)}</a>`
+      : `<span class="t">${esc(it.title)}</span>`
+    h += `</div>`
+    if (it.description) h += `<div class="hist-desc">${esc(it.description)}</div>`
+    h += `</div></div>`
+  })
+  c.innerHTML = h
 }
 
 function rKV(d, c, ep) {
-  let h = '<div class="kv">';
-  const entries = ep.keys ? ep.keys.map(k => Array.isArray(k) ? [k[0], d[k[0]], k[1]] : [k, d[k]]) : Object.entries(d).map(([k, v]) => [k, v]);
+  let h = '<div class="kv">'
+  const entries = ep.keys
+    ? ep.keys.map((k) => (Array.isArray(k) ? [k[0], d[k[0]], k[1]] : [k, d[k]]))
+    : Object.entries(d).map(([k, v]) => [k, v])
   entries.forEach(([k, v, label]) => {
-    if (v == null || v === '') return;
+    if (v == null || v === '') return
     if (k === 'image' && typeof v === 'string' && /^https?:\/\//.test(v)) {
-      h += `<div class="kv-row"><span class="k">${esc(label || k)}</span><span class="v"><img style="max-width:100%;height:auto;display:block;margin-top:4px;border-radius:8px" src="${esc(v)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.remove()"></span></div>`;
-      return;
+      h += `<div class="kv-row"><span class="k">${esc(label || k)}</span><span class="v"><img style="max-width:100%;height:auto;display:block;margin-top:4px;border-radius:8px" src="${esc(v)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.remove()"></span></div>`
+      return
     }
-    let disp = typeof v === 'object' ? JSON.stringify(v) : Array.isArray(v) ? v.join(', ') : v;
-    h += `<div class="kv-row"><span class="k">${esc(label || k)}</span><span class="v">${esc(String(disp))}</span></div>`;
-  });
-  h += '</div>';
-  c.innerHTML = h;
+    let disp = typeof v === 'object' ? JSON.stringify(v) : Array.isArray(v) ? v.join(', ') : v
+    h += `<div class="kv-row"><span class="k">${esc(label || k)}</span><span class="v">${esc(String(disp))}</span></div>`
+  })
+  h += '</div>'
+  c.innerHTML = h
 }
 
 function rObj(d, c, ep) {
-  let h = '<div class="kv">';
-  const entries = ep.keys ? ep.keys.map(k => [k, d[k]]) : Object.entries(d).slice(0, 10);
+  let h = '<div class="kv">'
+  const entries = ep.keys ? ep.keys.map((k) => [k, d[k]]) : Object.entries(d).slice(0, 10)
   entries.forEach(([k, v]) => {
-    if (v == null || v === '') return;
-    let disp = typeof v === 'object' ? JSON.stringify(v) : v;
-    h += `<div class="kv-row"><span class="k">${esc(k)}</span><span class="v">${esc(String(disp))}</span></div>`;
-  });
-  h += '</div>';
-  c.innerHTML = h;
+    if (v == null || v === '') return
+    let disp = typeof v === 'object' ? JSON.stringify(v) : v
+    h += `<div class="kv-row"><span class="k">${esc(k)}</span><span class="v">${esc(String(disp))}</span></div>`
+  })
+  h += '</div>'
+  c.innerHTML = h
 }
 
 // 网页 OG 信息：社交分享预览卡（大图上、标题描述下、域名行）
 function rOG(d, c) {
-  const cardEl = c.closest('.card');
-  const urlInput = cardEl?.querySelector('input[name="url"]');
-  const u = (urlInput?.value || '').trim();
-  let host = '';
-  try { host = u ? new URL(u.startsWith('http') ? u : 'https://' + u).hostname : ''; } catch {}
-  let h = `<div class="og-card">`;
-  if (d.image) h += `<div class="og-img"><img src="${esc(d.image)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.remove()"></div>`;
-  h += `<div class="og-body">`;
-  if (d.title) h += `<div class="og-title">${esc(d.title)}</div>`;
-  if (d.description) h += `<div class="og-desc">${esc(d.description)}</div>`;
-  if (host) h += `<div class="og-host">🔗 ${esc(host)}</div>`;
-  h += `</div></div>`;
-  c.innerHTML = h;
+  const cardEl = c.closest('.card')
+  const urlInput = cardEl?.querySelector('input[name="url"]')
+  const u = (urlInput?.value || '').trim()
+  let host = ''
+  try {
+    host = u ? new URL(u.startsWith('http') ? u : 'https://' + u).hostname : ''
+  } catch {}
+  let h = `<div class="og-card">`
+  if (d.image)
+    h += `<div class="og-img"><img src="${esc(d.image)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.remove()"></div>`
+  h += `<div class="og-body">`
+  if (d.title) h += `<div class="og-title">${esc(d.title)}</div>`
+  if (d.description) h += `<div class="og-desc">${esc(d.description)}</div>`
+  if (host) h += `<div class="og-host">🔗 ${esc(host)}</div>`
+  h += `</div></div>`
+  c.innerHTML = h
 }
 
 function rText(d, c, ep) {
-  const t = ep.dk ? d[ep.dk] : (typeof d === 'string' ? d : JSON.stringify(d, null, 2));
-  c.innerHTML = `<div class="text-block">${esc(t)}</div>`;
+  const t = ep.dk ? d[ep.dk] : typeof d === 'string' ? d : JSON.stringify(d, null, 2)
+  c.innerHTML = `<div class="text-block">${esc(t)}</div>`
 }
 
 // 答案之书：神谕卡牌面——字标 + 逐字渐显答案（短答案竖排）+ 编号印章
 function rAnswer(d, c) {
-  const zh = d.answer || '';
-  const en = d.answer_en || '';
+  const zh = d.answer || ''
+  const en = d.answer_en || ''
   // 印章编号用数据自身 id（与接口 ?id= 同一语义），旧数据无 id 时回退 index+1
-  const idx = d.id != null ? Number(d.id) : d.index != null ? Number(d.index) + 1 : null;
+  const idx = d.id != null ? Number(d.id) : d.index != null ? Number(d.index) + 1 : null
   // 短答案（≤6 字符）竖排更有神谕感；逐字 span 渐显，重渲染自动重播
-  const chars = [...zh];
-  const vertical = chars.length <= 6 && chars.every(ch => /[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/.test(ch));
-  const zhHtml = chars.map((ch, i) => `<span class="ans-ch" style="animation-delay:${(0.15 + i * 0.07).toFixed(2)}s">${esc(ch)}</span>`).join('');
-  const enChars = en ? [...en].map((ch, i) => `<span class="ans-ch" style="animation-delay:${(0.5 + i * 0.03).toFixed(2)}s">${ch === ' ' ? '&nbsp;' : esc(ch)}</span>`).join('') : '';
+  const chars = [...zh]
+  const vertical = chars.length <= 6 && chars.every((ch) => /[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/.test(ch))
+  const zhHtml = chars
+    .map((ch, i) => `<span class="ans-ch" style="animation-delay:${(0.15 + i * 0.07).toFixed(2)}s">${esc(ch)}</span>`)
+    .join('')
+  const enChars = en
+    ? [...en]
+        .map(
+          (ch, i) =>
+            `<span class="ans-ch" style="animation-delay:${(0.5 + i * 0.03).toFixed(2)}s">${ch === ' ' ? '&nbsp;' : esc(ch)}</span>`,
+        )
+        .join('')
+    : ''
   c.innerHTML = `<div class="answer-card${vertical ? ' vertical' : ''}">
     <div class="ans-frame"></div>
     <div class="ans-title">✦ THE BOOK OF ANSWERS ✦</div>
@@ -5783,300 +7171,375 @@ function rAnswer(d, c) {
     ${en ? `<div class="ans-en">${enChars}</div>` : ''}
     <div class="ans-sep">◆ ◆ ◆</div>
     <div class="ans-seal">${idx ? `№ ${String(idx).padStart(3, '0')}` : 'ORACLE'}</div>
-  </div>`;
+  </div>`
 }
 
 // 通用金句卡片：短文本居中衬线排版，长文本左对齐易读
 function rQuote(d, c, ep) {
-  const t = (ep.dk ? d[ep.dk] : '') || '';
-  const idx = d.index != null ? Number(d.index) + 1 : null;
-  const isLong = t.length > 64;
+  const t = (ep.dk ? d[ep.dk] : '') || ''
+  const idx = d.index != null ? Number(d.index) + 1 : null
+  const isLong = t.length > 64
   c.innerHTML = `<div class="quote-card${isLong ? ' long' : ''}">
     <div class="quote-mark">“</div>
     <div class="quote-text">${esc(t)}</div>
     ${idx ? `<div class="quote-meta"><i></i><span>第 ${idx} 条</span><i></i></div>` : ''}
-  </div>`;
+  </div>`
 }
 
 function rGeng(d, c) {
-  const idx = d.index != null ? Number(d.index) + 1 : null;
-  const meta = [];
-  if (d.year) meta.push(`${esc(d.year)} 年热梗`);
-  if (idx) meta.push(`第 ${idx} 个梗`);
+  const idx = d.index != null ? Number(d.index) + 1 : null
+  const meta = []
+  if (d.year) meta.push(`${esc(d.year)} 年热梗`)
+  if (idx) meta.push(`第 ${idx} 个梗`)
   c.innerHTML = `<div class="geng-card">
     <div class="geng-title">${esc(d.title || '')}</div>
     <div class="geng-content">${esc(d.content || '')}</div>
     ${meta.length ? `<div class="geng-meta">${meta.join(' · ')}</div>` : ''}
-  </div>`;
+  </div>`
 }
 
 // SIMKL 流媒体热门榜：海报 + 评分 + 观看数 + 平台徽标
 function rSimkl(d, c) {
   if (!Array.isArray(d) || d.length === 0) {
-    c.innerHTML = '<div class="placeholder">该平台暂无上榜内容</div>';
-    return;
+    c.innerHTML = '<div class="placeholder">该平台暂无上榜内容</div>'
+    return
   }
-  let h = '';
-  d.forEach(it => {
-    const rank = it.rank || 0;
-    const cls = rank <= 3 ? `top${rank}` : '';
-    h += `<div class="simkl-item">`;
-    if (it.poster) h += `<img class="simkl-poster" src="${esc(it.poster)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
-    h += `<div class="simkl-body">`;
+  let h = ''
+  d.forEach((it) => {
+    const rank = it.rank || 0
+    const cls = rank <= 3 ? `top${rank}` : ''
+    h += `<div class="simkl-item">`
+    if (it.poster)
+      h += `<img class="simkl-poster" src="${esc(it.poster)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">`
+    h += `<div class="simkl-body">`
     h += it.link
       ? `<a href="${safeUrl(it.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</a>`
-      : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</span>`;
-    let meta = '';
-    if (it.rating) meta += `⭐ ${esc(String(it.rating))} `;
-    if (it.watched != null) meta += ` · ${esc(String(it.watched))} 人在看 `;
-    if (it.release_date) meta += ` · ${esc(it.release_date)}`;
-    if (meta) h += `<div class="meta">${meta}</div>`;
-    if (it.network) h += `<span class="simkl-badge">${esc(it.network)}</span>`;
-    h += `</div></div>`;
-  });
-  c.innerHTML = h;
+      : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</span>`
+    let meta = ''
+    if (it.rating) meta += `⭐ ${esc(String(it.rating))} `
+    if (it.watched != null) meta += ` · ${esc(String(it.watched))} 人在看 `
+    if (it.release_date) meta += ` · ${esc(it.release_date)}`
+    if (meta) h += `<div class="meta">${meta}</div>`
+    if (it.network) h += `<span class="simkl-badge">${esc(it.network)}</span>`
+    h += `</div></div>`
+  })
+  c.innerHTML = h
 }
 
 // 每日一句英语：中英对照 + 朗读按钮（点击播放 iciba 提供的 TTS mp3）
 function rDailyEng(d, c) {
-  const hasTts = !!d.tts;
+  const hasTts = !!d.tts
   c.innerHTML = `<div class="daily-eng">
     <div class="de-en">${esc(d.content || '')}</div>
     <div class="de-zh">${esc(d.note || '')}</div>
     ${hasTts ? `<button class="de-tts" data-tts="${esc(d.tts)}" title="朗读">🔊 朗读</button>` : ''}
     ${d.dateline ? `<div class="de-meta">${esc(d.dateline)}</div>` : ''}
-  </div>`;
-  const btn = c.querySelector('.de-tts');
+  </div>`
+  const btn = c.querySelector('.de-tts')
   if (btn) {
-    let audio = null;
+    let audio = null
     btn.onclick = () => {
-      if (!audio) audio = new Audio(btn.dataset.tts);
-      if (audio.paused) { audio.play(); btn.classList.add('playing'); }
-      else { audio.pause(); btn.classList.remove('playing'); }
-      audio.onended = () => btn.classList.remove('playing');
-    };
+      if (!audio) audio = new Audio(btn.dataset.tts)
+      if (audio.paused) {
+        audio.play()
+        btn.classList.add('playing')
+      } else {
+        audio.pause()
+        btn.classList.remove('playing')
+      }
+      audio.onended = () => btn.classList.remove('playing')
+    }
   }
 }
 
 function rBaike(d, c) {
-  let h = '';
-  if (d.cover) h += `<div class="img-wrap"><img src="${esc(d.cover)}" alt="${esc(d.title)}" referrerpolicy="no-referrer"></div>`;
-  h += '<div class="kv">';
-  if (d.title) h += `<div class="kv-row"><span class="k">词条</span><span class="v">${esc(d.title)}</span></div>`;
-  if (d.description) h += `<div class="kv-row"><span class="k">简介</span><span class="v">${esc(d.description)}</span></div>`;
-  if (d.abstract) h += `<div class="kv-row"><span class="k">摘要</span><span class="v">${esc(d.abstract)}</span></div>`;
-  if (d.has_other) h += `<div class="kv-row"><span class="k">备注</span><span class="v">该词条有多个义项</span></div>`;
-  if (d.link) h += `<div class="kv-row"><span class="k">链接</span><span class="v"><a href="${esc(d.link)}" target="_blank">查看完整词条 ↗</a></span></div>`;
-  h += '</div>';
-  c.innerHTML = h;
+  let h = ''
+  if (d.cover)
+    h += `<div class="img-wrap"><img src="${esc(d.cover)}" alt="${esc(d.title)}" referrerpolicy="no-referrer"></div>`
+  h += '<div class="kv">'
+  if (d.title) h += `<div class="kv-row"><span class="k">词条</span><span class="v">${esc(d.title)}</span></div>`
+  if (d.description)
+    h += `<div class="kv-row"><span class="k">简介</span><span class="v">${esc(d.description)}</span></div>`
+  if (d.abstract) h += `<div class="kv-row"><span class="k">摘要</span><span class="v">${esc(d.abstract)}</span></div>`
+  if (d.has_other) h += `<div class="kv-row"><span class="k">备注</span><span class="v">该词条有多个义项</span></div>`
+  if (d.link)
+    h += `<div class="kv-row"><span class="k">链接</span><span class="v"><a href="${esc(d.link)}" target="_blank">查看完整词条 ↗</a></span></div>`
+  h += '</div>'
+  c.innerHTML = h
 }
 
 // 通用数据瓦片（健康/IP/WHOIS/密码卡共用）：值为空自动跳过
 function htTile(k, v) {
-  if (v == null || v === '') return '';
-  return `<div class="ht-tile"><span class="k">${esc(k)}</span><span class="v">${esc(String(v))}</span></div>`;
+  if (v == null || v === '') return ''
+  return `<div class="ht-tile"><span class="k">${esc(k)}</span><span class="v">${esc(String(v))}</span></div>`
 }
 
 // 健康计算器：BMI 色带标尺 + 关键数字卡 + 数据瓦片 + 三围/建议折叠
 function rHealth(d, c) {
-  const bi = d.basic_info || {}, bmi = d.bmi || {}, wa = d.weight_assessment || {},
-        me = d.metabolism || {}, bf = d.body_fat || {}, bsa = d.body_surface_area || {},
-        im = d.ideal_measurements || {}, ha = d.health_advice || {};
-  const num = v => { const n = parseFloat(v); return Number.isNaN(n) ? null : n; };
-
-  // BMI 标尺：15-35 色带（偏瘦蓝/正常绿/超重黄/肥胖红），指针落在当前值
-  let gauge = '';
-  const bv = num(bmi.value);
-  if (bv != null) {
-    const pos = Math.min(98, Math.max(2, ((bv - 15) / 20) * 100));
-    gauge = `<div class="ht-gauge"><div class="ht-gauge-track"><i style="left:${pos}%"></i></div><div class="ht-gauge-scale"><span>偏瘦</span><span>正常</span><span>超重</span><span>肥胖</span></div></div>`;
+  const bi = d.basic_info || {},
+    bmi = d.bmi || {},
+    wa = d.weight_assessment || {},
+    me = d.metabolism || {},
+    bf = d.body_fat || {},
+    bsa = d.body_surface_area || {},
+    im = d.ideal_measurements || {},
+    ha = d.health_advice || {}
+  const num = (v) => {
+    const n = parseFloat(v)
+    return Number.isNaN(n) ? null : n
   }
 
-  const bmiChip = bmi.category ? `<span class="ht-chip">${esc(bmi.category)}</span>` : '';
-  let h = `<div class="ht-bmi"><div class="ht-bmi-num"><b>${esc(String(bmi.value ?? '--'))}</b><span>BMI</span></div><div class="ht-bmi-info"><p>${esc(bmi.evaluation || '')}</p><p class="dim">${esc(bmi.risk || '')}</p></div>${bmiChip}</div>${gauge}`;
+  // BMI 标尺：15-35 色带（偏瘦蓝/正常绿/超重黄/肥胖红），指针落在当前值
+  let gauge = ''
+  const bv = num(bmi.value)
+  if (bv != null) {
+    const pos = Math.min(98, Math.max(2, ((bv - 15) / 20) * 100))
+    gauge = `<div class="ht-gauge"><div class="ht-gauge-track"><i style="left:${pos}%"></i></div><div class="ht-gauge-scale"><span>偏瘦</span><span>正常</span><span>超重</span><span>肥胖</span></div></div>`
+  }
+
+  const bmiChip = bmi.category ? `<span class="ht-chip">${esc(bmi.category)}</span>` : ''
+  let h = `<div class="ht-bmi"><div class="ht-bmi-num"><b>${esc(String(bmi.value ?? '--'))}</b><span>BMI</span></div><div class="ht-bmi-info"><p>${esc(bmi.evaluation || '')}</p><p class="dim">${esc(bmi.risk || '')}</p></div>${bmiChip}</div>${gauge}`
 
   const bigs = [
     ['⚖️', '标准体重', wa.standard_weight],
     ['🔥', '基础代谢', me.bmr != null ? `${me.bmr} kcal` : null],
     ['🏃', '每日消耗', me.tdee != null ? `${me.tdee} kcal` : null],
-  ].filter(x => x[2] != null && x[2] !== '');
-  if (bigs.length) h += `<div class="ht-bigs">${bigs.map(([ic, k, v]) => `<div class="ht-big"><span class="ic">${ic}</span><div class="tx"><span class="k">${esc(k)}</span><b>${esc(String(v))}</b></div></div>`).join('')}</div>`;
+  ].filter((x) => x[2] != null && x[2] !== '')
+  if (bigs.length)
+    h += `<div class="ht-bigs">${bigs.map(([ic, k, v]) => `<div class="ht-big"><span class="ic">${ic}</span><div class="tx"><span class="k">${esc(k)}</span><b>${esc(String(v))}</b></div></div>`).join('')}</div>`
 
-  const bfPct = num(bf.percentage);
-  h += `<div class="ht-sec"><div class="ht-sec-t">🧬 体脂与身体组成</div>`;
+  const bfPct = num(bf.percentage)
+  h += `<div class="ht-sec"><div class="ht-sec-t">🧬 体脂与身体组成</div>`
   if (bfPct != null) {
-    h += `<div class="ht-bf"><span>体脂率</span><div class="ht-bf-bar"><i style="width:${Math.min(100, Math.round(bfPct * 2))}%"></i></div><b>${esc(String(bf.percentage))}</b></div>`;
+    h += `<div class="ht-bf"><span>体脂率</span><div class="ht-bf-bar"><i style="width:${Math.min(100, Math.round(bfPct * 2))}%"></i></div><b>${esc(String(bf.percentage))}</b></div>`
   }
-  h += `<div class="ht-tiles">${htTile('体脂分类', bf.category)}${htTile('脂肪重量', bf.fat_weight)}${htTile('瘦体重', bf.lean_weight)}${htTile('体表面积', bsa.value)}</div></div>`;
+  h += `<div class="ht-tiles">${htTile('体脂分类', bf.category)}${htTile('脂肪重量', bf.fat_weight)}${htTile('瘦体重', bf.lean_weight)}${htTile('体表面积', bsa.value)}</div></div>`
 
-  h += `<div class="ht-sec"><div class="ht-sec-t">🔥 热量参考</div><div class="ht-tiles">${htTile('推荐摄入', me.recommended_calories ? `${me.recommended_calories} kcal` : null)}${htTile('减重摄入', me.weight_loss_calories ? `${me.weight_loss_calories} kcal` : null)}${htTile('增重摄入', me.weight_gain_calories ? `${me.weight_gain_calories} kcal` : null)}${htTile('理想体重范围', wa.ideal_weight_range)}${htTile('身高', bi.height)}${htTile('体重', bi.weight)}${htTile('性别', bi.gender)}${htTile('年龄', bi.age)}</div></div>`;
+  h += `<div class="ht-sec"><div class="ht-sec-t">🔥 热量参考</div><div class="ht-tiles">${htTile('推荐摄入', me.recommended_calories ? `${me.recommended_calories} kcal` : null)}${htTile('减重摄入', me.weight_loss_calories ? `${me.weight_loss_calories} kcal` : null)}${htTile('增重摄入', me.weight_gain_calories ? `${me.weight_gain_calories} kcal` : null)}${htTile('理想体重范围', wa.ideal_weight_range)}${htTile('身高', bi.height)}${htTile('体重', bi.weight)}${htTile('性别', bi.gender)}${htTile('年龄', bi.age)}</div></div>`
 
-  h += `<details class="ht-details"><summary>🎯 理想三围参考</summary><div class="ht-tiles">${htTile('胸围', im.chest)}${htTile('腰围', im.waist)}${htTile('臀围', im.hip)}${htTile('说明', im.note)}</div></details>`;
-  const tips = Array.isArray(ha.health_tips) ? ha.health_tips.slice(0, 4).map(t => `<div class="ht-tip">• ${esc(t)}</div>`).join('') : '';
-  h += `<details class="ht-details"><summary>💡 个性化建议</summary><div class="ht-tiles">${htTile('每日饮水', ha.daily_water_intake)}${htTile('运动建议', ha.exercise_recommendation)}${htTile('营养建议', ha.nutrition_advice)}</div>${tips}</details>`;
-  if (d.disclaimer) h += `<div class="news-tip">⚠️ ${esc(d.disclaimer)}</div>`;
-  c.innerHTML = h;
+  h += `<details class="ht-details"><summary>🎯 理想三围参考</summary><div class="ht-tiles">${htTile('胸围', im.chest)}${htTile('腰围', im.waist)}${htTile('臀围', im.hip)}${htTile('说明', im.note)}</div></details>`
+  const tips = Array.isArray(ha.health_tips)
+    ? ha.health_tips
+        .slice(0, 4)
+        .map((t) => `<div class="ht-tip">• ${esc(t)}</div>`)
+        .join('')
+    : ''
+  h += `<details class="ht-details"><summary>💡 个性化建议</summary><div class="ht-tiles">${htTile('每日饮水', ha.daily_water_intake)}${htTile('运动建议', ha.exercise_recommendation)}${htTile('营养建议', ha.nutrition_advice)}</div>${tips}</details>`
+  if (d.disclaimer) h += `<div class="news-tip">⚠️ ${esc(d.disclaimer)}</div>`
+  c.innerHTML = h
 }
 
 // 随机颜色：大色块 hero（亮度自适应文字色）+ 各格式行带复制按钮
 function rColor(d, c) {
-  const hex = d.hex || '#888';
-  const bright = d.brightness != null ? Number(d.brightness) : 50;
-  const fg = bright > 55 ? '#1c1917' : '#ffffff';
+  const hex = d.hex || '#888'
+  const bright = d.brightness != null ? Number(d.brightness) : 50
+  const fg = bright > 55 ? '#1c1917' : '#ffffff'
   const rows = [
-    ['HEX', d.hex], ['RGB', d.rgb?.string], ['HSL', d.hsl?.string],
-    ['HSV', d.hsv?.string], ['CMYK', d.cmyk?.string], ['LAB', d.lab?.string],
-  ].filter(r => r[1]);
-  let h = `<div class="clr-hero" style="background:${esc(hex)};color:${fg}"><span class="clr-name">${esc(d.name || '')}</span><b>${esc(hex)}</b><span class="clr-bright">亮度 ${esc(String(bright))}%</span></div>`;
-  h += `<div class="clr-rows">${rows.map(([k, v]) => `<div class="clr-row"><span class="k">${esc(k)}</span><code>${esc(String(v))}</code><button class="clr-copy" type="button" data-v="${esc(String(v))}">复制</button></div>`).join('')}</div>`;
-  c.innerHTML = h;
-  c.querySelectorAll('.clr-copy').forEach(btn => {
+    ['HEX', d.hex],
+    ['RGB', d.rgb?.string],
+    ['HSL', d.hsl?.string],
+    ['HSV', d.hsv?.string],
+    ['CMYK', d.cmyk?.string],
+    ['LAB', d.lab?.string],
+  ].filter((r) => r[1])
+  let h = `<div class="clr-hero" style="background:${esc(hex)};color:${fg}"><span class="clr-name">${esc(d.name || '')}</span><b>${esc(hex)}</b><span class="clr-bright">亮度 ${esc(String(bright))}%</span></div>`
+  h += `<div class="clr-rows">${rows.map(([k, v]) => `<div class="clr-row"><span class="k">${esc(k)}</span><code>${esc(String(v))}</code><button class="clr-copy" type="button" data-v="${esc(String(v))}">复制</button></div>`).join('')}</div>`
+  c.innerHTML = h
+  c.querySelectorAll('.clr-copy').forEach((btn) => {
     btn.onclick = () => {
-      navigator.clipboard.writeText(btn.dataset.v || '').then(() => {
-        btn.textContent = '已复制 ✓';
-        setTimeout(() => { btn.textContent = '复制'; }, 1200);
-      }).catch(() => {});
-    };
-  });
+      navigator.clipboard
+        .writeText(btn.dataset.v || '')
+        .then(() => {
+          btn.textContent = '已复制 ✓'
+          setTimeout(() => {
+            btn.textContent = '复制'
+          }, 1200)
+        })
+        .catch(() => {})
+    }
+  })
 }
 
 function rPalette(d, c) {
-  let h = '';
+  let h = ''
   if (d.input) {
-    h += `<div class="swatch" style="background:${esc(d.input.hex||'#000')}"></div>`;
-    h += `<div class="kv-row"><span class="k">输入</span><span class="v">${esc(d.input.hex||'')} ${esc(d.input.name||'')}</span></div>`;
+    h += `<div class="swatch" style="background:${esc(d.input.hex || '#000')}"></div>`
+    h += `<div class="kv-row"><span class="k">输入</span><span class="v">${esc(d.input.hex || '')} ${esc(d.input.name || '')}</span></div>`
   }
   if (d.palettes) {
-    d.palettes.slice(0, 4).forEach(p => {
-      h += `<div style="font-size:11px;font-weight:600;margin:8px 0 4px;">${esc(p.name||'')}</div><div class="palette-grid">`;
-      (p.colors||[]).forEach(col => {
-        h += `<div class="palette-chip"><div class="c" style="background:${esc(col.hex)}"></div>${esc(col.hex)}</div>`;
-      });
-      h += '</div>';
-    });
+    d.palettes.slice(0, 4).forEach((p) => {
+      h += `<div style="font-size:11px;font-weight:600;margin:8px 0 4px;">${esc(p.name || '')}</div><div class="palette-grid">`
+      ;(p.colors || []).forEach((col) => {
+        h += `<div class="palette-chip"><div class="c" style="background:${esc(col.hex)}"></div>${esc(col.hex)}</div>`
+      })
+      h += '</div>'
+    })
   }
-  c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
+  c.innerHTML = h || '<div class="placeholder">暂无数据</div>'
 }
 
 function rChangya(d, c) {
-  const u = d.user || {}, s = d.song || {}, a = d.audio || {};
-  const gender = u.gender === 'male' ? '♂' : u.gender === 'female' ? '♀' : '';
-  let h = '<div class="changya-user">';
-  if (u.avatar_url) h += `<img class="changya-avatar" src="${esc(u.avatar_url)}" alt="" onerror="this.style.display='none'">`;
-  h += `<div><div style="font-weight:600;">${esc(u.nickname || '')} ${gender}</div>`;
-  if (s.name) h += `<div style="font-size:12px;color:var(--text-dim);">演唱《${esc(s.name)}》${s.singer ? ` · 原唱: ${esc(s.singer)}` : ''}</div>`;
-  h += '</div></div>';
-  const audioUrl = a.url ? a.url.replace(/^http:\/\//, 'https://') : '';
-  if (audioUrl) h += `<audio controls preload="none" src="${esc(audioUrl)}" style="width:100%;height:36px;margin:8px 0;"></audio>`;
+  const u = d.user || {},
+    s = d.song || {},
+    a = d.audio || {}
+  const gender = u.gender === 'male' ? '♂' : u.gender === 'female' ? '♀' : ''
+  let h = '<div class="changya-user">'
+  if (u.avatar_url)
+    h += `<img class="changya-avatar" src="${esc(u.avatar_url)}" alt="" onerror="this.style.display='none'">`
+  h += `<div><div style="font-weight:600;">${esc(u.nickname || '')} ${gender}</div>`
+  if (s.name)
+    h += `<div style="font-size:12px;color:var(--text-dim);">演唱《${esc(s.name)}》${s.singer ? ` · 原唱: ${esc(s.singer)}` : ''}</div>`
+  h += '</div></div>'
+  const audioUrl = a.url ? a.url.replace(/^http:\/\//, 'https://') : ''
+  if (audioUrl)
+    h += `<audio controls preload="none" src="${esc(audioUrl)}" style="width:100%;height:36px;margin:8px 0;"></audio>`
   if (Array.isArray(s.lyrics) && s.lyrics.length) {
-    h += `<div class="text-block" style="margin-top:6px;">${esc(s.lyrics.join('\n'))}</div>`;
+    h += `<div class="text-block" style="margin-top:6px;">${esc(s.lyrics.join('\n'))}</div>`
   }
-  h += '<div class="kv" style="margin-top:8px;">';
-  if (a.duration) { const sec = Math.round(a.duration / 1000); h += `<div class="kv-row"><span class="k">时长</span><span class="v">${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}</span></div>`; }
-  if (a.like_count != null) h += `<div class="kv-row"><span class="k">点赞</span><span class="v">${esc(a.like_count)}</span></div>`;
-  if (a.publish) h += `<div class="kv-row"><span class="k">发布时间</span><span class="v">${esc(a.publish)}</span></div>`;
-  if (a.link) h += `<div class="kv-row"><span class="k">作品链接</span><span class="v"><a href="${safeUrl(a.link)}" target="_blank" rel="noopener">在线收听</a></span></div>`;
-  h += '</div>';
-  c.innerHTML = h;
+  h += '<div class="kv" style="margin-top:8px;">'
+  if (a.duration) {
+    const sec = Math.round(a.duration / 1000)
+    h += `<div class="kv-row"><span class="k">时长</span><span class="v">${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}</span></div>`
+  }
+  if (a.like_count != null)
+    h += `<div class="kv-row"><span class="k">点赞</span><span class="v">${esc(a.like_count)}</span></div>`
+  if (a.publish)
+    h += `<div class="kv-row"><span class="k">发布时间</span><span class="v">${esc(a.publish)}</span></div>`
+  if (a.link)
+    h += `<div class="kv-row"><span class="k">作品链接</span><span class="v"><a href="${safeUrl(a.link)}" target="_blank" rel="noopener">在线收听</a></span></div>`
+  h += '</div>'
+  c.innerHTML = h
 }
 
 // 密码生成：大字密码 + 显式复制按钮 + 强度色条 + 字符集 chips
 function rPwd(d, c) {
-  const setLabels = { lowercase: '小写', uppercase: '大写', numbers: '数字', symbols: '符号' };
-  const sets = d.character_sets || {};
-  const used = Object.keys(setLabels).filter(k => sets[k]).map(k => setLabels[k]);
-  const gi = d.generation_info || {};
-  const pwd = esc(d.password);
+  const setLabels = { lowercase: '小写', uppercase: '大写', numbers: '数字', symbols: '符号' }
+  const sets = d.character_sets || {}
+  const used = Object.keys(setLabels)
+    .filter((k) => sets[k])
+    .map((k) => setLabels[k])
+  const gi = d.generation_info || {}
+  const pwd = esc(d.password)
   const strengthMap = {
     极弱: ['15%', 'var(--error)'],
     弱: ['35%', 'var(--error)'],
     中等: ['55%', '#f59e0b'],
     强: ['78%', 'var(--success)'],
     极强: ['100%', 'var(--success)'],
-  };
-  const [barW, barColor] = strengthMap[gi.strength] || ['55%', '#f59e0b'];
+  }
+  const [barW, barColor] = strengthMap[gi.strength] || ['55%', '#f59e0b']
 
   c.innerHTML = `<div class="pwd-hero">
     <span class="pwd-text" data-pwd="${pwd}">${pwd}</span>
     <button class="pwd-copy" type="button">复制</button>
   </div>
   <div class="pwd-strength"><div class="pwd-strength-bar"><i style="width:${barW};background:${barColor}"></i></div><span class="pwd-strength-badge" style="background:${barColor}">${esc(gi.strength || '未知')}</span></div>
-  <div class="ht-tiles">${htTile('长度', d.length)}${htTile('预估破解耗时', gi.time_to_crack)}${htTile('包含字符', used.join('、') || '-')}</div>`;
-  const copyBtn = c.querySelector('.pwd-copy');
-  const textEl = c.querySelector('.pwd-text');
+  <div class="ht-tiles">${htTile('长度', d.length)}${htTile('预估破解耗时', gi.time_to_crack)}${htTile('包含字符', used.join('、') || '-')}</div>`
+  const copyBtn = c.querySelector('.pwd-copy')
+  const textEl = c.querySelector('.pwd-text')
   copyBtn.onclick = () => {
-    navigator.clipboard.writeText(textEl.dataset.pwd || '').then(() => {
-      copyBtn.textContent = '已复制 ✓';
-      copyBtn.classList.add('done');
-      setTimeout(() => { copyBtn.textContent = '复制'; copyBtn.classList.remove('done'); }, 1500);
-    }).catch(() => {});
-  };
+    navigator.clipboard
+      .writeText(textEl.dataset.pwd || '')
+      .then(() => {
+        copyBtn.textContent = '已复制 ✓'
+        copyBtn.classList.add('done')
+        setTimeout(() => {
+          copyBtn.textContent = '复制'
+          copyBtn.classList.remove('done')
+        }, 1500)
+      })
+      .catch(() => {})
+  }
 }
 
 function rFanyi(d, c) {
   // 语言名/发音缺失时不渲染括号占位，避免出现空的 []
   const srcDesc = d.source?.type_desc
     ? ` <span style="color:var(--text-dim);font-size:10px;">[${esc(d.source.type_desc)}]</span>`
-    : '';
-  const tgtDesc = [d.target?.type_desc ? `[${esc(d.target.type_desc)}]` : '', d.target?.pronounce ? esc(d.target.pronounce) : '']
+    : ''
+  const tgtDesc = [
+    d.target?.type_desc ? `[${esc(d.target.type_desc)}]` : '',
+    d.target?.pronounce ? esc(d.target.pronounce) : '',
+  ]
     .filter(Boolean)
-    .join(' · ');
-  let h = '';
-  if (d.source) h += `<div class="kv-row"><span class="k">原文</span><span class="v">${esc(d.source.text)}${srcDesc}</span></div>`;
-  if (d.target) h += `<div style="padding:8px 10px;background:var(--accent-bg);border-left:2px solid var(--accent);border-radius:4px;margin:6px 0;"><div style="font-size:13px;">${esc(d.target.text)}</div>${tgtDesc ? `<div style="font-size:10px;color:var(--text-dim);margin-top:2px;">${tgtDesc}</div>` : ''}</div>`;
-  c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
+    .join(' · ')
+  let h = ''
+  if (d.source)
+    h += `<div class="kv-row"><span class="k">原文</span><span class="v">${esc(d.source.text)}${srcDesc}</span></div>`
+  if (d.target)
+    h += `<div style="padding:8px 10px;background:var(--accent-bg);border-left:2px solid var(--accent);border-radius:4px;margin:6px 0;"><div style="font-size:13px;">${esc(d.target.text)}</div>${tgtDesc ? `<div style="font-size:10px;color:var(--text-dim);margin-top:2px;">${tgtDesc}</div>` : ''}</div>`
+  c.innerHTML = h || '<div class="placeholder">暂无数据</div>'
 }
 
 function rLyric(d, c) {
-  if (!d) { c.innerHTML = '<div class="placeholder">未找到歌词</div>'; return; }
-  let h = `<div class="kv-row"><span class="k">🎵</span><span class="v">${esc(d.title)} - ${esc((d.artists||[]).join(', '))}</span></div>`;
-  if (d.album) h += `<div class="kv-row"><span class="k">专辑</span><span class="v">${esc(d.album)}</span></div>`;
-  if (d.formatted) h += `<div class="text-block" style="margin-top:6px;">${esc(d.formatted)}</div>`;
-  c.innerHTML = h;
+  if (!d) {
+    c.innerHTML = '<div class="placeholder">未找到歌词</div>'
+    return
+  }
+  let h = `<div class="kv-row"><span class="k">🎵</span><span class="v">${esc(d.title)} - ${esc((d.artists || []).join(', '))}</span></div>`
+  if (d.album) h += `<div class="kv-row"><span class="k">专辑</span><span class="v">${esc(d.album)}</span></div>`
+  if (d.formatted) h += `<div class="text-block" style="margin-top:6px;">${esc(d.formatted)}</div>`
+  c.innerHTML = h
 }
 
 // 哈希加密：原文行 + 各算法等宽块，每行带复制按钮
 function rHash(d, c) {
-  const src = String(d.source || '');
+  const src = String(d.source || '')
   const rows = [
     ['MD5', d.md5],
-    ['SHA-1', d.sha?.sha1], ['SHA-256', d.sha?.sha256], ['SHA-512', d.sha?.sha512],
-    ['Base64', d.base64?.encoded], ['URL 编码', d.url?.encoded],
-  ].filter(r => r[1]);
-  let h = `<div class="hash-src">原文 <code>${esc(src.slice(0, 60))}${src.length > 60 ? '…' : ''}</code></div>`;
-  h += `<div class="hash-rows">${rows.map(([k, v]) => `<div class="hash-row"><span class="hash-alg">${esc(k)}</span><code class="hash-val">${esc(String(v))}</code><button class="hash-copy" type="button" data-v="${esc(String(v))}">复制</button></div>`).join('')}</div>`;
-  c.innerHTML = h;
-  c.querySelectorAll('.hash-copy').forEach(btn => {
+    ['SHA-1', d.sha?.sha1],
+    ['SHA-256', d.sha?.sha256],
+    ['SHA-512', d.sha?.sha512],
+    ['Base64', d.base64?.encoded],
+    ['URL 编码', d.url?.encoded],
+  ].filter((r) => r[1])
+  let h = `<div class="hash-src">原文 <code>${esc(src.slice(0, 60))}${src.length > 60 ? '…' : ''}</code></div>`
+  h += `<div class="hash-rows">${rows.map(([k, v]) => `<div class="hash-row"><span class="hash-alg">${esc(k)}</span><code class="hash-val">${esc(String(v))}</code><button class="hash-copy" type="button" data-v="${esc(String(v))}">复制</button></div>`).join('')}</div>`
+  c.innerHTML = h
+  c.querySelectorAll('.hash-copy').forEach((btn) => {
     btn.onclick = () => {
-      navigator.clipboard.writeText(btn.dataset.v || '').then(() => {
-        btn.textContent = '已复制 ✓';
-        setTimeout(() => { btn.textContent = '复制'; }, 1200);
-      }).catch(() => {});
-    };
-  });
+      navigator.clipboard
+        .writeText(btn.dataset.v || '')
+        .then(() => {
+          btn.textContent = '已复制 ✓'
+          setTimeout(() => {
+            btn.textContent = '复制'
+          }, 1200)
+        })
+        .catch(() => {})
+    }
+  })
 }
 
 // 城市名去重：优先 city + county（name 可能是"北京北京"这类重复值）
 function wxLoc(loc) {
-  if (!loc) return '';
-  return loc.city ? (loc.city + (loc.county ? ' ' + loc.county : '')) : (loc.name || '');
+  if (!loc) return ''
+  return loc.city ? loc.city + (loc.county ? ' ' + loc.county : '') : loc.name || ''
 }
 
 function rWeather(d, c) {
-  const w = d.weather || {}, a = d.air_quality || {}, s = d.sunrise || {};
-  const alerts = d.alerts || [], life = d.life_indices || [];
-  const aqiColors = { 1: '#22c55e', 2: '#eab308', 3: '#f97316', 4: '#ef4444', 5: '#a855f7', 6: '#7f1d1d' };
-  let h = `<div class="wx-loc"><span>📍 ${esc(wxLoc(d.location))}</span>${w.updated ? `<span class="wx-upd">更新于 ${esc(w.updated)}</span>` : ''}</div>`;
-  alerts.forEach(al => { h += `<div class="wx-alert" title="${esc(al.detail||'')}">⚠️ ${esc(al.type)}${esc(al.level)}预警</div>`; });
-  h += '<div class="wx-main">';
-  if (w.weather_icon) h += `<img class="wx-icon" src="${esc(w.weather_icon)}" alt="" onerror="this.style.display='none'">`;
-  h += `<div class="wx-temp">${esc(String(w.temperature ?? '--'))}°<div class="wx-cond">${esc(w.condition || '')}</div></div></div>`;
-  const stats = [];
-  if (w.humidity != null) stats.push(['💧', '湿度', `${w.humidity}%`]);
-  if (w.wind_direction) stats.push(['🌬️', '风力', `${w.wind_direction} ${w.wind_power || ''}${w.wind_power ? '级' : ''}`]);
-  if (w.pressure != null) stats.push(['📊', '气压', `${w.pressure} hPa`]);
-  if (w.precipitation != null) stats.push(['🌧️', '降水', `${w.precipitation} mm`]);
-  if (stats.length) h += `<div class="wx-grid">${stats.map(([ic, k, v]) => `<div class="wx-stat"><span class="wx-stat-ic">${ic}</span><div class="wx-stat-tx"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div></div>`).join('')}</div>`;
+  const w = d.weather || {},
+    a = d.air_quality || {},
+    s = d.sunrise || {}
+  const alerts = d.alerts || [],
+    life = d.life_indices || []
+  const aqiColors = { 1: '#22c55e', 2: '#eab308', 3: '#f97316', 4: '#ef4444', 5: '#a855f7', 6: '#7f1d1d' }
+  let h = `<div class="wx-loc"><span>📍 ${esc(wxLoc(d.location))}</span>${w.updated ? `<span class="wx-upd">更新于 ${esc(w.updated)}</span>` : ''}</div>`
+  alerts.forEach((al) => {
+    h += `<div class="wx-alert" title="${esc(al.detail || '')}">⚠️ ${esc(al.type)}${esc(al.level)}预警</div>`
+  })
+  h += '<div class="wx-main">'
+  if (w.weather_icon)
+    h += `<img class="wx-icon" src="${esc(w.weather_icon)}" alt="" onerror="this.style.display='none'">`
+  h += `<div class="wx-temp">${esc(String(w.temperature ?? '--'))}°<div class="wx-cond">${esc(w.condition || '')}</div></div></div>`
+  const stats = []
+  if (w.humidity != null) stats.push(['💧', '湿度', `${w.humidity}%`])
+  if (w.wind_direction)
+    stats.push(['🌬️', '风力', `${w.wind_direction} ${w.wind_power || ''}${w.wind_power ? '级' : ''}`])
+  if (w.pressure != null) stats.push(['📊', '气压', `${w.pressure} hPa`])
+  if (w.precipitation != null) stats.push(['🌧️', '降水', `${w.precipitation} mm`])
+  if (stats.length)
+    h += `<div class="wx-grid">${stats.map(([ic, k, v]) => `<div class="wx-stat"><span class="wx-stat-ic">${ic}</span><div class="wx-stat-tx"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div></div>`).join('')}</div>`
   if (a.aqi != null) {
     h += `<div class="wx-aqi-panel">
       <span class="wx-aqi-badge" style="background:${aqiColors[a.level] || '#6b7280'}">${esc(a.quality || '')}<b>${esc(String(a.aqi))}</b></span>
@@ -6085,114 +7548,130 @@ function rWeather(d, c) {
         <span>PM10 <b>${esc(String(a.pm10 ?? '-'))}</b></span>
       </div>
       ${a.rank ? `<span class="wx-aqi-rank">全国第 ${esc(String(a.rank))}<i>/${esc(String(a.total_cities))} 位</i></span>` : ''}
-    </div>`;
+    </div>`
   }
-  if (s.sunrise_desc) h += `<div class="wx-sun"><span>🌅 日出 ${esc(s.sunrise_desc)}</span><span>🌇 日落 ${esc(s.sunset_desc)}</span></div>`;
+  if (s.sunrise_desc)
+    h += `<div class="wx-sun"><span>🌅 日出 ${esc(s.sunrise_desc)}</span><span>🌇 日落 ${esc(s.sunset_desc)}</span></div>`
   if (life.length) {
-    h += `<div class="wx-life">${life.slice(0, 10).map(li => `<span class="wx-chip" title="${esc(li.description || '')}">${esc(li.name)}·${esc(li.level)}</span>`).join('')}</div>`;
+    h += `<div class="wx-life">${life
+      .slice(0, 10)
+      .map((li) => `<span class="wx-chip" title="${esc(li.description || '')}">${esc(li.name)}·${esc(li.level)}</span>`)
+      .join('')}</div>`
   }
-  c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
+  c.innerHTML = h || '<div class="placeholder">暂无数据</div>'
 }
 
 // 7 日温度曲线 SVG：最高温实线（渐变面积），最低温虚线
 function wxTempChart(days, W) {
-  const H = 110, padT = 16, padB = 16;
-  const n = days.length, colW = W / n;
-  const xs = days.map((_, i) => colW * i + colW / 2);
-  const maxs = days.map(x => x.max_temperature ?? 0);
-  const mins = days.map(x => x.min_temperature ?? 0);
-  const hi = Math.max(...maxs), lo = Math.min(...mins);
-  const y = t => padT + ((hi + 0.6 - t) / (hi - lo + 1.2)) * (H - padT - padB);
-  const smooth = pts => {
-    let p = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+  const H = 110,
+    padT = 16,
+    padB = 16
+  const n = days.length,
+    colW = W / n
+  const xs = days.map((_, i) => colW * i + colW / 2)
+  const maxs = days.map((x) => x.max_temperature ?? 0)
+  const mins = days.map((x) => x.min_temperature ?? 0)
+  const hi = Math.max(...maxs),
+    lo = Math.min(...mins)
+  const y = (t) => padT + ((hi + 0.6 - t) / (hi - lo + 1.2)) * (H - padT - padB)
+  const smooth = (pts) => {
+    let p = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`
     for (let i = 1; i < pts.length; i++) {
-      const a = pts[i - 1], b = pts[i], mx = (a.x + b.x) / 2;
-      p += ` C ${mx.toFixed(1)} ${a.y.toFixed(1)} ${mx.toFixed(1)} ${b.y.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+      const a = pts[i - 1],
+        b = pts[i],
+        mx = (a.x + b.x) / 2
+      p += ` C ${mx.toFixed(1)} ${a.y.toFixed(1)} ${mx.toFixed(1)} ${b.y.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}`
     }
-    return p;
-  };
-  const maxPts = maxs.map((t, i) => ({ x: xs[i], y: y(t) }));
-  const minPts = mins.map((t, i) => ({ x: xs[i], y: y(t) }));
-  const maxPath = smooth(maxPts), minPath = smooth(minPts);
-  const area = maxPath + ` L ${xs[n - 1].toFixed(1)} ${H} L ${xs[0].toFixed(1)} ${H} Z`;
-  let s = `<svg width="${Math.round(W)}" height="${H}" viewBox="0 0 ${Math.round(W)} ${H}" role="img" aria-label="7日温度曲线">`;
-  s += `<defs><linearGradient id="wxgrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity="0.28"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>`;
-  [0.35, 0.7].forEach(f => s += `<line x1="4" x2="${W - 4}" y1="${(H * f).toFixed(1)}" y2="${(H * f).toFixed(1)}" stroke="var(--border)" stroke-dasharray="3 5" stroke-width="0.5"/>`);
-  s += `<path d="${area}" fill="url(#wxgrad)"/>`;
-  s += `<path d="${minPath}" fill="none" stroke="var(--text-dimmer)" stroke-width="1.5" stroke-dasharray="4 3" stroke-linecap="round"/>`;
-  s += `<path d="${maxPath}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" style="filter:drop-shadow(0 1px 3px rgba(249,115,22,0.35))"/>`;
+    return p
+  }
+  const maxPts = maxs.map((t, i) => ({ x: xs[i], y: y(t) }))
+  const minPts = mins.map((t, i) => ({ x: xs[i], y: y(t) }))
+  const maxPath = smooth(maxPts),
+    minPath = smooth(minPts)
+  const area = maxPath + ` L ${xs[n - 1].toFixed(1)} ${H} L ${xs[0].toFixed(1)} ${H} Z`
+  let s = `<svg width="${Math.round(W)}" height="${H}" viewBox="0 0 ${Math.round(W)} ${H}" role="img" aria-label="7日温度曲线">`
+  s += `<defs><linearGradient id="wxgrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity="0.28"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>`
+  ;[0.35, 0.7].forEach(
+    (f) =>
+      (s += `<line x1="4" x2="${W - 4}" y1="${(H * f).toFixed(1)}" y2="${(H * f).toFixed(1)}" stroke="var(--border)" stroke-dasharray="3 5" stroke-width="0.5"/>`),
+  )
+  s += `<path d="${area}" fill="url(#wxgrad)"/>`
+  s += `<path d="${minPath}" fill="none" stroke="var(--text-dimmer)" stroke-width="1.5" stroke-dasharray="4 3" stroke-linecap="round"/>`
+  s += `<path d="${maxPath}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" style="filter:drop-shadow(0 1px 3px rgba(249,115,22,0.35))"/>`
   maxPts.forEach((p, i) => {
-    s += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="var(--accent)" stroke="var(--card)" stroke-width="1.5"/>`;
-    s += `<text x="${p.x.toFixed(1)}" y="${(p.y - 8).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--text)">${esc(String(maxs[i]))}°</text>`;
-  });
+    s += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="var(--accent)" stroke="var(--card)" stroke-width="1.5"/>`
+    s += `<text x="${p.x.toFixed(1)}" y="${(p.y - 8).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--text)">${esc(String(maxs[i]))}°</text>`
+  })
   minPts.forEach((p, i) => {
-    s += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.5" fill="var(--card)" stroke="var(--text-dimmer)" stroke-width="1.5"/>`;
-    s += `<text x="${p.x.toFixed(1)}" y="${(p.y + 15).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--text-dim)">${esc(String(mins[i]))}°</text>`;
-  });
-  return s + '</svg>';
+    s += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.5" fill="var(--card)" stroke="var(--text-dimmer)" stroke-width="1.5"/>`
+    s += `<text x="${p.x.toFixed(1)}" y="${(p.y + 15).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--text-dim)">${esc(String(mins[i]))}°</text>`
+  })
+  return s + '</svg>'
 }
 
 function rWeatherFC(d, c) {
-  let h = `<div class="wx-loc"><span>📍 ${esc(wxLoc(d.location))}</span><span class="wx-upd">7 日温度趋势 · 24 小时预报</span></div>`;
-  const wdNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-  const now = new Date();
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const daily = (d.daily_forecast || []).filter(x => x.date >= todayStr);
+  let h = `<div class="wx-loc"><span>📍 ${esc(wxLoc(d.location))}</span><span class="wx-upd">7 日温度趋势 · 24 小时预报</span></div>`
+  const wdNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+  const now = new Date()
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const daily = (d.daily_forecast || []).filter((x) => x.date >= todayStr)
   if (daily.length) {
-    const cols = `grid-template-columns:repeat(${daily.length},1fr)`;
-    h += `<div class="wx-chart"><div class="wx-chart-head" style="${cols}">`;
-    daily.forEach(day => {
-      h += `<div class="wxc-col" title="${esc(day.day_condition || '')} 转 ${esc(day.night_condition || '')} · 夜间 ${esc(day.night_wind_direction || '')}${esc(day.night_wind_power || '')}级">${day.day_weather_icon ? `<img src="${esc(day.day_weather_icon)}" alt="" onerror="this.style.display='none'">` : ''}<span>${esc(day.day_condition || '')}</span></div>`;
-    });
-    h += `</div><div class="wx-chart-svg"></div><div class="wx-chart-foot" style="${cols}">`;
-    daily.forEach(day => {
-      const isToday = day.date === todayStr;
-      h += `<div class="wxc-day${isToday ? ' today' : ''}">${isToday ? '今天' : esc(wdNames[new Date(day.date).getDay()])}</div>`;
-    });
-    h += '</div></div>';
+    const cols = `grid-template-columns:repeat(${daily.length},1fr)`
+    h += `<div class="wx-chart"><div class="wx-chart-head" style="${cols}">`
+    daily.forEach((day) => {
+      h += `<div class="wxc-col" title="${esc(day.day_condition || '')} 转 ${esc(day.night_condition || '')} · 夜间 ${esc(day.night_wind_direction || '')}${esc(day.night_wind_power || '')}级">${day.day_weather_icon ? `<img src="${esc(day.day_weather_icon)}" alt="" onerror="this.style.display='none'">` : ''}<span>${esc(day.day_condition || '')}</span></div>`
+    })
+    h += `</div><div class="wx-chart-svg"></div><div class="wx-chart-foot" style="${cols}">`
+    daily.forEach((day) => {
+      const isToday = day.date === todayStr
+      h += `<div class="wxc-day${isToday ? ' today' : ''}">${isToday ? '今天' : esc(wdNames[new Date(day.date).getDay()])}</div>`
+    })
+    h += '</div></div>'
   }
-  const hourly = d.hourly_forecast || [];
+  const hourly = d.hourly_forecast || []
   if (hourly.length) {
-    h += '<div class="wx-hourly-title">⏱ 24 小时预报（可横向滑动）</div><div class="wx-hourly">';
-    hourly.slice(0, 24).forEach(f => {
-      h += `<div class="wx-hour"><div class="wx-hour-t">${esc((f.datetime || '').slice(11, 16))}</div><img src="${esc(f.weather_icon || '')}" alt="" onerror="this.style.display='none'"><div class="wx-hour-temp">${esc(String(f.temperature ?? '-'))}°</div><div class="wx-hour-c">${esc(f.condition || '')}</div></div>`;
-    });
-    h += '</div>';
+    h += '<div class="wx-hourly-title">⏱ 24 小时预报（可横向滑动）</div><div class="wx-hourly">'
+    hourly.slice(0, 24).forEach((f) => {
+      h += `<div class="wx-hour"><div class="wx-hour-t">${esc((f.datetime || '').slice(11, 16))}</div><img src="${esc(f.weather_icon || '')}" alt="" onerror="this.style.display='none'"><div class="wx-hour-temp">${esc(String(f.temperature ?? '-'))}°</div><div class="wx-hour-c">${esc(f.condition || '')}</div></div>`
+    })
+    h += '</div>'
   }
-  c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
-  const box = c.querySelector('.wx-chart-svg');
-  if (box && daily.length) box.innerHTML = wxTempChart(daily, box.clientWidth || 280);
+  c.innerHTML = h || '<div class="placeholder">暂无数据</div>'
+  const box = c.querySelector('.wx-chart-svg')
+  if (box && daily.length) box.innerHTML = wxTempChart(daily, box.clientWidth || 280)
 }
 
 function rFuel(d, c) {
   // 顶部：位置 + 更新时间
-  let h = `<div class="fuel-head"><span class="fuel-region">📍 ${esc(d.region || '')}</span>${d.updated ? `<span class="fuel-updated">更新于 ${esc(d.updated)}</span>` : ''}</div>`;
+  let h = `<div class="fuel-head"><span class="fuel-region">📍 ${esc(d.region || '')}</span>${d.updated ? `<span class="fuel-updated">更新于 ${esc(d.updated)}</span>` : ''}</div>`
 
   // 下次调价预测条
   if (d.trend && d.trend.description) {
-    const up = d.trend.direction === '上调', down = d.trend.direction === '下调';
-    const cls = up ? 'up' : (down ? 'down' : 'flat');
-    const arrow = up ? '▲' : (down ? '▼' : '●');
-    h += `<div class="fuel-trend ${cls}"><span class="dir">${arrow} ${esc(d.trend.direction)}</span><span class="desc">${esc(d.trend.change_ton_desc ? '预计' + d.trend.change_ton_desc : '')}${d.trend.change_liter_desc ? ' ' + esc(d.trend.change_liter_desc) : ''}</span><span class="date">⏱ ${esc(d.trend.next_adjustment_date || '')}</span></div>`;
+    const up = d.trend.direction === '上调',
+      down = d.trend.direction === '下调'
+    const cls = up ? 'up' : down ? 'down' : 'flat'
+    const arrow = up ? '▲' : down ? '▼' : '●'
+    h += `<div class="fuel-trend ${cls}"><span class="dir">${arrow} ${esc(d.trend.direction)}</span><span class="desc">${esc(d.trend.change_ton_desc ? '预计' + d.trend.change_ton_desc : '')}${d.trend.change_liter_desc ? ' ' + esc(d.trend.change_liter_desc) : ''}</span><span class="date">⏱ ${esc(d.trend.next_adjustment_date || '')}</span></div>`
   }
 
   // 油价卡片网格
   if (Array.isArray(d.items) && d.items.length) {
-    const palette = ['#f59e0b', '#6366f1', '#ec4899', '#10b981'];
-    h += '<div class="fuel-grid">';
+    const palette = ['#f59e0b', '#6366f1', '#ec4899', '#10b981']
+    h += '<div class="fuel-grid">'
     d.items.forEach((it, i) => {
-      h += `<div class="fuel-card" style="--c:${palette[i % 4]}"><span class="name">${esc(it.name)}</span><span class="price">${esc(String(it.price != null ? it.price.toFixed ? it.price.toFixed(2) : it.price : ''))}<small>元/升</small></span></div>`;
-    });
-    h += '</div>';
+      h += `<div class="fuel-card" style="--c:${palette[i % 4]}"><span class="name">${esc(it.name)}</span><span class="price">${esc(String(it.price != null ? (it.price.toFixed ? it.price.toFixed(2) : it.price) : ''))}<small>元/升</small></span></div>`
+    })
+    h += '</div>'
   }
 
   // 历史油价曲线（SVG）
   if (Array.isArray(d.history) && d.history.length > 1) {
-    h += rFuelChart(d.history, d.history_region);
+    h += rFuelChart(d.history, d.history_region)
   }
 
-  if (d.link) h += `<div class="fuel-link"><a href="${safeUrl(d.link)}" target="_blank" rel="noopener">数据来源详情 →</a></div>`;
-  c.innerHTML = h;
+  if (d.link)
+    h += `<div class="fuel-link"><a href="${safeUrl(d.link)}" target="_blank" rel="noopener">数据来源详情 →</a></div>`
+  c.innerHTML = h
 }
 
 // 油价历史曲线图（纯 SVG，无依赖）
@@ -6202,572 +7681,678 @@ function rFuelChart(rows, regionName) {
     { key: 'p95', name: '95#汽油', color: '#6366f1' },
     { key: 'p98', name: '98#汽油', color: '#ec4899' },
     { key: 'p0', name: '0#柴油', color: '#10b981' },
-  ];
-  const W = 560, H = 170, PADL = 34, PADR = 14, PADT = 14, PADB = 22;
-  const iw = W - PADL - PADR, ih = H - PADT - PADB;
-  const n = rows.length;
-  let min = Infinity, max = -Infinity;
-  rows.forEach(r => series.forEach(s => {
-    const v = r[s.key];
-    if (v != null && !isNaN(v)) { if (v < min) min = v; if (v > max) max = v; }
-  }));
-  if (!isFinite(min) || !isFinite(max)) return '';
-  if (max - min < 0.4) { const mid = (max + min) / 2; min = mid - 0.2; max = mid + 0.2; }
-  else { const pad = (max - min) * 0.08; min -= pad; max += pad; }
-  const x = i => PADL + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
-  const y = v => PADT + ih - ((v - min) / (max - min)) * ih;
-  let g = '';
+  ]
+  const W = 560,
+    H = 170,
+    PADL = 34,
+    PADR = 14,
+    PADT = 14,
+    PADB = 22
+  const iw = W - PADL - PADR,
+    ih = H - PADT - PADB
+  const n = rows.length
+  let min = Infinity,
+    max = -Infinity
+  rows.forEach((r) =>
+    series.forEach((s) => {
+      const v = r[s.key]
+      if (v != null && !isNaN(v)) {
+        if (v < min) min = v
+        if (v > max) max = v
+      }
+    }),
+  )
+  if (!isFinite(min) || !isFinite(max)) return ''
+  if (max - min < 0.4) {
+    const mid = (max + min) / 2
+    min = mid - 0.2
+    max = mid + 0.2
+  } else {
+    const pad = (max - min) * 0.08
+    min -= pad
+    max += pad
+  }
+  const x = (i) => PADL + (n === 1 ? iw / 2 : (i / (n - 1)) * iw)
+  const y = (v) => PADT + ih - ((v - min) / (max - min)) * ih
+  let g = ''
   // 网格线 + Y 轴刻度
   for (let i = 0; i <= 4; i++) {
-    const gy = PADT + (ih / 4) * i;
-    const val = (max - ((max - min) / 4) * i).toFixed(2);
-    g += `<line x1="${PADL}" y1="${gy}" x2="${W - PADR}" y2="${gy}" class="fl-grid"/><text x="${PADL - 6}" y="${gy + 3}" class="fl-ylabel" text-anchor="end">${val}</text>`;
+    const gy = PADT + (ih / 4) * i
+    const val = (max - ((max - min) / 4) * i).toFixed(2)
+    g += `<line x1="${PADL}" y1="${gy}" x2="${W - PADR}" y2="${gy}" class="fl-grid"/><text x="${PADL - 6}" y="${gy + 3}" class="fl-ylabel" text-anchor="end">${val}</text>`
   }
   // X 轴日期标注（首/中/尾）
-  [0, Math.floor((n - 1) / 2), n - 1].forEach(i => {
-    const label = (rows[i].date || '').slice(2);
-    g += `<text x="${x(i)}" y="${H - 8}" class="fl-xlabel" text-anchor="${i === 0 ? 'start' : (i === n - 1 ? 'end' : 'middle')}">${esc(label)}</text>`;
-  });
+  ;[0, Math.floor((n - 1) / 2), n - 1].forEach((i) => {
+    const label = (rows[i].date || '').slice(2)
+    g += `<text x="${x(i)}" y="${H - 8}" class="fl-xlabel" text-anchor="${i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}">${esc(label)}</text>`
+  })
   // 折线 + 92# 面积渐变
-  const first = series[0];
-  let area = `M ${x(0)} ${y(rows[0][first.key])}`;
-  rows.forEach((r, i) => { if (i) area += ` L ${x(i)} ${y(r[first.key])}`; });
-  area += ` L ${x(n - 1)} ${PADT + ih} L ${x(0)} ${PADT + ih} Z`;
-  series.forEach(s => {
-    let pts = '';
+  const first = series[0]
+  let area = `M ${x(0)} ${y(rows[0][first.key])}`
+  rows.forEach((r, i) => {
+    if (i) area += ` L ${x(i)} ${y(r[first.key])}`
+  })
+  area += ` L ${x(n - 1)} ${PADT + ih} L ${x(0)} ${PADT + ih} Z`
+  series.forEach((s) => {
+    let pts = ''
     rows.forEach((r, i) => {
-      const v = r[s.key];
-      if (v != null && !isNaN(v)) pts += `${x(i)},${y(v)} `;
-    });
-    g += `<polyline points="${pts.trim()}" fill="none" stroke="${s.color}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>`;
-  });
+      const v = r[s.key]
+      if (v != null && !isNaN(v)) pts += `${x(i)},${y(v)} `
+    })
+    g += `<polyline points="${pts.trim()}" fill="none" stroke="${s.color}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>`
+  })
   // 92# 面积（在折线下层，重新拼）
-  let svg = `<svg viewBox="0 0 ${W} ${H}" class="fuel-chart-svg" role="img">`;
-  svg += `<defs><linearGradient id="fuelArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f59e0b" stop-opacity="0.18"/><stop offset="1" stop-color="#f59e0b" stop-opacity="0"/></linearGradient></defs>`;
-  svg += `<path d="${area}" fill="url(#fuelArea)"/>`;
-  svg += g;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" class="fuel-chart-svg" role="img">`
+  svg += `<defs><linearGradient id="fuelArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f59e0b" stop-opacity="0.18"/><stop offset="1" stop-color="#f59e0b" stop-opacity="0"/></linearGradient></defs>`
+  svg += `<path d="${area}" fill="url(#fuelArea)"/>`
+  svg += g
   // 最后一点高亮（92#）
-  const lastV = rows[n - 1][first.key];
+  const lastV = rows[n - 1][first.key]
   if (lastV != null && !isNaN(lastV)) {
-    svg += `<circle cx="${x(n - 1)}" cy="${y(lastV)}" r="3.2" fill="#f59e0b"/>`;
-    svg += `<text x="${x(n - 1)}" y="${y(lastV) - 7}" class="fl-last" text-anchor="end">${lastV.toFixed(2)}</text>`;
+    svg += `<circle cx="${x(n - 1)}" cy="${y(lastV)}" r="3.2" fill="#f59e0b"/>`
+    svg += `<text x="${x(n - 1)}" y="${y(lastV) - 7}" class="fl-last" text-anchor="end">${lastV.toFixed(2)}</text>`
   }
-  svg += '</svg>';
+  svg += '</svg>'
   // 图例
-  let legend = '<div class="fuel-legend">';
-  series.forEach(s => { legend += `<span><i style="background:${s.color}"></i>${s.name}</span>`; });
-  legend += '</div>';
-  const title = regionName ? `${esc(regionName)} · 最近 ${n} 期调价走势` : `最近 ${n} 期调价走势`;
-  return `<div class="fuel-chart"><div class="fuel-chart-title">📈 ${title}</div>${svg}${legend}</div>`;
+  let legend = '<div class="fuel-legend">'
+  series.forEach((s) => {
+    legend += `<span><i style="background:${s.color}"></i>${s.name}</span>`
+  })
+  legend += '</div>'
+  const title = regionName ? `${esc(regionName)} · 最近 ${n} 期调价走势` : `最近 ${n} 期调价走势`
+  return `<div class="fuel-chart"><div class="fuel-chart-title">📈 ${title}</div>${svg}${legend}</div>`
 }
 
 // 金价：主价格大字 + 高低区间条 + localStorage 按日快照积累的趋势曲线 + 多品种瓷片
 function goldHistory() {
-  try { return JSON.parse(localStorage.getItem('goldHistory') || '{}'); } catch { return {}; }
+  try {
+    return JSON.parse(localStorage.getItem('goldHistory') || '{}')
+  } catch {
+    return {}
+  }
 }
 function goldHistoryPush(date, price) {
-  if (!date || price == null || Number.isNaN(Number(price))) return goldHistory();
-  const h = goldHistory();
-  h[date] = Number(price);
-  const keys = Object.keys(h).sort();
-  const trimmed = {};
-  keys.slice(-30).forEach(k => { trimmed[k] = h[k]; });
-  try { localStorage.setItem('goldHistory', JSON.stringify(trimmed)); } catch {}
-  return trimmed;
+  if (!date || price == null || Number.isNaN(Number(price))) return goldHistory()
+  const h = goldHistory()
+  h[date] = Number(price)
+  const keys = Object.keys(h).sort()
+  const trimmed = {}
+  keys.slice(-30).forEach((k) => {
+    trimmed[k] = h[k]
+  })
+  try {
+    localStorage.setItem('goldHistory', JSON.stringify(trimmed))
+  } catch {}
+  return trimmed
 }
 
 function goldChartSVG(hist) {
-  const entries = Object.entries(hist).sort((a, b) => (a[0] < b[0] ? -1 : 1));
-  if (entries.length < 2) return '';
-  const W = 360, H = 130, padT = 22, padB = 18, padX = 12;
-  const vals = entries.map(e => e[1]);
-  const hi = Math.max(...vals), lo = Math.min(...vals);
-  const span = (hi - lo) || 1;
-  const x = i => padX + (W - padX * 2) * i / (entries.length - 1);
-  const y = v => padT + ((hi - v) / span) * (H - padT - padB);
-  const pts = vals.map((v, i) => ({ X: x(i), Y: y(v) }));
-  let line = `M ${pts[0].X.toFixed(1)} ${pts[0].Y.toFixed(1)}`;
+  const entries = Object.entries(hist).sort((a, b) => (a[0] < b[0] ? -1 : 1))
+  if (entries.length < 2) return ''
+  const W = 360,
+    H = 130,
+    padT = 22,
+    padB = 18,
+    padX = 12
+  const vals = entries.map((e) => e[1])
+  const hi = Math.max(...vals),
+    lo = Math.min(...vals)
+  const span = hi - lo || 1
+  const x = (i) => padX + ((W - padX * 2) * i) / (entries.length - 1)
+  const y = (v) => padT + ((hi - v) / span) * (H - padT - padB)
+  const pts = vals.map((v, i) => ({ X: x(i), Y: y(v) }))
+  let line = `M ${pts[0].X.toFixed(1)} ${pts[0].Y.toFixed(1)}`
   for (let i = 1; i < pts.length; i++) {
-    const a = pts[i - 1], b = pts[i], mx = (a.X + b.X) / 2;
-    line += ` C ${mx.toFixed(1)} ${a.Y.toFixed(1)}, ${mx.toFixed(1)} ${b.Y.toFixed(1)}, ${b.X.toFixed(1)} ${b.Y.toFixed(1)}`;
+    const a = pts[i - 1],
+      b = pts[i],
+      mx = (a.X + b.X) / 2
+    line += ` C ${mx.toFixed(1)} ${a.Y.toFixed(1)}, ${mx.toFixed(1)} ${b.Y.toFixed(1)}, ${b.X.toFixed(1)} ${b.Y.toFixed(1)}`
   }
-  const area = line + ` L ${pts[pts.length - 1].X.toFixed(1)} ${H - padB} L ${pts[0].X.toFixed(1)} ${H - padB} Z`;
-  let s = `<svg class="gold-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="金价走势">`;
-  s += `<defs><linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f59e0b" stop-opacity="0.3"/><stop offset="1" stop-color="#f59e0b" stop-opacity="0"/></linearGradient></defs>`;
-  [0.35, 0.7].forEach(f => s += `<line x1="${padX}" x2="${W - padX}" y1="${(H * f).toFixed(1)}" y2="${(H * f).toFixed(1)}" stroke="var(--border)" stroke-dasharray="3 5" stroke-width="0.5"/>`);
-  s += `<path d="${area}" fill="url(#goldGrad)"/>`;
-  s += `<path d="${line}" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>`;
+  const area = line + ` L ${pts[pts.length - 1].X.toFixed(1)} ${H - padB} L ${pts[0].X.toFixed(1)} ${H - padB} Z`
+  let s = `<svg class="gold-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="金价走势">`
+  s += `<defs><linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f59e0b" stop-opacity="0.3"/><stop offset="1" stop-color="#f59e0b" stop-opacity="0"/></linearGradient></defs>`
+  ;[0.35, 0.7].forEach(
+    (f) =>
+      (s += `<line x1="${padX}" x2="${W - padX}" y1="${(H * f).toFixed(1)}" y2="${(H * f).toFixed(1)}" stroke="var(--border)" stroke-dasharray="3 5" stroke-width="0.5"/>`),
+  )
+  s += `<path d="${area}" fill="url(#goldGrad)"/>`
+  s += `<path d="${line}" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>`
   pts.forEach((p, i) => {
-    if (i === 0 || i === pts.length - 1) s += `<circle cx="${p.X.toFixed(1)}" cy="${p.Y.toFixed(1)}" r="3" fill="#f59e0b" stroke="var(--card)" stroke-width="1.5"/>`;
-  });
-  s += `<text x="${padX}" y="${H - 4}" font-size="9" fill="var(--text-dimmer)">${esc(entries[0][0].slice(5))}</text>`;
-  s += `<text x="${W - padX}" y="${H - 4}" text-anchor="end" font-size="9" fill="var(--text-dimmer)">${esc(entries[entries.length - 1][0].slice(5))}</text>`;
-  s += `<text x="${(pts[pts.length - 1].X - 6).toFixed(1)}" y="${(pts[pts.length - 1].Y - 9).toFixed(1)}" text-anchor="end" font-size="11" font-weight="700" fill="#f59e0b">¥${esc(String(vals[vals.length - 1]))}</text>`;
-  s += `</svg>`;
-  return s;
+    if (i === 0 || i === pts.length - 1)
+      s += `<circle cx="${p.X.toFixed(1)}" cy="${p.Y.toFixed(1)}" r="3" fill="#f59e0b" stroke="var(--card)" stroke-width="1.5"/>`
+  })
+  s += `<text x="${padX}" y="${H - 4}" font-size="9" fill="var(--text-dimmer)">${esc(entries[0][0].slice(5))}</text>`
+  s += `<text x="${W - padX}" y="${H - 4}" text-anchor="end" font-size="9" fill="var(--text-dimmer)">${esc(entries[entries.length - 1][0].slice(5))}</text>`
+  s += `<text x="${(pts[pts.length - 1].X - 6).toFixed(1)}" y="${(pts[pts.length - 1].Y - 9).toFixed(1)}" text-anchor="end" font-size="11" font-weight="700" fill="#f59e0b">¥${esc(String(vals[vals.length - 1]))}</text>`
+  s += `</svg>`
+  return s
 }
 
 function rGold(d, c) {
-  const main = (d.metals || []).find(m => m.name === '今日金价') || (d.metals || [])[0];
-  if (!main) return rJSON(d, c, true);
-  const cur = Number(main.today_price || main.sell_price);
-  const hist = goldHistoryPush(d.date, cur);
-  const hi = Number(main.high_price), lo = Number(main.low_price);
-  const pos = (hi > lo && !Number.isNaN(hi) && !Number.isNaN(lo)) ? Math.min(96, Math.max(4, Math.round((cur - lo) / (hi - lo) * 100))) : 50;
+  const main = (d.metals || []).find((m) => m.name === '今日金价') || (d.metals || [])[0]
+  if (!main) return rJSON(d, c, true)
+  const cur = Number(main.today_price || main.sell_price)
+  const hist = goldHistoryPush(d.date, cur)
+  const hi = Number(main.high_price),
+    lo = Number(main.low_price)
+  const pos =
+    hi > lo && !Number.isNaN(hi) && !Number.isNaN(lo)
+      ? Math.min(96, Math.max(4, Math.round(((cur - lo) / (hi - lo)) * 100)))
+      : 50
 
-  let h = `<div class="gold-head"><span class="gold-date">📅 ${esc(d.date || '')}</span>${main.updated ? `<span class="gold-upd">${esc(String(main.updated).slice(11))}</span>` : ''}</div>`;
-  h += `<div class="gold-hero"><div class="gold-price">¥${esc(String(cur))}<span class="gold-unit">/克</span></div><div class="gold-name">${esc(main.name)}</div></div>`;
+  let h = `<div class="gold-head"><span class="gold-date">📅 ${esc(d.date || '')}</span>${main.updated ? `<span class="gold-upd">${esc(String(main.updated).slice(11))}</span>` : ''}</div>`
+  h += `<div class="gold-hero"><div class="gold-price">¥${esc(String(cur))}<span class="gold-unit">/克</span></div><div class="gold-name">${esc(main.name)}</div></div>`
   if (!Number.isNaN(hi) && !Number.isNaN(lo)) {
-    h += `<div class="gold-range"><span class="gold-range-l">低 ¥${esc(String(lo))}</span><div class="gold-range-bar"><i style="left:${pos}%"></i></div><span class="gold-range-h">高 ¥${esc(String(hi))}</span></div>`;
+    h += `<div class="gold-range"><span class="gold-range-l">低 ¥${esc(String(lo))}</span><div class="gold-range-bar"><i style="left:${pos}%"></i></div><span class="gold-range-h">高 ¥${esc(String(hi))}</span></div>`
   }
-  const chart = goldChartSVG(hist);
-  if (chart) h += `<div class="gold-chart-wrap">${chart}</div>`;
-  else h += `<div class="gold-chart-tip">📈 已开始记录每日金价，明天起这里会出现趋势曲线</div>`;
-  const others = (d.metals || []).filter(m => m !== main).slice(0, 8);
+  const chart = goldChartSVG(hist)
+  if (chart) h += `<div class="gold-chart-wrap">${chart}</div>`
+  else h += `<div class="gold-chart-tip">📈 已开始记录每日金价，明天起这里会出现趋势曲线</div>`
+  const others = (d.metals || []).filter((m) => m !== main).slice(0, 8)
   if (others.length) {
-    h += `<div class="gold-grid">${others.map(m => `<div class="gold-tile"><span class="gold-tile-name">${esc(m.name)}</span><span class="gold-tile-val">¥${esc(String(m.today_price || m.sell_price || '-'))}</span></div>`).join('')}</div>`;
+    h += `<div class="gold-grid">${others.map((m) => `<div class="gold-tile"><span class="gold-tile-name">${esc(m.name)}</span><span class="gold-tile-val">¥${esc(String(m.today_price || m.sell_price || '-'))}</span></div>`).join('')}</div>`
   }
-  c.innerHTML = h || rJSON(d, c, true);
+  c.innerHTML = h || rJSON(d, c, true)
 }
 
 function rLunar(d, c) {
-  let h = '<div class="kv">';
-  const s = d.solar || {}, l = d.lunar || {};
-  if (s.full) h += `<div class="kv-row"><span class="k">公历</span><span class="v">${esc(s.full)} ${esc(s.week_desc||'')}</span></div>`;
-  if (l.desc_short) h += `<div class="kv-row"><span class="k">农历</span><span class="v">${esc(l.desc_short)}</span></div>`;
-  const z = d.zodiac;
-  if (z && z.year) h += `<div class="kv-row"><span class="k">生肖</span><span class="v">${esc(z.year)}年 ${esc(z.month)}月 ${esc(z.day)}日 ${esc(z.hour)}时</span></div>`;
-  const t = d.term;
+  let h = '<div class="kv">'
+  const s = d.solar || {},
+    l = d.lunar || {}
+  if (s.full)
+    h += `<div class="kv-row"><span class="k">公历</span><span class="v">${esc(s.full)} ${esc(s.week_desc || '')}</span></div>`
+  if (l.desc_short)
+    h += `<div class="kv-row"><span class="k">农历</span><span class="v">${esc(l.desc_short)}</span></div>`
+  const z = d.zodiac
+  if (z && z.year)
+    h += `<div class="kv-row"><span class="k">生肖</span><span class="v">${esc(z.year)}年 ${esc(z.month)}月 ${esc(z.day)}日 ${esc(z.hour)}时</span></div>`
+  const t = d.term
   if (t && (t.today || t.stage?.name)) {
-    const txt = t.today ? `今日${t.today}` : `${t.stage.name} 第${t.stage.position}天`;
-    h += `<div class="kv-row"><span class="k">节气</span><span class="v">${esc(txt)}</span></div>`;
+    const txt = t.today ? `今日${t.today}` : `${t.stage.name} 第${t.stage.position}天`
+    h += `<div class="kv-row"><span class="k">节气</span><span class="v">${esc(txt)}</span></div>`
   }
-  if (d.constellation?.name) h += `<div class="kv-row"><span class="k">星座</span><span class="v">${esc(d.constellation.name)}</span></div>`;
-  const f = d.festival;
-  const ftxt = f ? (f.both_desc || [f.solar, f.lunar].filter(Boolean).join('、')) : '';
-  if (ftxt) h += `<div class="kv-row"><span class="k">节日</span><span class="v">${esc(ftxt)}</span></div>`;
-  if (d.phase?.name) h += `<div class="kv-row"><span class="k">月相</span><span class="v">${esc(d.phase.name)}</span></div>`;
-  const fo = d.fortune;
+  if (d.constellation?.name)
+    h += `<div class="kv-row"><span class="k">星座</span><span class="v">${esc(d.constellation.name)}</span></div>`
+  const f = d.festival
+  const ftxt = f ? f.both_desc || [f.solar, f.lunar].filter(Boolean).join('、') : ''
+  if (ftxt) h += `<div class="kv-row"><span class="k">节日</span><span class="v">${esc(ftxt)}</span></div>`
+  if (d.phase?.name)
+    h += `<div class="kv-row"><span class="k">月相</span><span class="v">${esc(d.phase.name)}</span></div>`
+  const fo = d.fortune
   if (fo) {
-    if (fo.today_luck) h += `<div class="kv-row"><span class="k">今日运势</span><span class="v">${esc(fo.today_luck)}</span></div>`;
-    if (fo.career) h += `<div class="kv-row"><span class="k">事业</span><span class="v">${esc(fo.career)}</span></div>`;
-    if (fo.money) h += `<div class="kv-row"><span class="k">财运</span><span class="v">${esc(fo.money)}</span></div>`;
-    if (fo.love) h += `<div class="kv-row"><span class="k">感情</span><span class="v">${esc(fo.love)}</span></div>`;
+    if (fo.today_luck)
+      h += `<div class="kv-row"><span class="k">今日运势</span><span class="v">${esc(fo.today_luck)}</span></div>`
+    if (fo.career) h += `<div class="kv-row"><span class="k">事业</span><span class="v">${esc(fo.career)}</span></div>`
+    if (fo.money) h += `<div class="kv-row"><span class="k">财运</span><span class="v">${esc(fo.money)}</span></div>`
+    if (fo.love) h += `<div class="kv-row"><span class="k">感情</span><span class="v">${esc(fo.love)}</span></div>`
   }
-  const tb = d.taboo?.day;
+  const tb = d.taboo?.day
   if (tb) {
-    if (tb.recommends) h += `<div class="kv-row"><span class="k">宜</span><span class="v">${esc(tb.recommends)}</span></div>`;
-    if (tb.avoids) h += `<div class="kv-row"><span class="k">忌</span><span class="v">${esc(tb.avoids)}</span></div>`;
+    if (tb.recommends)
+      h += `<div class="kv-row"><span class="k">宜</span><span class="v">${esc(tb.recommends)}</span></div>`
+    if (tb.avoids) h += `<div class="kv-row"><span class="k">忌</span><span class="v">${esc(tb.avoids)}</span></div>`
   }
-  h += '</div>';
-  c.innerHTML = h;
+  h += '</div>'
+  c.innerHTML = h
 }
 
 function rBing(d, c) {
-  let h = '';
+  let h = ''
   if (d.cover) {
     // cover 为 1920x1080，cover_4k 为 UHD 原图；缺字段时按必应命名规则派生，
     // 保证「看大图」与「下载 4K」两条路径都能拿到最大尺寸
-    const cover4k = d.cover_4k || d.cover.replace('_1920x1080.jpg', '_UHD.jpg');
+    const cover4k = d.cover_4k || d.cover.replace('_1920x1080.jpg', '_UHD.jpg')
     // 图片包成新标签链接（而不是挂 click 处理器）：中键/右键「在新标签打开」
     // 也能用，且 target="_blank" 天然不受弹窗拦截影响。
     // 目标是独立的幻灯片页（今日 + 往期，可切换），而不是直接甩一张大图
-    h += `<a class="img-wrap ratio-banner bing-open" href="/wallpaper.html" target="_blank" rel="noopener noreferrer" title="点击可查看今日及往期壁纸"><img src="${esc(d.cover)}" alt="bing" loading="lazy" decoding="async"><span class="bing-open-hint">点击可查看今日及往期壁纸</span></a>`;
+    h += `<a class="img-wrap ratio-banner bing-open" href="/wallpaper.html" target="_blank" rel="noopener noreferrer" title="点击可查看今日及往期壁纸"><img src="${esc(d.cover)}" alt="bing" loading="lazy" decoding="async"><span class="bing-open-hint">点击可查看今日及往期壁纸</span></a>`
     h += `<div class="bing-dl">
       <button class="bing-dl-btn" data-url="${esc(d.cover)}">⬇ 1080P 高清</button>
       <button class="bing-dl-btn primary" data-url="${esc(cover4k)}">⬇ 4K 原图</button>
-    </div>`;
+    </div>`
   }
-  h += '<div class="kv">';
-  if (d.copyright) h += `<div class="kv-row"><span class="k">描述</span><span class="v">${esc(d.copyright)}</span></div>`;
-  if (d.update_date) h += `<div class="kv-row"><span class="k">日期</span><span class="v">${esc(d.update_date)}</span></div>`;
-  h += '</div>';
-  c.innerHTML = h;
+  h += '<div class="kv">'
+  if (d.copyright)
+    h += `<div class="kv-row"><span class="k">描述</span><span class="v">${esc(d.copyright)}</span></div>`
+  if (d.update_date)
+    h += `<div class="kv-row"><span class="k">日期</span><span class="v">${esc(d.update_date)}</span></div>`
+  h += '</div>'
+  c.innerHTML = h
   // 下载：bing 图跨域，download 属性不生效，优先 fetch blob 触发保存，失败回退新窗口打开
-  c.querySelectorAll('.bing-dl-btn').forEach(btn => {
+  c.querySelectorAll('.bing-dl-btn').forEach((btn) => {
     btn.onclick = async () => {
-      const url = btn.dataset.url;
-      const label = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = '下载中…';
+      const url = btn.dataset.url
+      const label = btn.textContent
+      btn.disabled = true
+      btn.textContent = '下载中…'
       try {
-        const blob = await (await fetch(url)).blob();
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'bing-wallpaper-' + Date.now() + (url.includes('_UHD') ? '-4k' : '-1080p') + '.jpg';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+        const blob = await (await fetch(url)).blob()
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(blob)
+        a.download = 'bing-wallpaper-' + Date.now() + (url.includes('_UHD') ? '-4k' : '-1080p') + '.jpg'
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        setTimeout(() => URL.revokeObjectURL(a.href), 3000)
       } catch (e) {
-        window.open(url, '_blank');
+        window.open(url, '_blank')
       }
-      btn.disabled = false;
-      btn.textContent = label;
-    };
-  });
+      btn.disabled = false
+      btn.textContent = label
+    }
+  })
 }
 
 // 免费游戏空态（Epic/Steam 共用）：居中图标 + 主文案 + 副说明，比单行灰字更明显
-const EMPTY_GAMES_HTML = `<div class="empty-state"><span class="es-icon">🎁</span><span class="es-text">暂无免费游戏</span><span class="es-sub">新活动上线后会显示在这里</span></div>`;
+const EMPTY_GAMES_HTML = `<div class="empty-state"><span class="es-icon">🎁</span><span class="es-text">暂无免费游戏</span><span class="es-sub">新活动上线后会显示在这里</span></div>`
 
 function rEpic(d, c) {
-  if (!Array.isArray(d)) return rJSON(d, c);
-  if (!d.length) { c.innerHTML = EMPTY_GAMES_HTML; return; }
-  let h = '';
-  d.forEach(g => {
-    h += '<div class="game-card">';
-    if (g.cover) h += `<div class="img-wrap ratio-banner"><img src="${esc(g.cover)}" alt="${esc(g.title)}" loading="lazy" decoding="async" onerror="this.style.display='none'"></div>`;
-    h += `<div class="game-title">🎮 ${esc(g.title)}</div>`;
-    if (g.description) h += `<div class="desc">${esc(g.description.slice(0, 80))}${g.description.length > 80 ? '…' : ''}</div>`;
-    if (g.is_free_now) h += '<span class="game-free">免费</span>';
-    if (g.free_end) h += ` <span class="game-end">截止 ${esc(g.free_end)}</span>`;
-    if (g.link) h += `<div class="game-claim"><a href="${safeUrl(g.link)}" target="_blank" rel="noopener">领取 →</a></div>`;
-    h += '</div>';
-  });
-  c.innerHTML = h;
+  if (!Array.isArray(d)) return rJSON(d, c)
+  if (!d.length) {
+    c.innerHTML = EMPTY_GAMES_HTML
+    return
+  }
+  let h = ''
+  d.forEach((g) => {
+    h += '<div class="game-card">'
+    if (g.cover)
+      h += `<div class="img-wrap ratio-banner"><img src="${esc(g.cover)}" alt="${esc(g.title)}" loading="lazy" decoding="async" onerror="this.style.display='none'"></div>`
+    h += `<div class="game-title">🎮 ${esc(g.title)}</div>`
+    if (g.description)
+      h += `<div class="desc">${esc(g.description.slice(0, 80))}${g.description.length > 80 ? '…' : ''}</div>`
+    if (g.is_free_now) h += '<span class="game-free">免费</span>'
+    if (g.free_end) h += ` <span class="game-end">截止 ${esc(g.free_end)}</span>`
+    if (g.link)
+      h += `<div class="game-claim"><a href="${safeUrl(g.link)}" target="_blank" rel="noopener">领取 →</a></div>`
+    h += '</div>'
+  })
+  c.innerHTML = h
 }
 
 // Steam 免费游戏：复用 epic 的卡片样式
 function rSteam(d, c) {
-  if (!Array.isArray(d)) return rJSON(d, c);
-  if (!d.length) { c.innerHTML = EMPTY_GAMES_HTML; return; }
-  let h = '';
-  d.forEach(g => {
-    h += '<div class="game-card">';
-    if (g.cover) h += `<div class="img-wrap ratio-capsule"><img src="${esc(g.cover)}" alt="${esc(g.title)}" loading="lazy" decoding="async" onerror="this.style.display='none'"></div>`;
-    h += `<div class="game-title">🎮 ${esc(g.title)}</div>`;
-    if (g.is_free_now) h += '<span class="game-free">免费</span>';
-    if (g.original_price) h += ` <span class="game-orig">${esc(g.original_price)}</span>`;
-    if (g.link) h += `<div class="game-claim"><a href="${safeUrl(g.link)}" target="_blank" rel="noopener">领取 →</a></div>`;
-    h += '</div>';
-  });
-  c.innerHTML = h;
+  if (!Array.isArray(d)) return rJSON(d, c)
+  if (!d.length) {
+    c.innerHTML = EMPTY_GAMES_HTML
+    return
+  }
+  let h = ''
+  d.forEach((g) => {
+    h += '<div class="game-card">'
+    if (g.cover)
+      h += `<div class="img-wrap ratio-capsule"><img src="${esc(g.cover)}" alt="${esc(g.title)}" loading="lazy" decoding="async" onerror="this.style.display='none'"></div>`
+    h += `<div class="game-title">🎮 ${esc(g.title)}</div>`
+    if (g.is_free_now) h += '<span class="game-free">免费</span>'
+    if (g.original_price) h += ` <span class="game-orig">${esc(g.original_price)}</span>`
+    if (g.link)
+      h += `<div class="game-claim"><a href="${safeUrl(g.link)}" target="_blank" rel="noopener">领取 →</a></div>`
+    h += '</div>'
+  })
+  c.innerHTML = h
 }
 
 // 酷安热榜
 function rKuan(d, c) {
-  if (!d || !d.topics) return rJSON(d, c);
-  let h = '';
+  if (!d || !d.topics) return rJSON(d, c)
+  let h = ''
   d.topics.forEach((t, i) => {
-    const cls = i < 3 ? 'top'+(i+1) : '';
+    const cls = i < 3 ? 'top' + (i + 1) : ''
     // 话题封面优先，缺失时回退方形 logo 图标
-    const icon = t.logo || t.cover || '';
-    let meta = '';
-    if (t.hotness) meta += `<span class="hot">🔥 ${esc(String(t.hotness))}</span>`;
-    if (t.followers) meta += ` · 👥 ${esc(String(t.followers))}`;
-    if (t.comments) meta += ` · 💬 ${esc(String(t.comments))}`;
-    if (t.rating && t.rating.score) meta += ` · ⭐ ${esc(String(t.rating.score))}`;
+    const icon = t.logo || t.cover || ''
+    let meta = ''
+    if (t.hotness) meta += `<span class="hot">🔥 ${esc(String(t.hotness))}</span>`
+    if (t.followers) meta += ` · 👥 ${esc(String(t.followers))}`
+    if (t.comments) meta += ` · 💬 ${esc(String(t.comments))}`
+    if (t.rating && t.rating.score) meta += ` · ⭐ ${esc(String(t.rating.score))}`
     if (icon) {
-      h += `<div class="item with-poster with-cover">`;
-      h += `<img class="poster cover-square" src="${esc(icon)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
-      h += `<div class="body-wrap">`;
-      h += `<a href="${safeUrl(t.url)}" target="_blank" rel="noopener"><span class="rank ${cls}">${i+1}</span> ${esc(t.title)}</a>`;
-      if (meta) h += `<div class="meta">${meta}</div>`;
-      h += '</div></div>';
+      h += `<div class="item with-poster with-cover">`
+      h += `<img class="poster cover-square" src="${esc(icon)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+      h += `<div class="body-wrap">`
+      h += `<a href="${safeUrl(t.url)}" target="_blank" rel="noopener"><span class="rank ${cls}">${i + 1}</span> ${esc(t.title)}</a>`
+      if (meta) h += `<div class="meta">${meta}</div>`
+      h += '</div></div>'
     } else {
-      h += `<div class="item"><span class="rank ${cls}">${i+1}</span><div class="body">`;
-      h += `<a href="${safeUrl(t.url)}" target="_blank" rel="noopener">${esc(t.title)}</a>`;
-      if (meta) h += `<div class="meta">${meta}</div>`;
-      h += '</div></div>';
+      h += `<div class="item"><span class="rank ${cls}">${i + 1}</span><div class="body">`
+      h += `<a href="${safeUrl(t.url)}" target="_blank" rel="noopener">${esc(t.title)}</a>`
+      if (meta) h += `<div class="meta">${meta}</div>`
+      h += '</div></div>'
     }
-  });
-  c.innerHTML = h;
+  })
+  c.innerHTML = h
 }
 
 // 36氪热榜
 function r36Kr(d, c) {
-  if (!Array.isArray(d)) return rJSON(d, c);
-  let h = '';
+  if (!Array.isArray(d)) return rJSON(d, c)
+  let h = ''
   d.forEach((e, i) => {
-    const cls = i < 3 ? 'top'+(i+1) : '';
-    const cover = e.cover || '';
-    let meta = '';
-    if (e.hot) meta += `<span class="hot">🔥 ${esc(e.hot_desc || String(e.hot))}</span>`;
-    if (e.author) meta += ` · ${esc(e.author)}`;
-    if (e.praise) meta += ` · 👍 ${esc(String(e.praise))}`;
+    const cls = i < 3 ? 'top' + (i + 1) : ''
+    const cover = e.cover || ''
+    let meta = ''
+    if (e.hot) meta += `<span class="hot">🔥 ${esc(e.hot_desc || String(e.hot))}</span>`
+    if (e.author) meta += ` · ${esc(e.author)}`
+    if (e.praise) meta += ` · 👍 ${esc(String(e.praise))}`
     if (cover) {
-      h += `<div class="item with-poster with-cover">`;
-      h += `<img class="poster cover-square" src="${esc(cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
-      h += `<div class="body-wrap">`;
-      h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${e.rank || i+1}</span> ${esc(e.title)}</a>`;
-      if (meta) h += `<div class="meta">${meta}</div>`;
-      h += '</div></div>';
+      h += `<div class="item with-poster with-cover">`
+      h += `<img class="poster cover-square" src="${esc(cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+      h += `<div class="body-wrap">`
+      h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${e.rank || i + 1}</span> ${esc(e.title)}</a>`
+      if (meta) h += `<div class="meta">${meta}</div>`
+      h += '</div></div>'
     } else {
-      h += `<div class="item"><span class="rank ${cls}">${e.rank || i+1}</span><div class="body">`;
-      h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`;
-      if (meta) h += `<div class="meta">${meta}</div>`;
-      h += '</div></div>';
+      h += `<div class="item"><span class="rank ${cls}">${e.rank || i + 1}</span><div class="body">`
+      h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`
+      if (meta) h += `<div class="meta">${meta}</div>`
+      h += '</div></div>'
     }
-  });
-  c.innerHTML = h;
+  })
+  c.innerHTML = h
 }
 
 // Reddit 热帖
 function rReddit(d, c) {
-  if (!Array.isArray(d)) return rJSON(d, c);
-  let h = '';
+  if (!Array.isArray(d)) return rJSON(d, c)
+  let h = ''
   d.forEach((e, i) => {
-    h += `<div class="item"><span class="rank ${i < 3 ? 'top'+(i+1) : ''}">${e.rank || i+1}</span><div class="body">`;
-    h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`;
-    let meta = '';
-    if (e.subreddit) meta += `<span class="hot">r/${esc(e.subreddit)}</span>`;
-    if (e.author) meta += ` · u/${esc(e.author)}`;
-    if (meta) h += `<div class="meta">${meta}</div>`;
-    h += '</div></div>';
-  });
-  c.innerHTML = h;
+    h += `<div class="item"><span class="rank ${i < 3 ? 'top' + (i + 1) : ''}">${e.rank || i + 1}</span><div class="body">`
+    h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`
+    let meta = ''
+    if (e.subreddit) meta += `<span class="hot">r/${esc(e.subreddit)}</span>`
+    if (e.author) meta += ` · u/${esc(e.author)}`
+    if (meta) h += `<div class="meta">${meta}</div>`
+    h += '</div></div>'
+  })
+  c.innerHTML = h
 }
 
 // 少数派热榜
 function rSspai(d, c) {
-  if (!Array.isArray(d)) return rJSON(d, c);
-  let h = '';
+  if (!Array.isArray(d)) return rJSON(d, c)
+  let h = ''
   d.forEach((e, i) => {
-    const cls = i < 3 ? 'top'+(i+1) : '';
-    const cover = e.cover || '';
-    let meta = '';
-    if (e.hot) meta += `<span class="hot">👍 ${esc(String(e.hot))}</span>`;
-    if (e.author) meta += ` · ${esc(e.author)}`;
-    if (e.comments) meta += ` · 💬 ${esc(String(e.comments))}`;
+    const cls = i < 3 ? 'top' + (i + 1) : ''
+    const cover = e.cover || ''
+    let meta = ''
+    if (e.hot) meta += `<span class="hot">👍 ${esc(String(e.hot))}</span>`
+    if (e.author) meta += ` · ${esc(e.author)}`
+    if (e.comments) meta += ` · 💬 ${esc(String(e.comments))}`
     if (cover) {
-      h += `<div class="item with-poster with-cover">`;
-      h += `<img class="poster cover-square" src="${esc(cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
-      h += `<div class="body-wrap">`;
-      h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${e.rank || i+1}</span> ${esc(e.title)}</a>`;
-      if (meta) h += `<div class="meta">${meta}</div>`;
-      h += '</div></div>';
+      h += `<div class="item with-poster with-cover">`
+      h += `<img class="poster cover-square" src="${esc(cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+      h += `<div class="body-wrap">`
+      h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${e.rank || i + 1}</span> ${esc(e.title)}</a>`
+      if (meta) h += `<div class="meta">${meta}</div>`
+      h += '</div></div>'
     } else {
-      h += `<div class="item"><span class="rank ${cls}">${e.rank || i+1}</span><div class="body">`;
-      h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`;
-      if (meta) h += `<div class="meta">${meta}</div>`;
-      h += '</div></div>';
+      h += `<div class="item"><span class="rank ${cls}">${e.rank || i + 1}</span><div class="body">`
+      h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`
+      if (meta) h += `<div class="meta">${meta}</div>`
+      h += '</div></div>'
     }
-  });
-  c.innerHTML = h;
+  })
+  c.innerHTML = h
 }
 
 // 虎嗅热榜
 function rHuxiu(d, c) {
-  if (!Array.isArray(d)) return rJSON(d, c);
-  let h = '';
+  if (!Array.isArray(d)) return rJSON(d, c)
+  let h = ''
   d.forEach((e, i) => {
-    const cls = i < 3 ? 'top'+(i+1) : '';
-    const cover = e.cover || '';
-    let meta = '';
-    if (e.hot) meta += `<span class="hot">🔥 ${esc(String(e.hot))}</span>`;
-    if (e.author) meta += ` · ${esc(e.author)}`;
-    if (e.comments) meta += ` · 💬 ${esc(String(e.comments))}`;
+    const cls = i < 3 ? 'top' + (i + 1) : ''
+    const cover = e.cover || ''
+    let meta = ''
+    if (e.hot) meta += `<span class="hot">🔥 ${esc(String(e.hot))}</span>`
+    if (e.author) meta += ` · ${esc(e.author)}`
+    if (e.comments) meta += ` · 💬 ${esc(String(e.comments))}`
     if (cover) {
-      h += `<div class="item with-poster with-cover">`;
-      h += `<img class="poster cover-square" src="${esc(cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
-      h += `<div class="body-wrap">`;
-      h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${e.rank || i+1}</span> ${esc(e.title)}</a>`;
-      if (meta) h += `<div class="meta">${meta}</div>`;
-      h += '</div></div>';
+      h += `<div class="item with-poster with-cover">`
+      h += `<img class="poster cover-square" src="${esc(cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+      h += `<div class="body-wrap">`
+      h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${e.rank || i + 1}</span> ${esc(e.title)}</a>`
+      if (meta) h += `<div class="meta">${meta}</div>`
+      h += '</div></div>'
     } else {
-      h += `<div class="item"><span class="rank ${cls}">${e.rank || i+1}</span><div class="body">`;
-      h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`;
-      if (meta) h += `<div class="meta">${meta}</div>`;
-      h += '</div></div>';
+      h += `<div class="item"><span class="rank ${cls}">${e.rank || i + 1}</span><div class="body">`
+      h += `<a href="${safeUrl(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>`
+      if (meta) h += `<div class="meta">${meta}</div>`
+      h += '</div></div>'
     }
-  });
-  c.innerHTML = h;
+  })
+  c.innerHTML = h
 }
 
 function rNCM(d, c) {
-  if (!Array.isArray(d)) return rJSON(d, c);
-  let h = '';
+  if (!Array.isArray(d)) return rJSON(d, c)
+  let h = ''
   d.slice(0, 20).forEach((r, i) => {
-    const cls = i < 3 ? `top${i+1}` : '';
-    const artistNames = (r.artist || []).map(a => a.name).join('、');
+    const cls = i < 3 ? `top${i + 1}` : ''
+    const artistNames = (r.artist || []).map((a) => a.name).join('、')
     // 专辑封面：升级 https 并请求 100x100 缩略图，网易云 CDN 无防盗链
-    const cover = r.album?.cover ? `https://${r.album.cover.replace(/^https?:\/\//, '')}?param=100y100` : '';
-    let meta = '';
-    if (artistNames) meta += esc(artistNames);
-    if (r.album?.name) meta += ` · ${esc(r.album.name)}`;
-    if (r.duration_desc) meta += ` · ${esc(r.duration_desc)}`;
+    const cover = r.album?.cover ? `https://${r.album.cover.replace(/^https?:\/\//, '')}?param=100y100` : ''
+    let meta = ''
+    if (artistNames) meta += esc(artistNames)
+    if (r.album?.name) meta += ` · ${esc(r.album.name)}`
+    if (r.duration_desc) meta += ` · ${esc(r.duration_desc)}`
     if (cover) {
       // 封面模式：序号内联在标题行首（与流媒体榜 rSimkl 一致）
-      h += `<div class="item with-poster with-cover">`;
-      h += `<img class="poster cover-square" src="${esc(cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
-      h += `<div class="body-wrap">`;
-      h += r.link ? `<a href="${safeUrl(r.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${i+1}</span> ${esc(r.title)}</a>` : `<span class="t"><span class="rank ${cls}">${i+1}</span> ${esc(r.title)}</span>`;
-      if (meta) h += `<div class="meta">${meta}</div>`;
-      h += '</div></div>';
+      h += `<div class="item with-poster with-cover">`
+      h += `<img class="poster cover-square" src="${esc(cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+      h += `<div class="body-wrap">`
+      h += r.link
+        ? `<a href="${safeUrl(r.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${i + 1}</span> ${esc(r.title)}</a>`
+        : `<span class="t"><span class="rank ${cls}">${i + 1}</span> ${esc(r.title)}</span>`
+      if (meta) h += `<div class="meta">${meta}</div>`
+      h += '</div></div>'
     } else {
       // 无封面时回退原有布局
-      h += `<div class="item"><span class="rank ${cls}">${i+1}</span><div class="body">`;
-      h += r.link ? `<a href="${safeUrl(r.link)}" target="_blank" rel="noopener">${esc(r.title)}</a>` : `<span class="t">${esc(r.title)}</span>`;
-      if (meta) h += `<div class="meta">${meta}</div>`;
-      h += '</div></div>';
+      h += `<div class="item"><span class="rank ${cls}">${i + 1}</span><div class="body">`
+      h += r.link
+        ? `<a href="${safeUrl(r.link)}" target="_blank" rel="noopener">${esc(r.title)}</a>`
+        : `<span class="t">${esc(r.title)}</span>`
+      if (meta) h += `<div class="meta">${meta}</div>`
+      h += '</div></div>'
     }
-  });
-  c.innerHTML = h;
+  })
+  c.innerHTML = h
 }
 
 function rMaoyan(d, c) {
-  let h = '';
-  if (d.update_time) h += `<div class="kv-row"><span class="k">📅</span><span class="v">${esc(d.update_time)}</span></div>`;
-  const m = d.movie || d;
-  if (m.box_office_desc) h += `<div class="kv-row"><span class="k">总票房</span><span class="v" style="font-size:15px;font-weight:700;color:var(--warn);">${esc(m.box_office_desc||'')}</span></div>`;
+  let h = ''
+  if (d.update_time)
+    h += `<div class="kv-row"><span class="k">📅</span><span class="v">${esc(d.update_time)}</span></div>`
+  const m = d.movie || d
+  if (m.box_office_desc)
+    h += `<div class="kv-row"><span class="k">总票房</span><span class="v" style="font-size:15px;font-weight:700;color:var(--warn);">${esc(m.box_office_desc || '')}</span></div>`
   if (m.list) {
     m.list.slice(0, 10).forEach((it, i) => {
-      const cls = i < 3 ? `top${i+1}` : '';
-      h += `<div class="item"><span class="rank ${cls}">${i+1}</span><div class="body"><span class="t">${esc(it.movie_name)}</span><div class="meta">票房 ${esc(it.box_office_desc||'')} · ${esc(it.sum_box_desc||'')} <span class="hot">🔥${esc(it.box_rate||'')}</span></div></div></div>`;
-    });
+      const cls = i < 3 ? `top${i + 1}` : ''
+      h += `<div class="item"><span class="rank ${cls}">${i + 1}</span><div class="body"><span class="t">${esc(it.movie_name)}</span><div class="meta">票房 ${esc(it.box_office_desc || '')} · ${esc(it.sum_box_desc || '')} <span class="hot">🔥${esc(it.box_rate || '')}</span></div></div></div>`
+    })
   }
-  c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
+  c.innerHTML = h || '<div class="placeholder">暂无数据</div>'
 }
 
 // 猫眼在映 / 待映影片：复用带海报的榜单行（与豆瓣周榜、百度电视剧榜同一套样式）
 function rMaoyanMovie(d, c) {
-  const list = Array.isArray(d) ? d : (d && d.list) || [];
-  if (!list.length) { c.innerHTML = '<div class="placeholder">暂无影片信息</div>'; return; }
-  let h = '';
-  list.forEach(m => {
-    const rank = m.rank || 0;
-    const cls = rank <= 3 ? `top${rank}` : '';
-    const meta = [];
-    if (m.score) meta.push(`⭐ ${esc(m.score)}`);
-    if (m.wish_desc) meta.push(`❤️ ${esc(m.wish_desc)}人想看`);
+  const list = Array.isArray(d) ? d : (d && d.list) || []
+  if (!list.length) {
+    c.innerHTML = '<div class="placeholder">暂无影片信息</div>'
+    return
+  }
+  let h = ''
+  list.forEach((m) => {
+    const rank = m.rank || 0
+    const cls = rank <= 3 ? `top${rank}` : ''
+    const meta = []
+    if (m.score) meta.push(`⭐ ${esc(m.score)}`)
+    if (m.wish_desc) meta.push(`❤️ ${esc(m.wish_desc)}人想看`)
     // 在映条目 show_info 是排片信息（含「影院/场次」），与上映日期一并展示；
     // 待映条目无排片，优先展示上映日期
-    const isShowing = !!m.show_info && /影院|场/.test(m.show_info);
-    if (isShowing) meta.push(esc(m.show_info));
-    if (m.coming_title) meta.push(`📅 ${esc(m.coming_title)}`);
-    else if (!isShowing && m.release_date) meta.push(`📅 ${esc(m.release_date)}`);
+    const isShowing = !!m.show_info && /影院|场/.test(m.show_info)
+    if (isShowing) meta.push(esc(m.show_info))
+    if (m.coming_title) meta.push(`📅 ${esc(m.coming_title)}`)
+    else if (!isShowing && m.release_date) meta.push(`📅 ${esc(m.release_date)}`)
     const titleHtml = m.link
       ? `<a href="${safeUrl(m.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(m.movie_name)}</a>`
-      : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(m.movie_name)}</span>`;
-    const bodyInner = titleHtml +
+      : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(m.movie_name)}</span>`
+    const bodyInner =
+      titleHtml +
       (meta.length ? `<div class="meta">${meta.join(' · ')}</div>` : '') +
-      (m.star ? `<div class="desc">主演 ${esc(String(m.star).slice(0, 40))}${String(m.star).length > 40 ? '…' : ''}</div>` : '');
+      (m.star
+        ? `<div class="desc">主演 ${esc(String(m.star).slice(0, 40))}${String(m.star).length > 40 ? '…' : ''}</div>`
+        : '')
     // 单条无海报则走无图布局
     if (m.cover) {
-      h += `<div class="item with-poster"><img class="poster" src="${esc(m.cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">` +
-        `<div class="body-wrap">${bodyInner}</div></div>`;
+      h +=
+        `<div class="item with-poster"><img class="poster" src="${esc(m.cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">` +
+        `<div class="body-wrap">${bodyInner}</div></div>`
     } else {
-      h += `<div class="item"><span class="rank ${cls}">${rank}</span><div class="body">${bodyInner}</div></div>`;
+      h += `<div class="item"><span class="rank ${cls}">${rank}</span><div class="body">${bodyInner}</div></div>`
     }
-  });
-  c.innerHTML = h;
+  })
+  c.innerHTML = h
 }
 
 // 百度电视剧 / 电影榜：海报行 + 类型/热度 + 主演（上游 show 标签已由后端结构化）
 function rBaiduShow(d, c) {
-  if (!Array.isArray(d) || !d.length) { c.innerHTML = '<div class="placeholder">暂无数据</div>'; return; }
-  let h = '';
-  d.forEach(it => {
-    const rank = it.rank || 0;
-    const cls = rank <= 3 ? `top${rank}` : '';
-    const meta = [];
-    if (it.genre) meta.push(`🏷️ ${esc(it.genre)}`);
-    if (it.score_desc) meta.push(`🔥 ${esc(it.score_desc)}`);
+  if (!Array.isArray(d) || !d.length) {
+    c.innerHTML = '<div class="placeholder">暂无数据</div>'
+    return
+  }
+  let h = ''
+  d.forEach((it) => {
+    const rank = it.rank || 0
+    const cls = rank <= 3 ? `top${rank}` : ''
+    const meta = []
+    if (it.genre) meta.push(`🏷️ ${esc(it.genre)}`)
+    if (it.score_desc) meta.push(`🔥 ${esc(it.score_desc)}`)
     const titleHtml = it.url
       ? `<a href="${safeUrl(it.url)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</a>`
-      : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</span>`;
-    const bodyInner = titleHtml +
+      : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</span>`
+    const bodyInner =
+      titleHtml +
       (meta.length ? `<div class="meta">${meta.join(' · ')}</div>` : '') +
       (it.actors ? `<div class="desc">主演 ${esc(it.actors)}</div>` : '') +
-      (it.desc ? `<div class="desc">${esc(String(it.desc).slice(0, 60))}${String(it.desc).length > 60 ? '…' : ''}</div>` : '');
+      (it.desc
+        ? `<div class="desc">${esc(String(it.desc).slice(0, 60))}${String(it.desc).length > 60 ? '…' : ''}</div>`
+        : '')
     // 单条无海报则走无图布局
     if (it.cover) {
-      h += `<div class="item with-poster"><img class="poster" src="${esc(it.cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">` +
-        `<div class="body-wrap">${bodyInner}</div></div>`;
+      h +=
+        `<div class="item with-poster"><img class="poster" src="${esc(it.cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">` +
+        `<div class="body-wrap">${bodyInner}</div></div>`
     } else {
-      h += `<div class="item"><span class="rank ${cls}">${rank}</span><div class="body">${bodyInner}</div></div>`;
+      h += `<div class="item"><span class="rank ${cls}">${rank}</span><div class="body">${bodyInner}</div></div>`
     }
-  });
-  c.innerHTML = h;
+  })
+  c.innerHTML = h
 }
 
 // 摸鱼日历：日期+状态徽标 → 倒计时瓷片 → 下个假期 → 周/月/年进度条 → 摸鱼语录
 function rMoyu(d, c) {
-  const d0 = d.date || {};
-  const t = d.today || {};
-  const p = d.progress || {};
-  const cd = d.countdown || {};
-  const nh = d.nextHoliday || {};
-  const ch = d.currentHoliday;
+  const d0 = d.date || {}
+  const t = d.today || {}
+  const p = d.progress || {}
+  const cd = d.countdown || {}
+  const nh = d.nextHoliday || {}
+  const ch = d.currentHoliday
 
   // 状态徽标：法定/传统假期优先（排除英文星期名），其次休息日/工作日
-  let statusBadge = '';
+  let statusBadge = ''
   if (ch && ch.name && t.isHoliday && !/sunday|saturday/i.test(String(ch.name))) {
-    statusBadge = `<span class="moyu-badge holiday">🎉 ${esc(String(ch.name))}假期 · 第 ${esc(String(ch.dayOfHoliday))} 天</span>`;
+    statusBadge = `<span class="moyu-badge holiday">🎉 ${esc(String(ch.name))}假期 · 第 ${esc(String(ch.dayOfHoliday))} 天</span>`
   } else if (t.isWorkday === false) {
-    statusBadge = `<span class="moyu-badge rest">🌴 休息日</span>`;
+    statusBadge = `<span class="moyu-badge rest">🌴 休息日</span>`
   } else {
-    statusBadge = `<span class="moyu-badge work">💼 工作日</span>`;
+    statusBadge = `<span class="moyu-badge work">💼 工作日</span>`
   }
 
-  const lunarTxt = d0.lunar ? `农历${esc(String(d0.lunar.monthCN))}${esc(String(d0.lunar.dayCN))}` : '';
+  const lunarTxt = d0.lunar ? `农历${esc(String(d0.lunar.monthCN))}${esc(String(d0.lunar.dayCN))}` : ''
   let h = `<div class="moyu-head">
     <div class="moyu-date"><b>${esc(String(d0.gregorian || '').slice(5))}</b><span>${esc(d0.weekday || '')}${lunarTxt ? ' · ' + lunarTxt : ''}</span></div>
     ${statusBadge}
-  </div>`;
+  </div>`
 
   const tiles = [
-    ['💼', '距周五', cd.toFriday], ['🏖️', '距周末', cd.toWeekEnd],
-    ['📅', '距月末', cd.toMonthEnd], ['🎊', '距年末', cd.toYearEnd],
-  ].filter(x => x[2] != null);
+    ['💼', '距周五', cd.toFriday],
+    ['🏖️', '距周末', cd.toWeekEnd],
+    ['📅', '距月末', cd.toMonthEnd],
+    ['🎊', '距年末', cd.toYearEnd],
+  ].filter((x) => x[2] != null)
   if (tiles.length) {
-    h += `<div class="moyu-tiles">${tiles.map(([ic, k, v]) => `<div class="moyu-tile"><span class="ic">${ic}</span><div class="tx"><span class="k">${esc(k)}</span><span class="v">${esc(String(v))}<i> 天</i></span></div></div>`).join('')}</div>`;
+    h += `<div class="moyu-tiles">${tiles.map(([ic, k, v]) => `<div class="moyu-tile"><span class="ic">${ic}</span><div class="tx"><span class="k">${esc(k)}</span><span class="v">${esc(String(v))}<i> 天</i></span></div></div>`).join('')}</div>`
   }
 
   if (nh.name) {
-    h += `<div class="moyu-next">🎊 下一个假期 <b>${esc(String(nh.name))}</b><span>${esc(String(nh.date || ''))} · 放 ${esc(String(nh.duration))} 天 · 还有 <b>${esc(String(nh.until))}</b> 天</span></div>`;
+    h += `<div class="moyu-next">🎊 下一个假期 <b>${esc(String(nh.name))}</b><span>${esc(String(nh.date || ''))} · 放 ${esc(String(nh.duration))} 天 · 还有 <b>${esc(String(nh.until))}</b> 天</span></div>`
   }
 
-  [['week', '本周'], ['month', '本月'], ['year', '本年']].forEach(([k, label]) => {
-    const pr = p[k];
+  ;[
+    ['week', '本周'],
+    ['month', '本月'],
+    ['year', '本年'],
+  ].forEach(([k, label]) => {
+    const pr = p[k]
     if (pr && pr.percentage != null) {
-      h += `<div class="moyu-progress"><div class="moyu-progress-label"><span>${label}进度</span><span>${esc(String(pr.percentage))}% · 第 ${esc(String(pr.passed))}/${esc(String(pr.total))} 天</span></div><div class="moyu-progress-bar"><i style="width:${Math.min(100, pr.percentage)}%"></i></div></div>`;
+      h += `<div class="moyu-progress"><div class="moyu-progress-label"><span>${label}进度</span><span>${esc(String(pr.percentage))}% · 第 ${esc(String(pr.passed))}/${esc(String(pr.total))} 天</span></div><div class="moyu-progress-bar"><i style="width:${Math.min(100, pr.percentage)}%"></i></div></div>`
     }
-  });
+  })
 
-  if (d.moyuQuote) h += `<div class="moyu-quote">🐟 ${esc(d.moyuQuote)}</div>`;
-  c.innerHTML = h || '<div class="placeholder">暂无数据</div>';
+  if (d.moyuQuote) h += `<div class="moyu-quote">🐟 ${esc(d.moyuQuote)}</div>`
+  c.innerHTML = h || '<div class="placeholder">暂无数据</div>'
 }
 
 // WHOIS：域名头 + 到期倒计时徽标（临期变色）+ 数据瓦片 + NS + 状态 pills
 function rWhois(d, c) {
-  let remain = null;
-  if (d.expires_at) remain = Math.ceil((Number(d.expires_at) - Date.now()) / 86400000);
-  const expColor = remain == null ? 'var(--text-dim)' : remain < 30 ? 'var(--error)' : remain < 180 ? '#f59e0b' : 'var(--success)';
+  let remain = null
+  if (d.expires_at) remain = Math.ceil((Number(d.expires_at) - Date.now()) / 86400000)
+  const expColor =
+    remain == null ? 'var(--text-dim)' : remain < 30 ? 'var(--error)' : remain < 180 ? '#f59e0b' : 'var(--success)'
 
-  let h = `<div class="whois-dom"><span class="whois-name">${esc(d.domain || '')}</span>${d.dnssec ? '<span class="whois-dnssec" title="已启用 DNSSEC">DNSSEC</span>' : ''}</div>`;
+  let h = `<div class="whois-dom"><span class="whois-name">${esc(d.domain || '')}</span>${d.dnssec ? '<span class="whois-dnssec" title="已启用 DNSSEC">DNSSEC</span>' : ''}</div>`
   if (d.expires) {
-    h += `<div class="whois-exp"><span class="k">到期时间</span><b>${esc(d.expires)}</b>${remain != null ? `<span class="whois-remain" style="color:${expColor};border-color:${expColor}">剩 ${remain} 天</span>` : ''}</div>`;
+    h += `<div class="whois-exp"><span class="k">到期时间</span><b>${esc(d.expires)}</b>${remain != null ? `<span class="whois-remain" style="color:${expColor};border-color:${expColor}">剩 ${remain} 天</span>` : ''}</div>`
   }
-  h += `<div class="ht-tiles">${htTile('注册商', d.registrar)}${htTile('创建日期', d.created)}${htTile('更新日期', d.updated)}${htTile('注册时长', d.duration_desc || d.duration)}</div>`;
+  h += `<div class="ht-tiles">${htTile('注册商', d.registrar)}${htTile('创建日期', d.created)}${htTile('更新日期', d.updated)}${htTile('注册时长', d.duration_desc || d.duration)}</div>`
   if (d.nameservers?.length) {
-    h += `<div class="whois-ns"><span class="k">DNS 服务器</span><div>${d.nameservers.slice(0, 6).map(ns => `<code>${esc(ns)}</code>`).join('')}</div></div>`;
+    h += `<div class="whois-ns"><span class="k">DNS 服务器</span><div>${d.nameservers
+      .slice(0, 6)
+      .map((ns) => `<code>${esc(ns)}</code>`)
+      .join('')}</div></div>`
   }
   if (d.status?.length) {
-    h += `<div class="whois-status">${d.status.slice(0, 6).map(s => `<span class="whois-pill" title="${esc(s)}">${esc(s)}</span>`).join('')}</div>`;
+    h += `<div class="whois-status">${d.status
+      .slice(0, 6)
+      .map((s) => `<span class="whois-pill" title="${esc(s)}">${esc(s)}</span>`)
+      .join('')}</div>`
   }
-  c.innerHTML = h;
+  c.innerHTML = h
 }
 
 // IP 查询：IP 大字 + 归属瓦片 + OSM 地图链接
 function rIP(d, c) {
-  const loc = [d.country, d.prov, d.city].filter(Boolean).join(' · ');
-  let h = `<div class="ip-hero"><span class="ip-label">📍 ${esc(d.ip || '--')}</span></div>`;
-  h += `<div class="ht-tiles">${htTile('国家/地区', loc)}${htTile('运营商', d.isp)}${htTile('时区', d.timezone)}${htTile('AS 号', d.asnumber)}${htTile('邮编', d.zipcode)}${htTile('数据源', d.source)}</div>`;
-  const lat = parseFloat(d.lat), lng = parseFloat(d.lng);
+  const loc = [d.country, d.prov, d.city].filter(Boolean).join(' · ')
+  let h = `<div class="ip-hero"><span class="ip-label">📍 ${esc(d.ip || '--')}</span></div>`
+  h += `<div class="ht-tiles">${htTile('国家/地区', loc)}${htTile('运营商', d.isp)}${htTile('时区', d.timezone)}${htTile('AS 号', d.asnumber)}${htTile('邮编', d.zipcode)}${htTile('数据源', d.source)}</div>`
+  const lat = parseFloat(d.lat),
+    lng = parseFloat(d.lng)
   if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
-    h += `<a class="ip-map" href="https://www.openstreetmap.org/?mlat=${encodeURIComponent(d.lat)}&mlon=${encodeURIComponent(d.lng)}#map=11/${encodeURIComponent(d.lat)}/${encodeURIComponent(d.lng)}" target="_blank" rel="noopener">🗺️ 在 OpenStreetMap 上查看大致位置 →</a>`;
+    h += `<a class="ip-map" href="https://www.openstreetmap.org/?mlat=${encodeURIComponent(d.lat)}&mlon=${encodeURIComponent(d.lng)}#map=11/${encodeURIComponent(d.lat)}/${encodeURIComponent(d.lng)}" target="_blank" rel="noopener">🗺️ 在 OpenStreetMap 上查看大致位置 →</a>`
   }
-  c.innerHTML = h;
+  c.innerHTML = h
 }
 
 // 密码强度检测：分数色带 + 强度/破解耗时 + 字符集勾选 + 改进建议
 function rPwdChk(d, c) {
-  const score = Math.min(100, Math.max(0, Number(d.score) || 0));
-  const color = score >= 80 ? 'var(--success)' : score >= 50 ? '#f59e0b' : 'var(--error)';
-  const ca = d.character_analysis || {};
-  const sets = [['小写字母', ca.has_lowercase], ['大写字母', ca.has_uppercase], ['数字', ca.has_numbers], ['特殊符号', ca.has_symbols]];
+  const score = Math.min(100, Math.max(0, Number(d.score) || 0))
+  const color = score >= 80 ? 'var(--success)' : score >= 50 ? '#f59e0b' : 'var(--error)'
+  const ca = d.character_analysis || {}
+  const sets = [
+    ['小写字母', ca.has_lowercase],
+    ['大写字母', ca.has_uppercase],
+    ['数字', ca.has_numbers],
+    ['特殊符号', ca.has_symbols],
+  ]
 
   let h = `<div class="pwchk-hero">
     <div class="pwchk-score" style="color:${color}"><b>${score}</b><span>/100</span></div>
@@ -6778,207 +8363,249 @@ function rPwdChk(d, c) {
   </div>
   <div class="pwchk-bar"><i style="width:${score}%;background:${color}"></i></div>
   <div class="ht-tiles">${htTile('密码长度', d.length)}${htTile('熵值', d.entropy != null ? `${d.entropy} bits` : null)}${htTile('字符多样度', ca.character_variety != null ? `${ca.character_variety}%` : null)}${htTile('被测密码', d.password)}</div>
-  <div class="pwchk-sets">${sets.map(([k, v]) => `<span class="pwchk-set ${v ? 'on' : ''}">${v ? '✓' : '✗'} ${k}</span>`).join('')}</div>`;
-  const recs = Array.isArray(d.recommendations) ? d.recommendations : [];
-  if (recs.length) h += `<div class="pwchk-recs">${recs.slice(0, 4).map(r => `<div class="pwchk-rec">💡 ${esc(r)}</div>`).join('')}</div>`;
-  c.innerHTML = h;
+  <div class="pwchk-sets">${sets.map(([k, v]) => `<span class="pwchk-set ${v ? 'on' : ''}">${v ? '✓' : '✗'} ${k}</span>`).join('')}</div>`
+  const recs = Array.isArray(d.recommendations) ? d.recommendations : []
+  if (recs.length)
+    h += `<div class="pwchk-recs">${recs
+      .slice(0, 4)
+      .map((r) => `<div class="pwchk-rec">💡 ${esc(r)}</div>`)
+      .join('')}</div>`
+  c.innerHTML = h
 }
 
 // JS 题目：题目排版 + 代码块（可复制）+ 可点击选项答题（答后揭晓正确项与解析）
 function rJS(d, c) {
-  let ansIdx = -1;
-  if (typeof d.answer === 'number') ansIdx = d.answer;
+  let ansIdx = -1
+  if (typeof d.answer === 'number') ansIdx = d.answer
   else if (typeof d.answer === 'string') {
-    const t = d.answer.trim();
+    const t = d.answer.trim()
     if (/^[A-Da-d]$/.test(t)) {
       // 字母答案（"A"-"D"），上游接口返回的就是这种
-      ansIdx = t.toUpperCase().charCodeAt(0) - 65;
+      ansIdx = t.toUpperCase().charCodeAt(0) - 65
     } else {
-      const byText = Array.isArray(d.options) ? d.options.indexOf(d.answer) : -1;
-      const byNum = Number(t);
-      ansIdx = byText >= 0 ? byText : (Number.isInteger(byNum) ? byNum : -1);
+      const byText = Array.isArray(d.options) ? d.options.indexOf(d.answer) : -1
+      const byNum = Number(t)
+      ansIdx = byText >= 0 ? byText : Number.isInteger(byNum) ? byNum : -1
     }
   }
 
-  let h = `<div class="jsq"><div class="jsq-q"><span class="jsq-no">Q${esc(String(d.id ?? ''))}</span><span class="jsq-qt">${esc(d.question || '')}</span></div>`;
+  let h = `<div class="jsq"><div class="jsq-q"><span class="jsq-no">Q${esc(String(d.id ?? ''))}</span><span class="jsq-qt">${esc(d.question || '')}</span></div>`
   if (d.code) {
-    h += `<div class="jsq-code"><button class="jsq-copy" type="button">复制</button><pre><code>${esc(d.code)}</code></pre></div>`;
+    h += `<div class="jsq-code"><button class="jsq-copy" type="button">复制</button><pre><code>${esc(d.code)}</code></pre></div>`
   }
   if (Array.isArray(d.options)) {
-    h += `<div class="jsq-opts">${d.options.map((opt, i) => `<button class="jsq-opt" type="button" data-i="${i}"><span class="jsq-opt-no">${String.fromCharCode(65 + i)}</span>${esc(opt)}</button>`).join('')}</div>`;
-    h += `<div class="jsq-verdict" hidden></div>`;
+    h += `<div class="jsq-opts">${d.options.map((opt, i) => `<button class="jsq-opt" type="button" data-i="${i}"><span class="jsq-opt-no">${String.fromCharCode(65 + i)}</span>${esc(opt)}</button>`).join('')}</div>`
+    h += `<div class="jsq-verdict" hidden></div>`
   }
-  if (d.explanation) h += `<div class="jsq-exp" hidden><span class="jsq-exp-t">💡 解析</span>${esc(d.explanation)}</div>`;
-  h += `</div>`;
-  c.innerHTML = h;
+  if (d.explanation)
+    h += `<div class="jsq-exp" hidden><span class="jsq-exp-t">💡 解析</span>${esc(d.explanation)}</div>`
+  h += `</div>`
+  c.innerHTML = h
 
-  const opts = [...c.querySelectorAll('.jsq-opt')];
-  const verdict = c.querySelector('.jsq-verdict');
-  const exp = c.querySelector('.jsq-exp');
-  const copyBtn = c.querySelector('.jsq-copy');
+  const opts = [...c.querySelectorAll('.jsq-opt')]
+  const verdict = c.querySelector('.jsq-verdict')
+  const exp = c.querySelector('.jsq-exp')
+  const copyBtn = c.querySelector('.jsq-copy')
   if (copyBtn) {
     copyBtn.onclick = () => {
-      navigator.clipboard.writeText(d.code || '').then(() => {
-        copyBtn.textContent = '已复制 ✓';
-        setTimeout(() => { copyBtn.textContent = '复制'; }, 1500);
-      }).catch(() => {});
-    };
+      navigator.clipboard
+        .writeText(d.code || '')
+        .then(() => {
+          copyBtn.textContent = '已复制 ✓'
+          setTimeout(() => {
+            copyBtn.textContent = '复制'
+          }, 1500)
+        })
+        .catch(() => {})
+    }
   }
-  if (!opts.length || ansIdx < 0) { if (exp) exp.hidden = false; return; }
+  if (!opts.length || ansIdx < 0) {
+    if (exp) exp.hidden = false
+    return
+  }
 
-  let done = false;
-  opts.forEach(btn => {
+  let done = false
+  opts.forEach((btn) => {
     btn.onclick = () => {
-      if (done) return;
-      done = true;
-      const pick = Number(btn.dataset.i);
-      const correct = pick === ansIdx;
+      if (done) return
+      done = true
+      const pick = Number(btn.dataset.i)
+      const correct = pick === ansIdx
       opts.forEach((b, i) => {
-        b.disabled = true;
-        if (i === ansIdx) b.classList.add('correct');
-        else if (i === pick) b.classList.add('wrong');
-      });
+        b.disabled = true
+        if (i === ansIdx) b.classList.add('correct')
+        else if (i === pick) b.classList.add('wrong')
+      })
       if (verdict) {
-        verdict.textContent = correct ? '✓ 答对了！' : `✗ 正确答案是 ${String.fromCharCode(65 + ansIdx)}`;
-        verdict.className = 'jsq-verdict ' + (correct ? 'ok' : 'bad');
-        verdict.hidden = false;
+        verdict.textContent = correct ? '✓ 答对了！' : `✗ 正确答案是 ${String.fromCharCode(65 + ansIdx)}`
+        verdict.className = 'jsq-verdict ' + (correct ? 'ok' : 'bad')
+        verdict.hidden = false
       }
-      if (exp) exp.hidden = false;
-    };
-  });
+      if (exp) exp.hidden = false
+    }
+  })
 }
 
 // 汇率：基准 + 常用币种列表 + 金额换算计算器（纯前端，基于已加载的 rates）
 // 汇率：瓷片格展示常用币种（每 100 基准货币）+ 换算计算器（支持币种互换）
 // 用货币符号而非国旗 emoji：Windows 不渲染区域旗帜，会退化成字母对
-const EX_SYMBOLS = { CNY:'¥', USD:'$', EUR:'€', JPY:'¥', GBP:'£', HKD:'HK$', KRW:'₩', AUD:'A$', CAD:'C$', SGD:'S$', TWD:'NT$', THB:'฿', RUB:'₽', INR:'₹', CHF:'Fr', NZD:'NZ$', MYR:'RM', PHP:'₱', VND:'₫', TRY:'₺', BRL:'R$', ZAR:'R' };
+const EX_SYMBOLS = {
+  CNY: '¥',
+  USD: '$',
+  EUR: '€',
+  JPY: '¥',
+  GBP: '£',
+  HKD: 'HK$',
+  KRW: '₩',
+  AUD: 'A$',
+  CAD: 'C$',
+  SGD: 'S$',
+  TWD: 'NT$',
+  THB: '฿',
+  RUB: '₽',
+  INR: '₹',
+  CHF: 'Fr',
+  NZD: 'NZ$',
+  MYR: 'RM',
+  PHP: '₱',
+  VND: '₫',
+  TRY: '₺',
+  BRL: 'R$',
+  ZAR: 'R',
+}
 
 function rExchange(d, c) {
-  const base = d.base_code || 'CNY';
-  const rates = {};
-  if (Array.isArray(d.rates)) d.rates.forEach(r => { rates[r.currency] = r.rate; });
-  const popular = ['USD','EUR','JPY','GBP','HKD','KRW','AUD','CAD','SGD','TWD'].filter(c => rates[c] != null);
-  const sym = code => EX_SYMBOLS[code] || '¤';
+  const base = d.base_code || 'CNY'
+  const rates = {}
+  if (Array.isArray(d.rates))
+    d.rates.forEach((r) => {
+      rates[r.currency] = r.rate
+    })
+  const popular = ['USD', 'EUR', 'JPY', 'GBP', 'HKD', 'KRW', 'AUD', 'CAD', 'SGD', 'TWD'].filter((c) => rates[c] != null)
+  const sym = (code) => EX_SYMBOLS[code] || '¤'
 
   // 头部：基准徽标 + 更新时间
-  let h = `<div class="ex-head"><span class="ex-base">基准 <b>${esc(base)}</b></span>${d.updated ? `<span class="ex-upd">${esc(d.updated)}</span>` : ''}</div>`;
+  let h = `<div class="ex-head"><span class="ex-base">基准 <b>${esc(base)}</b></span>${d.updated ? `<span class="ex-upd">${esc(d.updated)}</span>` : ''}</div>`
 
   // 常用币种瓷片：每 100 基准货币兑换值（比小数直观，同银行牌价习惯）
-  h += `<div class="ex-tiles">${popular.map(code => {
-    const v = (rates[code] * 100);
-    const vs = v >= 100 ? v.toLocaleString('zh-CN', { maximumFractionDigits: 1 }) : v.toFixed(2);
-    return `<div class="ex-tile"><span class="ex-sym">${esc(sym(code))}</span><div class="ex-tile-tx"><span class="ex-code">${code}</span><span class="ex-val">${vs}</span></div></div>`;
-  }).join('')}</div>`;
+  h += `<div class="ex-tiles">${popular
+    .map((code) => {
+      const v = rates[code] * 100
+      const vs = v >= 100 ? v.toLocaleString('zh-CN', { maximumFractionDigits: 1 }) : v.toFixed(2)
+      return `<div class="ex-tile"><span class="ex-sym">${esc(sym(code))}</span><div class="ex-tile-tx"><span class="ex-code">${code}</span><span class="ex-val">${vs}</span></div></div>`
+    })
+    .join('')}</div>`
 
   // 换算计算器：金额+源币种在上，结果+目标币种在下，中间互换按钮
-  const allCodes = Object.keys(rates).sort();
+  const allCodes = Object.keys(rates).sort()
   h += `<div class="ex-calc">
     <div class="ex-calc-row">
       <input class="ex-amount" type="number" min="0" value="100" inputmode="decimal" aria-label="金额">
-      <select class="ex-from" aria-label="源币种">${allCodes.map(cd => `<option value="${esc(cd)}"${cd === base ? ' selected' : ''}>${esc(cd)}</option>`).join('')}</select>
+      <select class="ex-from" aria-label="源币种">${allCodes.map((cd) => `<option value="${esc(cd)}"${cd === base ? ' selected' : ''}>${esc(cd)}</option>`).join('')}</select>
     </div>
     <button class="ex-swap" type="button" title="交换币种" aria-label="交换币种">
       <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v13"/><path d="M3.5 7.5 7 4l3.5 3.5"/><path d="M17 20V7"/><path d="M13.5 16.5 17 20l3.5-3.5"/></svg>
     </button>
     <div class="ex-calc-row">
       <div class="ex-result">--</div>
-      <select class="ex-to" aria-label="目标币种">${allCodes.map(cd => `<option value="${esc(cd)}"${cd === popular[0] ? ' selected' : ''}>${esc(cd)}</option>`).join('')}</select>
+      <select class="ex-to" aria-label="目标币种">${allCodes.map((cd) => `<option value="${esc(cd)}"${cd === popular[0] ? ' selected' : ''}>${esc(cd)}</option>`).join('')}</select>
     </div>
-  </div>`;
+  </div>`
 
-  c.innerHTML = h;
+  c.innerHTML = h
 
-  const amountEl = c.querySelector('.ex-amount');
-  const fromEl = c.querySelector('.ex-from');
-  const toEl = c.querySelector('.ex-to');
-  const resultEl = c.querySelector('.ex-result');
+  const amountEl = c.querySelector('.ex-amount')
+  const fromEl = c.querySelector('.ex-from')
+  const toEl = c.querySelector('.ex-to')
+  const resultEl = c.querySelector('.ex-result')
   function calc() {
-    const amt = parseFloat(amountEl.value) || 0;
-    const from = fromEl.value, to = toEl.value;
-    const fr = rates[from], tr = rates[to];
-    if (fr == null || tr == null) { resultEl.textContent = '无该币种汇率'; return; }
-    const out = (amt * tr / fr).toLocaleString('zh-CN', { maximumFractionDigits: 4 });
-    resultEl.innerHTML = `<span class="ex-res-num">${out}</span><span class="ex-res-code">${esc(to)}</span>`;
+    const amt = parseFloat(amountEl.value) || 0
+    const from = fromEl.value,
+      to = toEl.value
+    const fr = rates[from],
+      tr = rates[to]
+    if (fr == null || tr == null) {
+      resultEl.textContent = '无该币种汇率'
+      return
+    }
+    const out = ((amt * tr) / fr).toLocaleString('zh-CN', { maximumFractionDigits: 4 })
+    resultEl.innerHTML = `<span class="ex-res-num">${out}</span><span class="ex-res-code">${esc(to)}</span>`
   }
-  amountEl.oninput = calc; fromEl.onchange = calc; toEl.onchange = calc;
+  amountEl.oninput = calc
+  fromEl.onchange = calc
+  toEl.onchange = calc
   c.querySelector('.ex-swap').onclick = () => {
-    const tmp = fromEl.value;
-    fromEl.value = toEl.value;
-    toEl.value = tmp;
-    calc();
-  };
-  calc();
+    const tmp = fromEl.value
+    fromEl.value = toEl.value
+    toEl.value = tmp
+    calc()
+  }
+  calc()
 }
 
 function rJSON(d, c) {
-  c.innerHTML = `<div class="json-view">${esc(JSON.stringify(d, null, 2))}</div>`;
+  c.innerHTML = `<div class="json-view">${esc(JSON.stringify(d, null, 2))}</div>`
 }
 
-
 // ============ P3: 键盘快捷键 ============
-let kbCardIndex = -1;
+let kbCardIndex = -1
 
 function initKeyboardShortcuts() {
   document.addEventListener('keydown', (e) => {
-    const tag = (e.target.tagName || '').toLowerCase();
-    const isInput = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
+    const tag = (e.target.tagName || '').toLowerCase()
+    const isInput = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable
 
     // Escape: 始终生效
     if (e.key === 'Escape') {
-      if (isInput) { e.target.blur(); return; }
+      if (isInput) {
+        e.target.blur()
+        return
+      }
       // 取消卡片聚焦
-      clearKbFocus();
-      return;
+      clearKbFocus()
+      return
     }
-
 
     // 输入框内不触发 j/k/r
-    if (isInput) return;
+    if (isInput) return
 
-    const cards = [...document.querySelectorAll('.card')];
-    if (!cards.length) return;
+    const cards = [...document.querySelectorAll('.card')]
+    if (!cards.length) return
 
     if (e.key === 'j') {
-      e.preventDefault();
-      kbCardIndex = Math.min(kbCardIndex + 1, cards.length - 1);
-      setKbFocus(cards[kbCardIndex]);
+      e.preventDefault()
+      kbCardIndex = Math.min(kbCardIndex + 1, cards.length - 1)
+      setKbFocus(cards[kbCardIndex])
     } else if (e.key === 'k') {
-      e.preventDefault();
-      kbCardIndex = Math.max(kbCardIndex - 1, 0);
-      setKbFocus(cards[kbCardIndex]);
+      e.preventDefault()
+      kbCardIndex = Math.max(kbCardIndex - 1, 0)
+      setKbFocus(cards[kbCardIndex])
     } else if (e.key === 'r' && kbCardIndex >= 0 && kbCardIndex < cards.length) {
-      e.preventDefault();
-      const card = cards[kbCardIndex];
-      const id = card.id.replace('card-', '');
-      const ep = EPS.find(e => e.id === id);
-      if (ep) load(ep, true);
+      e.preventDefault()
+      const card = cards[kbCardIndex]
+      const id = card.id.replace('card-', '')
+      const ep = EPS.find((e) => e.id === id)
+      if (ep) load(ep, true)
     }
-  });
+  })
 }
 
 function setKbFocus(card) {
-  $$('.card.kb-focus').forEach(c => c.classList.remove('kb-focus'));
+  $$('.card.kb-focus').forEach((c) => c.classList.remove('kb-focus'))
   if (card) {
-    card.classList.add('kb-focus');
-    card.scrollIntoView({ behavior: SMOOTH, block: 'nearest' });
+    card.classList.add('kb-focus')
+    card.scrollIntoView({ behavior: SMOOTH, block: 'nearest' })
   }
 }
 
 function clearKbFocus() {
-  $$('.card.kb-focus').forEach(c => c.classList.remove('kb-focus'));
-  kbCardIndex = -1;
+  $$('.card.kb-focus').forEach((c) => c.classList.remove('kb-focus'))
+  kbCardIndex = -1
 }
 
-init();
+init()
 
 // 后台休眠节能：页面隐藏（切后台/最小化）时暂停动画与高频活动，减少无效 GPU 与电量消耗
 document.addEventListener('visibilitychange', () => {
-  document.documentElement.classList.toggle('page-hidden', document.hidden);
-});
-
-
-
-
-
-
-
+  document.documentElement.classList.toggle('page-hidden', document.hidden)
+})

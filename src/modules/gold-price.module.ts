@@ -1,6 +1,7 @@
 import { load } from 'cheerio'
 import { Common, dayjs, TZ_SHANGHAI } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -78,9 +79,8 @@ const UNIT_MAP: Record<string, string> = {
 
 export class GoldPriceService {
   async #fetchMetals(): Promise<MetalPrice[]> {
-    const response = await fetch(`http://res.huangjinjiage.com.cn/panjia2.js?t=${Date.now()}`, {
-      headers: { 'User-Agent': Common.chromeUA },
-    })
+    // 金价 JS 数据源无超时保护会拖住整卡：fetchUpstream 给 8s + 1 次重试
+    const response = await fetchUpstream(`http://res.huangjinjiage.com.cn/panjia2.js?t=${Date.now()}`)
 
     const text = await response.text()
     const match = /panjia2\s*=\s*"(?<listStr>[^"]+)"/.exec(text)
@@ -106,9 +106,8 @@ export class GoldPriceService {
     banks: BankGoldPrice[]
     recycle: RecycleGoldPrice[]
   }> {
-    const response = await fetch('http://www.huangjinjiage.cn/jinrijinjia.html', {
-      headers: { 'User-Agent': Common.chromeUA },
-    })
+    // 金价 HTML 页是 gb2312 编码：先拿 arrayBuffer 再解码，fetchUpstream 只换传输层
+    const response = await fetchUpstream('http://www.huangjinjiage.cn/jinrijinjia.html')
 
     const buffer = await response.arrayBuffer()
     const decoder = new TextDecoder('gb2312')

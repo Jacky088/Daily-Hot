@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { fetchUpstreamJson } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -149,14 +150,14 @@ class ServiceDoubanWeekly {
     const { collection } = CATEGORY_CONFIG[category]
     const url = `${DOUBAN_BASE_URL}/${collection}/items?start=0&count=10&items_only=1&for_mobile=1`
 
-    const res = await fetch(url, {
+    // 豆瓣移动端接口：UA/Referer 用模块内专用值（DOUBAN_UA），fetchUpstream 只做传输；
+    // 原来裸 fetch 无超时，hang 住拖整卡，这里给 8s + 1 次重试
+    const json = await fetchUpstreamJson<{ subject_collection_items?: DoubanRawItem[] }>(url, {
       headers: {
         'User-Agent': DOUBAN_UA,
         Referer: DOUBAN_REFERER,
       },
     })
-
-    const json = await res.json()
     const items: DoubanWeeklyItem[] = ((json.subject_collection_items ?? []) as DoubanRawItem[])
       .map(transformItem)
       .sort((a, b) => a.rank - b.rank)

@@ -1,5 +1,6 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstreamJson } from '../fetch-upstream.ts'
 import { withUapisFallback } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -42,7 +43,7 @@ class ServiceToutiao {
 
   async #fetch() {
     const api = 'https://www.toutiao.com/hot-event/hot-board/?origin=toutiao_pc'
-    const { data = [] } = await (await fetch(api)).json()
+    const { data = [] } = await fetchUpstreamJson<{ data?: Item[] }>(api)
 
     return (data as Item[]).map((e) => ({
       title: e.Title,

@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -20,10 +21,7 @@ class ServiceReddit {
         case 'markdown':
           ctx.response.body = `# Reddit 热帖 (r/all)\n\n${data
             .slice(0, 25)
-            .map(
-              (e, i) =>
-                `### ${i + 1}. [${e.title}](${e.link})\n\nr/${e.subreddit} · ${e.author}\n\n---\n`,
-            )
+            .map((e, i) => `### ${i + 1}. [${e.title}](${e.link})\n\nr/${e.subreddit} · ${e.author}\n\n---\n`)
             .join('\n')}`
           break
 
@@ -47,12 +45,15 @@ class ServiceReddit {
 
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const response = await fetch('https://www.reddit.com/r/all/hot.rss', {
+        // Reddit 限流严（429 后等约 1 分钟）：保留本模块自有的 429/Retry-After 退避逻辑；
+        // fetchUpstream 只负责传输（UA 在下面 headers 里显式给出），retry: 0 不 double-retry
+        const response = await fetchUpstream('https://www.reddit.com/r/all/hot.rss', {
           headers: {
             'User-Agent': 'cloudflare:daily-hot:0.1.0 (by /u/dailyhot)',
             Accept: 'application/atom+xml',
           },
-          signal: AbortSignal.timeout(10000),
+          timeoutMs: 10000,
+          retry: 0,
         })
 
         if (response.ok) {
@@ -65,9 +66,7 @@ class ServiceReddit {
         if (response.status === 429 && attempt < 2) {
           const retryAfter = Number(response.headers.get('retry-after'))
           const delay =
-            Number.isFinite(retryAfter) && retryAfter > 0 && retryAfter <= 5
-              ? retryAfter * 1000
-              : 2000 * (attempt + 1)
+            Number.isFinite(retryAfter) && retryAfter > 0 && retryAfter <= 5 ? retryAfter * 1000 : 2000 * (attempt + 1)
           await new Promise((r) => setTimeout(r, delay))
           continue
         }

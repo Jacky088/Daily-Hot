@@ -1,4 +1,5 @@
 import { Common } from '../../common.ts'
+import { fetchUpstream } from '../../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -28,11 +29,13 @@ class ServiceDailyEng {
   // 金山词霸每日一句开放接口，无需 key；date 留空取当日，格式 YYYY-MM-DD
   async #fetch(date?: string): Promise<DailyEngData> {
     // date 来自 query：编码后 &/? 等分隔符无法再篡改上游的 query 结构
-    const url = date ? `https://open.iciba.com/dsapi/?date=${encodeURIComponent(date)}` : 'https://open.iciba.com/dsapi/'
+    const url = date
+      ? `https://open.iciba.com/dsapi/?date=${encodeURIComponent(date)}`
+      : 'https://open.iciba.com/dsapi/'
 
-    const response = await fetch(url, {
-      headers: { 'User-Agent': Common.chromeUA },
-      signal: AbortSignal.timeout(5000),
+    const response = await fetchUpstream(url, {
+      timeoutMs: 5000,
+      retry: 1,
     })
 
     if (!response.ok) {

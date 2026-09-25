@@ -111,7 +111,7 @@ class ServiceColor {
           ctx.response.body = this.formatAsText(data)
           break
         case 'markdown':
-          ctx.response.body = `# 🎨 配色方案\n\n## 基础颜色\n\n**${data.input.name}** - ${data.input.hex}\n\n${data.palettes.map((p: ColorPalette) => `### ${p.name}\n\n${p.description}\n\n${p.colors.map(c => `- **${c.name}** (${c.role}) - ${c.hex}`).join('\n')}\n`).join('\n')}`
+          ctx.response.body = `# 🎨 配色方案\n\n## 基础颜色\n\n**${data.input.name}** - ${data.input.hex}\n\n${data.palettes.map((p: ColorPalette) => `### ${p.name}\n\n${p.description}\n\n${p.colors.map((c) => `- **${c.name}** (${c.role}) - ${c.hex}`).join('\n')}\n`).join('\n')}`
           break
         case 'html':
           ctx.response.headers.set('Content-Type', 'text/html; charset=utf-8')

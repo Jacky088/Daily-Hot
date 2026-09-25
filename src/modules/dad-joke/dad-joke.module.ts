@@ -1,4 +1,5 @@
 import { Common } from '../../common.ts'
+import { fetchUpstream } from '../../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -28,12 +29,12 @@ class ServiceDadJoke {
   }
 
   async #fetch(): Promise<{ id: string; joke: string }> {
-    const response = await fetch('https://icanhazdadjoke.com/', {
+    const response = await fetchUpstream('https://icanhazdadjoke.com/', {
       headers: {
         Accept: 'application/json',
-        'User-Agent': Common.chromeUA,
       },
-      signal: AbortSignal.timeout(5000),
+      timeoutMs: 5000,
+      retry: 1,
     })
 
     if (!response.ok) {

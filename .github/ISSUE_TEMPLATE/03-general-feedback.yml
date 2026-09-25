@@ -1,7 +1,7 @@
-name: "💬 其他反馈"
-description: "其他类型的反馈、建议或讨论"
-title: "【其他反馈】"
-labels: ["feedback"]
+name: '💬 其他反馈'
+description: '其他类型的反馈、建议或讨论'
+title: '【其他反馈】'
+labels: ['feedback']
 assignees: []
 body:
   - type: markdown
@@ -12,59 +12,59 @@ body:
   - type: dropdown
     id: feedback-type
     attributes:
-      label: "反馈类型"
-      description: "请选择您的反馈类型"
+      label: '反馈类型'
+      description: '请选择您的反馈类型'
       options:
-        - "文档问题"
-        - "使用建议"
-        - "项目讨论"
-        - "合作建议"
-        - "API使用疑问"
-        - "部署相关"
-        - "其他"
+        - '文档问题'
+        - '使用建议'
+        - '项目讨论'
+        - '合作建议'
+        - 'API使用疑问'
+        - '部署相关'
+        - '其他'
     validations:
       required: true
 
   - type: textarea
     id: feedback-content
     attributes:
-      label: "反馈内容"
-      description: "请详细描述您的反馈"
-      placeholder: "请详细描述您的想法、建议或问题..."
+      label: '反馈内容'
+      description: '请详细描述您的反馈'
+      placeholder: '请详细描述您的想法、建议或问题...'
     validations:
       required: true
 
   - type: dropdown
     id: related-module
     attributes:
-      label: "相关模块（可选）"
-      description: "您的反馈涉及哪个模块？"
+      label: '相关模块（可选）'
+      description: '您的反馈涉及哪个模块？'
       options:
-        - "整个项目"
-        - "文档 (README/文档)"
-        - "API设计"
-        - "部署方式"
-        - "数据源"
-        - "缓存机制"
-        - "错误处理"
-        - "其他"
+        - '整个项目'
+        - '文档 (README/文档)'
+        - 'API设计'
+        - '部署方式'
+        - '数据源'
+        - '缓存机制'
+        - '错误处理'
+        - '其他'
     validations:
       required: false
 
   - type: input
     id: contact
     attributes:
-      label: "联系方式（可选）"
-      description: "如需进一步沟通，请提供联系方式（可选）"
-      placeholder: "邮箱、微信、QQ等"
+      label: '联系方式（可选）'
+      description: '如需进一步沟通，请提供联系方式（可选）'
+      placeholder: '邮箱、微信、QQ等'
     validations:
       required: false
 
   - type: textarea
     id: reference
     attributes:
-      label: "参考资料（可选）"
-      description: "如有相关链接或参考资料，请提供"
+      label: '参考资料（可选）'
+      description: '如有相关链接或参考资料，请提供'
       placeholder: |
         - 相关文档链接
         - 参考项目
@@ -76,18 +76,18 @@ body:
   - type: checkboxes
     id: terms
     attributes:
-      label: "确认"
-      description: "请确认您已阅读相关内容"
+      label: '确认'
+      description: '请确认您已阅读相关内容'
       options:
-        - label: "我已搜索过现有的 issue，确认没有重复"
+        - label: '我已搜索过现有的 issue，确认没有重复'
           required: true
-        - label: "我理解这是一个开源项目，维护者会根据情况处理反馈"
+        - label: '我理解这是一个开源项目，维护者会根据情况处理反馈'
           required: true
 
   - type: textarea
     id: additional-info
     attributes:
-      label: "其他信息（可选）"
-      description: "任何其他您认为有用的信息"
+      label: '其他信息（可选）'
+      description: '任何其他您认为有用的信息'
     validations:
       required: false

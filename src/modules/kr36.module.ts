@@ -1,5 +1,6 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 import { withUapisFallback } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -38,7 +39,8 @@ class Service36Kr {
   async #fetch(): Promise<Kr36Item[]> {
     const url = 'http://gateway.36kr.com/api/mis/nav/home/nav/rank/hot'
 
-    const response = await fetch(url, {
+    // fetchUpstream 默认补 UA；36kr 这个 POST 接口 5xx 抖动偶发，保留 1 次重试
+    const response = await fetchUpstream(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
       body: JSON.stringify({
@@ -46,7 +48,7 @@ class Service36Kr {
         param: { siteId: 1, platformId: 2 },
         timestamp: Date.now(),
       }),
-      signal: AbortSignal.timeout(10000),
+      timeoutMs: 10000,
     })
 
     if (!response.ok) {

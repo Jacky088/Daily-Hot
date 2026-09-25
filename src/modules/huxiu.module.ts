@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { fetchUpstream, fetchUpstreamText } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -62,13 +63,15 @@ class ServiceHuxiu {
   // 虎嗅官方 API（阿里云 WAF 对部分出口 IP 弹滑块验证，可能失败）
   async #fetchOfficial(): Promise<HuxiuItem[] | null> {
     try {
-      const response = await fetch('https://api.huxiu.com/v1/article/hotList', {
+      // fetchUpstream 自带 UA + 8s 超时 + 5xx 重试；WAF 挑战页是 200 + text/html，
+      // 下面的 content-type 判定原样保留，语义不变
+      const response = await fetchUpstream('https://api.huxiu.com/v1/article/hotList', {
         headers: {
-          'User-Agent': Common.chromeUA,
           Accept: 'application/json, text/plain, */*',
           Referer: 'https://www.huxiu.com/',
         },
-        signal: AbortSignal.timeout(8000),
+        timeoutMs: 8000,
+        retry: 0,
       })
 
       const contentType = response.headers.get('content-type') || ''
@@ -97,12 +100,12 @@ class ServiceHuxiu {
   // 降级源：tophub.today 聚合的虎嗅网热文
   async #fetchTophub(): Promise<HuxiuItem[] | null> {
     try {
-      const response = await fetch('https://tophub.today/n/5VaobgvAj1', {
+      const response = await fetchUpstream('https://tophub.today/n/5VaobgvAj1', {
         headers: {
-          'User-Agent': Common.chromeUA,
           Referer: 'https://tophub.today/c/tech',
         },
-        signal: AbortSignal.timeout(10000),
+        timeoutMs: 10000,
+        retry: 0,
       })
 
       if (!response.ok) return null

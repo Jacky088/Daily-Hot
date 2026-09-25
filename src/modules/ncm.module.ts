@@ -1,5 +1,6 @@
 import { Common, dayjs } from '../common.ts'
 import { filesize } from 'filesize'
+import { fetchUpstream, fetchUpstreamJson } from '../fetch-upstream.ts'
 import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceNcm {
@@ -64,7 +65,9 @@ class ServiceNcm {
                 `### ${i + 1}. [${e.title}](${e.link}) \`${e.duration_desc}\`\n\n**歌手**: ${e.artist
                   .slice(0, 3)
                   .map((a) => `[${a.name}](${a.link})`)
-                  .join(' / ')}\n\n**专辑**: ${e.album.name}${e.album.cover ? `\n\n![${e.album.name}](${e.album.cover})` : ''}\n\n**热度**: ${e.popularity} | **评分**: ${e.score}\n\n---\n`,
+                  .join(
+                    ' / ',
+                  )}\n\n**专辑**: ${e.album.name}${e.album.cover ? `\n\n![${e.album.name}](${e.album.cover})` : ''}\n\n**热度**: ${e.popularity} | **评分**: ${e.score}\n\n---\n`,
             )
             .join('\n')}`
           break
@@ -97,14 +100,14 @@ class ServiceNcm {
     }
 
     const api = 'https://music.163.com/api/toplist'
+    // 网易云榜单接口：Referer 必带；fetchUpstream 自带 UA + 8s 超时 + 1 次重试
     const options = {
       headers: {
-        'User-Agent': Common.chromeUA,
         Referer: 'https://music.163.com/',
       },
     }
 
-    const response = await fetch(api, options)
+    const response = await fetchUpstream(api, options)
     const { list = [] } = (await response.json()) as NcmRankRes
 
     const processedData = list.map((rank) => ({
@@ -188,14 +191,14 @@ class ServiceNcm {
 
     // id 来自路由参数 /ncm-rank/:id：编码后无法用 & 篡改上游 query
     const api = `https://music.163.com/api/playlist/detail?id=${encodeURIComponent(id)}`
+    // 歌单详情：Referer 必带；fetchUpstream 自带 UA + 8s 超时 + 1 次重试
     const options = {
       headers: {
-        'User-Agent': Common.chromeUA,
         Referer: 'https://music.163.com/',
       },
     }
 
-    const response = await fetch(api, options)
+    const response = await fetchUpstream(api, options)
     const { result } = ((await response.json()) || {}) as NcmRankItemRes
 
     const processedData = (result?.tracks || []).map((track, index) => ({

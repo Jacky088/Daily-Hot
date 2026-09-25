@@ -1102,9 +1102,7 @@
       },
       "documentTranslate": {
         "interfaceType": "combine",
-        "common": [
-          
-        ],
+        "common": [],
         "specify": [
           {
             "code": "zh-CHS2en",
@@ -1134,9 +1132,7 @@
       },
       "term": {
         "interfaceType": "combine",
-        "common": [
-          
-        ],
+        "common": [],
         "specify": [
           {
             "code": "en2zh-CHS",

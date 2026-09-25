@@ -1,6 +1,7 @@
 import { load } from 'cheerio'
 import { Common, dayjs } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -44,7 +45,10 @@ class ServiceGithubTrending {
       let limit = Number.parseInt(ctx.request.url.searchParams.get('limit') || '') || DEFAULT_LIMIT
       limit = Math.min(limit, MAX_LIMIT)
 
-      const data = (await cached(`github-trending-${since}-${lang || 'all'}`, () => this.#fetch(since, lang))).slice(0, limit)
+      const data = (await cached(`github-trending-${since}-${lang || 'all'}`, () => this.#fetch(since, lang))).slice(
+        0,
+        limit,
+      )
 
       switch (ctx.state.encoding) {
         case 'text': {
@@ -79,9 +83,11 @@ class ServiceGithubTrending {
   async #fetch(since: string, lang: string): Promise<GithubTrendingItem[]> {
     try {
       const url = `${GITHUB_TRENDING_URL}${lang ? `/${encodeURIComponent(lang)}` : ''}?since=${since}`
-      const response = await fetch(url, {
-        headers: { 'User-Agent': Common.chromeUA, Accept: 'text/html' },
-        signal: AbortSignal.timeout(10000),
+      // 抓页：fetchUpstream 自带 UA + 10s 超时；失败抛错直接落到下面的搜索接口兜底
+      const response = await fetchUpstream(url, {
+        headers: { Accept: 'text/html' },
+        timeoutMs: 10000,
+        retry: 0,
       })
 
       if (response.ok) {
@@ -106,9 +112,18 @@ class ServiceGithubTrending {
       if (!path) return
 
       // h2 的文字是「owner / repo」（owner 外层 span 自带留白），收成一行再去掉斜杠两侧多余空格
-      const title = anchor.text().replace(/\s+/g, ' ').replace(/\s*\/\s*/g, ' / ').trim()
+      const title = anchor
+        .text()
+        .replace(/\s+/g, ' ')
+        .replace(/\s*\/\s*/g, ' / ')
+        .trim()
       // 右上角「1,234 stars today / this week / this month」，只取数字部分
-      const starsToday = ($(el).find('span.d-inline-block.float-sm-right').first().text().match(/[\d,]+/) || [])[0] || ''
+      const starsToday =
+        ($(el)
+          .find('span.d-inline-block.float-sm-right')
+          .first()
+          .text()
+          .match(/[\d,]+/) || [])[0] || ''
 
       items.push({
         rank: items.length + 1,
@@ -134,15 +149,16 @@ class ServiceGithubTrending {
     const created = dayjs().subtract(days, 'day').format('YYYY-MM-DD')
     const q = `created:>${created}${lang ? ` language:${lang}` : ''}`
 
-    const response = await fetch(
+    // 兜底搜索接口：同样给 10s 超时；GitHub API 限流返回 403，抛错语义与原来一致
+    const response = await fetchUpstream(
       `${GITHUB_SEARCH_API}?q=${encodeURIComponent(q)}&sort=stars&order=desc&per_page=${DEFAULT_LIMIT}`,
       {
         headers: {
-          'User-Agent': Common.chromeUA,
           Accept: 'application/vnd.github+json',
           'X-GitHub-Api-Version': '2022-11-28',
         },
-        signal: AbortSignal.timeout(10000),
+        timeoutMs: 10000,
+        retry: 0,
       },
     )
 

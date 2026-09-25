@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 import type { RouterMiddleware } from '@oak/oak'
 
 const xhsApiUrl = 'https://edith.xiaohongshu.com/api/sns/v1/search/hot_list'
@@ -19,7 +20,9 @@ const xhsHeaders = {
 class ServiceRednote {
   handle(): RouterMiddleware<'/rednote'> {
     return async (ctx) => {
-      const response = await fetch(xhsApiUrl, {
+      // 小红书私有头（shield/xy-*）一个不能少；原来裸 fetch 无超时，hang 住拖整卡，
+      // fetchUpstream 给 8s + 1 次重试
+      const response = await fetchUpstream(xhsApiUrl, {
         method: 'GET',
         headers: xhsHeaders,
       })

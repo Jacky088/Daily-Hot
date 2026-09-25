@@ -1,4 +1,5 @@
 import { Common, dayjs, TZ_SHANGHAI } from '../common.ts'
+import { fetchUpstreamJson } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -53,8 +54,9 @@ class ServiceTodayInHistory {
       }
     }
 
-    const res = await fetch(this.getHistoryApi(now.month() + 1))
-    const monthEvents: AnyObject<AnyObject<AnyObject[]>> = await res.json()
+    // 历史上的今天数据源：fetchUpstream 给 8s + 1 次重试，原来裸 fetch 无超时
+    const res = await fetchUpstreamJson<AnyObject<AnyObject<AnyObject[]>>>(this.getHistoryApi(now.month() + 1))
+    const monthEvents: AnyObject<AnyObject<AnyObject[]>> = res
     const todayEvents = monthEvents?.[String(now.format('MM'))]?.[todayField] ?? []
 
     todayEvents.sort((a, b) => a.year - b.year)

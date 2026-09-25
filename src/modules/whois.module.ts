@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 import whois from 'whois-raw'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -599,35 +600,30 @@ class ServiceWhois {
   }
 
   /**
-   * 从 RDAP 获取域名信息（带超时控制）
+   * 从 RDAP 获取域名信息（带超时控制）。
+   * fetchUpstream 自带超时 + 默认 UA；原来手写 AbortController 语义等价，这里简化。
+   * timeoutMs 按 CONFIG.RDAP_TIMEOUT 口径覆盖，retry: 0（RDAP 失败直接走 whois 兜底）。
    */
   private async fetchRDAP(domain: string): Promise<WhoisData> {
     const punycodeDomain = this.toPunycode(domain)
     const rootDomain = this.extractRootDomain(punycodeDomain)
 
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), CONFIG.RDAP_TIMEOUT)
+    const response = await fetchUpstream(`https://rdap.org/domain/${encodeURIComponent(rootDomain)}`, {
+      headers: {
+        Accept: 'application/rdap+json',
+      },
+      timeoutMs: CONFIG.RDAP_TIMEOUT,
+      retry: 0,
+    })
 
-    try {
-      const response = await fetch(`https://rdap.org/domain/${encodeURIComponent(rootDomain)}`, {
-        headers: {
-          Accept: 'application/rdap+json',
-          'User-Agent': Common.chromeUA,
-        },
-        signal: controller.signal,
-      })
-
-      if (!response.ok) {
-        throw new Error(
-          response.status === 404 ? `域名 ${rootDomain} 未找到或未注册` : `RDAP 查询失败: ${response.status}`,
-        )
-      }
-
-      const data: RDAPResponse = await response.json()
-      return this.parseRDAPResponse(data)
-    } finally {
-      clearTimeout(timeoutId)
+    if (!response.ok) {
+      throw new Error(
+        response.status === 404 ? `域名 ${rootDomain} 未找到或未注册` : `RDAP 查询失败: ${response.status}`,
+      )
     }
+
+    const data: RDAPResponse = await response.json()
+    return this.parseRDAPResponse(data)
   }
 
   /**

@@ -2,6 +2,7 @@
 import events from './events.json' with { type: 'json' }
 
 import { Common, dayjs, TZ_SHANGHAI } from '../../common.ts'
+import { fetchUpstream } from '../../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -84,13 +85,15 @@ ${rows.join('\n')}`
   async #fetchOngoing(code: string): Promise<OlympicsMedalsResponse> {
     const url = `https://proxy.viki.moe/${code}/competition/api/CHI/medals?proxy-host=www.olympics.com`
 
-    const response = await fetch(url, {
+    // redirect/manual 必须透传（跟随逻辑在下层处理）；fetchUpstream 只补 UA + 超时。
+    // UA 即 Common.chromeUA 口径，这里用字面量只是历史写法，语义一致。
+    const response = await fetchUpstream(url, {
       headers: {
         referer: 'https://www.olympics.com/',
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36',
+        'User-Agent': Common.chromeUA,
       },
       redirect: 'manual',
+      retry: 0,
     })
 
     if (!response.ok) {
@@ -138,15 +141,16 @@ ${rows.join('\n')}`
   }
 
   async #fetchHistoryEvent(id: string): Promise<OlympicsMedalsResponse> {
-    const re = await fetch('https://bff-api.olympics.com/bff/api/session/exchange', {
+    // 取 session cookie：redirect/manual 透传，超时 8s，不重试（cookie 失败直接抛）
+    const re = await fetchUpstream('https://bff-api.olympics.com/bff/api/session/exchange', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'User-Agent': Common.chromeUA,
         Referer: 'https://www.olympics.com/',
       },
       body: JSON.stringify({ tid: 'sed' }),
       redirect: 'manual',
+      retry: 0,
     })
 
     // __sdw-bff cookie
@@ -158,7 +162,8 @@ ${rows.join('\n')}`
       .replace('__sdw-bff=;', '')
 
     // id 来自 query：编码后才不会把 / 或 ? 带进上游路径
-    //（命名避开下面那个从响应里取出的 eventId，两者含义不同）
+    //（命名避开下面那个从响应里取出的 eventId，两者含义不同）。
+    // UA 即 Common.chromeUA 口径，用字面量只是随上游页面指纹的历史写法，语义一致。
     const encodedId = encodeURIComponent(id)
     const headers = {
       'User-Agent': Common.chromeUA,
@@ -166,9 +171,12 @@ ${rows.join('\n')}`
       cookie,
     }
 
-    const response = await fetch(`https://bff-api.olympics.com/bff/api/usdm/v1/competitions/${encodedId}?languageCode=ZH`, {
-      headers,
-    })
+    const response = await fetchUpstream(
+      `https://bff-api.olympics.com/bff/api/usdm/v1/competitions/${encodedId}?languageCode=ZH`,
+      {
+        headers,
+      },
+    )
 
     if (response.status === 204) {
       throw new Error(`暂无 ID 为 ${id} 的奥运赛事数据`)
@@ -179,7 +187,7 @@ ${rows.join('\n')}`
     const eventId = eventData.data.id
     const eventSlug = eventData.data.slug
 
-    const medalsResponse = await fetch(
+    const medalsResponse = await fetchUpstream(
       `https://bff-api.olympics.com/bff/api/usdm/v1/competitions/${eventId}/awards/noc?languageCode=ZH`,
       { headers },
     )

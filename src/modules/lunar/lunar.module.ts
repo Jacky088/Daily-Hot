@@ -229,8 +229,13 @@ class ServiceLunar {
         case 'markdown':
           ctx.response.body = `# 📅 ${data.solar.full} ${data.solar.week_desc}\n\n## 农历信息\n\n**${data.lunar.desc_short}** (${data.lunar.is_leap_month ? '闰月' : '平月'})\n\n**干支**: ${data.sixty_cycle.year.name} ${data.sixty_cycle.month.name} ${data.sixty_cycle.day.name}\n\n**生肖**: ${data.zodiac.year}年 ${data.zodiac.month}月 ${data.zodiac.day}日\n\n**纳音**: ${data.nayin.year}\n\n## 节气与星座\n\n**节气**: ${data.term.stage.name}第${data.term.stage.position}天${data.term.today ? ` (今日${data.term.today})` : ''}\n\n**星座**: ${data.constellation.name}\n\n**月相**: ${data.phase.name}\n\n## 宜忌\n\n${data.taboo.day.recommends ? `**宜**: ${data.taboo.day.recommends}\n\n` : ''}${data.taboo.day.avoids ? `**忌**: ${data.taboo.day.avoids}\n\n` : ''}## 时辰吉凶\n\n${data.taboo.hours
             .slice(0, 12)
-            .map((h) => `### ${h.hour}\n\n${h.recommends ? `**宜**: ${h.recommends}\n\n` : ''}${h.avoids ? `**忌**: ${h.avoids}` : ''}`)
-            .join('\n\n')}\n\n## 节日\n\n${data.festival.solar || data.festival.lunar ? data.festival.both_desc : '无'}\n\n${data.legal_holiday ? `### 法定节假日\n\n**${data.legal_holiday.name}** ${data.legal_holiday.is_work ? '(补班)' : '(休息)'}` : ''}\n\n## 运势\n\n**今日运势**: ${data.fortune.today_luck}\n\n**事业**: ${data.fortune.career}\n\n**财运**: ${data.fortune.money}\n\n**感情**: ${data.fortune.love}\n\n---\n\n*今年已过 ${data.stats.percents_formatted.year} | 本月已过 ${data.stats.percents_formatted.month}*`
+            .map(
+              (h) =>
+                `### ${h.hour}\n\n${h.recommends ? `**宜**: ${h.recommends}\n\n` : ''}${h.avoids ? `**忌**: ${h.avoids}` : ''}`,
+            )
+            .join(
+              '\n\n',
+            )}\n\n## 节日\n\n${data.festival.solar || data.festival.lunar ? data.festival.both_desc : '无'}\n\n${data.legal_holiday ? `### 法定节假日\n\n**${data.legal_holiday.name}** ${data.legal_holiday.is_work ? '(补班)' : '(休息)'}` : ''}\n\n## 运势\n\n**今日运势**: ${data.fortune.today_luck}\n\n**事业**: ${data.fortune.career}\n\n**财运**: ${data.fortune.money}\n\n**感情**: ${data.fortune.love}\n\n---\n\n*今年已过 ${data.stats.percents_formatted.year} | 本月已过 ${data.stats.percents_formatted.month}*`
           break
 
         case 'json':
@@ -264,11 +269,15 @@ class ServiceLunar {
 
       const cells = days.map((day) => {
         const lunarDay = day.getLunarDay()
-        const dateStr = dayjs(`${day.getYear()}-${String(day.getMonth()).padStart(2, '0')}-${String(day.getDay()).padStart(2, '0')}`).format('YYYY-MM-DD')
+        const dateStr = dayjs(
+          `${day.getYear()}-${String(day.getMonth()).padStart(2, '0')}-${String(day.getDay()).padStart(2, '0')}`,
+        ).format('YYYY-MM-DD')
         const weekIdx = day.getWeek().getIndex()
 
         // 展示文本优先级：节日 > 节气 > 农历日（初一显示农历月名）
-        const festivalNames = [day.getFestival()?.getName(), lunarDay.getFestival()?.getName()].filter(Boolean) as string[]
+        const festivalNames = [day.getFestival()?.getName(), lunarDay.getFestival()?.getName()].filter(
+          Boolean,
+        ) as string[]
         const isTerm = day.getTermDay().getDayIndex() === 0
         const termName = isTerm ? day.getTermDay().getName() : null
         const festival = festivalNames.length > 0 ? festivalNames.join('、') : null
@@ -302,9 +311,9 @@ class ServiceLunar {
 
       // 周一开头的 7 列网格：月首前置空位 + 月尾补空位，按 7 天切行
       const lead = (days[0].getWeek().getIndex() + 6) % 7
-      const padded: (typeof cells[number] | null)[] = [...Array(lead).fill(null), ...cells]
+      const padded: ((typeof cells)[number] | null)[] = [...Array(lead).fill(null), ...cells]
       while (padded.length % 7 !== 0) padded.push(null)
-      const weeks: (typeof cells[number] | null)[][] = []
+      const weeks: ((typeof cells)[number] | null)[][] = []
       for (let i = 0; i < padded.length; i += 7) weeks.push(padded.slice(i, i + 7))
 
       const payload = {
@@ -320,7 +329,11 @@ class ServiceLunar {
           ctx.response.body = `${year}年${month}月（共 ${cells.length} 天）\n\n${weeks
             .map((week) =>
               week
-                .map((c) => (c ? `${String(c.day).padStart(2, ' ')} ${c.label}${c.holiday ? (c.holiday.is_work ? ' 班' : ' 休') : ''}` : ' · '))
+                .map((c) =>
+                  c
+                    ? `${String(c.day).padStart(2, ' ')} ${c.label}${c.holiday ? (c.holiday.is_work ? ' 班' : ' 休') : ''}`
+                    : ' · ',
+                )
                 .join(' | '),
             )
             .join('\n')}`

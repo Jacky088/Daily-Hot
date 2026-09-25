@@ -12,7 +12,9 @@ export function handleGlobalError(): Middleware {
       console.error(err)
 
       ctx.response.status = 500
-      ctx.response.body = isJSON ? Common.buildJson(null, 500, '服务器内部错误，请稍后重试') : '服务器内部错误，请稍后重试'
+      ctx.response.body = isJSON
+        ? Common.buildJson(null, 500, '服务器内部错误，请稍后重试')
+        : '服务器内部错误，请稍后重试'
     }
   }
 }

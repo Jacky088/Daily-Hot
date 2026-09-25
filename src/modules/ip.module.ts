@@ -1,5 +1,6 @@
 import { Common } from '../common.ts'
 import { toChineseCity } from '../data/cn-geo.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 import { getPlatformIP } from '../platform-ip.ts'
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -143,9 +144,7 @@ class ServiceIP {
    *      退回默认城市」的来源。
    */
   async getPublicIP(): Promise<string> {
-    const results = await Promise.allSettled(
-      ServiceIP.PUBLIC_IP_SERVICES.map((service) => this.probePublicIP(service)),
-    )
+    const results = await Promise.allSettled(ServiceIP.PUBLIC_IP_SERVICES.map((service) => this.probePublicIP(service)))
 
     for (const result of results) {
       if (result.status === 'fulfilled' && result.value) return result.value
@@ -157,7 +156,9 @@ class ServiceIP {
   /** 单个探测服务：异常一律吞掉返回空串，交给 getPublicIP 按优先级挑选 */
   private async probePublicIP(service: string): Promise<string> {
     try {
-      const response = await fetch(service, { signal: AbortSignal.timeout(2500) })
+      // 并发探测中的一家：2.5s 超时不重试（getPublicIP 本就并发问 4 家），
+      // 异常语义与原来一致（非 ok / 抛错都返回空串）
+      const response = await fetchUpstream(service, { timeoutMs: 2500, retry: 0 })
       if (!response.ok) return ''
 
       // 各家的响应格式并不统一：多数只回一个裸 IP，ipip 回的是
@@ -259,15 +260,17 @@ class ServiceIP {
     }
 
     // 1. 主源：ipinfo.io —— 同时支持 IPv4/IPv6，数据准确
+    // 原来裸 fetch 无超时 + 外层 try/catch 吞错回退；fetchUpstream 给 5s 超时，
+    // 失败抛错语义一致（外层 catch 继续走 ip-api / ip.sb 回退）
     try {
-      const res = await fetch(`https://ipinfo.io/${ip}/json`, { signal: AbortSignal.timeout(5000) })
+      const res = await fetchUpstream(`https://ipinfo.io/${ip}/json`, { timeoutMs: 5000, retry: 0 })
       if (res.ok) {
         const d = await res.json()
         if (d && d.ip && !d.error) {
           const [lat, lng] = (d.loc || ',').split(',')
           // org 形如 "AS13335 Cloudflare, Inc."，提取运营商名
           const orgMatch = (d.org || '').match(/^AS\d+\s+(.+)$/)
-          const isp = orgMatch ? orgMatch[1] : (d.org || '')
+          const isp = orgMatch ? orgMatch[1] : d.org || ''
           const asMatch = (d.org || '').match(/^AS(\d+)/)
           return {
             ip,
@@ -330,8 +333,9 @@ class ServiceIP {
   // 而 ipinfo 给出 Shanghai（省级中心，偏差明显），所以 IPv6 路径优先用它。
   // 免费调用有频率限制（约 1 次/秒），失败返回 null 由调用方继续回退
   private async fetchByIpSb(ip: string): Promise<IpInfo | null> {
+    // 免费源限流（约 1 次/秒）：retry: 0，失败返回 null 由调用方继续回退，语义不变
     try {
-      const res = await fetch(`https://api.ip.sb/geoip/${ip}`, { signal: AbortSignal.timeout(5000) })
+      const res = await fetchUpstream(`https://api.ip.sb/geoip/${ip}`, { timeoutMs: 5000, retry: 0 })
       if (!res.ok) return null
 
       const d = await res.json()
@@ -366,9 +370,9 @@ class ServiceIP {
   // 免费版只走 HTTP。失败返回 null，由调用方继续回退
   private async fetchByIpApi(ip: string): Promise<IpInfo | null> {
     try {
-      const res = await fetch(
+      const res = await fetchUpstream(
         `http://ip-api.com/json/${ip}?lang=zh-CN&fields=status,message,country,countryCode,regionName,city,isp,org,as,lat,lon,timezone`,
-        { signal: AbortSignal.timeout(5000) },
+        { timeoutMs: 5000, retry: 0 },
       )
       if (!res.ok) return null
 
@@ -388,7 +392,7 @@ class ServiceIP {
         source: 'ip-api.com',
         areacode: d.countryCode || '',
         adcode: '',
-        asnumber: asMatch ? asMatch[1] : (d.as || ''),
+        asnumber: asMatch ? asMatch[1] : d.as || '',
         lat: String(d.lat || ''),
         lng: String(d.lon || ''),
         radius: '',

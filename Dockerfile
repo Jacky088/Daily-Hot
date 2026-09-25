@@ -33,8 +33,8 @@ ENV NODE_ENV=production TZ=Asia/Shanghai
 # 创建一个运行用户，避免以 root 用户运行
 RUN addgroup -S nodejs && adduser -S nodejs -G nodejs
 
-# 从构建阶段复制整个 app 目录
-COPY --from=builder /app .
+# 从构建阶段复制整个 app 目录（带上属主：USER nodejs 后要能读 public、写 /tmp 缓存）
+COPY --from=builder --chown=nodejs:nodejs /app .
 
 # 切换到非 root 用户
 USER nodejs

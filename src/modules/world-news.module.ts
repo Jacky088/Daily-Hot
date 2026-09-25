@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 import { load } from 'cheerio'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -22,13 +23,19 @@ class ServiceWorldNews {
       const conf = sources[source]
       if (!conf) {
         ctx.response.status = 400
-        ctx.response.body = Common.buildJson(null, 400, `不支持的数据源：${source}，可选 ${Object.keys(sources).join(' / ')}`)
+        ctx.response.body = Common.buildJson(
+          null,
+          400,
+          `不支持的数据源：${source}，可选 ${Object.keys(sources).join(' / ')}`,
+        )
         return
       }
 
-      const response = await fetch(conf.url, {
-        headers: { 'User-Agent': Common.chromeUA, Accept: 'application/rss+xml, application/xml, text/xml' },
-        signal: AbortSignal.timeout(8000),
+      // Google News RSS 在 Workers 出口常被拦截：fetchUpstream 给 8s 超时 + 1 次重试，
+      // 失败抛错语义与原来一致（上层无 catch，直接 500 + stale 兜底）
+      const response = await fetchUpstream(conf.url, {
+        headers: { Accept: 'application/rss+xml, application/xml, text/xml' },
+        timeoutMs: 8000,
       })
 
       if (!response.ok) {

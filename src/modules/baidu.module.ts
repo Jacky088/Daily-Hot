@@ -1,5 +1,6 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstream, fetchUpstreamJson } from '../fetch-upstream.ts'
 import { withUapisFallback } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -61,7 +62,10 @@ class ServiceBaidu {
       case 'text':
         ctx.response.body = `${title}\n\n${data
           .slice(0, 20)
-          .map((e, i) => `${i + 1}. ${e.title} (${e.score_desc})${e.genre ? ` [${e.genre}]` : ''}${e.actors ? ` 主演:${e.actors}` : ''}`)
+          .map(
+            (e, i) =>
+              `${i + 1}. ${e.title} (${e.score_desc})${e.genre ? ` [${e.genre}]` : ''}${e.actors ? ` 主演:${e.actors}` : ''}`,
+          )
           .join('\n')}`
         break
 
@@ -123,8 +127,7 @@ class ServiceBaidu {
   }
 
   async #fetchRealtimeHot() {
-    const options = { headers: { 'User-Agent': Common.chromeUA } }
-    const response = await fetch('https://top.baidu.com/board?tab=realtime', options)
+    const response = await fetchUpstream('https://top.baidu.com/board?tab=realtime')
     const rawHtml = await response.text()
     const matchResult = rawHtml.match(/<!--s-data:(.*?)-->/s)
     const data: RealtimeItem[] =
@@ -154,12 +157,10 @@ class ServiceBaidu {
 
   /** 电视剧榜 / 电影榜共用：抓取百度热搜对应 tab，并把 show 标签拆为类型 / 演员等结构化字段 */
   async #fetchBoard(tab: 'teleplay' | 'movie'): Promise<BoardItemDTO[]> {
-    const options = { headers: { 'User-Agent': Common.chromeUA } }
-    const response = await fetch(`https://top.baidu.com/board?tab=${tab}`, options)
+    const response = await fetchUpstream(`https://top.baidu.com/board?tab=${tab}`)
     const rawHtml = await response.text()
     const matchResult = rawHtml.match(/<!--s-data:(.*?)-->/s)
-    const data: BoardItem[] =
-      JSON.parse(this.#normalizeHtml(matchResult?.[1] || '{}'))?.data?.cards?.[0]?.content || []
+    const data: BoardItem[] = JSON.parse(this.#normalizeHtml(matchResult?.[1] || '{}'))?.data?.cards?.[0]?.content || []
 
     return data.map((e) => {
       const show: Record<string, string> = {}
@@ -186,9 +187,9 @@ class ServiceBaidu {
   }
 
   async #fetchTieba() {
-    const options = { headers: { 'User-Agent': Common.chromeUA } }
-    const response = await fetch('https://tieba.baidu.com/hottopic/browse/topicList', options)
-    const data = await response.json()
+    const data = await fetchUpstreamJson<{ data?: { bang_topic?: { topic_list?: TiebaItem[] } } }>(
+      'https://tieba.baidu.com/hottopic/browse/topicList',
+    )
 
     return ((data?.data?.bang_topic?.topic_list || []) as TiebaItem[]).map((e, i) => ({
       rank: i + 1,

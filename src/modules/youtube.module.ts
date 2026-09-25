@@ -1,5 +1,6 @@
 import { Common, dayjs, TZ_SHANGHAI } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -42,7 +43,11 @@ class ServiceYoutube {
 
       if (!REGION_MAP[region]) {
         ctx.response.status = 400
-        ctx.response.body = Common.buildJson(null, 400, `暂不支持 ${region} 地区，可选值：${Object.keys(REGION_MAP).join('、')}`)
+        ctx.response.body = Common.buildJson(
+          null,
+          400,
+          `暂不支持 ${region} 地区，可选值：${Object.keys(REGION_MAP).join('、')}`,
+        )
         return
       }
 
@@ -79,11 +84,13 @@ class ServiceYoutube {
     const errors: string[] = []
 
     // Invidious 放在前面：只有它支持栏目参数，能拿到游戏榜
+    // 社区实例存活不定：单个 INSTANCE_TIMEOUT_MS 超时、retry: 0，失败换下一个实例
     for (const host of INVIDIOUS_INSTANCES) {
       try {
-        const res = await fetch(`https://${host}/api/v1/trending?region=${region}&type=${TRENDING_TYPE}`, {
-          headers: { 'User-Agent': Common.chromeUA, Accept: 'application/json' },
-          signal: AbortSignal.timeout(INSTANCE_TIMEOUT_MS),
+        const res = await fetchUpstream(`https://${host}/api/v1/trending?region=${region}&type=${TRENDING_TYPE}`, {
+          headers: { Accept: 'application/json' },
+          timeoutMs: INSTANCE_TIMEOUT_MS,
+          retry: 0,
         })
         if (!res.ok) {
           errors.push(`${host}: HTTP ${res.status}`)
@@ -106,9 +113,10 @@ class ServiceYoutube {
 
     for (const host of PIPED_INSTANCES) {
       try {
-        const res = await fetch(`https://${host}/trending?region=${region}`, {
-          headers: { 'User-Agent': Common.chromeUA, Accept: 'application/json' },
-          signal: AbortSignal.timeout(INSTANCE_TIMEOUT_MS),
+        const res = await fetchUpstream(`https://${host}/trending?region=${region}`, {
+          headers: { Accept: 'application/json' },
+          timeoutMs: INSTANCE_TIMEOUT_MS,
+          retry: 0,
         })
         if (!res.ok) {
           errors.push(`${host}: HTTP ${res.status}`)
@@ -155,7 +163,9 @@ class ServiceYoutube {
       views: views || 0,
       published_at: publishedAt,
       published: publishedAt > 0 ? dayjs(publishedAt).tz(TZ_SHANGHAI).format('YYYY-MM-DD HH:mm:ss') : '',
-      meta: [channel, views ? `${this.#formatNum(views)}次观看` : '', this.#relTime(publishedAt)].filter(Boolean).join(' · '),
+      meta: [channel, views ? `${this.#formatNum(views)}次观看` : '', this.#relTime(publishedAt)]
+        .filter(Boolean)
+        .join(' · '),
     }
   }
 

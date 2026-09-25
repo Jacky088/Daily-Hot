@@ -1,4 +1,5 @@
 import { Common, dayjs } from '../common.ts'
+import { fetchUpstreamJson, fetchUpstreamText } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -84,7 +85,10 @@ class ServiceBing {
 
         case 'markdown':
           ctx.response.body = list
-            .map((e) => `## ${e.date || e.title || '必应每日壁纸'}\n\n![${e.title}](${e.cover})\n\n${e.copyright ? `*${e.copyright}*` : ''}`)
+            .map(
+              (e) =>
+                `## ${e.date || e.title || '必应每日壁纸'}\n\n![${e.title}](${e.cover})\n\n${e.copyright ? `*${e.copyright}*` : ''}`,
+            )
             .join('\n\n---\n\n')
           break
 
@@ -116,15 +120,9 @@ class ServiceBing {
       return cache
     }
 
-    const options = {
-      headers: {
-        'User-Agent': Common.chromeUA,
-        'X-Real-IP': '157.255.219.143',
-        'X-Forwarded-For': '157.255.219.143',
-      },
-    }
-
-    const rawContent = await fetch('https://global.bing.com/?setmkt=zh-cn', options).then((e) => e.text())
+    // 必应归属判定按出口 IP geo 来：之前伪造 X-Forwarded-For 拿国内图源，
+    // fragile 且有合规观感，已去掉；geo 漂移只影响壁纸选题，不影响功能
+    const rawContent = await fetchUpstreamText('https://global.bing.com/?setmkt=zh-cn')
 
     const rawJson = /var\s*_model\s*=\s*([^;]+);/.exec(rawContent)?.[1] || '{}'
     const images = JSON.parse(rawJson)?.MediaContents ?? []
@@ -133,7 +131,9 @@ class ServiceBing {
 
     if (!images.length) {
       const api = 'https://global.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&setmkt=zh-cn'
-      const { images = [] } = await fetch(api, options).then((e) => e.json())
+      const { images = [] } = await fetchUpstreamJson<{
+        images?: Array<{ url?: string; title?: string; copyright?: string }>
+      }>(api)
       const image = images[0]
       if (!image) return null
 
@@ -202,18 +202,10 @@ class ServiceBing {
     const cache = this.#listCache.get(cacheKey)
     if (cache) return cache
 
-    const options = {
-      headers: {
-        'User-Agent': Common.chromeUA,
-        'X-Real-IP': '157.255.219.143',
-        'X-Forwarded-For': '157.255.219.143',
-      },
-    }
-
     const api = `https://global.bing.com/HPImageArchive.aspx?format=js&idx=0&n=${n}&setmkt=zh-cn`
-    const { images = [] } = (await fetch(api, options).then((e) => e.json())) as {
+    const { images = [] } = await fetchUpstreamJson<{
       images?: Array<{ url?: string; title?: string; copyright?: string; startdate?: string }>
-    }
+    }>(api)
 
     const list: BingItem[] = images
       .filter((e) => e?.url)

@@ -1,5 +1,6 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 
 /**
  * uapis.cn 热榜聚合（第三方中转）
@@ -73,9 +74,9 @@ class ServiceUapis {
   }
 
   async #fetch(type: UapisBoardType): Promise<UapisItem[]> {
-    const response = await fetch(`${ENDPOINT}?type=${encodeURIComponent(type)}`, {
-      headers: { 'User-Agent': Common.chromeUA },
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+    // 备用源本身也要有超时重试：fetchUpstream 默认 8s + 1 次重试，与 TIMEOUT_MS 口径一致
+    const response = await fetchUpstream(`${ENDPOINT}?type=${encodeURIComponent(type)}`, {
+      timeoutMs: TIMEOUT_MS,
     })
 
     if (!response.ok) {

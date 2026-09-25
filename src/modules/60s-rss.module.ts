@@ -109,9 +109,7 @@ class Service60sRss {
           })
           .join('\n')
 
-        const tipHtml = item.tip
-          ? `<h3>💬 微语</h3><p>${this.#escapeXml(item.tip)}</p>`
-          : ''
+        const tipHtml = item.tip ? `<h3>💬 微语</h3><p>${this.#escapeXml(item.tip)}</p>` : ''
 
         const imageHtml = item.image
           ? `<h3>📷 图片版本</h3><img src="${this.#escapeXml(item.image)}" alt="每天 60s 读懂世界" style="max-width: 100%; height: auto;"/>`

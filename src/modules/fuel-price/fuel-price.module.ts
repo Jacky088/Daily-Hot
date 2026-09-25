@@ -1,6 +1,7 @@
 import regions from './regions.json' with { type: 'json' }
 import { load } from 'cheerio'
 import { Common } from '../../common.ts'
+import { fetchUpstream } from '../../fetch-upstream.ts'
 import { resolveForceUpdate } from '../../force-update-guard.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -90,9 +91,12 @@ interface FuelTrend {
 
 class ServiceFuelPrice {
   #BASE_URL: string = 'http://www.qiyoujiage.com'
+  // 移动版：桌面版 www 对部分网络出口（代理/机房 IP）会被 WAF 拦截（连接重置 / HTTP 418），
+  // 移动版路径结构与桌面版一致，作为回退源
+  #MOBILE_URL: string = 'http://m.qiyoujiage.com'
   #HISTORY_URL: string = 'https://you.jxgjtz.com'
 
-  private cache = new Map<string, { ts: number; items: FuelPrice[]; trend: FuelTrend | null }>()
+  private cache = new Map<string, { ts: number; items: FuelPrice[]; trend: FuelTrend | null; base: string }>()
   private historyCache = new Map<string, { ts: number; data: FuelHistoryPoint[] }>()
   // 60 minutes
   private readonly CACHE_TTL_MS = 60 * 60 * 1000
@@ -110,7 +114,7 @@ class ServiceFuelPrice {
           return
         }
 
-        const [{ items, trend, ts }, history] = await Promise.all([
+        const [{ items, trend, ts, base }, history] = await Promise.all([
           this.#fetch(target, allowedForce),
           this.#fetchHistory(target.region, allowedForce),
         ])
@@ -124,7 +128,7 @@ class ServiceFuelPrice {
           items,
           history,
           history_region: historyRegion,
-          link: `${this.#BASE_URL}${target.url}`,
+          link: `${base}${target.url}`,
           updated: Common.localeTime(ts),
           updated_at: ts,
         }
@@ -148,10 +152,14 @@ class ServiceFuelPrice {
           case 'markdown': {
             ctx.response.body = `# 今日油价 (${queryRegion})\n\n${data.items
               .map((e) => `- **${e.name}**: ${e.price_desc}`)
-              .join('\n')}${data.trend ? `\n\n> ${data.trend.description}` : ''}${history.length ? `\n\n## 历史油价（${historyRegion}）\n\n| 日期 | 92# | 95# | 98# | 0# |\n|---|---|---|---|---|\n${history
-              .slice(-10)
-              .map((e) => `| ${e.date} | ${e.p92} | ${e.p95} | ${e.p98} | ${e.p0} |`)
-              .join('\n')}` : ''}\n\n更新时间: ${data.updated}`
+              .join('\n')}${data.trend ? `\n\n> ${data.trend.description}` : ''}${
+              history.length
+                ? `\n\n## 历史油价（${historyRegion}）\n\n| 日期 | 92# | 95# | 98# | 0# |\n|---|---|---|---|---|\n${history
+                    .slice(-10)
+                    .map((e) => `| ${e.date} | ${e.p92} | ${e.p95} | ${e.p98} | ${e.p0} |`)
+                    .join('\n')}`
+                : ''
+            }\n\n更新时间: ${data.updated}`
             break
           }
 
@@ -171,7 +179,7 @@ class ServiceFuelPrice {
   async #fetch(
     region: FuelRegion,
     forceUpdate: boolean = false,
-  ): Promise<{ ts: number; items: FuelPrice[]; trend: FuelTrend | null }> {
+  ): Promise<{ ts: number; items: FuelPrice[]; trend: FuelTrend | null; base: string }> {
     const cacheKey = `FUEL_PRICE_${region.url}`
 
     if (forceUpdate) {
@@ -185,18 +193,33 @@ class ServiceFuelPrice {
       return cachedEntry
     }
 
-    const response = await fetch(`${this.#BASE_URL}${region.url}`, { headers: { 'User-Agent': Common.chromeUA } })
+    // 依次尝试桌面版 → 移动版：没有内容就算失败（WAF 可能返回 200 的拦截页，解析出 0 条），
+    // 两个源都拿不到有效数据时才抛错，交由上层回 500
+    let result: { ts: number; items: FuelPrice[]; trend: FuelTrend | null; base: string } | null = null
+    let lastError: unknown = null
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
+    for (const base of [this.#BASE_URL, this.#MOBILE_URL]) {
+      try {
+        // fetchUpstream 自带 UA + 8s 超时 + 1 次重试；原来裸 fetch 无超时
+        const response = await fetchUpstream(`${base}${region.url}`)
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+
+        const html = await response.text()
+        const items = this.parsePrices(html)
+        if (!items.length) throw new Error(`${base} 未解析到油价数据`)
+
+        result = { ts: Date.now(), items, trend: this.parseTrend(html), base }
+        break
+      } catch (error) {
+        lastError = error
+      }
     }
 
-    const html = await response.text()
-    const data = { ts: Date.now(), items: this.parsePrices(html), trend: this.parseTrend(html) }
+    if (!result) throw lastError
 
-    this.cache.set(cacheKey, data)
+    this.cache.set(cacheKey, result)
 
-    return data
+    return result
   }
 
   // 历史油价：you.jxgjtz.com 提供省级最近 30 期调价记录，失败时返回空数组（不阻塞主数据）
@@ -216,9 +239,10 @@ class ServiceFuelPrice {
     }
 
     try {
-      const response = await fetch(`${this.#HISTORY_URL}/${province.pinyin}/`, {
-        headers: { 'User-Agent': Common.chromeUA },
-        signal: AbortSignal.timeout(10000),
+      // 历史油价是次要数据：10s 超时不重试，失败返回空数组不阻塞主数据（语义不变）
+      const response = await fetchUpstream(`${this.#HISTORY_URL}/${province.pinyin}/`, {
+        timeoutMs: 10000,
+        retry: 0,
       })
 
       if (!response.ok) return []
@@ -233,7 +257,10 @@ class ServiceFuelPrice {
         const tds = tr.match(/<td[^>]*>[\s\S]*?<\/td>/g) || []
         if (tds.length < 6) continue
 
-        const date = (tds[0]?.replace(/<[^>]+>/g, '').trim().match(/\d{4}-\d{2}-\d{2}/) || [])[0]
+        const date = (tds[0]
+          ?.replace(/<[^>]+>/g, '')
+          .trim()
+          .match(/\d{4}-\d{2}-\d{2}/) || [])[0]
         if (!date) continue
 
         const cells = tds.slice(1).map((td) => {
@@ -262,7 +289,8 @@ class ServiceFuelPrice {
   parsePrices(html: string): FuelPrice[] {
     const $ = load(html)
     const items: FuelPrice[] = []
-    $('#youjia dl').each((_, dl) => {
+    // 桌面版容器 id=youjia，移动版容器 class=content_youjia
+    $('#youjia dl, .content_youjia dl').each((_, dl) => {
       const $dl = $(dl)
       const dts = $dl.find('dt')
       const dds = $dl.find('dd')
@@ -297,19 +325,30 @@ class ServiceFuelPrice {
       })
       .first()
 
+    // 移动版的调价预测在 .tishi 或底部彩色边框 div 里
+    const mobileCandidates = [
+      $('.tishi').first(),
+      $('div[style*="border"]')
+        .filter((_, el) => /下次油价/.test($(el).text()))
+        .first(),
+    ]
+
     // Fallback: homepage uses a different structure
-    const trendText = trendDiv.length ? trendDiv.text() : $('#left > div').first().text()
+    const candidates = [trendDiv, ...mobileCandidates, $('#left > div').first()]
+    const trendText = candidates.map((el) => el.text()).find((t) => /下次油价|预计(上调|上涨|下调|下跌|搁浅)/.test(t))
 
     if (!trendText) return null
 
     const dateMatch = trendText.match(/下次油价(\d+月\d+日\d+时)调整/)
-    const directionMatch = trendText.match(/预计(上调|下调|搁浅)/)
+    // 桌面版措辞是「上调/下调」，移动版是「上涨/下跌」，统一成上调/下调（前端据此选箭头与配色）
+    const directionMatch = trendText.match(/预计(上调|上涨|下调|下跌|搁浅)/)
     const tonMatch = trendText.match(/(上调|下调)(\d+)元\/吨/)
-    const literMatch = trendText.match(/\((\d+\.?\d*)元\/升[-~](\d+\.?\d*)元\/升\)/)
+    // 移动版不给吨价，且元/升区间不带括号
+    const literMatch = trendText.match(/\(?(\d+\.?\d*)元\/升[-~](\d+\.?\d*)元\/升\)?/)
 
     if (!dateMatch && !directionMatch) return null
 
-    const direction = directionMatch ? directionMatch[1] : '搁浅'
+    const direction = directionMatch ? directionMatch[1].replace('上涨', '上调').replace('下跌', '下调') : '搁浅'
     const nextDate = dateMatch ? dateMatch[1] : ''
     const changeTon = tonMatch ? parseInt(tonMatch[2], 10) : 0
     const changeLiterMin = literMatch ? parseFloat(literMatch[1]) : 0
@@ -322,7 +361,14 @@ class ServiceFuelPrice {
     const descParts: string[] = []
     if (nextDate) descParts.push(`下次调价时间: ${nextDate}`)
     if (direction !== '搁浅') {
-      descParts.push(`预计${changeTonDesc}${changeLiterDesc ? ' (' + changeLiterDesc + ')' : ''}`)
+      if (changeTonDesc) {
+        descParts.push(`预计${changeTonDesc}${changeLiterDesc ? ' (' + changeLiterDesc + ')' : ''}`)
+      } else if (changeLiterDesc) {
+        // 移动版只有元/升区间
+        descParts.push(`预计${direction}${changeLiterDesc}`)
+      } else {
+        descParts.push(`预计${direction}`)
+      }
     } else {
       descParts.push('预计搁浅（不调整）')
     }

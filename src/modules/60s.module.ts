@@ -1,5 +1,6 @@
 import { Common, dayjs, TZ_SHANGHAI } from '../common.ts'
 import { SolarDay } from 'tyme4ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 import { resolveForceUpdate } from '../force-update-guard.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -45,14 +46,15 @@ class Service60s {
         }
 
         case 'image': {
-          // test image url
-          const response = await fetch(data.image, { method: 'HEAD', signal: AbortSignal.timeout(5_000) })
+          // test image url：HEAD 探测，5s 超时不重试（只做存在性检查）
+          const response = await fetchUpstream(data.image, { method: 'HEAD', timeoutMs: 5_000, retry: 0 })
           ctx.response.redirect(response.ok ? data.image : `https://60s-static.viki.moe/images/${data.date}.png`)
           break
         }
 
         case 'image-proxy': {
-          let response: Response | null = await fetch(data.image, { signal: AbortSignal.timeout(10_000) })
+          // 图片透传：10s 超时不重试（图片体重试代价高），失败走 tryRepoUrl 备用源（语义不变）
+          let response: Response | null = await fetchUpstream(data.image, { timeoutMs: 10_000, retry: 0 })
 
           if (!response.ok) {
             response = await Common.tryRepoUrl({

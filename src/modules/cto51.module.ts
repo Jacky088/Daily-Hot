@@ -1,6 +1,7 @@
 import { load } from 'cheerio'
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 import { serviceUapis } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -25,7 +26,11 @@ class ServiceCTO51 {
 
       if (!TYPE_MAP[type]) {
         ctx.response.status = 400
-        ctx.response.body = Common.buildJson(null, 400, `暂不支持 ${type} 榜单，可选值：${Object.keys(TYPE_MAP).join('、')}`)
+        ctx.response.body = Common.buildJson(
+          null,
+          400,
+          `暂不支持 ${type} 榜单，可选值：${Object.keys(TYPE_MAP).join('、')}`,
+        )
         return
       }
 
@@ -77,9 +82,10 @@ class ServiceCTO51 {
       const url = `${CTO51_RANK_URL}/${type}${attempt > 1 ? `?_=${Date.now()}` : ''}`
 
       try {
-        const response = await fetch(url, {
+        // 浏览器指纹头一个不能少（Accept 必须 */*，见上面注释）；fetchUpstream 只补缺失
+        // 的 UA，不覆盖已有头。retry: 0——本函数自带「挑战页换 cache-buster 重试」节奏
+        const response = await fetchUpstream(url, {
           headers: {
-            'User-Agent': Common.chromeUA,
             Accept: '*/*',
             'Accept-Language': 'zh-CN,zh;q=0.9',
             Referer: 'https://blog.51cto.com/',
@@ -88,7 +94,8 @@ class ServiceCTO51 {
             'Sec-Fetch-Mode': 'navigate',
             'Sec-Fetch-Site': 'same-origin',
           },
-          signal: AbortSignal.timeout(12000),
+          timeoutMs: 12000,
+          retry: 0,
         })
 
         if (!response.ok) {

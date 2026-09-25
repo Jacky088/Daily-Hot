@@ -1,4 +1,5 @@
 import { Common } from '../../common.ts'
+import { fetchUpstream } from '../../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -15,9 +16,10 @@ class ServiceSimkl {
       const network = await Common.getParam('network', ctx.request)
       const t = types[type] || 'tv'
 
-      const response = await fetch(`${simklApi}/${t}/trending`, {
-        headers: { 'User-Agent': Common.chromeUA, Accept: 'application/json' },
-        signal: AbortSignal.timeout(8000),
+      // fetchUpstream 自带 UA + 8s 超时 + 1 次重试；Accept 头保留
+      const response = await fetchUpstream(`${simklApi}/${t}/trending`, {
+        headers: { Accept: 'application/json' },
+        timeoutMs: 8000,
       })
 
       if (!response.ok) {
@@ -30,7 +32,11 @@ class ServiceSimkl {
       // 按播出平台过滤（TV 有 network 字段，如 Netflix / HBO / Disney+），大小写不敏感包含匹配
       if (network) {
         const kw = network.toLowerCase()
-        items = items.filter((e) => String(e.network || '').toLowerCase().includes(kw))
+        items = items.filter((e) =>
+          String(e.network || '')
+            .toLowerCase()
+            .includes(kw),
+        )
       }
 
       const sliced = items.slice(0, 30)
@@ -41,9 +47,11 @@ class ServiceSimkl {
           const id = e.ids?.simkl_id
           if (!id) return e
           try {
-            const res = await fetch(`${simklApi}/anime/${id}`, {
-              headers: { 'User-Agent': Common.chromeUA, Accept: 'application/json' },
-              signal: AbortSignal.timeout(6000),
+            // 补齐标题的详情请求：最多 30 并发，单个 6s 超时不重试，失败回退原条目
+            const res = await fetchUpstream(`${simklApi}/anime/${id}`, {
+              headers: { Accept: 'application/json' },
+              timeoutMs: 6000,
+              retry: 0,
             })
             if (!res.ok) return e
             const d = (await res.json()) as SimklDetail
@@ -81,7 +89,10 @@ class ServiceSimkl {
 
         case 'markdown': {
           ctx.response.body = `# 🍿 SIMKL 热门${t === 'tv' ? '剧集' : t === 'anime' ? '动画' : '电影'}${network ? ` · ${network}` : ''}\n\n${list
-            .map((e) => `${e.rank}. [${e.title}](${e.link})${e.rating ? ` ⭐${e.rating}` : ''}${e.network ? ` — ${e.network}` : ''}`)
+            .map(
+              (e) =>
+                `${e.rank}. [${e.title}](${e.link})${e.rating ? ` ⭐${e.rating}` : ''}${e.network ? ` — ${e.network}` : ''}`,
+            )
             .join('\n')}`
           break
         }

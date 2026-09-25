@@ -1,5 +1,6 @@
 import crypto from 'node:crypto'
 import { Common } from '../../common.ts'
+import { fetchUpstream, fetchUpstreamJson } from '../../fetch-upstream.ts'
 import langData from './langs.json' with { type: 'json' }
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -75,9 +76,9 @@ class ServiceFanyi {
                   pronounce: responseItems.map((e) => e.tgtPronounce).join('') || '',
                 },
               })
-            // 原先把整个上游响应对象序列化进错误文案当「调试信息」，等于把上游数据
-            // 原样透出给调用方；真实原因只进服务端日志
-            : Common.buildJson(null, 500, '翻译服务异常，请稍后重试')
+            : // 原先把整个上游响应对象序列化进错误文案当「调试信息」，等于把上游数据
+              // 原样透出给调用方；真实原因只进服务端日志
+              Common.buildJson(null, 500, '翻译服务异常，请稍后重试')
           break
       }
     }
@@ -106,11 +107,14 @@ class ServiceFanyi {
   async initLangs() {
     const api = 'https://api-overmind.youdao.com/openapi/get/luna/dict/luna-front/prod/langType'
 
-    const { data = {} } = await fetch(api)
-      .then((e) => e.json())
-      .catch(() => ({}))
+    // 初始化链路自带 catch 兜底（失败回退内置语言表）：fetchUpstream 抛错语义与裸 fetch
+    // 一致（超时/5xx/解析失败都抛），这里 retry: 0 避免启动时多等一轮
+    const { data = {} } = await fetchUpstreamJson<{ data?: LangApiData }>(api, { retry: 0 })
+      .then((e) => e)
+      .catch(() => ({ data: {} }) as { data: LangApiData })
 
-    const langs = [...(data?.value?.textTranslate?.common || []), ...(data?.value?.textTranslate?.specify || [])]
+    const value = (data as LangApiData | undefined)?.value
+    const langs = [...(value?.textTranslate?.common || []), ...(value?.textTranslate?.specify || [])]
 
     for (const lang of langs) {
       this.langMap.set(lang.code, lang)
@@ -155,7 +159,8 @@ class ServiceFanyi {
     }
 
     async function getSecretKey() {
-      const response = await fetch(
+      // 有道 key 接口偶发 5xx：fetchUpstream 默认重试 1 次，比原来裸 fetch 稳
+      const response = await fetchUpstream(
         `https://dict.youdao.com/webtranslate/key?${Common.qs({
           keyid: 'webfanyi-key-getter',
           ...getCommonParams('asdjnjfenknafdfsdfsd'),
@@ -165,7 +170,8 @@ class ServiceFanyi {
       return data?.data?.secretKey || ''
     }
 
-    const response = await fetch('https://dict.youdao.com/webtranslate', {
+    // 翻译主接口：cookie/referer/content-type 一个不能少，fetchUpstream 只补缺失的 UA
+    const response = await fetchUpstream('https://dict.youdao.com/webtranslate', {
       method: 'POST',
       headers: {
         cookie: 'OUTFOX_SEARCH_USER_ID_NCOO=2100336809.6038957; OUTFOX_SEARCH_USER_ID=711138426@112.20.94.181',
@@ -187,6 +193,16 @@ class ServiceFanyi {
 }
 
 export const serviceFanyi = new ServiceFanyi()
+
+/** 有道语言表接口的 value 结构（与 langs.json 内置表同形） */
+interface LangApiData {
+  value?: {
+    textTranslate?: {
+      common?: { code: string; label: string; alphabet: string }[]
+      specify?: { code: string; label: string; alphabet: string }[]
+    }
+  }
+}
 
 interface YoudaoData {
   code: number

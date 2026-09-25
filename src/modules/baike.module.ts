@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { fetchUpstreamJson } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -41,7 +42,8 @@ class ServiceBaike {
     api.searchParams.set('appid', '379020')
     api.searchParams.set('bk_key', item)
 
-    const data = (await (await fetch(api)).json()) as BaikeData
+    // 外层 #fetch 已有 3 次调用链，这里 retry: 0 防止重试叠加（3 次 × 3 次 = 9 次最坏请求）
+    const data = (await fetchUpstreamJson<BaikeData>(api, { retry: 0 })) as BaikeData
 
     if (!data?.title) {
       throw new Error('未找到相关词条')

@@ -3,6 +3,7 @@ import dayjs from 'dayjs'
 import bcrypt from 'bcryptjs'
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 import { Buffer } from 'node:buffer'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -155,7 +156,8 @@ class ServiceKuan {
       'X-Dark-Mode': '0',
     }
 
-    const response = await fetch(url, { headers, signal: AbortSignal.timeout(10000) })
+    // 酷安私有 API 头一个不能少（X-App-Token 等），fetchUpstream 只补缺失的 UA，不覆盖已有头
+    const response = await fetchUpstream(url, { headers, timeoutMs: 10000 })
 
     if (!response.ok) {
       const res = await response.text()

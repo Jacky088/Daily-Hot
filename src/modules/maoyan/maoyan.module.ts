@@ -1,5 +1,6 @@
 import { Common, dayjs } from '../../common.ts'
 import { cached } from '../../cache.ts'
+import { fetchUpstream, fetchUpstreamText } from '../../fetch-upstream.ts'
 import { fetchBoxOfficeByType } from './encode.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -53,7 +54,9 @@ class ServiceMaoyan {
   handleRealtime(type: 'movie' | 'tv' | 'web'): RouterMiddleware<'/maoyan/movie'> {
     return async (ctx) => {
       const date = ctx.request.url.searchParams.get('date') || ''
-      const data = await cached(`maoyan:${type}:${date}`, () => fetchBoxOfficeByType(type, date), { ttl: 10 * 60 * 1000 })
+      const data = await cached(`maoyan:${type}:${date}`, () => fetchBoxOfficeByType(type, date), {
+        ttl: 10 * 60 * 1000,
+      })
 
       switch (ctx.state.encoding) {
         case 'text': {
@@ -176,7 +179,10 @@ class ServiceMaoyan {
       case 'text':
         ctx.response.body = `${title}\n\n${list
           .slice(0, 20)
-          .map((e, i) => `${i + 1}. ${e.movie_name}（${e.release_date || e.coming_title}）${e.score ? ` - 评分 ${e.score}` : ''}`)
+          .map(
+            (e, i) =>
+              `${i + 1}. ${e.movie_name}（${e.release_date || e.coming_title}）${e.score ? ` - 评分 ${e.score}` : ''}`,
+          )
           .join('\n')}`
         break
 
@@ -211,10 +217,11 @@ class ServiceMaoyan {
     const url =
       type === 'showing'
         ? 'https://m.maoyan.com/ajax/movieOnInfoList'
-        // city 来自 query：编码后无法用 & 追加额外参数
-        : `https://m.maoyan.com/ajax/comingList?ci=${encodeURIComponent(city || 1)}&token=&limit=20`
+        : // city 来自 query：编码后无法用 & 追加额外参数
+          `https://m.maoyan.com/ajax/comingList?ci=${encodeURIComponent(city || 1)}&token=&limit=20`
 
-    const res = await fetch(url, { headers })
+    // 猫眼 M 站列表：iPhone UA + Referer 必带（见上面注释）；fetchUpstream 只做传输
+    const res = await fetchUpstream(url, { headers })
     const json = (await res.json()) as any
     const raw = type === 'showing' ? json?.movieList : json?.coming
 
@@ -249,7 +256,8 @@ class ServiceMaoyan {
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
     }
 
-    const html = await (await fetch('https://piaofang.maoyan.com/i/globalBox/historyRank', { headers })).text()
+    // 全球票房历史榜 HTML：同上，fetchUpstream 只做传输 + 8s 超时
+    const html = await fetchUpstreamText('https://piaofang.maoyan.com/i/globalBox/historyRank', { headers })
     const json = /var props = (\{.*?\});/.exec(html)?.[1] || '{}'
     const data = JSON.parse(json)?.data || {}
 

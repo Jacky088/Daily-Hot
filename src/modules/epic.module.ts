@@ -1,5 +1,6 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstreamJson } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -34,9 +35,7 @@ class ServiceEpic {
               const hasBookTitle = e.title.includes('《')
               const title = hasBookTitle ? e.title : `《${e.title}》`
 
-              const freeDesc = e.is_free_now
-                ? `🎮 **现在免费** 截至 ${endDate}`
-                : `⏰ ${date} 至 ${endDate} 免费`
+              const freeDesc = e.is_free_now ? `🎮 **现在免费** 截至 ${endDate}` : `⏰ ${date} 至 ${endDate} 免费`
 
               return `### ${idx + 1}. [${title}](${e.link}) ${e.is_free_now ? '🔥' : ''}\n\n${freeDesc}\n\n${e.description}\n\n${e.cover ? `![${e.title}](${e.cover})\n\n` : ''}**发行商**: ${e.seller} | **原价**: ${e.original_price_desc}\n\n---\n`
             })
@@ -54,7 +53,7 @@ class ServiceEpic {
   async #fetch() {
     const api =
       'https://store-site-backend-static-ipv4.ak.epicgames.com/freeGamesPromotions?locale=zh-CN&country=CN&allowCountries=CN'
-    const data = ((await (await fetch(Common.useProxiedUrl(api))).json()) || {}) as any
+    const data = (await fetchUpstreamJson(Common.useProxiedUrl(api))) as any
 
     const allGames = (data?.data?.Catalog?.searchStore?.elements || []) as GameItem[]
 

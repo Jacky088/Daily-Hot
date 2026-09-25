@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { fetchUpstreamText } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -50,12 +51,10 @@ class ServiceQQ {
   }
 
   async #fetch(qq: string, size: number): Promise<QQUserInfo> {
-    const options = { headers: { 'User-Agent': Common.chromeUA } }
-
     try {
       const api = `https://users.qzone.qq.com/fcg-bin/cgi_get_portrait.fcg?uins=${qq}`
-      const response = await fetch(api, options)
-      const text = await response.text()
+      // QQ 头像接口偶发 WAF 拦截：fetchUpstream 给 8s 超时 + 1 次重试；解析失败语义不变
+      const text = await fetchUpstreamText(api)
 
       const jsonMatch = text.match(/portraitCallBack\((.*?)\)/)
 

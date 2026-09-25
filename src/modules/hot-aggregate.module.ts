@@ -84,8 +84,8 @@ interface Platform {
   normalize: (item: any, index: number) => RawEntry | null
 }
 
-/** 从「1234 万热度」「3.2w」这类文案里抠出可比较的数值 */
-function parseHotText(text: unknown): number | null {
+/** 从「1234 万热度」「3.2w」这类文案里抠出可比较的数值（单测锁定口径） */
+export function parseHotText(text: unknown): number | null {
   if (text == null) return null
   const str = String(text)
   const matched = /([\d.]+)\s*(亿|万|w|W)?/.exec(str)
@@ -98,12 +98,32 @@ function parseHotText(text: unknown): number | null {
   return Math.round(value)
 }
 
-/** 热度展示文案：与前端榜单一致的「987.6万」口径 */
-function formatHot(value: number | null): string {
+/** 热度展示文案：与前端榜单一致的「987.6万」口径（单测锁定口径） */
+export function formatHot(value: number | null): string {
   if (value == null || !Number.isFinite(value) || value <= 0) return ''
   if (value >= 100_000_000) return `${Math.round(value / 10_000_000) / 10}亿`
   if (value >= 10_000) return `${Math.round(value / 1_000) / 10}万`
   return String(value)
+}
+
+/** 平台内归一化打分：有热度口径的按热度占比，没有的退回排名折算（单测锁定口径） */
+export function normalizeScore(
+  hot: number | null,
+  index: number,
+  poolSize: number,
+  maxHot: number,
+  weight: number,
+): number {
+  const hotPart = maxHot > 0 && hot ? hot / maxHot : 1 - (index / poolSize) * 0.5
+  const rankPart = 1 - (index / poolSize) * 0.5
+  return (hotPart * 0.75 + rankPart * 0.25) * weight
+}
+
+/** 聚合接口参数钳制：非法回退默认值，越界压到 min/max（单测锁定口径） */
+export function clampInt(raw: string | null, fallback: number, min: number, max: number): number {
+  const n = Number.parseInt(raw || '', 10)
+  if (!Number.isFinite(n)) return fallback
+  return Math.min(max, Math.max(min, n))
 }
 
 const PLATFORMS: Platform[] = [
@@ -240,19 +260,25 @@ const FULL_LIST_PER_SOURCE = 30
 class ServiceHotAggregate {
   handle(): RouterMiddleware<'/hot/aggregate'> {
     return async (ctx) => {
-      const limit = this.#clampInt(ctx.request.url.searchParams.get('limit'), 30, 1, 100)
-      const per = this.#clampInt(ctx.request.url.searchParams.get('per'), DEFAULT_PER_SOURCE, 1, 20)
+      const limit = clampInt(ctx.request.url.searchParams.get('limit'), 30, 1, 100)
+      const per = clampInt(ctx.request.url.searchParams.get('per'), DEFAULT_PER_SOURCE, 1, 20)
       const only = (ctx.request.url.searchParams.get('sources') || '')
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean)
 
-      const platforms = only.length ? PLATFORMS.filter((p) => only.includes(p.id)) : PLATFORMS
-      // 聚合结果再缓存一层：各平台虽各有缓存，但混排结果本身在数分钟内不会变，
-      // 省掉每次进首页都要重新归一化排序的开销
-      const data = await cached(`hot:aggregate:${limit}:${per}:${platforms.map((p) => p.id).join(',')}`, () => this.#aggregate(platforms, limit, per), {
-        ttl: 3 * 60 * 1000,
-      })
+      const platforms = only.length ? PLATFORMS.filter((p) => p.id && only.includes(p.id)) : PLATFORMS
+      // 缓存键收敛：前端固定用 limit=20&per=3&全源（见 public/app.js 的两处调用），
+      // 无参 API 默认是 limit=30&per=3&全源。这两组是 99% 的流量，各占一个缓存键；
+      // 非常规参数（自定义 limit/per/sources）实时计算不缓存——之前 limit(1~100) ×
+      // per(1~20) × 来源组合能组合出几千种键，会把 500 条的内存缓存池冲掉，
+      // 挤走微博/知乎等高价值单源缓存。
+      const isCommon = (limit === 20 || limit === 30) && per === DEFAULT_PER_SOURCE && !only.length
+      const data = isCommon
+        ? await cached(`hot:aggregate:default:${limit}:${per}`, () => this.#aggregate(platforms, limit, per), {
+            ttl: 3 * 60 * 1000,
+          })
+        : await this.#aggregate(platforms, limit, per)
 
       switch (ctx.state.encoding) {
         case 'text':
@@ -263,7 +289,10 @@ class ServiceHotAggregate {
 
         case 'markdown':
           ctx.response.body = `# 全网热榜聚合\n\n${data.items
-            .map((e, i) => `${i + 1}. [${e.title}](${e.link}) \`${e.source_name}\`${e.hot_text ? ` \`${e.hot_text}\`` : ''}`)
+            .map(
+              (e, i) =>
+                `${i + 1}. [${e.title}](${e.link}) \`${e.source_name}\`${e.hot_text ? ` \`${e.hot_text}\`` : ''}`,
+            )
             .join('\n')}`
           break
 
@@ -273,12 +302,6 @@ class ServiceHotAggregate {
           break
       }
     }
-  }
-
-  #clampInt(raw: string | null, fallback: number, min: number, max: number) {
-    const n = Number.parseInt(raw || '', 10)
-    if (!Number.isFinite(n)) return fallback
-    return Math.min(max, Math.max(min, n))
   }
 
   /**
@@ -340,9 +363,7 @@ class ServiceHotAggregate {
       const poolSize = Math.max(head.length, 1)
       const maxHot = Math.max(0, ...head.map((e) => e.hot || 0))
       head.forEach((item, index) => {
-        const hotPart = maxHot > 0 && item.hot ? item.hot / maxHot : 1 - (index / poolSize) * 0.5
-        const rankPart = 1 - (index / poolSize) * 0.5
-        item.score = (hotPart * 0.75 + rankPart * 0.25) * platform.weight
+        item.score = normalizeScore(item.hot, index, poolSize, maxHot, platform.weight)
       })
 
       candidates.push(...head)

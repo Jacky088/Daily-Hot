@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { fetchUpstreamText } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -52,7 +53,7 @@ class ServiceChangYa {
 
     const randomId = Common.randomItem(seedIdList)
     const url = `https://m.singduck.cn/user-piece/cont_${randomId}`
-    const data = await (await fetch(url)).text()
+    const data = await fetchUpstreamText(url)
 
     if (!data) throw new Error('fetch data error')
 

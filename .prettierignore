@@ -1,0 +1,6 @@
+# 构建产物：minified 文件不参与格式检查（CI 的 Format check 门禁）
+public/dist/
+
+# 锁文件：由包管理器维护自身格式，prettier 重排后会与其打架
+pnpm-lock.yaml
+package-lock.json

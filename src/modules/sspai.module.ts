@@ -1,5 +1,6 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 import { withUapisFallback } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -38,13 +39,13 @@ class ServiceSspai {
   async #fetch(): Promise<SspaiItem[]> {
     const url = `https://sspai.com/api/v1/article/tag/page/get?limit=20&tag=${encodeURIComponent('热门文章')}`
 
-    const response = await fetch(url, {
+    // Referer 必带；fetchUpstream 自带 UA + 10s 超时 + 1 次重试
+    const response = await fetchUpstream(url, {
       headers: {
-        'User-Agent': Common.chromeUA,
         Referer: 'https://sspai.com/',
         Accept: 'application/json',
       },
-      signal: AbortSignal.timeout(10000),
+      timeoutMs: 10000,
     })
 
     if (!response.ok) {

@@ -1,5 +1,6 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -34,9 +35,8 @@ class ServiceDongchedi {
   async #fetch() {
     const api = 'https://www.dongchedi.com/motor/searchpage/launcher/main/v1/?aid=1839&app_name=auto_web_pc'
 
-    const response = await fetch(api, {
-      headers: { 'User-Agent': Common.chromeUA },
-      signal: AbortSignal.timeout(10000),
+    const response = await fetchUpstream(api, {
+      timeoutMs: 10000,
     })
 
     if (!response.ok) {

@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -84,13 +85,18 @@ class ServiceGoogleTranslate {
     // Cloudflare Workers 出口 IP 会被 Google 间歇拦截（实测约 40% 失败），
     // 拦截页返回极快，快速重试 2 次可把成功率提升到 ~94%；
     // 前端 fetchWithRetry 还有 2 次外层重试兜底。
+    // fetchUpstream 自带 UA + 8s 超时：这里 retry: 0，沿用本函数自有的 300ms 间隔重试节奏
     let response: Response | null = null
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const res = await fetch(`${apiUrl}?${Common.qs({ client: 'dict-chrome-ex', sl: from, tl: to, q: text })}`, {
-          headers: { 'User-Agent': Common.chromeUA, Accept: 'application/json' },
-          signal: AbortSignal.timeout(8000),
-        })
+        const res = await fetchUpstream(
+          `${apiUrl}?${Common.qs({ client: 'dict-chrome-ex', sl: from, tl: to, q: text })}`,
+          {
+            headers: { Accept: 'application/json' },
+            timeoutMs: 8000,
+            retry: 0,
+          },
+        )
         if (res.ok) {
           response = res
           break

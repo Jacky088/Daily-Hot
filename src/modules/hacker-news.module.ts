@@ -1,5 +1,6 @@
 import dayjs from 'dayjs'
 import { Common } from '../common.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 import { resolveForceUpdate } from '../force-update-guard.ts'
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -76,11 +77,9 @@ class ServiceHackerNews {
     }
 
     try {
-      const response = await fetch(`${HN_BASE_URL}/${type}stories.json`, {
-        headers: {
-          'User-Agent': Common.chromeUA,
-        },
-      })
+      // HN 是 Firebase 免费接口，无需特殊头；fetchUpstream 给 8s 超时 + 1 次重试，
+      // 原来裸 fetch 无超时，hang 住会拖住整卡
+      const response = await fetchUpstream(`${HN_BASE_URL}/${type}stories.json`)
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`)
       }
@@ -117,11 +116,9 @@ class ServiceHackerNews {
 
   async #fetchDetail(id: number): Promise<NewsItemResponse | null> {
     try {
-      const response = await fetch(`${HN_BASE_URL}/item/${id}.json`, {
-        headers: {
-          'User-Agent': Common.chromeUA,
-        },
-      })
+      // 详情是 limit 个并发（最多 35 个）：单个给 8s 超时，失败返回 null 由上层过滤，
+      // 语义与原来一致（原来 catch 返回 null）
+      const response = await fetchUpstream(`${HN_BASE_URL}/item/${id}.json`, { retry: 0 })
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`)
       }

@@ -5,7 +5,9 @@
 //   - 后端已注册但面板未接入      → 接口存在却无人使用（提示，不阻断）
 //
 // 用法：pnpm run verify:endpoints
-
+//
+// 注意：router.ts 采用路由懒加载（lazyService 工厂），注册语句跨多行书写。
+// 这里按「整文件正扫 appRouter.get/all('字面量路径'」提取，不依赖单行格式。
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -24,13 +26,15 @@ function toMatcher(path: string): RegExp {
 /** 提取后端 appRouter 上注册的路由，跳过被注释掉的待定路由 */
 function parseBackendRoutes(source: string): string[] {
   const routes: string[] = []
+  // 整文件扫描：懒加载写法下路径与 appRouter.get 不在同一行，逐行扫描会漏检
+  const uncommented = source
+    .split(/\r?\n/)
+    .filter((line) => !line.trimStart().startsWith('//'))
+    .join('\n')
   const pattern = /appRouter\.(?:get|all|post)\(\s*'([^']+)'/g
 
-  for (const line of source.split(/\r?\n/)) {
-    if (line.trimStart().startsWith('//')) continue
-    for (const match of line.matchAll(pattern)) {
-      routes.push(API_PREFIX + match[1])
-    }
+  for (const match of uncommented.matchAll(pattern)) {
+    routes.push(API_PREFIX + match[1])
   }
 
   return routes

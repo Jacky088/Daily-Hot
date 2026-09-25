@@ -1,5 +1,6 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -30,7 +31,11 @@ class ServiceAppleMusic {
 
       if (!REGION_MAP[region]) {
         ctx.response.status = 400
-        ctx.response.body = Common.buildJson(null, 400, `暂不支持 ${region} 地区，可选值：${Object.keys(REGION_MAP).join('、')}`)
+        ctx.response.body = Common.buildJson(
+          null,
+          400,
+          `暂不支持 ${region} 地区，可选值：${Object.keys(REGION_MAP).join('、')}`,
+        )
         return
       }
 
@@ -67,9 +72,10 @@ class ServiceAppleMusic {
   }
 
   async #fetch(region: string): Promise<AppleMusicItem[]> {
-    const response = await fetch(`${APPLE_FEED}/${region}/music/most-played/${FEED_SIZE}/songs.json`, {
-      headers: { 'User-Agent': Common.chromeUA, Accept: 'application/json' },
-      signal: AbortSignal.timeout(10000),
+    // fetchUpstream 自带 UA + 超时重试，这里只补 Accept 头
+    const response = await fetchUpstream(`${APPLE_FEED}/${region}/music/most-played/${FEED_SIZE}/songs.json`, {
+      headers: { Accept: 'application/json' },
+      timeoutMs: 10000,
     })
 
     if (!response.ok) {

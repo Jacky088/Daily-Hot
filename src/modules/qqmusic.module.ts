@@ -1,5 +1,6 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -37,7 +38,11 @@ class ServiceQQMusic {
 
       if (!TOPID_MAP[topid]) {
         ctx.response.status = 400
-        ctx.response.body = Common.buildJson(null, 400, `暂不支持 ${topid} 榜单，可选值：${Object.keys(TOPID_MAP).join('、')}`)
+        ctx.response.body = Common.buildJson(
+          null,
+          400,
+          `暂不支持 ${topid} 榜单，可选值：${Object.keys(TOPID_MAP).join('、')}`,
+        )
         return
       }
 
@@ -76,17 +81,16 @@ class ServiceQQMusic {
 
   async #fetch(topid: string): Promise<QQMusicItem[]> {
     const url =
-      `${QQ_TOPLIST_API}?topid=${topid}&song_begin=0&song_num=${MAX_FETCH}` +
-      '&format=json&platform=yqq&needNewCode=1'
+      `${QQ_TOPLIST_API}?topid=${topid}&song_begin=0&song_num=${MAX_FETCH}` + '&format=json&platform=yqq&needNewCode=1'
 
-    const response = await fetch(url, {
+    // Referer 必带（不带判非法来源）；fetchUpstream 自带 UA + 10s 超时 + 1 次重试
+    const response = await fetchUpstream(url, {
       headers: {
-        'User-Agent': Common.chromeUA,
         Accept: '*/*',
         // 缺了 Referer 会被上游拒绝，必须带
         Referer: 'https://y.qq.com/',
       },
-      signal: AbortSignal.timeout(10000),
+      timeoutMs: 10000,
     })
 
     if (!response.ok) {
@@ -105,7 +109,10 @@ class ServiceQQMusic {
         // 专辑封面走 gtimg 固定规则，由 albummid 拼出来
         const cover = song.albummid ? `https://y.gtimg.cn/music/photo_new/T002R300x300M000${song.albummid}.jpg` : ''
 
-        const artist = (song.singer || []).map((s) => s.name).filter(Boolean).join(' / ')
+        const artist = (song.singer || [])
+          .map((s) => s.name)
+          .filter(Boolean)
+          .join(' / ')
         // interval 是秒数，顺手转成 mm:ss
         const duration = this.#formatDuration(song.interval || 0)
 

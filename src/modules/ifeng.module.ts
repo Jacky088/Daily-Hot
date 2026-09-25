@@ -1,5 +1,6 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -27,7 +28,10 @@ class ServiceIfeng {
       switch (ctx.state.encoding) {
         case 'text': {
           ctx.response.body = `凤凰热榜\n\n${data
-            .map((e, idx) => `${idx + 1}. ${e.title}\n   ${e.source}${e.hot_value_desc ? ` · ${e.hot_value_desc}` : ''}\n   ${e.link}`)
+            .map(
+              (e, idx) =>
+                `${idx + 1}. ${e.title}\n   ${e.source}${e.hot_value_desc ? ` · ${e.hot_value_desc}` : ''}\n   ${e.link}`,
+            )
             .join('\n\n')}`
           break
         }
@@ -52,9 +56,9 @@ class ServiceIfeng {
   }
 
   async #fetch(): Promise<IfengItem[]> {
-    const response = await fetch(IFENG_RANK_URL, {
-      headers: { 'User-Agent': Common.chromeUA, Accept: '*/*' },
-      signal: AbortSignal.timeout(10000),
+    const response = await fetchUpstream(IFENG_RANK_URL, {
+      headers: { Accept: '*/*' },
+      timeoutMs: 10000,
     })
 
     if (!response.ok) {

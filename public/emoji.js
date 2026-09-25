@@ -26,50 +26,153 @@
  * 图标资源：由 scripts/fetch-emoji.mjs 生成，新增 emoji 后重跑该脚本即可。
  * 图形版权：Twemoji（CC-BY 4.0，https://github.com/jdecked/twemoji）。
  */
-(function () {
-  'use strict';
+;(function () {
+  'use strict'
 
   // 项目里用到的全部 emoji。必须逐项写成字符串字面量：像 🛠️（码位 + 变体选择符）、
   // #️⃣（三码位组合）、🇬🇧（两枚区域指示符）这类序列若按单个码位拆开就匹配不到了
   var EMOJI = [
-    '#️⃣', '↗', '⏰', '⏱', '⏳', '▶️', '☀️', '☁️', '♀', '♂',
-    '⚖️', '⚠️', '⚡', '⛽', '✨', '❤️', '⬇', '⭐', '🇬🇧', '🈯',
-    '🌀', '🌅', '🌇', '🌍', '🌐', '🌓', '🌙', '🌤️', '🌦️', '🌧️',
-    '🌬️', '🌴', '🌾', '🍀', '🍃', '🍗', '🍿', '🎁', '🎉', '🎊',
-    '🎞️', '🎤', '🎥', '🎧', '🎨', '🎪', '🎬', '🎭', '🎮', '🎯',
-    '🎵', '🎶', '🎼', '🏀', '🏃', '🏖️', '🏠', '🏮', '🏷️', '🐙',
-    '🐟', '🐯', '👍', '👥', '💎', '💡', '💧', '💪', '💬', '💱',
-    '💻', '💼', '📅', '📈', '📊', '📌', '📍', '📕', '📖', '📚',
-    '📜', '📝', '📡', '📰', '📱', '📺', '🔇', '🔊', '🔍', '🔐',
-    '🔓', '🔗', '🔤', '🔥', '🕒', '🖌️', '🖥️', '🖼️', '🗂', '🗓️',
-    '🗺️', '😂', '😴', '🚀', '🚗', '🛠️', '🟧', '🤣', '🤪', '🥁',
-    '🥇', '🧩', '🧬', '🧭', '🧮',
-  ];
+    '#️⃣',
+    '↗',
+    '⏰',
+    '⏱',
+    '⏳',
+    '▶️',
+    '☀️',
+    '☁️',
+    '♀',
+    '♂',
+    '⚖️',
+    '⚠️',
+    '⚡',
+    '⛽',
+    '✨',
+    '❤️',
+    '⬇',
+    '⭐',
+    '🇬🇧',
+    '🈯',
+    '🌀',
+    '🌅',
+    '🌇',
+    '🌍',
+    '🌐',
+    '🌓',
+    '🌙',
+    '🌤️',
+    '🌦️',
+    '🌧️',
+    '🌬️',
+    '🌴',
+    '🌾',
+    '🍀',
+    '🍃',
+    '🍗',
+    '🍿',
+    '🎁',
+    '🎉',
+    '🎊',
+    '🎞️',
+    '🎤',
+    '🎥',
+    '🎧',
+    '🎨',
+    '🎪',
+    '🎬',
+    '🎭',
+    '🎮',
+    '🎯',
+    '🎵',
+    '🎶',
+    '🎼',
+    '🏀',
+    '🏃',
+    '🏖️',
+    '🏠',
+    '🏮',
+    '🏷️',
+    '🐙',
+    '🐟',
+    '🐯',
+    '👍',
+    '👥',
+    '💎',
+    '💡',
+    '💧',
+    '💪',
+    '💬',
+    '💱',
+    '💻',
+    '💼',
+    '📅',
+    '📈',
+    '📊',
+    '📌',
+    '📍',
+    '📕',
+    '📖',
+    '📚',
+    '📜',
+    '📝',
+    '📡',
+    '📰',
+    '📱',
+    '📺',
+    '🔇',
+    '🔊',
+    '🔍',
+    '🔐',
+    '🔓',
+    '🔗',
+    '🔤',
+    '🔥',
+    '🕒',
+    '🖌️',
+    '🖥️',
+    '🖼️',
+    '🗂',
+    '🗓️',
+    '🗺️',
+    '😂',
+    '😴',
+    '🚀',
+    '🚗',
+    '🛠️',
+    '🟧',
+    '🤣',
+    '🤪',
+    '🥁',
+    '🥇',
+    '🧩',
+    '🧬',
+    '🧭',
+    '🧮',
+  ]
 
-  var DIR = '/emoji/';
+  var DIR = '/emoji/'
 
   // 取字符串的全部码位（正确处理代理对）
   function codePoints(str) {
-    var out = [];
+    var out = []
     for (var i = 0; i < str.length; ) {
-      var cp = str.codePointAt(i);
-      out.push(cp);
-      i += cp > 0xffff ? 2 : 1;
+      var cp = str.codePointAt(i)
+      out.push(cp)
+      i += cp > 0xffff ? 2 : 1
     }
-    return out;
+    return out
   }
 
   // emoji → 资源名：丢弃变体选择符 FE0F，其余码位取小写十六进制、以 - 连接
   // 例：🔥 → 1f525，🛠️ → 1f6e0，#️⃣ → 23-20e3，🇬🇧 → 1f1ec-1f1e7
   function assetOf(e) {
     var cps = codePoints(e).filter(function (c) {
-      return c !== 0xfe0f;
-    });
+      return c !== 0xfe0f
+    })
     return cps
       .map(function (c) {
-        return c.toString(16);
+        return c.toString(16)
       })
-      .join('-');
+      .join('-')
   }
 
   function imgHtml(e) {
@@ -81,54 +184,54 @@
       '.svg" alt="' +
       e +
       '" loading="lazy" decoding="async" draggable="false">'
-    );
+    )
   }
 
   // 备选项按长度降序，保证多码位组合（#️⃣、🇬🇧、❤️…）先于其单码位前缀匹配
   var ALTERNATIVES = EMOJI.slice()
     .sort(function (a, b) {
-      return b.length - a.length;
+      return b.length - a.length
     })
     .map(function (e) {
-      return e.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return e.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     })
-    .join('|');
+    .join('|')
 
   // <[^>]*> 先吃掉整段标签，只有落在文本里的 emoji 才会被第 1 组捕获
-  var RE = new RegExp('<[^>]*>|(' + ALTERNATIVES + ')', 'g');
-  var HAS_EMOJI = new RegExp(ALTERNATIVES);
+  var RE = new RegExp('<[^>]*>|(' + ALTERNATIVES + ')', 'g')
+  var HAS_EMOJI = new RegExp(ALTERNATIVES)
 
   function emojiHtml(html) {
-    if (typeof html !== 'string' || !HAS_EMOJI.test(html)) return html;
+    if (typeof html !== 'string' || !HAS_EMOJI.test(html)) return html
     return html.replace(RE, function (m, e) {
-      return e ? imgHtml(e) : m;
-    });
+      return e ? imgHtml(e) : m
+    })
   }
 
   // ---- 接管所有 HTML 写入出口 ----
   function wrapSetter(name) {
-    var desc = Object.getOwnPropertyDescriptor(Element.prototype, name);
-    if (!desc || !desc.set) return;
+    var desc = Object.getOwnPropertyDescriptor(Element.prototype, name)
+    if (!desc || !desc.set) return
     Object.defineProperty(Element.prototype, name, {
       configurable: true,
       enumerable: desc.enumerable,
       get: desc.get,
       set: function (value) {
-        desc.set.call(this, typeof value === 'string' ? emojiHtml(value) : value);
+        desc.set.call(this, typeof value === 'string' ? emojiHtml(value) : value)
       },
-    });
+    })
   }
-  wrapSetter('innerHTML');
-  wrapSetter('outerHTML');
+  wrapSetter('innerHTML')
+  wrapSetter('outerHTML')
 
-  var insertAdjacentHTML = Element.prototype.insertAdjacentHTML;
+  var insertAdjacentHTML = Element.prototype.insertAdjacentHTML
   if (typeof insertAdjacentHTML === 'function') {
     Element.prototype.insertAdjacentHTML = function (position, html) {
-      return insertAdjacentHTML.call(this, position, emojiHtml(html));
-    };
+      return insertAdjacentHTML.call(this, position, emojiHtml(html))
+    }
   }
 
   // 供需要显式转换的场景（例如把 textContent 改成 innerHTML）调用
-  window.emojiHtml = emojiHtml;
-  window.emojiAsset = assetOf;
-})();
+  window.emojiHtml = emojiHtml
+  window.emojiAsset = assetOf
+})()

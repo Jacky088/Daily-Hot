@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { fetchUpstream, fetchUpstreamJson } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -59,11 +60,11 @@ class ServiceLyric {
   }
 
   async #fetchFromNcm(query: string, clean = false) {
-    const options = { headers: { 'User-Agent': Common.chromeUA, Referer: 'https://music.163.com/' } }
+    const headers = { Referer: 'https://music.163.com/' }
 
-    // 第一步: 搜索歌曲获取歌曲 ID
+    // 第一步: 搜索歌曲获取歌曲 ID（网易云旧接口偶发空响应，fetchUpstream 给 1 次重试）
     const searchApi = `https://music.163.com/api/search/get?s=${encodeURIComponent(query)}&type=1&limit=1`
-    const searchRes = await fetch(searchApi, options)
+    const searchRes = await fetchUpstream(searchApi, { headers })
     const searchData = (await searchRes.json()) as NcmSearchRes
 
     const song = searchData?.result?.songs?.[0]
@@ -76,7 +77,7 @@ class ServiceLyric {
 
     // 第二步: 获取歌词
     const lyricApi = `https://music.163.com/api/song/lyric?id=${song.id}&lv=1&tv=-1`
-    const lyricRes = await fetch(lyricApi, options)
+    const lyricRes = await fetchUpstream(lyricApi, { headers })
     const lyricData = (await lyricRes.json()) as NcmLyricRes
 
     if (!lyricData?.lrc?.lyric) return null
@@ -85,9 +86,8 @@ class ServiceLyric {
   }
 
   async #fetchFromLrclib(query: string, clean = false) {
-    const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, {
-      headers: { 'User-Agent': Common.chromeUA },
-    })
+    // lrclib 免费源无超时会拖住整卡：fetchUpstream 给 8s + 1 次重试
+    const res = await fetchUpstream(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`)
     const list = (await res.json()) as LrclibSearchItem[]
 
     // 优先选择带同步歌词 (LRC 格式) 的结果

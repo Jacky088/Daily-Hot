@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { fetchUpstreamJson } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -44,7 +45,7 @@ class ServiceExRate {
 
     const api = 'https://open.er-api.com/v6/latest'
     // currency 来自 query，必须编码：未编码时用户可塞进 / 或 ? 篡改上游的 path/query
-    const data = (await (await fetch(`${api}/${encodeURIComponent(currency)}`)).json()) as RateResponse
+    const data = await fetchUpstreamJson<RateResponse>(`${api}/${encodeURIComponent(currency)}`)
     const { time_last_update_unix, time_next_update_unix, base_code, rates } = data
 
     const rateItem = {

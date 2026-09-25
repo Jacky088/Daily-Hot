@@ -1,5 +1,6 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -36,12 +37,12 @@ class ServiceSteam {
     const url =
       'https://store.steampowered.com/search/results/?query&start=0&count=20&dynamic_data=&sort_by=Price_ASC&maxprice=free&specials=1&infinite=1&cc=us&l=english'
 
-    const response = await fetch(url, {
+    // Steam 搜索接口偶发 5xx：fetchUpstream 给 10s 超时 + 1 次重试
+    const response = await fetchUpstream(url, {
       headers: {
-        'User-Agent': Common.chromeUA,
         'Accept-Language': 'en-US,en;q=0.9',
       },
-      signal: AbortSignal.timeout(10000),
+      timeoutMs: 10000,
     })
 
     if (!response.ok) {

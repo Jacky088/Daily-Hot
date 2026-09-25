@@ -1,5 +1,6 @@
 import { Common, dayjs } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -46,10 +47,8 @@ class ServiceLowEndTalk {
   }
 
   async #fetch(): Promise<LowEndTalkItem[]> {
-    const response = await fetch(RSS_URL, {
-      headers: { 'User-Agent': Common.chromeUA },
-      signal: AbortSignal.timeout(10000),
-    })
+    // RSS 抓取：fetchUpstream 自带 UA + 10s 超时 + 1 次重试
+    const response = await fetchUpstream(RSS_URL, { timeoutMs: 10000 })
 
     if (!response.ok) {
       throw new Error(`LowEndTalk RSS 请求失败: HTTP ${response.status}`)

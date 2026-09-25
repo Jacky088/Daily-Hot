@@ -35,9 +35,9 @@ export function get__ac_signature2(url: string, ac_nonce: string, ua: string): s
   const nonceNum = bigCountOperation(ac_nonce)
   finalNum = deciOperaNum
   bigCountOperation(ua)
-  ac_signature = countToText((nonceNum % 65521 | (finalNum % 65521 << 16)) >> 2, ac_signature)
+  ac_signature = countToText(((nonceNum % 65521) | ((finalNum % 65521) << 16)) >> 2, ac_signature)
   ac_signature = countToText(
-    (((finalNum % 65521 << 16) ^ nonceNum % 65521) << 28) | (((deciNum << 524576) ^ 524576) >>> 4),
+    ((((finalNum % 65521) << 16) ^ (nonceNum % 65521)) << 28) | (((deciNum << 524576) ^ 524576) >>> 4),
     ac_signature,
   )
   ac_signature = countToText(urlNum % 65521, ac_signature)
@@ -100,7 +100,7 @@ export function get__ac_signature(url: string, ac_nonce: string, ua: string) {
   const g = 582085784 ^ b
   const h = enc_num_to_str((e << 26) | (g >>> 6))
   const i = get_one_chr(g & 63)
-  const j = (cal_one_str(ua, c) % 65521 << 16) | cal_one_str(ac_nonce, c) % 65521
+  const j = ((cal_one_str(ua, c) % 65521) << 16) | (cal_one_str(ac_nonce, c) % 65521)
   const k = enc_num_to_str(j >> 2)
   const l = enc_num_to_str((j << 28) | ((524576 ^ b) >>> 4))
   const m = enc_num_to_str(a)
@@ -374,7 +374,7 @@ export function get_ab(dpf: string, ua: string): string {
         const a = r[i]
         k = (k * a + k + y[i % 3]) % 256
         const b = r[k]
-        ;(r[i] = b), (r[k] = a)
+        ;((r[i] = b), (r[k] = a))
       }
       return r
     }
@@ -584,7 +584,7 @@ export function get_ab(dpf: string, ua: string): string {
   const s2 = (t3 / 256 / 256 / 256 / 256 / 256) & 255
   s.push(
     s2,
-    s2 % 256 & 255,
+    (s2 % 256) & 255,
     (s2 / 256) & 255,
     [211, 2, 5, 1, 129],
     129,

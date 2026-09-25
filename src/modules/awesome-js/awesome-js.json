@@ -16,11 +16,7 @@
     "id": 2,
     "question": "输出是什么？",
     "code": "for (var i = 0; i < 3; i++) {\n  setTimeout(() => console.log(i), 1)\n}\n\nfor (let i = 0; i < 3; i++) {\n  setTimeout(() => console.log(i), 1)\n}",
-    "options": [
-      "A: `0 1 2` 和 `0 1 2`",
-      "B: `0 1 2` 和 `3 3 3`",
-      "C: `3 3 3` 和 `0 1 2`"
-    ],
+    "options": ["A: `0 1 2` 和 `0 1 2`", "B: `0 1 2` 和 `3 3 3`", "C: `3 3 3` 和 `0 1 2`"],
     "answer": "C",
     "explanation": "由于 JavaScript 的事件循环，`setTimeout` 回调会在*遍历结束后*才执行。因为在第一个遍历中遍历 `i` 是通过 `var` 关键字声明的，所以这个值是全局作用域下的。在遍历过程中，我们通过一元操作符 `++` 来每次递增 `i` 的值。当 `setTimeout` 回调执行的时候，`i` 的值等于 3。\n\n在第二个遍历中，遍历 `i` 是通过 `let` 关键字声明的：通过 `let` 和 `const` 关键字声明的变量是拥有块级作用域（指的是任何在 {} 中的内容）。在每次的遍历过程中，`i` 都有一个新值，并且每个值都在循环内的作用域中。"
   },
@@ -28,12 +24,7 @@
     "id": 3,
     "question": "输出是什么？",
     "code": "const shape = {\n  radius: 10,\n  diameter() {\n    return this.radius * 2\n  },\n  perimeter: () => 2 * Math.PI * this.radius\n}\n\nshape.diameter()\nshape.perimeter()",
-    "options": [
-      "A: `20` and `62.83185307179586`",
-      "B: `20` and `NaN`",
-      "C: `20` and `63`",
-      "D: `NaN` and `63`"
-    ],
+    "options": ["A: `20` and `62.83185307179586`", "B: `20` and `NaN`", "C: `20` and `63`", "D: `NaN` and `63`"],
     "answer": "B",
     "explanation": "注意 `diameter` 的值是一个常规函数，但是 `perimeter` 的值是一个箭头函数。\n\n对于箭头函数，`this` 关键字指向的是它当前周围作用域（简单来说是包含箭头函数的常规函数，如果没有常规函数的话就是全局对象），这个行为和常规函数不同。这意味着当我们调用 `perimeter` 时，`this` 不是指向 `shape` 对象，而是它的周围作用域（在例子中是 `window`）。\n\n在 `window` 中没有 `radius` 这个属性，因此返回 `undefined`。"
   },
@@ -41,11 +32,7 @@
     "id": 4,
     "question": "输出是什么？",
     "code": "+true;\n!\"Lydia\";",
-    "options": [
-      "A: `1` and `false`",
-      "B: `false` and `NaN`",
-      "C: `false` and `false`"
-    ],
+    "options": ["A: `1` and `false`", "B: `false` and `NaN`", "C: `false` and `false`"],
     "answer": "A",
     "explanation": "一元操作符加号尝试将 bool 转为 number。`true` 转换为 number 的话为 `1`，`false` 为 `0`。\n\n字符串 `'Lydia'` 是一个真值，真值取反那么就返回 `false`。"
   },
@@ -66,12 +53,7 @@
     "id": 6,
     "question": "输出是什么？",
     "code": "let c = { greeting: 'Hey!' }\nlet d\n\nd = c\nc.greeting = 'Hello'\nconsole.log(d.greeting)",
-    "options": [
-      "A: `Hello`",
-      "B: `undefined`",
-      "C: `ReferenceError`",
-      "D: `TypeError`"
-    ],
+    "options": ["A: `Hello`", "B: `undefined`", "C: `ReferenceError`", "D: `TypeError`"],
     "answer": "A",
     "explanation": "在 JavaScript 中，当设置两个对象彼此相等时，它们会通过*引用*进行交互。\n\n首先，变量 `c` 的值是一个对象。接下来，我们给 `d` 分配了一个和 `c` 对象相同的引用。\n\n因此当我们改变其中一个对象时，其实是改变了所有的对象。"
   },
@@ -92,12 +74,7 @@
     "id": 8,
     "question": "输出是什么？",
     "code": "class Chameleon {\n  static colorChange(newColor) {\n    this.newColor = newColor\n    return this.newColor\n  }\n\n  constructor({ newColor = 'green' } = {}) {\n    this.newColor = newColor\n  }\n}\n\nconst freddie = new Chameleon({ newColor: 'purple' })\nfreddie.colorChange('orange')",
-    "options": [
-      "A: `orange`",
-      "B: `purple`",
-      "C: `green`",
-      "D: `TypeError`"
-    ],
+    "options": ["A: `orange`", "B: `purple`", "C: `green`", "D: `TypeError`"],
     "answer": "D",
     "explanation": "`colorChange` 是一个静态方法。静态方法被设计为只能被创建它们的构造器使用（也就是 `Chameleon`），并且不能传递给实例。因为 `freddie` 是一个实例，静态方法不能被实例使用，因此抛出了 `TypeError` 错误。"
   },
@@ -105,11 +82,7 @@
     "id": 9,
     "question": "输出是什么？",
     "code": "let greeting\ngreetign = {} // Typo!\nconsole.log(greetign)",
-    "options": [
-      "A: `{}`",
-      "B: `ReferenceError: greetign is not defined`",
-      "C: `undefined`"
-    ],
+    "options": ["A: `{}`", "B: `ReferenceError: greetign is not defined`", "C: `undefined`"],
     "answer": "A",
     "explanation": "代码打印出了一个对象，这是因为我们在全局对象上创建了一个空对象！当我们将 `greeting` 写错成 `greetign` 时，JS 解释器实际在上浏览器中将它视为 `global.greetign = {}`（或者 `window.greetign = {}`）。\n\n为了避免这个为题，我们可以使用 `\"use strict\"。这能确保当你声明变量时必须赋值。"
   },
@@ -130,12 +103,7 @@
     "id": 11,
     "question": "输出是什么？",
     "code": "function Person(firstName, lastName) {\n  this.firstName = firstName;\n  this.lastName = lastName;\n}\n\nconst member = new Person(\"Lydia\", \"Hallie\");\nPerson.getFullName = function () {\n  return `${this.firstName} ${this.lastName}`;\n}\n\nconsole.log(member.getFullName());",
-    "options": [
-      "A: `TypeError`",
-      "B: `SyntaxError`",
-      "C: `Lydia Hallie`",
-      "D: `undefined` `undefined`"
-    ],
+    "options": ["A: `TypeError`", "B: `SyntaxError`", "C: `Lydia Hallie`", "D: `undefined` `undefined`"],
     "answer": "A",
     "explanation": "你不能像常规对象那样，给构造函数添加属性。如果你想一次性给所有实例添加特性，你应该使用原型。因此本例中，使用如下方式：\n\n```js\nPerson.prototype.getFullName = function () {\n  return `${this.firstName} ${this.lastName}`;\n}\n```\n\n这才会使 `member.getFullName()` 起作用。为什么这么做有益的？假设我们将这个方法添加到构造函数本身里。也许不是每个 `Person` 实例都需要这个方法。这将浪费大量内存空间，因为它们仍然具有该属性，这将占用每个实例的内存空间。相反，如果我们只将它添加到原型中，那么它只存在于内存中的一个位置，但是所有实例都可以访问它！"
   },
@@ -166,10 +134,7 @@
   {
     "id": 14,
     "question": "所有对象都有原型。",
-    "options": [
-      "A: 对",
-      "B: 错"
-    ],
+    "options": ["A: 对", "B: 错"],
     "answer": "B",
     "explanation": "除了**基本对象**（base object），所有对象都有原型。基本对象可以访问一些方法和属性，比如 `.toString`。这就是为什么你可以使用内置的 JavaScript 方法！所有这些方法在原型上都是可用的。虽然 JavaScript 不能直接在对象上找到这些方法，但 JavaScript 会沿着原型链找到它们，以便于你使用。"
   },
@@ -177,12 +142,7 @@
     "id": 15,
     "question": "输出是什么？",
     "code": "function sum(a, b) {\n  return a + b\n}\n\nsum(1, '2')",
-    "options": [
-      "A: `NaN`",
-      "B: `TypeError`",
-      "C: `\"12\"`",
-      "D: `3`"
-    ],
+    "options": ["A: `NaN`", "B: `TypeError`", "C: `\"12\"`", "D: `3`"],
     "answer": "C",
     "explanation": "JavaScript 是一种**动态类型语言**：我们不指定某些变量的类型。值可以在你不知道的情况下自动转换成另一种类型，这种类型称为**隐式类型转换**（implicit type coercion）。**Coercion** 是指将一种类型转换为另一种类型。\n\n在本例中，JavaScript 将数字 `1` 转换为字符串，以便函数有意义并返回一个值。在数字类型（`1`）和字符串类型（`'2'`）相加时，该数字被视为字符串。我们可以连接字符串，比如 `\"Hello\" + \"World\"`，这里发生的是 `\"1\" + \"2\"`，它返回 `\"12\"`。"
   },
@@ -190,12 +150,7 @@
     "id": 16,
     "question": "输出是什么？",
     "code": "let number = 0\nconsole.log(number++)\nconsole.log(++number)\nconsole.log(number)",
-    "options": [
-      "A: `1` `1` `2`",
-      "B: `1` `2` `2`",
-      "C: `0` `2` `2`",
-      "D: `0` `1` `2`"
-    ],
+    "options": ["A: `1` `1` `2`", "B: `1` `2` `2`", "C: `0` `2` `2`", "D: `0` `1` `2`"],
     "answer": "C",
     "explanation": "一元**后自增**运算符 `++`：\n\n1. 返回值（返回 `0`）\n2. 值自增（number 现在是 `1`）\n\n一元**前自增**运算符 `++`：\n\n1. 值自增（number 现在是 `2`）\n2. 返回值（返回 `2`）\n\n结果是 `0 2 2`."
   },
@@ -215,11 +170,7 @@
     "id": 18,
     "question": "输出是什么？",
     "code": "function checkAge(data) {\n  if (data === { age: 18 }) {\n    console.log('You are an adult!')\n  } else if (data == { age: 18 }) {\n    console.log('You are still an adult.')\n  } else {\n    console.log(`Hmm.. You don't have an age I guess`)\n  }\n}\n\ncheckAge({ age: 18 })",
-    "options": [
-      "A: `You are an adult!`",
-      "B: `You are still an adult.`",
-      "C: `Hmm.. You don't have an age I guess`"
-    ],
+    "options": ["A: `You are an adult!`", "B: `You are still an adult.`", "C: `Hmm.. You don't have an age I guess`"],
     "answer": "C",
     "explanation": "在测试相等性时，基本类型通过它们的值（value）进行比较，而对象通过它们的引用（reference）进行比较。JavaScript 检查对象是否具有对内存中相同位置的引用。\n\n题目中我们正在比较的两个对象不是同一个引用：作为参数传递的对象引用的内存位置，与用于判断相等的对象所引用的内存位置并不同。\n\n这也是 `{ age: 18 } === { age: 18 }` 和 `{ age: 18 } == { age: 18 }` 都返回 `false` 的原因。"
   },
@@ -227,12 +178,7 @@
     "id": 19,
     "question": "输出是什么？",
     "code": "function getAge(...args) {\n  console.log(typeof args)\n}\n\ngetAge(21)",
-    "options": [
-      "A: `\"number\"`",
-      "B: `\"array\"`",
-      "C: `\"object\"`",
-      "D: `\"NaN\"`"
-    ],
+    "options": ["A: `\"number\"`", "B: `\"array\"`", "C: `\"object\"`", "D: `\"NaN\"`"],
     "answer": "C",
     "explanation": "扩展运算符（`...args`）会返回实参组成的数组。而数组是对象，因此 `typeof args` 返回 `\"object\"`。"
   },
@@ -240,12 +186,7 @@
     "id": 20,
     "question": "输出是什么？",
     "code": "function getAge() {\n  'use strict'\n  age = 21\n  console.log(age)\n}\n\ngetAge()",
-    "options": [
-      "A: `21`",
-      "B: `undefined`",
-      "C: `ReferenceError`",
-      "D: `TypeError`"
-    ],
+    "options": ["A: `21`", "B: `undefined`", "C: `ReferenceError`", "D: `TypeError`"],
     "answer": "C",
     "explanation": "使用 `\"use strict\"`，你可以确保不会意外地声明全局变量。我们从来没有声明变量 `age`，因为我们使用 `\"use strict\"`，它将抛出一个引用错误。如果我们不使用 `\"use strict\"`，它就会工作，因为属性 `age` 会被添加到全局对象中了。"
   },
@@ -253,12 +194,7 @@
     "id": 21,
     "question": "输出是什么？",
     "code": "const sum = eval('10*10+5')",
-    "options": [
-      "A: `105`",
-      "B: `\"105\"`",
-      "C: `TypeError`",
-      "D: `\"10*10+5\"`"
-    ],
+    "options": ["A: `105`", "B: `\"105\"`", "C: `TypeError`", "D: `\"10*10+5\"`"],
     "answer": "A",
     "explanation": "代码以字符串形式传递进来，`eval` 对其求值。如果它是一个表达式，就像本例中那样，它对表达式求值。表达式是 `10 * 10 + 5`。这将返回数字 `105`。"
   },
@@ -279,12 +215,7 @@
     "id": 23,
     "question": "输出是什么？",
     "code": "var num = 8\nvar num = 10\n\nconsole.log(num)",
-    "options": [
-      "A: `8`",
-      "B: `10`",
-      "C: `SyntaxError`",
-      "D: `ReferenceError`"
-    ],
+    "options": ["A: `8`", "B: `10`", "C: `SyntaxError`", "D: `ReferenceError`"],
     "answer": "B",
     "explanation": "使用 `var` 关键字，你可以用相同的名称声明多个变量。然后变量将保存最新的值。\n\n你不能使用 `let` 或 `const` 来实现这一点，因为它们是块作用域的。"
   },
@@ -317,11 +248,7 @@
   {
     "id": 26,
     "question": "JavaScript 全局执行上下文为你做了两件事：全局对象和 this 关键字。",
-    "options": [
-      "A: 对",
-      "B: 错",
-      "C: 看情况"
-    ],
+    "options": ["A: 对", "B: 错", "C: 看情况"],
     "answer": "A",
     "explanation": "基本执行上下文是全局执行上下文：它是代码中随处可访问的内容。"
   },
@@ -329,12 +256,7 @@
     "id": 27,
     "question": "输出是什么？",
     "code": "for (let i = 1; i < 5; i++) {\n  if (i === 3) continue\n  console.log(i)\n}",
-    "options": [
-      "A: `1` `2`",
-      "B: `1` `2` `3`",
-      "C: `1` `2` `4`",
-      "D: `1` `3` `4`"
-    ],
+    "options": ["A: `1` `2`", "B: `1` `2` `3`", "C: `1` `2` `4`", "D: `1` `3` `4`"],
     "answer": "C",
     "explanation": "如果某个条件返回 `true`，则 `continue` 语句跳过本次迭代。"
   },
@@ -355,12 +277,7 @@
     "id": 29,
     "question": "输出是什么？",
     "code": "const a = {}\nconst b = { key: 'b' }\nconst c = { key: 'c' }\n\na[b] = 123\na[c] = 456\n\nconsole.log(a[b])",
-    "options": [
-      "A: `123`",
-      "B: `456`",
-      "C: `undefined`",
-      "D: `ReferenceError`"
-    ],
+    "options": ["A: `123`", "B: `456`", "C: `undefined`", "D: `ReferenceError`"],
     "answer": "B",
     "explanation": "对象的键被自动转换为字符串。我们试图将一个对象 `b` 设置为对象 `a` 的键，且相应的值为 `123`。\n\n然而，当字符串化一个对象时，它会变成 `\"[object Object]\"`。因此这里说的是，`a[\"[object Object]\"] = 123`。然后，我们再一次做了同样的事情，`c` 是另外一个对象，这里也有隐式字符串化，于是，`a[\"[object Object]\"] = 456`。\n\n然后，我们打印 `a[b]`，也就是 `a[\"[object Object]\"]`。之前刚设置为 `456`，因此返回的是 `456`。"
   },
@@ -380,24 +297,14 @@
   {
     "id": 31,
     "question": "当点击按钮时，event.target 是什么？",
-    "options": [
-      "A: Outer `div`",
-      "B: Inner `div`",
-      "C: `button`",
-      "D: 一个包含所有嵌套元素的数组。"
-    ],
+    "options": ["A: Outer `div`", "B: Inner `div`", "C: `button`", "D: 一个包含所有嵌套元素的数组。"],
     "answer": "C",
     "explanation": "导致事件的最深嵌套的元素是事件的 target。你可以通过 `event.stopPropagation` 来停止冒泡。"
   },
   {
     "id": 32,
     "question": "当您单击该段落时，日志输出是什么？",
-    "options": [
-      "A: `p` `div`",
-      "B: `div` `p`",
-      "C: `p`",
-      "D: `div`"
-    ],
+    "options": ["A: `p` `div`", "B: `div` `p`", "C: `p`", "D: `div`"],
     "answer": "A",
     "explanation": "如果我们点击 `p`，我们会看到两个日志：`p` 和 `div`。在事件传播期间，有三个阶段：捕获、目标和冒泡。默认情况下，事件处理程序在冒泡阶段执行（除非将 `useCapture` 设置为 `true`）。它从嵌套最深的元素向外传播。"
   },
@@ -418,12 +325,7 @@
     "id": 34,
     "question": "输出是什么？",
     "code": "function sayHi() {\n  return (() => 0)()\n}\n\ntypeof sayHi()",
-    "options": [
-      "A: `\"object\"`",
-      "B: `\"number\"`",
-      "C: `\"function\"`",
-      "D: `\"undefined\"`"
-    ],
+    "options": ["A: `\"object\"`", "B: `\"number\"`", "C: `\"function\"`", "D: `\"undefined\"`"],
     "answer": "B",
     "explanation": "`sayHi` 方法返回的是立即执行函数 (IIFE) 的返回值。此立即执行函数的返回值是 `0`，类型是 `number`\n\n参考：只有 7 种内置类型：`null`，`undefined`，`boolean`，`number`，`string`，`object`, `symbol` 和 `bigint`。``function`` 不是一种类型，函数是对象，它的类型是``object``。"
   },
@@ -444,12 +346,7 @@
     "id": 36,
     "question": "输出是什么？",
     "code": "console.log(typeof typeof 1)",
-    "options": [
-      "A: `\"number\"`",
-      "B: `\"string\"`",
-      "C: `\"object\"`",
-      "D: `\"undefined\"`"
-    ],
+    "options": ["A: `\"number\"`", "B: `\"string\"`", "C: `\"object\"`", "D: `\"undefined\"`"],
     "answer": "B",
     "explanation": "`typeof 1` 返回 `\"number\"`。\n`typeof \"number\"` 返回 `\"string\"`。"
   },
@@ -482,12 +379,7 @@
   {
     "id": 39,
     "question": "JavaScript 中的一切都是？",
-    "options": [
-      "A: 基本类型与对象",
-      "B: 函数与对象",
-      "C: 只有对象",
-      "D: 数字与对象"
-    ],
+    "options": ["A: 基本类型与对象", "B: 函数与对象", "C: 只有对象", "D: 数字与对象"],
     "answer": "A",
     "explanation": "JavaScript 只有基本类型和对象。\n\n基本类型包括 `boolean`, `null`, `undefined`, `bigint`, `number`, `string`, `symbol`。"
   },
@@ -495,12 +387,7 @@
     "id": 40,
     "question": "输出是什么？",
     "code": "[[0, 1], [2, 3]].reduce(\n  (acc, cur) => {\n    return acc.concat(cur)\n  },\n  [1, 2]\n)",
-    "options": [
-      "A: `[0, 1, 2, 3, 1, 2]`",
-      "B: `[6, 1, 2]`",
-      "C: `[1, 2, 0, 1, 2, 3]`",
-      "D: `[1, 2, 6]`"
-    ],
+    "options": ["A: `[0, 1, 2, 3, 1, 2]`", "B: `[6, 1, 2]`", "C: `[1, 2, 0, 1, 2, 3]`", "D: `[1, 2, 6]`"],
     "answer": "C",
     "explanation": "`[1, 2]`是初始值。初始值将会作为首次调用时第一个参数 `acc` 的值。在第一次执行时，`acc` 的值是 `[1, 2]`，`cur` 的值是 `[0, 1]`。合并它们，结果为 `[1, 2, 0, 1]`。\n第二次执行，`acc` 的值是 `[1, 2, 0, 1]`，`cur` 的值是 `[2, 3]`。合并它们，最终结果为 `[1, 2, 0, 1, 2, 3]`"
   },
@@ -521,12 +408,7 @@
     "id": 42,
     "question": "`setInterval` 方法的返回值是什么？",
     "code": "setInterval(() => console.log('Hi'), 1000)",
-    "options": [
-      "A: 一个唯一的 id",
-      "B: 该方法指定的毫秒数",
-      "C: 传递的函数",
-      "D: `undefined`"
-    ],
+    "options": ["A: 一个唯一的 id", "B: 该方法指定的毫秒数", "C: 传递的函数", "D: `undefined`"],
     "answer": "A",
     "explanation": "`setInterval` 返回一个唯一的 id。此 id 可被用于 `clearInterval` 函数来取消定时。"
   },
@@ -547,12 +429,7 @@
     "id": 44,
     "question": "输出是什么？",
     "code": "function* generator(i) {\n  yield i;\n  yield i * 2;\n}\n\nconst gen = generator(10);\n\nconsole.log(gen.next().value);\nconsole.log(gen.next().value);",
-    "options": [
-      "A: `[0, 10], [10, 20]`",
-      "B: `20, 20`",
-      "C: `10, 20`",
-      "D: `0, 10 and 10, 20`"
-    ],
+    "options": ["A: `[0, 10], [10, 20]`", "B: `20, 20`", "C: `10, 20`", "D: `0, 10 and 10, 20`"],
     "answer": "C",
     "explanation": "一般的函数在执行之后是不能中途停下的。但是，生成器函数却可以中途“停下”，之后可以再从停下的地方继续。当生成器遇到`yield`关键字的时候，会生成`yield`后面的值。注意，生成器在这种情况下不 _返回_ (_return_ ) 值，而是 _生成_ (_yield_) 值。\n\n首先，我们用`10`作为参数`i`来初始化生成器函数。然后使用`next()`方法一步步执行生成器。第一次执行生成器的时候，`i`的值为`10`，遇到第一个`yield`关键字，它要生成`i`的值。此时，生成器“暂停”，生成了`10`。\n\n然后，我们再执行`next()`方法。生成器会从刚才暂停的地方继续，这个时候`i`还是`10`。于是我们走到了第二个`yield`关键字处，这时候需要生成的值是`i*2`，`i`为`10`，那么此时生成的值便是`20`。所以这道题的最终结果是`10,20`。"
   },
@@ -560,12 +437,7 @@
     "id": 45,
     "question": "返回值是什么？",
     "code": "const firstPromise = new Promise((res, rej) => {\n  setTimeout(res, 500, \"one\");\n});\n\nconst secondPromise = new Promise((res, rej) => {\n  setTimeout(res, 100, \"two\");\n});\n\nPromise.race([firstPromise, secondPromise]).then(res => console.log(res));",
-    "options": [
-      "A: `\"one\"`",
-      "B: `\"two\"`",
-      "C: `\"two\" \"one\"`",
-      "D: `\"one\" \"two\"`"
-    ],
+    "options": ["A: `\"one\"`", "B: `\"two\"`", "C: `\"two\" \"one\"`", "D: `\"one\" \"two\"`"],
     "answer": "B",
     "explanation": "当我们向`Promise.race`方法中传入多个`Promise`时，会进行 _优先_ 解析。在这个例子中，我们用`setTimeout`给`firstPromise`和`secondPromise`分别设定了 500ms 和 100ms 的定时器。这意味着`secondPromise`会首先解析出字符串`two`。那么此时`res`参数即为`two`，是为输出结果。"
   },
@@ -573,12 +445,7 @@
     "id": 46,
     "question": "输出是什么？",
     "code": "let person = { name: \"Lydia\" };\nconst members = [person];\nperson = null;\n\nconsole.log(members);",
-    "options": [
-      "A: `null`",
-      "B: `[null]`",
-      "C: `[{}]`",
-      "D: `[{ name: \"Lydia\" }]`"
-    ],
+    "options": ["A: `null`", "B: `[null]`", "C: `[{}]`", "D: `[{ name: \"Lydia\" }]`"],
     "answer": "D",
     "explanation": "首先我们声明了一个拥有`name`属性的对象 `person`。\n\n然后我们又声明了一个变量`members`. 将首个元素赋值为变量`person`。当设置两个对象彼此相等时，它们会通过 _引用_ 进行交互。但是当你将引用从一个变量分配至另一个变量时，其实只是执行了一个 _复制_ 操作。（注意一点，他们的引用 _并不相同_!）\n\n接下来我们让`person`等于`null`。\n\n我们没有修改数组第一个元素的值，而只是修改了变量`person`的值，因为元素（复制而来）的引用与`person`不同。`members`的第一个元素仍然保持着对原始对象的引用。当我们输出`members`数组时，第一个元素会将引用的对象打印出来。"
   },
@@ -599,12 +466,7 @@
     "id": 48,
     "question": "输出是什么？",
     "code": "console.log(3 + 4 + \"5\");",
-    "options": [
-      "A: `\"345\"`",
-      "B: `\"75\"`",
-      "C: `12`",
-      "D: `\"12\"`"
-    ],
+    "options": ["A: `\"345\"`", "B: `\"75\"`", "C: `12`", "D: `\"12\"`"],
     "answer": "B",
     "explanation": "当所有运算符的 _优先级_ 相同时，计算表达式需要确定运算符的结合顺序，即从右到左还是从左往右。在这个例子中，我们只有一类运算符`+`，对于加法来说，结合顺序就是从左到右。\n\n`3 + 4`首先计算，得到数字`7`.\n\n由于类型的强制转换，`7 + '5'`的结果是`\"75\"`. JavaScript 将`7`转换成了字符串，可以参考问题 15.我们可以用`+`号把两个字符串连接起来。`\"7\" + \"5\"` 就得到了`\"75\"`."
   },
@@ -612,12 +474,7 @@
     "id": 49,
     "question": "`num`的值是什么？",
     "code": "const num = parseInt(\"7*6\", 10);",
-    "options": [
-      "A: `42`",
-      "B: `\"42\"`",
-      "C: `7`",
-      "D: `NaN`"
-    ],
+    "options": ["A: `42`", "B: `\"42\"`", "C: `7`", "D: `NaN`"],
     "answer": "C",
     "explanation": "只返回了字符串中第一个字母。设定了 _进制_ 后 (也就是第二个参数，指定需要解析的数字是什么进制：十进制、十六机制、八进制、二进制等等……),`parseInt` 检查字符串中的字符是否合法。一旦遇到一个在指定进制中不合法的字符后，立即停止解析并且忽略后面所有的字符。\n\n`*`就是不合法的数字字符。所以只解析到`\"7\"`，并将其解析为十进制的`7`. `num`的值即为`7`."
   },
@@ -625,12 +482,7 @@
     "id": 50,
     "question": "输出是什么？",
     "code": "[1, 2, 3].map(num => {\n  if (typeof num === \"number\") return;\n  return num * 2;\n});",
-    "options": [
-      "A: `[]`",
-      "B: `[null, null, null]`",
-      "C: `[undefined, undefined, undefined]`",
-      "D: `[ 3 x empty ]`"
-    ],
+    "options": ["A: `[]`", "B: `[null, null, null]`", "C: `[undefined, undefined, undefined]`", "D: `[ 3 x empty ]`"],
     "answer": "C",
     "explanation": "对数组进行映射的时候，`num`就是当前循环到的元素。在这个例子中，所有的映射都是 number 类型，所以 if 中的判断`typeof num === \"number\"`结果都是`true`.map 函数创建了新数组并且将函数的返回值插入数组。\n\n但是，没有任何值返回。当函数没有返回任何值时，即默认返回`undefined`.对数组中的每一个元素来说，函数块都得到了这个返回值，所以结果中每一个元素都是`undefined`."
   },
@@ -664,12 +516,7 @@
     "id": 53,
     "question": "输出是什么？",
     "code": "function Car() {\n  this.make = \"Lamborghini\";\n  return { make: \"Maserati\" };\n}\n\nconst myCar = new Car();\nconsole.log(myCar.make);",
-    "options": [
-      "A: `\"Lamborghini\"`",
-      "B: `\"Maserati\"`",
-      "C: `ReferenceError`",
-      "D: `TypeError`"
-    ],
+    "options": ["A: `\"Lamborghini\"`", "B: `\"Maserati\"`", "C: `ReferenceError`", "D: `TypeError`"],
     "answer": "B",
     "explanation": "返回属性的时候，属性的值等于 _返回的_ 值，而不是构造函数中设定的值。我们返回了字符串 `\"Maserati\"`，所以 `myCar.make`等于`\"Maserati\"`."
   },
@@ -694,12 +541,7 @@
     "id": 56,
     "question": "输出是什么？",
     "code": "const set = new Set([1, 1, 2, 3, 4]);\n\nconsole.log(set);",
-    "options": [
-      "A: `[1, 1, 2, 3, 4]`",
-      "B: `[1, 2, 3, 4]`",
-      "C: `{1, 1, 2, 3, 4}`",
-      "D: `{1, 2, 3, 4}`"
-    ],
+    "options": ["A: `[1, 1, 2, 3, 4]`", "B: `[1, 2, 3, 4]`", "C: `{1, 1, 2, 3, 4}`", "D: `{1, 2, 3, 4}`"],
     "answer": "D",
     "explanation": "`Set`对象是独一无二的值的集合：也就是说同一个值在其中仅出现一次。\n\n我们传入了数组`[1, 1, 2, 3, 4]`，他有一个重复值`1`.以为一个集合里不能有两个重复的值，其中一个就被移除了。所以结果是 `{1, 2, 3, 4}`."
   },
@@ -707,12 +549,7 @@
     "id": 57,
     "question": "输出是什么？",
     "code": "// counter.js\nlet counter = 10;\nexport default counter;",
-    "options": [
-      "A: `10`",
-      "B: `11`",
-      "C: `Error`",
-      "D: `NaN`"
-    ],
+    "options": ["A: `10`", "B: `11`", "C: `Error`", "D: `NaN`"],
     "answer": "C",
     "explanation": "引入的模块是 _只读_ 的：你不能修改引入的模块。只有导出他们的模块才能修改其值。\n\n当我们给`myCounter`增加一个值的时候会抛出一个异常：`myCounter`是只读的，不能被修改。"
   },
@@ -720,12 +557,7 @@
     "id": 58,
     "question": "输出是什么？",
     "code": "const name = \"Lydia\";\nage = 21;\n\nconsole.log(delete name);\nconsole.log(delete age);",
-    "options": [
-      "A: `false`, `true`",
-      "B: `\"Lydia\"`, `21`",
-      "C: `true`, `true`",
-      "D: `undefined`, `undefined`"
-    ],
+    "options": ["A: `false`, `true`", "B: `\"Lydia\"`, `21`", "C: `true`, `true`", "D: `undefined`, `undefined`"],
     "answer": "A",
     "explanation": "`delete`操作符返回一个布尔值：`true`指删除成功，否则返回`false`. 但是通过 `var`, `const` 或 `let` 关键字声明的变量无法用 `delete` 操作符来删除。\n\n`name`变量由`const`关键字声明，所以删除不成功：返回 `false`. 而我们设定`age`等于`21`时，我们实际上添加了一个名为`age`的属性给全局对象。对象中的属性是可以删除的，全局对象也是如此，所以`delete age`返回`true`."
   },
@@ -733,12 +565,7 @@
     "id": 59,
     "question": "输出是什么？",
     "code": "const numbers = [1, 2, 3, 4, 5];\nconst [y] = numbers;\n\nconsole.log(y);",
-    "options": [
-      "A: `[[1, 2, 3, 4, 5]]`",
-      "B: `[1, 2, 3, 4, 5]`",
-      "C: `1`",
-      "D: `[1]`"
-    ],
+    "options": ["A: `[[1, 2, 3, 4, 5]]`", "B: `[1, 2, 3, 4, 5]`", "C: `1`", "D: `[1]`"],
     "answer": "C",
     "explanation": "我们可以通过解构赋值来解析来自对象的数组或属性的值，比如说：\n\n```javascript\n[a, b] = [1, 2];\n```\n\n`a`的值现在是`1`，`b`的值现在是`2`.而在题目中，我们是这么做的：\n\n```javascript\n[y] = [1, 2, 3, 4, 5];\n```\n\n也就是说，`y`等于数组的第一个值就是数字`1`.我们输出`y`，返回`1`."
   },
@@ -785,12 +612,7 @@
     "id": 63,
     "question": "输出是什么？",
     "code": "let num = 10;\n\nconst increaseNumber = () => num++;\nconst increasePassedNumber = number => number++;\n\nconst num1 = increaseNumber();\nconst num2 = increasePassedNumber(num1);\n\nconsole.log(num1);\nconsole.log(num2);",
-    "options": [
-      "A: `10`, `10`",
-      "B: `10`, `11`",
-      "C: `11`, `11`",
-      "D: `11`, `12`"
-    ],
+    "options": ["A: `10`, `10`", "B: `10`, `11`", "C: `11`, `11`", "D: `11`, `12`"],
     "answer": "A",
     "explanation": "一元操作符 `++` _先返回_ 操作值，_再累加_ 操作值。`num1`的值是`10`，因为`increaseNumber`函数首先返回`num`的值，也就是`10`，随后再进行 `num`的累加。\n\n`num2`是`10`因为我们将 `num1`传入`increasePassedNumber`. `number`等于`10`（`num1`的值。同样道理，`++` _先返回_ 操作值，_再累加_ 操作值。）`number`是`10`，所以`num2`也是`10`."
   },
@@ -824,12 +646,7 @@
     "id": 66,
     "question": "使用哪个构造函数可以成功继承`Dog`类？",
     "code": "class Dog {\n  constructor(name) {\n    this.name = name;\n  }\n};\n\nclass Labrador extends Dog {\n  // 1 \n  constructor(name, size) {\n    this.size = size;\n  }\n  // 2\n  constructor(name, size) {\n    super(name);\n    this.size = size;\n  }\n  // 3\n  constructor(size) {\n    super(name);\n    this.size = size;\n  }\n  // 4 \n  constructor(name, size) {\n    this.name = name;\n    this.size = size;\n  }\n\n};",
-    "options": [
-      "A: 1",
-      "B: 2",
-      "C: 3",
-      "D: 4"
-    ],
+    "options": ["A: 1", "B: 2", "C: 3", "D: 4"],
     "answer": "",
     "explanation": ""
   },
@@ -876,12 +693,7 @@
     "id": 70,
     "question": "输出什么？",
     "code": "console.log(\"🥑\" + \"💻\");",
-    "options": [
-      "A: `\"🥑💻\"`",
-      "B: `257548`",
-      "C: A string containing their code points",
-      "D: Error"
-    ],
+    "options": ["A: `\"🥑💻\"`", "B: `257548`", "C: A string containing their code points", "D: Error"],
     "answer": "A",
     "explanation": "使用`+`运算符，您可以连接字符串。上述情况，我们将字符串`“🥑”`与字符串`”💻“`连接起来，产生`”🥑💻“`。"
   },
@@ -928,12 +740,7 @@
     "id": 74,
     "question": "输出什么？",
     "code": "function addToList(item, list) {\n  return list.push(item);\n}\n\nconst result = addToList(\"apple\", [\"banana\"]);\nconsole.log(result);",
-    "options": [
-      "A: `['apple', 'banana']`",
-      "B: `2`",
-      "C: `true`",
-      "D: `undefined`"
-    ],
+    "options": ["A: `['apple', 'banana']`", "B: `2`", "C: `true`", "D: `undefined`"],
     "answer": "B",
     "explanation": "`push()`方法返回新数组的长度。一开始，数组包含一个元素（字符串`\"banana\"`），长度为 1。在数组中添加字符串`\"apple\"`后，长度变为 2，并将从`addToList`函数返回。\n\n`push`方法修改原始数组，如果你想从函数返回数组而不是数组长度，那么应该在 push `item`之后返回`list`。"
   },
@@ -941,12 +748,7 @@
     "id": 75,
     "question": "输出什么？",
     "code": "const box = { x: 10, y: 20 };\n\nObject.freeze(box);\n\nconst shape = box;\nshape.x = 100;\nconsole.log(shape)",
-    "options": [
-      "A: `{ x: 100, y: 20 }`",
-      "B: `{ x: 10, y: 20 }`",
-      "C: `{ x: 100 }`",
-      "D: `ReferenceError`"
-    ],
+    "options": ["A: `{ x: 100, y: 20 }`", "B: `{ x: 10, y: 20 }`", "C: `{ x: 100 }`", "D: `ReferenceError`"],
     "answer": "B",
     "explanation": "`Object.freeze`使得无法添加、删除或修改对象的属性（除非属性的值是另一个对象）。\n\n当我们创建变量`shape`并将其设置为等于冻结对象`box`时，`shape`指向的也是冻结对象。你可以使用`Object.isFrozen`检查一个对象是否被冻结，上述情况，`Object.isFrozen（shape）`将返回`true`。\n\n由于`shape`被冻结，并且`x`的值不是对象，所以我们不能修改属性`x`。`x`仍然等于`10`，`{x：10，y：20}`被打印。\n\n注意，上述例子我们对属性`x`进行修改，可能会导致抛出 TypeError 异常（最常见但不仅限于严格模式下时）。"
   },
@@ -954,12 +756,7 @@
     "id": 76,
     "question": "输出什么？",
     "code": "const { name: myName } = { name: \"Lydia\" };\n\nconsole.log(name);",
-    "options": [
-      "A: `\"Lydia\"`",
-      "B: `\"myName\"`",
-      "C: `undefined`",
-      "D: `ReferenceError`"
-    ],
+    "options": ["A: `\"Lydia\"`", "B: `\"myName\"`", "C: `undefined`", "D: `ReferenceError`"],
     "answer": "D",
     "explanation": "当我们从右侧的对象解构属性`name`时，我们将其值`Lydia`分配给名为`myName`的变量。\n\n使用`{name：myName}`，我们是在告诉 JavaScript 我们要创建一个名为`myName`的新变量，并且其值是右侧对象的`name`属性的值。\n\n当我们尝试打印`name`，一个未定义的变量时，就会引发`ReferenceError`。"
   },
@@ -967,10 +764,7 @@
     "id": 77,
     "question": "以下是个纯函数么？",
     "code": "function sum(a, b) {\n  return a + b;\n}",
-    "options": [
-      "A: Yes",
-      "B: No"
-    ],
+    "options": ["A: Yes", "B: No"],
     "answer": "A",
     "explanation": "纯函数在相同的输入值时，需产生相同的输出，其输出的结果，与输入值以外的其他隐藏信息或状态无关，也和由 I/O 设备产生的外部输出无关。\n纯函数不会产生副作用。\n\n纯函数与副作用的定义可参考：\nhttps://zh.wikipedia.org/wiki/%E5%89%AF%E4%BD%9C%E7%94%A8_(%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%A7%91%E5%AD%A6)"
   },
@@ -1008,12 +802,7 @@
     "id": 81,
     "question": "输出什么？",
     "code": "function sayHi(name) {\n  return `Hi there, ${name}`\n}\n\nconsole.log(sayHi())",
-    "options": [
-      "A: `Hi there, `",
-      "B: `Hi there, undefined`",
-      "C: `Hi there, null`",
-      "D: `ReferenceError`"
-    ],
+    "options": ["A: `Hi there, `", "B: `Hi there, undefined`", "C: `Hi there, null`", "D: `ReferenceError`"],
     "answer": "B",
     "explanation": "默认情况下，如果不给函数传参，参数的值将为`undefined`。上述情况，我们没有给参数`name`传值。`name`等于`undefined`，并被打印。\n\n在 ES6 中，我们可以使用默认参数覆盖此默认的`undefined`值。例如：\n\n`function sayHi (name =“Lydia”){...}`\n\n在这种情况下，如果我们没有传递值或者如果我们传递`undefined`，`name`总是等于字符串`Lydia`"
   },
@@ -1073,12 +862,7 @@
     "id": 86,
     "question": "哪个选项是将`hasName`设置为`true`的方法，前提是不能将`true`作为参数传递？",
     "code": "function getName(name) {\n  const hasName = //\n}",
-    "options": [
-      "A: `!!name`",
-      "B: `name`",
-      "C: `new Boolean(name)`",
-      "D: `name.length`"
-    ],
+    "options": ["A: `!!name`", "B: `name`", "C: `new Boolean(name)`", "D: `name.length`"],
     "answer": "A",
     "explanation": "使用逻辑非运算符`!`，将返回一个布尔值，使用`!! name`，我们可以确定`name`的值是真的还是假的。如果`name`是真实的，那么`!name`返回`false`。`!false`返回`true`。\n\n通过将`hasName`设置为`name`，可以将`hasName`设置为等于传递给`getName`函数的值，而不是布尔值`true`。\n\n`new Boolean（true）`返回一个对象包装器，而不是布尔值本身。\n\n`name.length`返回传递的参数的长度，而不是布尔值`true`。"
   },
@@ -1086,12 +870,7 @@
     "id": 87,
     "question": "输出什么？",
     "code": "console.log(\"I want pizza\"[0])",
-    "options": [
-      "A: `\"\"\"`",
-      "B: `\"I\"`",
-      "C: `SyntaxError`",
-      "D: `undefined`"
-    ],
+    "options": ["A: `\"\"\"`", "B: `\"I\"`", "C: `SyntaxError`", "D: `undefined`"],
     "answer": "B",
     "explanation": "可以使用方括号表示法获取字符串中特定索引的字符，字符串中的第一个字符具有索引 0，依此类推。在这种情况下，我们想要得到索引为 0 的元素，字符`'I'`被记录。\n\n请注意，IE7 及更低版本不支持此方法。在这种情况下，应该使用`.charAt（）`"
   },
@@ -1099,12 +878,7 @@
     "id": 88,
     "question": "输出什么？",
     "code": "function sum(num1, num2 = num1) {\n  console.log(num1 + num2)\n}\n\nsum(10)",
-    "options": [
-      "A: `NaN`",
-      "B: `20`",
-      "C: `ReferenceError`",
-      "D: `undefined`"
-    ],
+    "options": ["A: `NaN`", "B: `20`", "C: `ReferenceError`", "D: `undefined`"],
     "answer": "B",
     "explanation": "您可以将默认参数的值设置为函数的另一个参数，只要另一个参数定义在其之前即可。我们将值`10`传递给`sum`函数。如果`sum`函数只接收 1 个参数，则意味着没有传递`num2`的值，这种情况下，`num1`的值等于传递的值`10`。`num2`的默认值是`num1`的值，即`10`。```num1 + num2```返回`20`。\n\n如果您尝试将默认参数的值设置为后面定义的参数，则可能导致参数的值尚未初始化，从而引发错误。比如：\n```js\nfunction test(m = n, n = 2) {\n\tconsole.log(m, n)\n}\ntest() // Uncaught ReferenceError: Cannot access 'n' before initialization\ntest(3) // 3 2\ntest(3, 4) // 3 4\n```"
   },
@@ -1125,12 +899,7 @@
     "id": 90,
     "question": "输出什么？",
     "code": "class Person {\n  constructor(name) {\n    this.name = name\n  }\n}\n\nconst member = new Person(\"John\")\nconsole.log(typeof member)",
-    "options": [
-      "A: `\"class\"`",
-      "B: `\"function\"`",
-      "C: `\"object\"`",
-      "D: `\"string\"`"
-    ],
+    "options": ["A: `\"class\"`", "B: `\"function\"`", "C: `\"object\"`", "D: `\"string\"`"],
     "answer": "C",
     "explanation": "类是构造函数的语法糖，如果用构造函数的方式来重写`Person`类则将是：\n\n```javascript\nfunction Person() {\n  this.name = name\n}\n```\n\n通过`new`来调用构造函数，将会生成构造函数`Person`的实例，对实例执行`typeof`关键字将返回`\"object\"`，上述情况打印出`\"object\"`。"
   },
@@ -1138,12 +907,7 @@
     "id": 91,
     "question": "输出什么？",
     "code": "let newList = [1, 2, 3].push(4)\n\nconsole.log(newList.push(5))",
-    "options": [
-      "A: `[1, 2, 3, 4, 5]`",
-      "B: `[1, 2, 3, 5]`",
-      "C: `[1, 2, 3, 4]`",
-      "D: `Error`"
-    ],
+    "options": ["A: `[1, 2, 3, 4, 5]`", "B: `[1, 2, 3, 5]`", "C: `[1, 2, 3, 4]`", "D: `Error`"],
     "answer": "D",
     "explanation": "`.push`方法返回数组的长度，而不是数组本身！通过将`newList`设置为`[1,2,3].push(4)`，实际上`newList`等于数组的新长度：`4`。\n\n然后，尝试在`newList`上使用`.push`方法。由于`newList`是数值`4`，抛出 TypeError。"
   },
@@ -1194,12 +958,7 @@
     "id": 96,
     "question": "输出什么？",
     "code": "class Person {\n  constructor() {\n    this.name = \"Lydia\"\n  }\n}\n\nPerson = class AnotherPerson {\n  constructor() {\n    this.name = \"Sarah\"\n  }\n}\n\nconst member = new Person()\nconsole.log(member.name)",
-    "options": [
-      "A: `\"Lydia\"`",
-      "B: `\"Sarah\"`",
-      "C: `Error: cannot redeclare Person`",
-      "D: `SyntaxError`"
-    ],
+    "options": ["A: `\"Lydia\"`", "B: `\"Sarah\"`", "C: `Error: cannot redeclare Person`", "D: `SyntaxError`"],
     "answer": "B",
     "explanation": "我们可以将类设置为等于其他类/函数构造函数。在这种情况下，我们将`Person`设置为`AnotherPerson`。这个构造函数的名字是`Sarah`，所以新的`Person`实例`member`上的 name 属性是`Sarah`。"
   },
@@ -1233,12 +992,7 @@
     "id": 99,
     "question": "输出什么？",
     "code": "const name = \"Lydia\"\n\nconsole.log(name())",
-    "options": [
-      "A: `SyntaxError`",
-      "B: `ReferenceError`",
-      "C: `TypeError`",
-      "D: `undefined`"
-    ],
+    "options": ["A: `SyntaxError`", "B: `ReferenceError`", "C: `TypeError`", "D: `undefined`"],
     "answer": "C",
     "explanation": "变量`name`保存字符串的值，该字符串不是函数，因此无法调用。\n\n当值不是预期类型时，会抛出`TypeErrors`。JavaScript 期望`name`是一个函数，因为我们试图调用它。但它是一个字符串，因此抛出`TypeError`：`name is not a function`\n\n当你编写了一些非有效的 JavaScript 时，会抛出语法错误，例如当你把`return`这个词写成`retrun`时。\n当 JavaScript 无法找到您尝试访问的值的引用时，抛出`ReferenceErrors`。"
   },
@@ -1289,12 +1043,7 @@
     "id": 104,
     "question": "结果是什么？",
     "code": "Promise.resolve(5)",
-    "options": [
-      "A: `5`",
-      "B: `Promise {<pending>: 5}`",
-      "C: `Promise {<fulfilled>: 5}`",
-      "D: `Error`"
-    ],
+    "options": ["A: `5`", "B: `Promise {<pending>: 5}`", "C: `Promise {<fulfilled>: 5}`", "D: `Error`"],
     "answer": "C",
     "explanation": "我们可以将我们想要的任何类型的值传递`Promise.resolve`，无论是否`promise`。该方法本身返回带有已解析值的`Promise` (``)。如果您传递常规函数，它将是具有常规值的已解决`promise`。如果你通过了 promise，它将是一个已经 resolved 的且带有传的值的 promise。\n\n上述情况，我们传了数字 5，因此返回一个 resolved 状态的 promise，resolve 值为`5`"
   },
@@ -1302,12 +1051,7 @@
     "id": 105,
     "question": "输出什么？",
     "code": "function compareMembers(person1, person2 = person) {\n  if (person1 !== person2) {\n    console.log(\"Not the same!\")\n  } else {\n    console.log(\"They are the same!\")\n  }\n}\n\nconst person = { name: \"Lydia\" }\n\ncompareMembers(person)",
-    "options": [
-      "A: `Not the same!`",
-      "B: `They are the same!`",
-      "C: `ReferenceError`",
-      "D: `SyntaxError`"
-    ],
+    "options": ["A: `Not the same!`", "B: `They are the same!`", "C: `ReferenceError`", "D: `SyntaxError`"],
     "answer": "B",
     "explanation": "对象通过引用传递。当我们检查对象的严格相等性（===）时，我们正在比较它们的引用。\n\n我们将“person2”的默认值设置为“person”对象，并将“person”对象作为“person1”的值传递。\n\n这意味着两个值都引用内存中的同一位置，因此它们是相等的。\n\n运行“else”语句中的代码块，并记录`They are the same!`。"
   },
@@ -1315,12 +1059,7 @@
     "id": 106,
     "question": "输出什么？",
     "code": "const colorConfig = {\n  red: true,\n  blue: false,\n  green: true,\n  black: true,\n  yellow: false,\n}\n\nconst colors = [\"pink\", \"red\", \"blue\"]\n\nconsole.log(colorConfig.colors[1])",
-    "options": [
-      "A: `true`",
-      "B: `false`",
-      "C: `undefined`",
-      "D: `TypeError`"
-    ],
+    "options": ["A: `true`", "B: `false`", "C: `undefined`", "D: `TypeError`"],
     "answer": "D",
     "explanation": "在 JavaScript 中，我们有两种访问对象属性的方法：括号表示法或点表示法。在此示例中，我们使用点表示法（`colorConfig.colors`）代替括号表示法（`colorConfig [“colors”]`）。\n\n使用点表示法，JavaScript 会尝试使用该确切名称在对象上查找属性。在此示例中，JavaScript 尝试在 colorConfig 对象上找到名为 colors 的属性。没有名为“colors”的属性，因此返回“undefined”。\n然后，我们尝试使用`[1]`访问第一个元素的值。我们无法对未定义的值执行此操作，因此会抛出`Cannot read property '1' of undefined`。\n\nJavaScript 解释（或取消装箱）语句。当我们使用方括号表示法时，它会看到第一个左方括号`[`并一直进行下去，直到找到右方括号`]`。只有这样，它才会评估该语句。如果我们使用了 colorConfig [colors [1]]，它将返回 colorConfig 对象上 red 属性的值。"
   },
@@ -1328,10 +1067,7 @@
     "id": 107,
     "question": "输出什么？",
     "code": "console.log('❤️' === '❤️')",
-    "options": [
-      "A: `true`",
-      "B: `false`"
-    ],
+    "options": ["A: `true`", "B: `false`"],
     "answer": "A",
     "explanation": "在内部，表情符号是 unicode。heat 表情符号的 unicode 是`“U + 2764 U + FE0F”`。对于相同的表情符号，它们总是相同的，因此我们将两个相等的字符串相互比较，这将返回 true。"
   },
@@ -1369,12 +1105,7 @@
     "id": 111,
     "question": "输出什么？",
     "code": "let name = 'Lydia'\n\nfunction getName() {\n  console.log(name)\n  let name = 'Sarah'\n}\n\ngetName()",
-    "options": [
-      "A: Lydia",
-      "B: Sarah",
-      "C: `undefined`",
-      "D: `ReferenceError`"
-    ],
+    "options": ["A: Lydia", "B: Sarah", "C: `undefined`", "D: `ReferenceError`"],
     "answer": "",
     "explanation": ""
   },
@@ -1421,12 +1152,7 @@
     "id": 115,
     "question": "哪一个方法会返回 `'Hello world!'` ？",
     "code": "const myMap = new Map()\nconst myFunc = () => 'greeting'\n\nmyMap.set(myFunc, 'Hello world!')\n\n//1\nmyMap.get('greeting')\n//2\nmyMap.get(myFunc)\n//3\nmyMap.get(() => 'greeting')",
-    "options": [
-      "A: 1",
-      "B: 2",
-      "C: 2 and 3",
-      "D: All of them"
-    ],
+    "options": ["A: 1", "B: 2", "C: 2 and 3", "D: All of them"],
     "answer": "B",
     "explanation": "当通过 `set` 方法添加一个键值对，一个传递给 `set`方法的参数将会是键名，第二个参数将会是值。在这个 case 里，键名为 _函数_ `() => 'greeting'`，值为`'Hello world'`。 `myMap` 现在就是 `{ () => 'greeting' => 'Hello world!' }`。\n\n1 是错的，因为键名不是 `'greeting'` 而是 `() => 'greeting'`。\n3 是错的，因为我们给`get` 方法传递了一个新的函数。对象受 _引用_ 影响。函数也是对象，因此两个函数严格上并不等价，尽管他们相同：他们有两个不同的内存引用地址。"
   },
@@ -1460,12 +1186,7 @@
     "id": 118,
     "question": "输出什么？",
     "code": "let num = 1;\nconst list = [\"🥳\", \"🤠\", \"🥰\", \"🤪\"];\n\nconsole.log(list[(num += 1)]);",
-    "options": [
-      "A: `🤠`",
-      "B: `🥰`",
-      "C: `SyntaxError`",
-      "D: `ReferenceError`"
-    ],
+    "options": ["A: `🤠`", "B: `🥰`", "C: `SyntaxError`", "D: `ReferenceError`"],
     "answer": "B",
     "explanation": "通过 `+=` 操作符，我们对值 `num` 进行加 `1` 操作。`num` 有初始值 `1`，因此 `1 + 1` 的执行结果为 `2`。数组 `list` 的第二项为 🥰，`console.log(list[2])` 输出 🥰."
   },
@@ -1486,12 +1207,7 @@
     "id": 120,
     "question": "输出什么？",
     "code": "const groceries = [\"banana\", \"apple\", \"peanuts\"];\n\nif (groceries.indexOf(\"banana\")) {\n\tconsole.log(\"We have to buy bananas!\");\n} else {\n\tconsole.log(`We don't have to buy bananas!`);\n}",
-    "options": [
-      "A: We have to buy bananas!",
-      "B: We don't have to buy bananas",
-      "C: `undefined`",
-      "D: `1`"
-    ],
+    "options": ["A: We have to buy bananas!", "B: We don't have to buy bananas", "C: `undefined`", "D: `1`"],
     "answer": "B",
     "explanation": "我们传递了一个状态 `groceries.indexOf(\"banana\")` 给 if 条件语句。`groceries.indexOf(\"banana\")` 返回 `0`，一个 falsy 的值。因为 if 条件语句的状态为 falsy，`else` 块区内的代码执行，并且 `We don't have to buy bananas!` 被输出。"
   },
@@ -1499,12 +1215,7 @@
     "id": 121,
     "question": "输出什么？",
     "code": "const config = {\n\tlanguages: [],\n\tset language(lang) {\n\t\treturn this.languages.push(lang);\n\t}\n};\n\nconsole.log(config.language);",
-    "options": [
-      "A: `function language(lang) { this.languages.push(lang }`",
-      "B: `0`",
-      "C: `[]`",
-      "D: `undefined`"
-    ],
+    "options": ["A: `function language(lang) { this.languages.push(lang }`", "B: `0`", "C: `[]`", "D: `undefined`"],
     "answer": "D",
     "explanation": "方法 `language` 是一个 `setter`。Setters 并不保存一个实际值，它们的使命在于 _修改_ 属性。当调用方法 `setter`，返回 `undefined`。"
   },
@@ -1512,12 +1223,7 @@
     "id": 122,
     "question": "输出什么？",
     "code": "const name = \"Lydia Hallie\";\n\nconsole.log(!typeof name === \"object\");\nconsole.log(!typeof name === \"string\");",
-    "options": [
-      "A: `false` `true`",
-      "B: `true` `false`",
-      "C: `false` `false`",
-      "D: `true` `true`"
-    ],
+    "options": ["A: `false` `true`", "B: `true` `false`", "C: `false` `false`", "D: `true` `true`"],
     "answer": "C",
     "explanation": "`typeof name` 返回 `\"string\"`。字符串 `\"string\"` 是一个 truthy 的值，因此 `!typeof name` 返回一个布尔值 `false`。`false === \"object\"` 和 `false === \"string\"` 都返回 `false`。\n\n（如果我们想检测一个值的类型，我们应该用 `!==` 而不是 `!typeof`）"
   },
@@ -1525,12 +1231,7 @@
     "id": 123,
     "question": "输出什么？",
     "code": "const add = x => y => z => {\n\tconsole.log(x, y, z);\n\treturn x + y + z;\n};\n\nadd(4)(5)(6);",
-    "options": [
-      "A: `4` `5` `6`",
-      "B: `6` `5` `4`",
-      "C: `4` `function` `function`",
-      "D: `undefined` `undefined` `6`"
-    ],
+    "options": ["A: `4` `5` `6`", "B: `6` `5` `4`", "C: `4` `function` `function`", "D: `undefined` `undefined` `6`"],
     "answer": "A",
     "explanation": "函数 `add` 是一个返回 返回箭头函数的箭头函数 的箭头函数（still with me?）。第一个函数接收一个值为 `4` 的参数 `x`。我们调用第二个函数，它接收一个值为 `5` 的参数 `y`。然后我们调用第三个函数，它接收一个值为 `6` 的参数 `z`。当我们尝试在最后一个箭头函数中获取 `x`, `y` 和 `z` 的值，JS 引擎根据作用域链去找 `x` 和 `y` 的值。得到 `4` `5` `6`."
   },
@@ -1603,12 +1304,7 @@
     "id": 129,
     "question": "输出什么？",
     "code": "const randomValue = 21;\n\nfunction getInfo() {\n\tconsole.log(typeof randomValue);\n\tconst randomValue = \"Lydia Hallie\";\n}\n\ngetInfo();",
-    "options": [
-      "A: `\"number\"`",
-      "B: `\"string\"`",
-      "C: `undefined`",
-      "D: `ReferenceError`"
-    ],
+    "options": ["A: `\"number\"`", "B: `\"string\"`", "C: `undefined`", "D: `ReferenceError`"],
     "answer": "D",
     "explanation": "通过 `const` 关键字声明的变量在被初始化之前不可被引用：这被称之为 _暂时性死区_。在函数 `getInfo` 中，变量 `randomValue` 声明在`getInfo` 的作用域的此法环境中。在想要对 `typeof randomValue` 进行 log 之前，变量 `randomValue` 仍未被初始化：错误`ReferenceError` 被抛出！JS 引擎并不会根据作用域链网上寻找该变量，因为我们已经在 `getInfo` 函数中声明了 `randomValue` 变量。"
   },
@@ -1659,12 +1355,7 @@
     "id": 134,
     "question": "我们怎样才能在 `index.js` 中调用 `sum.js?` 中的 `sum`？",
     "code": "// sum.js\nexport default function sum(x) {\n\treturn x + x;\n}\n\n// index.js\nimport * as sum from \"./sum\";",
-    "options": [
-      "A: `sum(4)`",
-      "B: `sum.sum(4)`",
-      "C: `sum.default(4)`",
-      "D: 默认导出不用 `*` 来导入，只能具名导出"
-    ],
+    "options": ["A: `sum(4)`", "B: `sum.sum(4)`", "C: `sum.default(4)`", "D: 默认导出不用 `*` 来导入，只能具名导出"],
     "answer": "C",
     "explanation": "使用符号 `*`，我们引入文件中的所有值，包括默认和具名。如果我们有以下文件：\n\n```javascript\n// info.js\nexport const name = \"Lydia\";\nexport const age = 21;\nexport default \"I love JavaScript\";\n\n// index.js\nimport * as info from \"./info\";\nconsole.log(info);\n```\n\n将会输出以下内容：\n\n```javascript\n{\n  default: \"I love JavaScript\",\n  name: \"Lydia\",\n  age: 21\n}\n```\n\n以 `sum` 为例，相当于以下形式引入值 `sum`：\n\n```javascript\n{ default: function sum(x) { return x + x } }\n```\n\n我们可以通过调用 `sum.default` 来调用该函数"
   },
@@ -1724,12 +1415,7 @@
     "id": 139,
     "question": "输出什么？",
     "code": "class Counter {\n  #number = 10\n\n  increment() {\n    this.#number++\n  }\n\n  getNum() {\n    return this.#number\n  }\n}\n\nconst counter = new Counter()\ncounter.increment()\n\nconsole.log(counter.#number)",
-    "options": [
-      "A: `10`",
-      "B: `11`",
-      "C: `undefined`",
-      "D: `SyntaxError`"
-    ],
+    "options": ["A: `10`", "B: `11`", "C: `undefined`", "D: `SyntaxError`"],
     "answer": "D",
     "explanation": "在 ES2020 中，通过 `#` 我们可以给 class 添加私有变量。在 class 的外部我们无法获取该值。当我们尝试输出 `counter.#number`，语法错误被抛出：我们无法在 class `Counter` 外部获取它！"
   },
@@ -1776,12 +1462,7 @@
     "id": 143,
     "question": "哪一个选项会导致报错？",
     "code": "const emojis = [\"🎄\", \"🎅🏼\", \"🎁\", \"⭐\"];\n\n/* 1 */ emojis.push(\"🦌\");\n/* 2 */ emojis.splice(0, 2);\n/* 3 */ emojis = [...emojis, \"🥂\"];\n/* 4 */ emojis.length = 0;",
-    "options": [
-      "A: 1",
-      "B: 1 and 2",
-      "C: 3 and 4",
-      "D: 3"
-    ],
+    "options": ["A: 1", "B: 1 and 2", "C: 3 and 4", "D: 3"],
     "answer": "D",
     "explanation": "`const` 关键字意味着我们不能 _重定义_ 变量中的值，它 _仅可读_。然而，值本身不可修改。数组 `emojis` 中的值可被修改，如 push 新的值，拼接，又或者将数组的长度设置为 0。"
   },
@@ -1802,12 +1483,7 @@
     "id": 145,
     "question": "输出什么？",
     "code": "let count = 0;\nconst nums = [0, 1, 2, 3];\n\nnums.forEach(num => {\n\tif (num) count += 1\n})\n\nconsole.log(count)",
-    "options": [
-      "A: 1",
-      "B: 2",
-      "C: 3",
-      "D: 4"
-    ],
+    "options": ["A: 1", "B: 2", "C: 3", "D: 4"],
     "answer": "C",
     "explanation": "在 `forEach` 循环内部的 `if` 会判断 `num` 的值是 truthy 或者是 falsy。因为 `nums` 数组的第一个数字是 `0`，一个 falsy 值，`if` 语句代码块不会被执行。`count` 仅仅在 `nums` 数组的其他 3 个数字 `1`，`2`，`3` 时加 1。因为 `count` 执行了 3 次加 `1` 运算，所以 `count` 的值为 `3`。"
   },
@@ -1828,12 +1504,7 @@
     "id": 147,
     "question": "输出什么？",
     "code": "class Calc {\n\tconstructor() {\n\t\tthis.count = 0 \n\t}\n\n\tincrease() {\n\t\tthis.count++\n\t}\n}\n\nconst calc = new Calc()\nnew Calc().increase()\n\nconsole.log(calc.count)",
-    "options": [
-      "A: `0`",
-      "B: `1`",
-      "C: `undefined`",
-      "D: `ReferenceError`"
-    ],
+    "options": ["A: `0`", "B: `1`", "C: `undefined`", "D: `ReferenceError`"],
     "answer": "A",
     "explanation": "我们设置 `calc` 变量为 `Calc` 类的一个新实例。然后，我们初始化一个 `Calc` 的新实例，而且调用了这个实例的 `increase` 方法。因为 count 属性是在 `Calc` class 的 constructor 内部的，所以 count 属性不会在 `Calc` 的原型链上共享出去。这就意味着 calc 实例的 count 值不会被更新，count 仍然是 `0`。"
   },
@@ -1841,12 +1512,7 @@
     "id": 148,
     "question": "输出什么？",
     "code": "const user = {\n\temail: \"e@mail.com\",\n\tpassword: \"12345\"\n}\n\nconst updateUser = ({ email, password }) => {\n\tif (email) {\n\t\tObject.assign(user, { email })\n\t}\n\n\tif (password) {\n\t\tuser.password = password\n\t}\n\n\treturn user\n}\n\nconst updatedUser = updateUser({ email: \"new@email.com\" })\n\nconsole.log(updatedUser === user)",
-    "options": [
-      "A: `false`",
-      "B: `true`",
-      "C: `TypeError`",
-      "D: `ReferenceError`"
-    ],
+    "options": ["A: `false`", "B: `true`", "C: `TypeError`", "D: `ReferenceError`"],
     "answer": "B",
     "explanation": "`updateUser` 函数更新 user 的 `email` 和 `password` 属性的值，如果它们的值传入函数，函数返回的就是 `user` 对象。`updateUser` 函数的返回值是 `user` 对象，意味着 updatedUser 的值与 `user` 指向的是同一个 `user` 对象。`updatedUser === user` 为 `true`."
   },
@@ -1880,12 +1546,7 @@
     "id": 151,
     "question": "输出什么？",
     "code": "const user = {\n\temail: \"my@email.com\",\n\tupdateEmail: email => {\n\t\tthis.email = email\n\t}\n}\n\nuser.updateEmail(\"new@email.com\")\nconsole.log(user.email)",
-    "options": [
-      "A: `my@email.com`",
-      "B: `new@email.com`",
-      "C: `undefined`",
-      "D: `ReferenceError`"
-    ],
+    "options": ["A: `my@email.com`", "B: `new@email.com`", "C: `undefined`", "D: `ReferenceError`"],
     "answer": "A",
     "explanation": "`updateEmail` 函数是一个箭头函数，它没有和 `user` 对象绑定。这就意味着 `this` 关键字不会引用到 `user` 对象，但是会引用到全局对象。`user` 对象内部的 `email` 的值不会更新。当打印 `user.email` 的时候，原始值 `my@email.com` 被返回。"
   },
@@ -1906,12 +1567,7 @@
     "id": 153,
     "question": "哪个作为`method`的值可以打印`{ name: \"Lydia\", age: 22 }`?",
     "code": "const keys = [\"name\", \"age\"]\nconst values = [\"Lydia\", 22]\n\nconst method = /* ?? */\nObject[method](keys.map((_, i) => {\n\treturn [keys[i], values[i]]\n})) // { name: \"Lydia\", age: 22 }",
-    "options": [
-      "A: `entries`",
-      "B: `values`",
-      "C: `fromEntries`",
-      "D: `forEach`"
-    ],
+    "options": ["A: `entries`", "B: `values`", "C: `fromEntries`", "D: `forEach`"],
     "answer": "C",
     "explanation": "`fromEntries` 方法可以将二维数组转换为对象。在每个子数组的第一个元素是 key，在每个子数组的第二个元素是 value。在这个例子中，我们映射了 `keys` 数组，它返回了一个数组，数组的第一个元素为 keys 数组当前索引的值，第二个元素为 values 数组当前索引的值。\n\n这样就创建了一个包含正确 keys 和 values 的子数组的数组，因此结果为`{ name: \"Lydia\", age: 22 }`。"
   },
@@ -1932,12 +1588,7 @@
     "id": 155,
     "question": "输出什么？",
     "code": "let randomValue = { name: \"Lydia\" }\nrandomValue = 23\n\nif (!typeof randomValue === \"string\") {\n\tconsole.log(\"It's not a string!\")\n} else {\n\tconsole.log(\"Yay it's a string!\")\n}",
-    "options": [
-      "A: `It's not a string!`",
-      "B: `Yay it's a string!`",
-      "C: `TypeError`",
-      "D: `undefined`"
-    ],
+    "options": ["A: `It's not a string!`", "B: `Yay it's a string!`", "C: `TypeError`", "D: `undefined`"],
     "answer": "B",
     "explanation": "`if` 语句的条件判断 `!typeof randomValue` 的值是否等于 `\"string\"`。`!` 操作符将这个值转化为一个布尔值。如果值是 truthy 的话，返回值会是 `false`，如果值是 falsy，返回值会是 `true`。在这里，`typeof randomValue` 的返回值是一个 truthy 值 `\"number\"`，意味着 `!typeof randomValue` 的值是一个布尔值 `false`。\n\n `!typeof randomValue === \"string\"` 总是返回 false，因为我们实际上是在执行 `false === \"string\"`。因为条件返回的是 `false`，所以 `else` 语句中的代码块会被运行，因此打印 `Yay it's a string!`。"
   }

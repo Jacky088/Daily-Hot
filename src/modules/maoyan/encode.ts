@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 import { Buffer } from 'node:buffer'
 import { create } from 'fontkit'
 import { dayjs, TZ_SHANGHAI } from '../../common.ts'
+import { fetchUpstream } from '../../fetch-upstream.ts'
 import numCommandsMap from './num-commands.json' with { type: 'json' }
 
 const utils = {
@@ -65,7 +66,8 @@ export const fetchBoxOfficeByType = async (type: 'movie' | 'tv' | 'web', date?: 
 
   const url = `https://piaofang.maoyan.com${PATH_MAP[type]}?${params}`
 
-  const res = await fetch(url, { headers: { mygsig: getMygsig(PATH_MAP[type], params.toString()) } })
+  // 票房 dashboard 接口：mygsig 签名头必带；fetchUpstream 只做传输 + 超时重试
+  const res = await fetchUpstream(url, { headers: { mygsig: getMygsig(PATH_MAP[type], params.toString()) } })
   const data = transformRes(await res.json()) as DashboardRes
 
   return transformFormat(await processFontEncoding(data))
@@ -186,7 +188,8 @@ async function processFontEncoding(data: DashboardRes): Promise<DashboardRes> {
     return data
   }
 
-  const buffer = Buffer.from(await (await fetch(fontUrl)).arrayBuffer())
+  // 字体文件：WOFF 体积小，8s + 1 次重试足够；失败抛错由上层 stale 兜底
+  const buffer = Buffer.from(await (await fetchUpstream(fontUrl)).arrayBuffer())
   const font = create(buffer)
 
   if (font.type !== 'WOFF') {

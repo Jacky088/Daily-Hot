@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { Context } from '@oak/oak'
 
@@ -37,14 +38,15 @@ export async function handleImgProxy(ctx: Context) {
   }
 
   try {
-    const upstream = await fetch(target, {
+    // 豆瓣防盗链 Referer 必带；图片体重试代价高，10s 超时不重试（语义不变）
+    const upstream = await fetchUpstream(target, {
       headers: {
-        'User-Agent': Common.chromeUA,
         Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
         // 伪装豆瓣站内请求以通过防盗链
         Referer: 'https://movie.douban.com/',
       },
-      signal: AbortSignal.timeout(10_000),
+      timeoutMs: 10_000,
+      retry: 0,
     })
     if (!upstream.ok) {
       ctx.response.status = 404

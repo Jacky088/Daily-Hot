@@ -1,4 +1,5 @@
 import { Common, dayjs, TZ_SHANGHAI } from '../common.ts'
+import { fetchUpstreamText } from '../fetch-upstream.ts'
 import { load } from 'cheerio'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -55,15 +56,8 @@ class ServiceAINews {
     const cachedItem = this.#cache.get(cacheKey)
 
     try {
-      const response = await fetch('https://ai-bot.cn/daily-ai-news/', {
-        headers: { 'User-Agent': Common.chromeUA },
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
-
-      const html = await response.text()
+      // fetchUpstream 自带 UA + 超时重试；404/5xx 直接抛错走下面的缓存兜底
+      const html = await fetchUpstreamText('https://ai-bot.cn/daily-ai-news/')
       const data = this.parseHTML(html, yesterday, all)
 
       this.#cache.set(cacheKey, data)

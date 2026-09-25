@@ -1,5 +1,6 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -89,6 +90,7 @@ const QUARK_API =
  * 上游挂在阿里 WAF 后面：本机直连（境内 IP）裸请求也能拿到数据，
  * 但 Worker 出海访问时是境外机房 IP，缺 Accept / Referer 更容易被判成爬虫，
  * 直接回一段 HTML 挑战页——解析 JSON 时抛错，表现就是「偶发拉不到数据」。
+ * UA 即 Common.chromeUA 口径，这里用 Common.chromeUA 引用，版本跟随统一入口。
  */
 const QUARK_HEADERS: Record<string, string> = {
   'User-Agent': Common.chromeUA,
@@ -196,9 +198,12 @@ class ServiceQuark {
   }
 
   async #fetchArticlesOnce(): Promise<QuarkArticle[]> {
-    const response = await fetch(QUARK_API, {
+    // QUARK_HEADERS（含 UA 与鉴权头）原样透传；超时按 QUARK_TIMEOUT_MS，retry: 0
+    // 沿用本模块自有的「失败 300ms 间隔换连接重试」节奏，不在传输层 double-retry
+    const response = await fetchUpstream(QUARK_API, {
       headers: QUARK_HEADERS,
-      signal: AbortSignal.timeout(QUARK_TIMEOUT_MS),
+      timeoutMs: QUARK_TIMEOUT_MS,
+      retry: 0,
     })
 
     // 显式检查状态码：上游被 WAF 拦下时回的是 HTML 挑战页，

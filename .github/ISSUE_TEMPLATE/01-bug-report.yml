@@ -1,7 +1,7 @@
-name: "🐛 问题反馈"
-description: "报告项目中遇到的问题或错误"
-title: "【问题反馈】"
-labels: ["bug"]
+name: '🐛 问题反馈'
+description: '报告项目中遇到的问题或错误'
+title: '【问题反馈】'
+labels: ['bug']
 assignees: []
 body:
   - type: markdown
@@ -12,17 +12,17 @@ body:
   - type: textarea
     id: description
     attributes:
-      label: "问题描述"
-      description: "请详细描述您遇到的问题"
-      placeholder: "请详细描述问题的现象和影响..."
+      label: '问题描述'
+      description: '请详细描述您遇到的问题'
+      placeholder: '请详细描述问题的现象和影响...'
     validations:
       required: true
 
   - type: textarea
     id: reproduce
     attributes:
-      label: "复现步骤（可选）"
-      description: "请提供复现问题的具体步骤"
+      label: '复现步骤（可选）'
+      description: '请提供复现问题的具体步骤'
       placeholder: |
         1. 访问...
         2. 点击...
@@ -34,26 +34,26 @@ body:
   - type: textarea
     id: expected
     attributes:
-      label: "期望行为（可选）"
-      description: "描述您期望的正常行为"
-      placeholder: "期望应该..."
+      label: '期望行为（可选）'
+      description: '描述您期望的正常行为'
+      placeholder: '期望应该...'
     validations:
       required: false
 
   - type: input
     id: version
     attributes:
-      label: "版本信息（可选）"
-      description: "如果知道具体版本，请填写"
-      placeholder: "例如：v2.18.0"
+      label: '版本信息（可选）'
+      description: '如果知道具体版本，请填写'
+      placeholder: '例如：v2.18.0'
     validations:
       required: false
 
   - type: textarea
     id: logs
     attributes:
-      label: "错误日志（可选）"
-      description: "如有错误日志，请粘贴在此"
+      label: '错误日志（可选）'
+      description: '如有错误日志，请粘贴在此'
       render: shell
     validations:
       required: false
@@ -61,8 +61,8 @@ body:
   - type: textarea
     id: environment
     attributes:
-      label: "环境信息（可选）"
-      description: "请提供相关的环境信息"
+      label: '环境信息（可选）'
+      description: '请提供相关的环境信息'
       placeholder: |
         - 操作系统：
         - 浏览器/客户端：
@@ -73,7 +73,7 @@ body:
   - type: textarea
     id: additional
     attributes:
-      label: "其他信息（可选）"
-      description: "任何其他有助于解决问题的信息"
+      label: '其他信息（可选）'
+      description: '任何其他有助于解决问题的信息'
     validations:
       required: false

@@ -1,5 +1,7 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstreamJson } from '../fetch-upstream.ts'
+import { env } from '../runtime-env.ts'
 import { withUapisFallback } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -10,9 +12,10 @@ const FALLBACK_COOKIE =
   'WEIBOCN_FROM=1110006030; SUB=_2AkMe1h3tf8NxqwFRmvsXxG7ia4h2wwrEieKoiuw2JRM3HRl-yT9kqnc9tRB6NVYzAmxCM1izZSWe9-xcPQmmL_NGEnIl; SUBP=0033WrSXqPxfM72-Ws9jqgMF55529P9D9WhR9EPgz3BDPWy-YHwFuiIb; MLOGIN=0; _T_WM=38152265571; XSRF-TOKEN=86baeb; M_WEIBOCN_PARAMS=luicode%3D10000011%26lfid%3D102803%26launchid%3D10000360-page_H5%26fid%3D106003type%253D25%2526t%253D3%2526disable_hot%253D1%2526filter_type%253Drealtimehot%26uicode%3D10000011'
 
 class ServiceWeibo {
-  // 每次读取而非构造时固化，保证运行时注入的环境变量能生效
+  // 每次读取而非构造时固化，保证运行时注入的环境变量能生效；
+  // Workers env 优先（cf-worker.ts 注入），Node 回退 process.env
   get cookie(): string {
-    return process.env.WEIBO_COOKIE || FALLBACK_COOKIE
+    return env('WEIBO_COOKIE') || FALLBACK_COOKIE
   }
 
   /** 供聚合接口复用，并与 /v2/weibo 共享同一份服务端缓存；主源失效时退回 uapis 备用源 */
@@ -51,14 +54,11 @@ class ServiceWeibo {
     const api =
       'https://m.weibo.cn/api/container/getIndex?containerid=106003type%3D25%26t%3D3%26disable_hot%3D1%26filter_type%3Drealtimehot'
 
-    const { data = {} } = await (
-      await fetch(api, {
-        headers: {
-          'User-Agent': Common.chromeUA,
-          Cookie: this.cookie,
-        },
-      })
-    ).json()
+    const { data = {} } = await fetchUpstreamJson<{ data?: Record<string, unknown> }>(api, {
+      headers: {
+        Cookie: this.cookie,
+      },
+    })
 
     const list = (data?.cards?.[0]?.card_group || []) as Item[]
     const hot_value_regex = /(?<value>\d+)/i

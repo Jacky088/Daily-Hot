@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { fetchUpstreamJson, fetchUpstreamText } from '../fetch-upstream.ts'
 import { withUapisFallback } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -95,12 +96,6 @@ class ServiceBili {
   }
 
   async #fetchFresh() {
-    const options = {
-      headers: {
-        'User-Agent': Common.chromeUA,
-      },
-    }
-
     const toListItem = (item: Item) => ({
       title: item.keyword || item.show_name,
       link: `https://search.bilibili.com/all?keyword=${encodeURIComponent(item.keyword)}`,
@@ -109,7 +104,7 @@ class ServiceBili {
     // 直连（国内 IP 可用；Workers 等海外 IP 会被 B站风控 412 拦截返回 HTML）
     try {
       const api = 'https://api.bilibili.com/x/web-interface/wbi/search/square?limit=50'
-      const { data = {} } = await (await fetch(api, options)).json()
+      const { data = {} } = await fetchUpstreamJson<{ data?: { trending?: { list?: Item[] } } }>(api)
       const list = (data?.trending?.list || []) as Item[]
       if (list.length > 0) return list.map(toListItem)
     } catch {}
@@ -126,7 +121,7 @@ class ServiceBili {
     // app 接口直连兜底
     try {
       const api = 'https://app.bilibili.com/x/v2/search/trending/ranking?limit=50'
-      const { data = {} } = await (await fetch(api, options)).json()
+      const { data = {} } = await fetchUpstreamJson<{ data?: { list?: Item[] } }>(api)
       return ((data?.list?.filter((e: any) => +e?.is_commercial === 0) || []) as Item[]).map(toListItem)
     } catch {}
 
@@ -134,13 +129,9 @@ class ServiceBili {
   }
 
   // 拉取并解析 RSS：<item> 内的 <title> / <link>，镜像返回 HTML 错误页时自然解析出 0 条
+  // 超时 18s 是有意的：RSSHub 镜像冷缓存回源慢，卡太紧会误杀可用镜像
   async #fetchRss(url: string, timeoutMs = 18_000) {
-    const rss = await (
-      await fetch(url, {
-        headers: { 'User-Agent': Common.chromeUA },
-        signal: AbortSignal.timeout(timeoutMs),
-      })
-    ).text()
+    const rss = await fetchUpstreamText(url, { timeoutMs, retry: 0 })
 
     return [...rss.matchAll(/<item>([\s\S]*?)<\/item>/g)]
       .map(([_, block]) => ({

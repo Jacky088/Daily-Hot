@@ -1,5 +1,6 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
+import { fetchUpstreamJson } from '../fetch-upstream.ts'
 import { withUapisFallback } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -44,13 +45,12 @@ class ServiceZhihuHot {
     const api = 'https://api.zhihu.com/topstory/hot-lists/total?limit=30'
     // 必须带浏览器 UA 与 Referer：裸请求（无任何头）会被知乎风控拦截，
     // 表现为间歇性拿不到数据，尤其在 Workers 这类数据中心出口 IP 上。
-    const response = await fetch(api, {
+    // fetchUpstream 默认带 UA + 8s 超时 + 1 次重试
+    const { data = [] } = await fetchUpstreamJson<{ data?: Item[] }>(api, {
       headers: {
-        'User-Agent': Common.chromeUA,
         Referer: 'https://www.zhihu.com/hot',
       },
     })
-    const { data = [] } = await response.json()
 
     return (data as Item[]).map((e) => ({
       title: e.target.title,
