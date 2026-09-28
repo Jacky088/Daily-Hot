@@ -17,7 +17,7 @@
     "cheerio": "^1.2.0",
     "chinese-days": "^1.5.9",
     "dayjs": "^1.11.21",
-    "filesize": "^11.0.17",
+    "filesize": "^11.0.24",
     "fontkit": "^2.0.4",
     "tyme4ts": "^1.5.2",
     "whois-raw": "^0.1.10",
