@@ -1,3 +1,9 @@
+# 传递依赖安全覆盖：whois-raw>optimist 锁死 minimist ~0.0.1（原型污染漏洞，
+# GHSA-xvch-5gv4-984h / GHSA-vh95-crus-866x），强制到同 API 线的修复版 0.2.4。
+# undici / ip-address 无需钉：其直接依赖声明的是宽范围，自然解析到已修复版本
+overrides:
+  minimist: ^0.2.4
+
 onlyBuiltDependencies:
   - 'esbuild'
   - 'sharp'
