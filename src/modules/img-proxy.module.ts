@@ -1,4 +1,3 @@
-import { Common } from '../common.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { Context } from '@oak/oak'

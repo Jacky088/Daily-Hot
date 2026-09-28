@@ -9,6 +9,11 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    strategy:
+      # 主版本跑 .node-version 钉住的版本，再跑当前 LTS 大版本做前向兼容冒烟；
+      # 若 .node-version 升级，同步调整这里的固定值
+      matrix:
+        node-version: ['22.20.0', '24']
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -19,7 +24,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: .node-version
+          node-version: ${{ matrix.node-version }}
           cache: pnpm
 
       - name: Install dependencies
@@ -27,6 +32,9 @@ jobs:
 
       - name: Type check
         run: pnpm run typecheck
+
+      - name: Lint
+        run: npx eslint .
 
       - name: Verify endpoints
         run: pnpm run verify:endpoints
@@ -39,3 +47,17 @@ jobs:
 
       - name: Frontend build is fresh
         run: pnpm run build:frontend:check
+
+  # 依赖安全审计：只扫生产依赖（devDependency 的漏洞不影响线上），
+  # 高危及以上直接失败。pnpm audit 只读锁文件，无需安装依赖
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Audit production dependencies
+        run: pnpm audit --prod --audit-level high

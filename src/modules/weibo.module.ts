@@ -2,7 +2,7 @@ import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstreamJson } from '../fetch-upstream.ts'
 import { env } from '../runtime-env.ts'
-import { withUapisFallback } from './uapis.module.ts'
+import { withUapisFallback, cacheIfNonEmpty } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -20,7 +20,7 @@ class ServiceWeibo {
 
   /** 供聚合接口复用，并与 /v2/weibo 共享同一份服务端缓存；主源失效时退回 uapis 备用源 */
   fetch() {
-    return cached('weibo', () => withUapisFallback('weibo', () => this.#fetch()))
+    return cached('weibo', () => withUapisFallback('weibo', () => this.#fetch()), { cacheIf: cacheIfNonEmpty })
   }
 
   handle(): RouterMiddleware<'/weibo'> {

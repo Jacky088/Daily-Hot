@@ -1,5 +1,5 @@
 import { Common } from '../common.ts'
-import { fetchUpstream, fetchUpstreamText } from '../fetch-upstream.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 

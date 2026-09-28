@@ -72,12 +72,48 @@ export async function fetchUpstream(url: string | URL, opts: FetchUpstreamOption
 export async function fetchUpstreamJson<T = unknown>(url: string | URL, opts: FetchUpstreamOptions = {}): Promise<T> {
   const res = await fetchUpstream(url, opts)
   if (!res.ok) throw new Error(`upstream HTTP ${res.status} for ${new URL(url).hostname}`)
-  return (await res.json()) as T
+  return JSON.parse(await readBodyLimited(res)) as T
 }
 
 /** 抓取并按文本解析（抓页类模块用） */
 export async function fetchUpstreamText(url: string | URL, opts: FetchUpstreamOptions = {}): Promise<string> {
   const res = await fetchUpstream(url, opts)
   if (!res.ok) throw new Error(`upstream HTTP ${res.status} for ${new URL(url).hostname}`)
-  return await res.text()
+  return readBodyLimited(res)
+}
+
+/**
+ * 响应体统一上限：热榜 JSON / 抓页 HTML 正常在几十 KB 量级，超出 10MB 的响应
+ * 只可能是异常（上游被劫持、循环重定向页等），整包 res.text()/json() 会让
+ * 内存跟着响应体走，这里流式读取并在超限时掐断。
+ */
+const MAX_BODY_BYTES = 10 * 1024 * 1024
+
+async function readBodyLimited(res: Response, limit = MAX_BODY_BYTES): Promise<string> {
+  const reader = res.body?.getReader()
+  if (!reader) return ''
+
+  const chunks: Uint8Array[] = []
+  let total = 0
+
+  try {
+    while (total < limit) {
+      const { done, value } = await reader.read()
+      if (done || !value) break
+      chunks.push(value)
+      total += value.byteLength
+    }
+  } finally {
+    // 达到上限时取消剩余流，及时释放连接；正常读完时 cancel 是无害的
+    await reader.cancel().catch(() => {})
+  }
+
+  const merged = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    merged.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+
+  return new TextDecoder('utf-8').decode(merged)
 }

@@ -1,14 +1,18 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream, fetchUpstreamJson } from '../fetch-upstream.ts'
-import { withUapisFallback } from './uapis.module.ts'
+import { withUapisFallback, cacheIfNonEmpty } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceBaidu {
   /** 供聚合接口复用，并与 /v2/baidu/hot 共享同一份服务端缓存；主源失效时退回 uapis 备用源 */
   fetchHot() {
-    return cached('baidu:hot', () => withUapisFallback('baidu', () => this.#fetchRealtimeHot()))
+    // 主源解析失败会老实返回空数组而非抛错，必须用 cacheIf 挡住空榜入缓存，
+    // 否则一次瞬时故障会被固化到 ttl 结束（见 uapis.module.ts 的 cacheIfNonEmpty）
+    return cached('baidu:hot', () => withUapisFallback('baidu', () => this.#fetchRealtimeHot()), {
+      cacheIf: cacheIfNonEmpty,
+    })
   }
 
   handleHotSearch(): RouterMiddleware<'/baidu/hot'> {

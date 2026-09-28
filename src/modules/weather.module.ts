@@ -22,6 +22,9 @@ const FALLBACK_CITY = '北京'
  */
 const UAPI_WEATHER_URL = 'https://uapis.cn/api/v1/misc/weather'
 
+/** cityCache 容量上限：键含用户可控城市名，防随机城市名刷爆内存 */
+const MAX_CITY_CACHE_SIZE = 500
+
 interface CityInfo {
   name: string
   province: string
@@ -257,7 +260,13 @@ class ServiceWeather {
         const province = (await Common.getParam('province', ctx.request)) || ''
         const cityInfo = await this.getCityInfo(location, city, province)
 
-        const result = await this.buildRealtime(cityInfo)
+        // 实况按城市缓存：上游有 QPS 限流而天气变化很慢（与 /weather/local 的 uapi 缓存同思路），
+        // 不缓存的话每个访客都直打一次腾讯上游
+        const result = await cached(
+          `weather:realtime:${cityInfo.province}:${cityInfo.city}:${cityInfo.county || ''}`,
+          () => this.buildRealtime(cityInfo),
+          { ttl: 10 * 60 * 1000 },
+        )
 
         switch (ctx.state.encoding) {
           case 'text':
@@ -299,7 +308,13 @@ class ServiceWeather {
         const province = (await Common.getParam('province', ctx.request)) || ''
         const cityInfo = await this.getCityInfo(location, city, province)
 
-        const weatherData = await this.fetchCurrentWeather(cityInfo)
+        // 预报按城市缓存（days 切片在缓存外按请求执行）：逐时/逐日预报上游更新频率低，
+        // 与上面 /weather 的实况缓存同思路
+        const weatherData = await cached(
+          `weather:forecast:${cityInfo.province}:${cityInfo.city}:${cityInfo.county || ''}`,
+          () => this.fetchCurrentWeather(cityInfo),
+          { ttl: 15 * 60 * 1000 },
+        )
 
         const result = {
           location: {
@@ -874,6 +889,12 @@ class ServiceWeather {
     }
 
     const cityInfo = await this.searchCity(location, city, province)
+    // 容量上限：键含用户可控的城市名，不限增长可被随机城市名刷爆内存
+    // （与 cache.ts 的 MAX_CACHE_SIZE 同思路，超限时淘汰最早的条目）
+    if (this.cityCache.size >= MAX_CITY_CACHE_SIZE) {
+      const firstKey = this.cityCache.keys().next().value
+      if (firstKey != null) this.cityCache.delete(firstKey)
+    }
     this.cityCache.set(cacheKey, cityInfo)
     return cityInfo
   }

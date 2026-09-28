@@ -1,4 +1,4 @@
-import { Common, dayjs, TZ_SHANGHAI } from '../common.ts'
+import { Common } from '../common.ts'
 import { fetchUpstreamText } from '../fetch-upstream.ts'
 import { load } from 'cheerio'
 
@@ -66,7 +66,7 @@ class ServiceAINews {
       if (cachedItem) {
         return cachedItem
       }
-      throw new Error(`Failed to fetch AI news: ${error}`)
+      throw new Error(`Failed to fetch AI news: ${error}`, { cause: error })
     }
   }
 

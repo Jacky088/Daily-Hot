@@ -198,7 +198,7 @@ async function processFontEncoding(data: DashboardRes): Promise<DashboardRes> {
 
   const numbers: { unicode: string; num: number }[] = []
 
-  for (let codePoint of font.characterSet) {
+  for (const codePoint of font.characterSet) {
     const glyph = font.glyphForCodePoint(codePoint)
     const unicode = `&#x${codePoint.toString(16).toLowerCase().padStart(4, '0')};`
     const commands = glyph.path.commands

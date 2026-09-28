@@ -2,7 +2,7 @@ import { load } from 'cheerio'
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
-import { serviceUapis } from './uapis.module.ts'
+import { serviceUapis, cacheIfNonEmpty } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -37,7 +37,9 @@ class ServiceCTO51 {
       let limit = Number.parseInt(ctx.request.url.searchParams.get('limit') || '') || DEFAULT_LIMIT
       limit = Math.min(limit, MAX_LIMIT)
 
-      const data = (await cached(`51cto-${type}`, () => this.#fetchWithFallback(type))).slice(0, limit)
+      const data = (
+        await cached(`51cto-${type}`, () => this.#fetchWithFallback(type), { cacheIf: cacheIfNonEmpty })
+      ).slice(0, limit)
 
       switch (ctx.state.encoding) {
         case 'text': {

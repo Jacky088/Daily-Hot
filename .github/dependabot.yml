@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # 生产依赖每周检查一次：高危漏洞出现时能在一周内收到 PR，
+  # 配合 CI 的 pnpm audit 门禁形成「提醒 + 强制」两层防线
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # GitHub Actions 版本跟进（checkout / setup-node 等）
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

@@ -1,7 +1,8 @@
 // 前端构建：esbuild 压缩 + 内容 hash + 引用改写。
 //
 // 为什么需要它（替代原来直发 public/*.js 明文 359KB）：
-//   - 体积：app.js + style.css 压缩后约减半，gzip 后首屏 JS 35~45KB，低端机解析更快。
+//   - 体积：app.js 大头是中文注释与空白，esbuild 压缩后只剩源码的一小半，
+//     gzip 后首屏 JS 几十 KB，低端机解析更快。
 //   - 缓存：hash 文件名（app.[hash].js）可给一年 immutable，重复访问 0 字节；
 //     index.html 本身保持 no-cache，每次回源拿最新引用，发版即时生效。
 //
@@ -18,6 +19,8 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+
+import { transformSync } from 'esbuild'
 
 import { rewriteHtml } from './rewrite-html.mjs'
 
@@ -39,31 +42,24 @@ function hash8(content) {
   return createHash('sha256').update(content).digest('hex').slice(0, 8)
 }
 
-/** 极简 minify：只做安全的空白折叠，不碰注释与代码语义。
- * 注意：不能做「整行 // 注释删除」——URL（https://…）与正则（/^https?:\/\//）
- * 里都含有 //，按行删注释会把代码切断。真正的压缩等引入 esbuild 后再做，
- * 当前收益主要来自 hash 长缓存（重复访问 0 字节），而非字节数本身。 */
+/** esbuild 压缩 JS。⚠️ 显式关闭 minifyIdentifiers（标识符改名）：
+ * app.js 以经典 <script> 直载，动态生成的 HTML 字符串里有内联 onclick 引用顶层
+ * 函数名（如 toggleKeywordFilter / load），这类引用藏在字符串里 esbuild 看不见，
+ * 一旦顶层标识符被改名就会静默破坏它们。去注释 + 折叠空白 + 简化语法已经拿走了
+ * 本文件绝大部分体积（大头是中文注释），标识符改名省的那点不值得冒这个险。 */
 function minifyJs(src) {
-  return (
-    src
-      // 折叠连续空行（含多余缩进空行）
-      .replace(/[ \t]*\r?\n[ \t\r\n]*\r?\n+/g, '\n')
-      .trim() + '\n'
-  )
+  return transformSync(src, {
+    loader: 'js',
+    minifyWhitespace: true,
+    minifySyntax: true,
+    minifyIdentifiers: false,
+    charset: 'utf8',
+  }).code
 }
 
-/** 极简 CSS 压缩。⚠️ 非通用安全，对源码有两条硬约束（新增 CSS 时注意）：
- *  1. 不写「后代 + 伪类」选择器里的空格（.a :hover 会被折叠成 .a:hover，语义改变）；
- *     需要 `.a :hover` 语义时写成 `.a *:hover` 可绕开折叠。
- *  2. content 等字符串值里不要有连续空格（\s+ → ' ' 会改写字符串内容）。 */
+/** esbuild 压缩 CSS：语法级压缩，不存在手写正则的「后代伪类空格」「字符串连续空格」脚枪 */
 function minifyCss(src) {
-  return (
-    src
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/\s+/g, ' ')
-      .replace(/\s*([{}:;,>+~])\s*/g, '$1')
-      .trim() + '\n'
-  )
+  return transformSync(src, { loader: 'css', minify: true, charset: 'utf8' }).code
 }
 
 if (!checkOnly) {

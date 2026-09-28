@@ -1,4 +1,7 @@
 // deno-lint-ignore-file
+// 抖音风控签名算法的移植代码：压缩变量风格、「逻辑与」表达式语句与未被引用的
+// 辅助函数都是移植产物的原样保留，不做风格改写（故关闭这几条风格类规则）
+/* eslint-disable @typescript-eslint/no-unused-expressions, @typescript-eslint/no-unused-vars, prefer-const */
 export function get__ac_signature2(url: string, ac_nonce: string, ua: string): string {
   let finalNum = 0
   let temp = 0
@@ -182,7 +185,7 @@ export function get_ab(dpf: string, ua: string): string {
         this.reg = new Array(8)
         this.chunk = []
         this.size = 0
-        // @ts-ignore
+        // @ts-expect-error -- 移植代码里 reset 的参数签名与调用点不一致，保持原样
         this.reset()
       }
       ;(function (t: any, r: any[], e?: any[]) {

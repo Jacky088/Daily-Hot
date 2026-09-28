@@ -1,6 +1,6 @@
 import { Common, dayjs } from '../common.ts'
 import { filesize } from 'filesize'
-import { fetchUpstream, fetchUpstreamJson } from '../fetch-upstream.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceNcm {

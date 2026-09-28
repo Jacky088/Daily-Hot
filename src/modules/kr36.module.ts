@@ -1,15 +1,17 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
-import { withUapisFallback } from './uapis.module.ts'
+import { withUapisFallback, cacheIfNonEmpty } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
 class Service36Kr {
   handle(): RouterMiddleware<'/36kr'> {
     return async (ctx) => {
-      // 主源失效时退回 uapis 备用源
-      const data = await cached('36kr', () => withUapisFallback('36kr', () => this.#fetch()))
+      // 主源失效时退回 uapis 备用源；空榜不入缓存（见 uapis.module.ts 的 cacheIfNonEmpty）
+      const data = await cached('36kr', () => withUapisFallback('36kr', () => this.#fetch()), {
+        cacheIf: cacheIfNonEmpty,
+      })
 
       switch (ctx.state.encoding) {
         case 'text':

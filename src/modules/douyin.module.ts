@@ -1,14 +1,14 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstreamJson } from '../fetch-upstream.ts'
-import { withUapisFallback } from './uapis.module.ts'
+import { withUapisFallback, cacheIfNonEmpty } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceDouyin {
   /** 供聚合接口复用，并与 /v2/douyin 共享同一份服务端缓存；主源失效时退回 uapis 备用源 */
   fetch() {
-    return cached('douyin', () => withUapisFallback('douyin', () => this.#fetch()))
+    return cached('douyin', () => withUapisFallback('douyin', () => this.#fetch()), { cacheIf: cacheIfNonEmpty })
   }
 
   handle(): RouterMiddleware<'/douyin'> {

@@ -1,5 +1,6 @@
 import { Common } from '../common.ts'
-import { fetchUpstream, fetchUpstreamJson } from '../fetch-upstream.ts'
+import { cached } from '../cache.ts'
+import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -20,7 +21,13 @@ class ServiceLyric {
 
       const clean = ctx.request.url.searchParams.get('clean') !== 'false'
 
-      const data = await this.#fetchLyric(query, clean).catch((err) => {
+      // 歌词按「关键词 + clean」缓存（键经 md5 收敛）：同一首歌的歌词不变，
+      // 每次查询要打 1-2 个上游源，高频查询必触发风控
+      const data = await cached(`lyric:${clean}:${Common.md5(query)}`, () => this.#fetchLyric(query, clean), {
+        ttl: 30 * 60 * 1000,
+        // 未命中（null）不入缓存：下次请求重试，避免上游临时抖动被固化为「找不到」
+        cacheIf: (d) => d != null,
+      }).catch((err) => {
         throw new Error(`搜索歌词失败: ${err instanceof Error ? err.message : String(err)}`)
       })
 
@@ -53,10 +60,27 @@ class ServiceLyric {
 
   // 数据源优先级: LRCLIB → 网易云音乐
   // (LRCLIB 排序质量高且不限制来源; 网易云旧搜索接口排名被翻唱占据, 且会屏蔽数据中心 IP)
+  //
+  // 「两源都正常响应但没有这首歌」返回 null（走 404）；
+  // 只要有一个源是网络故障就抛错——故障不该被混同为「未找到」，抛错才能让
+  // 缓存层走 stale 兜底、调用方看到 500 而不是误导性的 404
   async #fetchLyric(query: string, clean = false) {
-    const lrclib = await this.#fetchFromLrclib(query, clean).catch(() => null)
+    const failures: unknown[] = []
+
+    const lrclib = await this.#fetchFromLrclib(query, clean).catch((e) => {
+      failures.push(e)
+      return null
+    })
     if (lrclib) return lrclib
-    return await this.#fetchFromNcm(query, clean).catch(() => null)
+
+    const ncm = await this.#fetchFromNcm(query, clean).catch((e) => {
+      failures.push(e)
+      return null
+    })
+    if (ncm) return ncm
+
+    if (failures.length) throw failures[0]
+    return null
   }
 
   async #fetchFromNcm(query: string, clean = false) {

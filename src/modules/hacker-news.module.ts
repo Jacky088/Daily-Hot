@@ -110,7 +110,7 @@ class ServiceHackerNews {
 
       return formattedStories
     } catch (error) {
-      throw new Error(`Failed to fetch hacker-news-list: ${error}`)
+      throw new Error(`Failed to fetch hacker-news-list: ${error}`, { cause: error })
     }
   }
 

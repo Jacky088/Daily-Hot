@@ -157,16 +157,20 @@ npx wrangler deploy
 
 所有环境变量均为**可选**，不设置也能正常运行：
 
-| 变量名                | 默认值          | 说明                                                                                                          |
-| --------------------- | --------------- | ------------------------------------------------------------------------------------------------------------- |
-| `PORT`                | `4399`          | 监听端口（仅 Docker / Node 模式）                                                                             |
-| `HOST`                | `0.0.0.0`       | 监听地址（仅 Docker / Node 模式）                                                                             |
-| `DEBUG`               | `false`         | 开启调试日志                                                                                                  |
-| `OVERSEAS_FIRST`      | `false`         | CDN 优先级（`true` 海外优先）                                                                                 |
-| `ENCODING_PARAM_NAME` | `encoding`      | 响应格式参数名                                                                                                |
-| `BLACKLIST_IPS`       | `[]`            | IP 黑名单，JSON 字符串格式                                                                                    |
-| `WEIBO_COOKIE`        | 内置游客 Cookie | 微博热搜接口凭证，内置值失效时注入新值                                                                        |
-| `DEV`                 | 自动            | 开发模式，`pnpm run dev`（Node/Bun 的 `--watch`）自动置为 `1`；Deno 的 `--watch` 无法被检测到，需手动 `DEV=1` |
+| 变量名                  | 默认值          | 说明                                                                                                          |
+| ----------------------- | --------------- | ------------------------------------------------------------------------------------------------------------- |
+| `PORT`                  | `4399`          | 监听端口（仅 Docker / Node 模式）                                                                             |
+| `HOST`                  | `0.0.0.0`       | 监听地址（仅 Docker / Node 模式）                                                                             |
+| `DEBUG`                 | `false`         | 开启调试日志                                                                                                  |
+| `OVERSEAS_FIRST`        | `false`         | CDN 优先级（`true` 海外优先）                                                                                 |
+| `ENCODING_PARAM_NAME`   | `encoding`      | 响应格式参数名                                                                                                |
+| `BLACKLIST_IPS`         | `[]`            | IP 黑名单，JSON 字符串格式                                                                                    |
+| `WEIBO_COOKIE`          | 内置游客 Cookie | 微博热搜接口凭证，内置值失效时注入新值                                                                        |
+| `REDNOTE_SHIELD`        | 内置值          | 小红书热搜 shield 令牌，内置值失效时注入新值                                                                  |
+| `REDNOTE_PLATFORM_INFO` | 内置值          | 小红书 `xy-platform-info` 头（含设备 ID），随 shield 一同更新                                                 |
+| `REDNOTE_COMMON_PARAMS` | 内置值          | 小红书 `xy-common-params` 头（含设备指纹与会话），随 shield 一同更新                                          |
+| `REDNOTE_UA`            | 内置值          | 小红书请求 User-Agent，一般无需修改                                                                           |
+| `DEV`                   | 自动            | 开发模式，`pnpm run dev`（Node/Bun 的 `--watch`）自动置为 `1`；Deno 的 `--watch` 无法被检测到，需手动 `DEV=1` |
 
 ## 🏗️ 技术架构
 

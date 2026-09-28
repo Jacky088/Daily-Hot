@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { cached } from '../cache.ts'
 import { fetchUpstreamText } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -53,7 +54,9 @@ class ServiceChangYa {
 
     const randomId = Common.randomItem(seedIdList)
     const url = `https://m.singduck.cn/user-piece/cont_${randomId}`
-    const data = await fetchUpstreamText(url)
+    // 页面抓取按随机页 id 缓存：随机性来自「随机选页 + 页内随机选作品」，
+    // 缓存页面抓取不改变随机行为，只是同一页短时间内不重复抓
+    const data = await cached(`changya:page:${randomId}`, () => fetchUpstreamText(url))
 
     if (!data) throw new Error('fetch data error')
 

@@ -933,7 +933,7 @@ let heroWeatherEditing = false
 // 两个宿主都用 display:contents：卡片不在时宿主不产生盒子，
 // 不会在菜单与深色模式之间、或右栏卡片之间留下空档。
 const HW_RAIL_MIN_WIDTH = 1180 // 大于这个宽度右栏才存在
-const HW_DRAWER_MAX_WIDTH = 900 // 小于等于这个宽度侧栏才收成抽屉
+const _HW_DRAWER_MAX_WIDTH = 900 // 小于等于这个宽度侧栏才收成抽屉
 let heroWeatherEl = null
 
 function heroWeatherNode() {
@@ -977,7 +977,11 @@ function heroCityPref() {
 }
 function setHeroCityPref(v) {
   try {
-    v ? localStorage.setItem('hero-city', v) : localStorage.removeItem('hero-city')
+    if (v) {
+      localStorage.setItem('hero-city', v)
+    } else {
+      localStorage.removeItem('hero-city')
+    }
   } catch {}
 }
 function heroWeatherCacheKey(city) {
@@ -2765,7 +2769,7 @@ async function loadFanyiLangs() {
       fanyiLangs = j.data.sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'))
       fillFanyiSelects()
     }
-  } catch (e) {}
+  } catch {}
 }
 
 function fillFanyiSelects() {
@@ -2802,6 +2806,17 @@ function esc(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
+}
+
+// 热度数值格式化兜底：把原始数值换成「987.6万」口径，与服务端
+// hot-aggregate.module.ts 的 formatHot 同一套换算。飙升速报里
+// hot_text 缺失时会用到它——此前该函数从未定义，这条路径一触发就 ReferenceError
+function formatHot(value) {
+  const v = +value
+  if (!Number.isFinite(v) || v <= 0) return ''
+  if (v >= 100000000) return `${Math.round(v / 10000000) / 10}亿`
+  if (v >= 10000) return `${Math.round(v / 1000) / 10}万`
+  return String(v)
 }
 
 // 侧边栏菜单项内容：把「📰 新闻资讯」这类「图标 + 空格 + 名称」拆成两块——
@@ -2924,7 +2939,7 @@ async function loadWallpaperBg() {
     let cached = null
     try {
       cached = JSON.parse(localStorage.getItem(key) || 'null')
-    } catch (e) {}
+    } catch {}
     const fromCache = (c) => {
       cover = c.cover
       cover4k = c.cover4k || cover.replace('_1920x1080.jpg', '_UHD.jpg')
@@ -2945,9 +2960,9 @@ async function loadWallpaperBg() {
           coverPortrait = cover.replace('_1920x1080.jpg', '_1080x1920.jpg')
           try {
             localStorage.setItem(key, JSON.stringify({ date: today, cover, cover4k, coverPortrait }))
-          } catch (e) {}
+          } catch {}
         }
-      } catch (e) {
+      } catch {
         /* 当日拉取失败：下方退回过期缓存，有壁纸总比没有好 */
       }
       if (!cover && cached && cached.cover) fromCache(cached)
@@ -3009,7 +3024,7 @@ async function loadWallpaperBg() {
       lastPortrait = portrait
       swapWallpaper(pick(), false)
     })
-  } catch (e) {
+  } catch {
     /* 壁纸加载失败不影响主功能 */
   }
 }
@@ -4491,7 +4506,7 @@ async function load(ep, forceUpdate = false) {
 
 // Google 翻译加载器：浏览器直连 clients5.google.com（允许任意 Origin 的 CORS）；
 // 直连失败（如大陆网络）再回退自建 /v2/google-translate（CF 出口被 Google 间歇拦截，尽力而为）
-async function gtranslateLoad(ep, params, url, ck, c, forceUpdate) {
+async function gtranslateLoad(ep, params, url, ck, c, _forceUpdate) {
   const text = params.get('text')
   const from = params.get('from') || 'auto'
   const to = params.get('to') || 'zh-CN'
@@ -4524,7 +4539,7 @@ async function gtranslateLoad(ep, params, url, ck, c, forceUpdate) {
           return
         }
       }
-    } catch (e) {
+    } catch {
       /* 直连失败，走后端兜底 */
     }
   }
@@ -4604,7 +4619,7 @@ async function fetchWithRetry(ep, url, ck, c, retriesLeft) {
     if (ep.type !== 'pwd' && ep.type !== 'pwdchk') cacheSet(ck, json.data, dataTs)
     renderData(ep, json.data, c)
     markEpLoaded(ep.id, dataTs)
-  } catch (e) {
+  } catch {
     if (retriesLeft > 0) {
       await new Promise((r) => setTimeout(r, 1000))
       return fetchWithRetry(ep, url, ck, c, retriesLeft - 1)
@@ -6965,16 +6980,24 @@ function renderRailInsights() {
     if (!keywords.length) {
       cloudBox.innerHTML = '<div class="hl-end">暂无热词</div>'
     } else {
+      // 热词来自上游热搜标题分词，可能含引号。不能把词拼进 onclick 的 JS 字符串里：
+      // 属性上下文的实体解码会把 &#39; 还原成 ' 再交给 JS 引擎，标题带撇号即可逃逸字符串
+      // 执行任意代码（esc 只保证属性安全，不保证 JS 字符串安全）。
+      // 改为 data-word 属性存词原文 + 每次渲染在新建按钮上绑监听（innerHTML 重建子节点，
+      // 监听器不会累积），点击时经 dataset 读回原文。
       cloudBox.innerHTML = keywords
         .map((kw, i) => {
           const tierCls = i < 3 ? 'wc-t1' : i < 8 ? 'wc-t2' : 'wc-t3'
           const activeCls = homeKeywordFilter === kw.word ? ' active' : ''
-          return `<button type="button" class="wc-tag ${tierCls}${activeCls}" onclick="toggleKeywordFilter('${esc(kw.word)}')" title="${kw.count} 条相关热搜 · 点击联动筛选">
+          return `<button type="button" class="wc-tag ${tierCls}${activeCls}" data-word="${esc(kw.word)}" title="${kw.count} 条相关热搜 · 点击联动筛选">
           <span class="wc-text">${esc(kw.word)}</span>
           <span class="wc-count">${kw.count}</span>
         </button>`
         })
         .join('')
+      cloudBox.querySelectorAll('.wc-tag').forEach((btn) => {
+        btn.addEventListener('click', () => window.toggleKeywordFilter(btn.dataset.word || ''))
+      })
     }
   }
 
@@ -7116,7 +7139,6 @@ document.addEventListener('click', (e) => {
   const apply = () => {
     const el = ind()
     if (!el) return
-    const k = Math.min(1, dist / TRIGGER)
     el.style.opacity = dist > SHOW ? String(Math.min(1, (dist - SHOW) / 30)) : '0'
     el.style.transform = `translateY(${Math.max(0, dist - SHOW)}px)`
     el.classList.toggle('ready', dist >= TRIGGER)
@@ -8127,7 +8149,7 @@ function rBing(d, c) {
         a.click()
         a.remove()
         setTimeout(() => URL.revokeObjectURL(a.href), 3000)
-      } catch (e) {
+      } catch {
         window.open(url, '_blank')
       }
       btn.disabled = false

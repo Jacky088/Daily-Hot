@@ -9,8 +9,38 @@ env:
   # 推送到仓库拥有者的 Docker Hub 命名空间下，需确保 DOCKERHUB_USERNAME 与该命名空间一致
   IMAGE_NAME: ${{ github.repository_owner }}/daily-hot
 
+# 发布前置校验：typecheck + 单测 + dist 新鲜度。
+# 之前 tag 一推就直接出镜像，CI 红着也照发；现在镜像构建以这里的通过为前提
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm run typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Frontend build is fresh
+        run: pnpm run build:frontend:check
+
   release:
+    needs: test
     permissions:
       id-token: write
       contents: write

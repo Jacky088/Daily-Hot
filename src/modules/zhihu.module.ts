@@ -1,14 +1,14 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstreamJson } from '../fetch-upstream.ts'
-import { withUapisFallback } from './uapis.module.ts'
+import { withUapisFallback, cacheIfNonEmpty } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceZhihuHot {
   /** 供聚合接口复用，并与 /v2/zhihu 共享同一份服务端缓存；主源失效时退回 uapis 备用源 */
   fetch() {
-    return cached('zhihu', () => withUapisFallback('zhihu', () => this.#fetch()))
+    return cached('zhihu', () => withUapisFallback('zhihu', () => this.#fetch()), { cacheIf: cacheIfNonEmpty })
   }
 
   handle(): RouterMiddleware<'/zhihu'> {

@@ -1,4 +1,3 @@
-import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 
@@ -70,7 +69,7 @@ function formatHot(value: number): string {
 class ServiceUapis {
   /** 拉某个平台的热榜；失败会抛错，由调用方决定是继续抛还是找别的兜底 */
   hotboard(type: UapisBoardType): Promise<UapisItem[]> {
-    return cached(`uapis:${type}`, () => this.#fetch(type), { ttl: 5 * 60 * 1000 })
+    return cached(`uapis:${type}`, () => this.#fetch(type), { ttl: 5 * 60 * 1000, cacheIf: cacheIfNonEmpty })
   }
 
   async #fetch(type: UapisBoardType): Promise<UapisItem[]> {
@@ -127,6 +126,16 @@ class ServiceUapis {
 }
 
 export const serviceUapis = new ServiceUapis()
+
+/**
+ * 空榜结果不能当缓存用（配合 cached 的 cacheIf）：
+ * 主源解析失败往往表现为「成功但返回空数组」，一旦入缓存就会被命中到 ttl 结束，
+ * 表现为「某个榜单突然空了且迟迟不恢复」；不入缓存则旧值仍留在 store 里，
+ * 下次回源失败还能走 stale 兜底。
+ */
+export function cacheIfNonEmpty<T>(data: T[]): boolean {
+  return Array.isArray(data) && data.length > 0
+}
 
 /**
  * 「主源优先、uapis 兜底」的统一入口。

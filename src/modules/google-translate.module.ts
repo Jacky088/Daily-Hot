@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -82,6 +83,33 @@ class ServiceGoogleTranslate {
   }
 
   async #translate(ctx: any, text: string, from: string, to: string): Promise<void> {
+    // 译文按「语言对 + 原文」缓存：同一文本短时间内译文不变，不缓存的话
+    // 每次查询最多打上游 3 次（本函数自有重试），Workers 出口被 Google 拦截时会雪上加霜。
+    // 键里的原文经 md5 收敛，避免长文本把 500 条的缓存池挤爆
+    const { trans, detected } = await cached(`gtranslate:${from}:${to}:${Common.md5(text)}`, () =>
+      this.#fetchTranslation(text, from, to),
+    )
+
+    switch (ctx.state.encoding) {
+      case 'text':
+        ctx.response.body = trans
+        break
+
+      case 'markdown':
+        ctx.response.body = `# 🔤 Google 翻译\n\n## 原文 (${detected})\n\n> ${text}\n\n## 译文 (${to})\n\n> ${trans}`
+        break
+
+      case 'json':
+      default:
+        ctx.response.body = Common.buildJson({
+          source: { text, type: detected, type_desc: langLabels[detected] ?? detected },
+          target: { text: trans, type: to, type_desc: langLabels[to] ?? to },
+        })
+        break
+    }
+  }
+
+  async #fetchTranslation(text: string, from: string, to: string): Promise<{ trans: string; detected: string }> {
     // Cloudflare Workers 出口 IP 会被 Google 间歇拦截（实测约 40% 失败），
     // 拦截页返回极快，快速重试 2 次可把成功率提升到 ~94%；
     // 前端 fetchWithRetry 还有 2 次外层重试兜底。
@@ -128,23 +156,7 @@ class ServiceGoogleTranslate {
       })
       .join('')
 
-    switch (ctx.state.encoding) {
-      case 'text':
-        ctx.response.body = trans
-        break
-
-      case 'markdown':
-        ctx.response.body = `# 🔤 Google 翻译\n\n## 原文 (${detected})\n\n> ${text}\n\n## 译文 (${to})\n\n> ${trans}`
-        break
-
-      case 'json':
-      default:
-        ctx.response.body = Common.buildJson({
-          source: { text, type: detected, type_desc: langLabels[detected] ?? detected },
-          target: { text: trans, type: to, type_desc: langLabels[to] ?? to },
-        })
-        break
-    }
+    return { trans, detected }
   }
 }
 

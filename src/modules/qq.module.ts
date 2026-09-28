@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { cached } from '../cache.ts'
 import { fetchUpstreamText } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -27,7 +28,13 @@ class ServiceQQ {
         return
       }
 
-      const data = await this.#fetch(qq, size)
+      // 昵称按「qq + 头像尺寸」缓存：昵称极少变，且该接口偶发被腾讯 WAF 拦截，
+      // 缓存能明显减少打上游的频次
+      const data = await cached(`qq:profile:${qq}:${size}`, () => this.#fetch(qq, size), {
+        ttl: 10 * 60 * 1000,
+        // 拿不到昵称（WAF 拦截时上游返回空昵称）不入缓存，下次重试
+        cacheIf: (d) => !!d.nickname,
+      })
 
       switch (ctx.state.encoding) {
         case 'text':
@@ -76,7 +83,7 @@ class ServiceQQ {
         avatar_size: size,
       }
     } catch (error) {
-      throw new Error(`获取 QQ 用户信息失败: ${error}`)
+      throw new Error(`获取 QQ 用户信息失败: ${error}`, { cause: error })
     }
   }
 }

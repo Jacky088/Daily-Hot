@@ -1,15 +1,18 @@
 import { Common } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
-import { withUapisFallback } from './uapis.module.ts'
+import { withUapisFallback, cacheIfNonEmpty } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceSspai {
   handle(): RouterMiddleware<'/sspai'> {
     return async (ctx) => {
-      // 主源失效时退回 uapis 备用源
-      const data = await cached('sspai', () => withUapisFallback('sspai', () => this.#fetch()), { ttl: 10 * 60 * 1000 })
+      // 主源失效时退回 uapis 备用源；空榜不入缓存（见 uapis.module.ts 的 cacheIfNonEmpty）
+      const data = await cached('sspai', () => withUapisFallback('sspai', () => this.#fetch()), {
+        ttl: 10 * 60 * 1000,
+        cacheIf: cacheIfNonEmpty,
+      })
 
       switch (ctx.state.encoding) {
         case 'text':

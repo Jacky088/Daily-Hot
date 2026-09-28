@@ -62,7 +62,6 @@ export const appRouter = new Router({
  * 这里用 unknown 中转做一次适配：运行时期望的调用约定完全一致
  * （(ctx, next) => promise），只是静态类型层面桥接一下。
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyHandler = (ctx: any, next: any) => Promise<unknown> | unknown
 
 function lazyFn(factory: () => Promise<AnyHandler>): Middleware {

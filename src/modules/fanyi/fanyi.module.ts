@@ -1,5 +1,6 @@
 import crypto from 'node:crypto'
 import { Common } from '../../common.ts'
+import { cached } from '../../cache.ts'
 import { fetchUpstream, fetchUpstreamJson } from '../../fetch-upstream.ts'
 import langData from './langs.json' with { type: 'json' }
 
@@ -32,7 +33,14 @@ class ServiceFanyi {
         return
       }
 
-      const data = await this.#fetch(text, from, to)
+      // 翻译结果按「语言对 + 原文」缓存：同一文本短时间内译文不变，
+      // 不缓存的话每次查询都要打有道两跳（key 接口 + 主接口），高频调用必触发风控。
+      // 键里的原文经 md5 收敛，避免长文本把 500 条的缓存池挤爆
+      const data = await cached(`fanyi:${from}:${to}:${Common.md5(text)}`, () => this.#fetch(text, from, to), {
+        ttl: 10 * 60 * 1000,
+        // 上游异常响应（code !== 0）不能当缓存用，否则一次瞬时故障会被固化到 ttl 结束
+        cacheIf: (d) => d.code === 0,
+      })
       const isSuccess = data.code === 0
       const responseItems = data?.translateResult?.flat() || []
 

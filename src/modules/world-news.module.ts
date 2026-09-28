@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 import { load } from 'cheerio'
 
@@ -31,35 +32,11 @@ class ServiceWorldNews {
         return
       }
 
-      // Google News RSS 在 Workers 出口常被拦截：fetchUpstream 给 8s 超时 + 1 次重试，
-      // 失败抛错语义与原来一致（上层无 catch，直接 500 + stale 兜底）
-      const response = await fetchUpstream(conf.url, {
-        headers: { Accept: 'application/rss+xml, application/xml, text/xml' },
-        timeoutMs: 8000,
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch world-news[${source}]: HTTP ${response.status}`)
-      }
-
-      const $ = load(await response.text(), { xmlMode: true })
-      const list: WorldNewsItem[] = []
-
-      $('item').each((_, el) => {
-        if (list.length >= 30) return false
-        const $el = $(el)
-        const title = ($el.find('title').text() || '').trim()
-        let link = ($el.find('link').text() || '').trim()
-        // RSS 2.0 里 link 可能是 CDATA/纯文本，google news 的链接在 guid 之外也可能带 amp 参数，仅做基础校验
-        if (!link.startsWith('http')) link = $el.find('guid').text().trim()
-        if (!title) return
-        list.push({
-          rank: list.length + 1,
-          title,
-          link,
-          pubDate: ($el.find('pubDate').text() || '').trim(),
-          source: conf.name,
-        })
+      // 头条按源缓存：RSS 源（尤其 Google News）对高频请求很敏感，
+      // 新闻头条本身更新频率低，缓存几分钟毫无感知
+      const list = await cached(`world-news:${source}`, () => this.#fetchList(source), {
+        ttl: 5 * 60 * 1000,
+        cacheIf: (list) => list.length > 0,
       })
 
       switch (ctx.state.encoding) {
@@ -77,6 +54,43 @@ class ServiceWorldNews {
           break
       }
     }
+  }
+
+  // Google News RSS 在 Workers 出口常被拦截：fetchUpstream 给 8s 超时 + 1 次重试，
+  // 失败抛错语义与原来一致（缓存层走 stale 兜底）
+  async #fetchList(source: string): Promise<WorldNewsItem[]> {
+    const conf = sources[source]
+
+    const response = await fetchUpstream(conf.url, {
+      headers: { Accept: 'application/rss+xml, application/xml, text/xml' },
+      timeoutMs: 8000,
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch world-news[${source}]: HTTP ${response.status}`)
+    }
+
+    const $ = load(await response.text(), { xmlMode: true })
+    const list: WorldNewsItem[] = []
+
+    $('item').each((_, el) => {
+      if (list.length >= 30) return false
+      const $el = $(el)
+      const title = ($el.find('title').text() || '').trim()
+      let link = ($el.find('link').text() || '').trim()
+      // RSS 2.0 里 link 可能是 CDATA/纯文本，google news 的链接在 guid 之外也可能带 amp 参数，仅做基础校验
+      if (!link.startsWith('http')) link = $el.find('guid').text().trim()
+      if (!title) return
+      list.push({
+        rank: list.length + 1,
+        title,
+        link,
+        pubDate: ($el.find('pubDate').text() || '').trim(),
+        source: conf.name,
+      })
+    })
+
+    return list
   }
 }
 

@@ -324,7 +324,7 @@ class ServiceWhois {
     const initialN = 128
     const delimiter = '-'
 
-    let output: number[] = []
+    const output: number[] = []
     let bias = initialBias
     let n = initialN
 
@@ -754,6 +754,7 @@ class ServiceWhois {
 
       // 域名格式校验：domain 会被原样写入 WHOIS 协议查询（TCP 明文），
       // 空白/控制字符可注入额外的协议命令；长度上限对齐域名 253 字符规范
+      // eslint-disable-next-line no-control-regex -- 控制字符正是要拦的对象
       if (/[\s\x00-\x1f\x7f]/.test(domain) || domain.length > 253) {
         ctx.response.status = 400
         ctx.response.body = Common.buildJson(null, 400, '无效的域名格式')

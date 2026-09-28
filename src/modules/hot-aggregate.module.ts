@@ -126,6 +126,17 @@ export function clampInt(raw: string | null, fallback: number, min: number, max:
   return Math.min(max, Math.max(min, n))
 }
 
+/**
+ * 聚合接口缓存键收敛判定（单测锁定口径）：前端固定用 limit=20&per=3&全源
+ * （见 public/app.js 的两处调用），无参 API 默认是 limit=30&per=3&全源。
+ * 这两组是 99% 的流量，各占一个缓存键；非常规参数（自定义 limit/per/sources）
+ * 实时计算不缓存——之前 limit(1~100) × per(1~20) × 来源组合能组合出几千种键，
+ * 会把 500 条的内存缓存池冲掉，挤走微博/知乎等高价值单源缓存。
+ */
+export function isCommonAggregateArgs(limit: number, per: number, only: string[]): boolean {
+  return (limit === 20 || limit === 30) && per === DEFAULT_PER_SOURCE && !only.length
+}
+
 const PLATFORMS: Platform[] = [
   {
     id: 'weibo',
@@ -268,12 +279,8 @@ class ServiceHotAggregate {
         .filter(Boolean)
 
       const platforms = only.length ? PLATFORMS.filter((p) => p.id && only.includes(p.id)) : PLATFORMS
-      // 缓存键收敛：前端固定用 limit=20&per=3&全源（见 public/app.js 的两处调用），
-      // 无参 API 默认是 limit=30&per=3&全源。这两组是 99% 的流量，各占一个缓存键；
-      // 非常规参数（自定义 limit/per/sources）实时计算不缓存——之前 limit(1~100) ×
-      // per(1~20) × 来源组合能组合出几千种键，会把 500 条的内存缓存池冲掉，
-      // 挤走微博/知乎等高价值单源缓存。
-      const isCommon = (limit === 20 || limit === 30) && per === DEFAULT_PER_SOURCE && !only.length
+      // 缓存键收敛说明见 isCommonAggregateArgs
+      const isCommon = isCommonAggregateArgs(limit, per, only)
       const data = isCommon
         ? await cached(`hot:aggregate:default:${limit}:${per}`, () => this.#aggregate(platforms, limit, per), {
             ttl: 3 * 60 * 1000,

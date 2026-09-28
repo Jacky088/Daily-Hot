@@ -1,5 +1,7 @@
-# 使用更小的基础镜像和多阶段构建来减少最终镜像的大小
-FROM node:lts-alpine AS builder
+# 使用更小的基础镜像和多阶段构建来减少最终镜像的大小。
+# 钉住与 .node-version 一致的版本：浮动 tag（node:lts-alpine）会让同一份代码
+# 在不同时间构建出不同环境，且 corepack 被从新版 Node 镜像移除后构建会直接失败
+FROM node:22.20.0-alpine AS builder
 
 # 设置工作目录，避免之后的 RUN 命令中需要不断地 mkdir 和 cd
 WORKDIR /app
@@ -10,15 +12,16 @@ ENV NODE_ENV=production
 # 复制项目依赖文件，这里优化了复制步骤，可以利用 Docker 缓存
 COPY package.json pnpm-lock.yaml* ./
 
-# 启用 corepack 并预先下载 pnpm 包管理器，减少运行时下载延迟
+# pnpm 版本与 package.json 的 packageManager 字段保持一致。
+# 不用 corepack：它在新版 Node 镜像中正在被移除，npm 直装是最稳的方式
 # 安装项目依赖，使用 --frozen-lockfile 参数确保锁文件的准确性
-RUN corepack enable && corepack prepare --activate && pnpm install --prod --frozen-lockfile
+RUN npm install -g pnpm@10.29.2 && pnpm install --prod --frozen-lockfile
 
 # 复制项目代码到工作目录
 COPY . .
 
 # 运行阶段
-FROM node:lts-alpine AS runner
+FROM node:22.20.0-alpine AS runner
 
 # 维护信息
 LABEL maintainer="木木"
