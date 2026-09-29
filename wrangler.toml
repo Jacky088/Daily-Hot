@@ -7,6 +7,10 @@ compatibility_flags = [ "nodejs_compat" ]
 
 [assets]
 directory = "./public"
+# ASSETS 绑定供 cf-worker.ts 把 / 转发到 dist 构建版入口（见 cf-worker.ts 顶部注释）。
+# run_worker_first 只拦首页两个入口路径，其余静态文件仍由资产层直接服务、不过 Worker
+binding = "ASSETS"
+run_worker_first = ["/", "/index.html"]
 
 [observability.logs]
 enabled = true
