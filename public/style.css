@@ -7326,9 +7326,14 @@ select:focus-visible {
   }
 }
 
-/* 手机小屏：进一步收紧触控与留白 */
+/* 手机小屏：进一步收紧触控与留白。
+   注意特异性：后方 ≤1100/≤900 块里是 .app-shell .header / .app-shell .main 这类
+   两级选择器，且在文件里更靠后——这里的小屏收紧若用单类名会被静默压掉
+   （此前 .header/.main 两条就是这样变成死代码的），必须按同链路提升特异性 */
 @media (max-width: 480px) {
-  .header {
+  /* (0,3,0) 压过 ≤900 的 .app-shell .header（8px 14px）：小屏侧边距收成 12px，
+     与 12px 走道基准对齐 */
+  .app-shell .topbar .header {
     padding: 8px 12px;
     gap: 8px;
   }
@@ -7341,9 +7346,9 @@ select:focus-visible {
     padding: 0 13px;
     font-size: 13px;
   }
-  .main {
-    padding: 6px 10px 48px;
-  }
+  /* 原 ≤480 的 .main 收边规则已删：内容列走道由 .app-shell .layout 的 12px
+     统一承担、.app-shell .main 横向内边距恒为 0，小屏再收会让卡片与
+     顶栏/吸顶分类栏错位；底部 48px 预留也已由 .app-shell .main 接管 */
   /* 触控区域加大，防误触 */
   .card-actions button {
     width: 32px;
@@ -7398,9 +7403,9 @@ select:focus-visible {
     height: 46px;
     font-size: 11px;
   }
-  /* 时钟内边距收紧，缩短触控区与左右间距 */
+  /* 时钟内边距收紧：纵向随 ≤1100 两行版式统一为 5px，横向收成 10px */
   .clock {
-    padding: 7px 10px;
+    padding: 5px 10px;
     font-size: 12.5px;
     gap: 6px;
   }
@@ -7424,7 +7429,8 @@ select:focus-visible {
     width: 5px;
     height: 5px;
   }
-  .header-right {
+  /* (0,2,0) 压过 ≤1100 的 .header-right { gap: 8px }（它在文件里更靠后） */
+  .app-shell .header-right {
     gap: 4px;
   }
   .header-right a,
@@ -7437,7 +7443,8 @@ select:focus-visible {
 /* ≤340px：再收紧一档，让 320px 这类小屏也能把「短版日期 + 时间 + 4 按钮」锁在同一行。
    这里只缩尺寸、绝不隐藏日期——日期始终完整，顶栏永远是两行 */
 @media (max-width: 340px) {
-  .clock-mobile {
+  /* (0,2,0)：纵向 4px 要压过 ≤1100 的 .clock 纵向 5px（后写会赢），窄屏收得更紧 */
+  .header-right .clock-mobile {
     padding: 4px 6px;
     font-size: 11.5px;
     gap: 3px;
@@ -7446,7 +7453,7 @@ select:focus-visible {
     width: 4px;
     height: 4px;
   }
-  .header-right {
+  .app-shell .header-right {
     gap: 3px;
   }
   .header-right a,
