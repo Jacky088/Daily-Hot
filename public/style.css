@@ -10413,8 +10413,8 @@ body.sb-locked {
 @media (max-width: 1100px) {
   .app-shell .header {
     flex-wrap: wrap;
-    gap: 10px;
-    padding: 10px 18px;
+    gap: 8px;
+    padding: 8px 18px;
   }
   .site-search {
     flex: 1 1 100%;
@@ -10424,6 +10424,20 @@ body.sb-locked {
     flex: 1 1 100%;
     justify-content: flex-end;
     gap: 8px;
+  }
+  /* 两行版式下第二行整体右对齐，时钟左侧会在搜索框正下方留出一大片空带
+     （窗口越宽越明显），观感即「两行之间空白很大」。让时钟锚到行首、
+     按钮组留在行尾，两行各成一条整齐的内容带；窄屏放不下时
+     margin-right:auto 自然收敛为 0，退化成原来的紧凑布局 */
+  .header-right .clock {
+    margin-right: auto;
+  }
+  /* 胶囊上下内边距 8→5px：两行版式下胶囊内圈的空气会把行间视觉间距放大
+     到近两倍（形式 row-gap 只有 8px），收紧后第二行明显更贴第一行；
+     泡泡进度层按胶囊实际盒子裁切，高度变化不影响动画 */
+  .clock {
+    padding-top: 5px;
+    padding-bottom: 5px;
   }
 }
 
@@ -10460,15 +10474,34 @@ body.sb-locked {
   .sb-toggle {
     display: flex;
   }
+  /* 汉堡按钮与左下目录 FAB 是同一族入口（都从左缘展开抽屉），统一尺寸语言：
+     44px 触控目标（iOS 44pt 下限；48 会把顶栏第一行撑到 68px，太厚）、
+     圆角按 FAB 的 15/48 比例取 13、图标 17→20；
+     材质对齐 FAB 的 Liquid Glass（半透明玻璃底 + 玻璃描边 + 内高光，
+     backdrop-filter 由下方小控件统一规则提供 blur 20，底色透明后即生效） */
+  .sb-toggle {
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+    background: var(--glass-bg);
+    border-color: var(--glass-border);
+    box-shadow: inset 0 1px 0 var(--glass-hi);
+  }
+  .sb-toggle svg {
+    width: 20px;
+    height: 20px;
+  }
   /* 目录按钮：仍是左下角悬浮玻璃 fab（汉堡已回归顶栏、搜索框左边）。
      按钮本体挂在 body 直下（见 index.html），fixed 才相对视口定位；
      尺寸取触屏下限 48px、留 safe-area 避开全面屏手势条；层叠压在遮罩(190)/
      抽屉(200)之下——抽屉展开时它随内容一起被压暗，关闭走面板自己的 ✕ / 遮罩点击。
-     首页视图由 JS 写 hidden 收起，display:flex 会盖掉 hidden 的默认隐藏，末尾补一条 */
+     首页视图由 JS 写 hidden 收起，display:flex 会盖掉 hidden 的默认隐藏，末尾补一条。
+     left/bottom 取 12px：与移动端走道基准（.app-shell .layout 内边距 12px，
+     内容列即从 12px 起）同源，与顶栏 ☰ 才不会各漂各的 */
   .sb-toc {
     position: fixed;
-    left: max(14px, env(safe-area-inset-left));
-    bottom: max(14px, env(safe-area-inset-bottom));
+    left: max(12px, env(safe-area-inset-left));
+    bottom: max(12px, env(safe-area-inset-bottom));
     z-index: 150;
     display: flex;
     width: 48px;
@@ -10517,8 +10550,8 @@ body.sb-locked {
      flex-wrap 必须显式重设——上方 .app-shell .header 的新版式把它覆盖掉了 */
   .app-shell .header {
     flex-wrap: wrap;
-    gap: 10px;
-    padding: 10px 14px;
+    gap: 8px;
+    padding: 8px 14px;
   }
   /* ≤1100px 的版式把搜索框压成 flex-basis:100%（给「logo 独占一行」用的），
      断点内 ☰ 已回归顶栏，必须恢复 basis 0 才能和 ☰ 排进同一行——
