@@ -2521,10 +2521,12 @@ function setTocActive(key) {
   // 高亮换了才把它带进视野。侧边栏是纵向列表、条目总在视野里，看不出问题；
   // 而便签行是横向滚动的，靠后的分类（生活信息、趣味内容这些）滚动到时
   // 高亮根本不在可视区，等于白高亮。只在「高亮真的变了」时动手，
-  // 否则用户手动横向翻看便签时会被滚动高亮不断拽回去
+  // 否则用户手动横向翻看便签时会被滚动高亮不断拽回去。
+  // 显式 reveal 的保护窗期内不动手：点击标签的居中动画正在进行，
+  // 此时再来一次最小露出会用新程序滚动取消居中动画（见 pillRevealGuardUntil 处注释）
   if (key !== lastTocActiveKey) {
     lastTocActiveKey = key
-    if (activePill) ensurePillVisible(activePill)
+    if (activePill && performance.now() >= pillRevealGuardUntil) ensurePillVisible(activePill)
   }
 }
 
@@ -3364,16 +3366,28 @@ function init() {
     // 窄屏：让选中的模块 chip 在 chips 条内居中（切分类时等 strip 重建后执行）
     if (switched) setTimeout(() => focusSubChip(ep.id), 80)
     else focusSubChip(ep.id)
-    // sync=true：跳过 View Transition，保证 render() 返回时新 DOM 已就绪，
-    // 下面才能量到正确坐标（VT 的回调要等下一帧，量到的会是旧 DOM）
-    render(true)
+    // 分类未切换时卡片本就在 DOM 里，跳过完整 render：render 会把整页连同数据源
+    // 便签行一起重建——便签行滚动位置清零、revealPill 刚启动的居中动画随旧元素
+    // 一起被丢弃，随后只能靠 ensurePillVisible 做最小露出补偿。移动端性能下这条
+    // 「归零→重滑」链路要跑一秒以上，肉眼可见标签行先弹回开头再滑回来（抖动），
+    // 且点击的标签最终停在贴边位而非居中位，右端箭头也因到不了 max 而不消失。
+    // 仅在分类切换、或视图尚未渲染出目标卡（如首次进入）时才走 render。
+    const group = GROUP_OF[ep.id]
+    const cardId = group ? 'card-' + group.id : 'card-' + ep.id
+    if (switched || !document.getElementById(cardId)) {
+      // render 会重建便签行，旧元素上未完成的居中动画必然作废，
+      // 保护窗也要一并解除，否则重建后的最小露出补偿会被拦掉、选中标签停在屏幕外
+      pillRevealGuardUntil = 0
+      // sync=true：跳过 View Transition，保证 render() 返回时新 DOM 已就绪，
+      // 下面才能量到正确坐标（VT 的回调要等下一帧，量到的会是旧 DOM）
+      render(true)
+    }
     // 此时目标卡必然存在。
     // 不用 scrollIntoView：它会被可滚动祖先截胡且受布局变化影响，
     // 直接计算卡片绝对坐标用 window.scrollTo 定位最可靠。
     // 分组成员：定位目标是所属分组卡片，并激活 ep 对应的标签页
     // （activate 内部懒加载该标签页数据；activeModuleId 已在上方设置，无需重复）
-    const group = GROUP_OF[ep.id]
-    const card = group ? document.getElementById('card-' + group.id) : document.getElementById('card-' + ep.id)
+    const card = document.getElementById(cardId)
     if (card && group && typeof card._activateTab === 'function') card._activateTab(ep.id)
     if (card) {
       // 若目标卡仍在视口懒加载队列中，立即触发加载，无需等待滚动动画到位
@@ -7028,6 +7042,13 @@ function setHomeFilter(id) {
   renderRailInsights()
 }
 
+// 点击/筛选等显式 reveal 后的短保护窗：期间 scroll-spy 等触发的 setTocActive
+// 不再做最小露出补偿。没有这扇窗，revealPill 刚启动的平滑居中会在下一帧被
+// ensurePillVisible 的 scrollBy 取消掉（同一滚动容器的新程序滚动会打断旧动画），
+// 表现为点击标签后永远「贴边」而不是「居中」，点最右端标签时也到不了 max、
+// 右箭头不消失。1s 后保护自动失效，滚动跟随恢复常态
+let pillRevealGuardUntil = 0
+
 /** 把某个标签滚入可视区（已完整可见则原样不动）。滚动容器即标签的直接父节点 */
 function revealPill(pill) {
   const scroller = pill && pill.parentElement
@@ -7037,6 +7058,7 @@ function revealPill(pill) {
   if (el.left >= box.left - 1 && el.right <= box.right + 1) return
   // 居中而非「贴边」：贴边只能保证露出，居中才看得出是它被选中
   const left = scroller.scrollLeft + (el.left - box.left) - (scroller.clientWidth - el.width) / 2
+  pillRevealGuardUntil = performance.now() + 1000
   scroller.scrollTo({ left: Math.max(0, left), behavior: SMOOTH })
 }
 
