@@ -7049,6 +7049,66 @@ function setHomeFilter(id) {
 // 右箭头不消失。1s 后保护自动失效，滚动跟随恢复常态
 let pillRevealGuardUntil = 0
 
+// reveal 落地自愈：真机上平滑滚动可能被输入管线/惯性手势/动画期间标签行宽度
+// 变化打断而停在半途——标签半截、末端箭头不消失（桌面与无头环境复现不了）。
+// 这里在动画期间轮询：滚动位置停稳且标签仍未完整可见时，瞬时补正一次到目标位；
+// 用户在窗口期内碰了滚动容器（触摸/滚轮）视为手动接管，放弃补正。
+// 同一时刻只保留最新一次 reveal 的自愈任务
+let revealSettle = null
+
+function scheduleRevealSettle(scroller, pill) {
+  if (revealSettle) {
+    clearInterval(revealSettle.timer)
+    revealSettle.off()
+  }
+  const state = { timer: 0, off: () => {}, done: false }
+  const opts = { passive: true }
+  const abort = () => {
+    state.done = true
+  }
+  scroller.addEventListener('touchstart', abort, opts)
+  scroller.addEventListener('wheel', abort, opts)
+  state.off = () => {
+    scroller.removeEventListener('touchstart', abort, opts)
+    scroller.removeEventListener('wheel', abort, opts)
+  }
+  const stop = () => {
+    clearInterval(state.timer)
+    state.off()
+    if (revealSettle === state) revealSettle = null
+  }
+  const t0 = performance.now()
+  let started = false // 平滑动画是否已实际起步（起步前不判停稳，避免抢在动画前补正）
+  let quiet = 0
+  let lastSl = scroller.scrollLeft
+  state.timer = setInterval(() => {
+    if (state.done || !pill.isConnected) {
+      stop()
+      return
+    }
+    const sl = scroller.scrollLeft
+    const moved = Math.abs(sl - lastSl) > 0.5
+    lastSl = sl
+    if (moved) started = true
+    if (started) {
+      // 连续 3 拍（约 450ms）位置无变化 = 动画已结束或被打断
+      quiet = moved ? 0 : quiet + 1
+      if (quiet < 3) return
+    } else if (performance.now() - t0 < 800) {
+      // 迟迟没起步（主线程忙/节流）：再等一段，仍不动就当作没启动，直接补正
+      return
+    }
+    stop()
+    const r = pill.getBoundingClientRect()
+    const b = scroller.getBoundingClientRect()
+    if (r.left >= b.left - 1 && r.right <= b.right + 1) return
+    const left = scroller.scrollLeft + (r.left - b.left) - (scroller.clientWidth - r.width) / 2
+    // instant：动画已死/将死，瞬时到位才能保证终态（末端箭头随之隐藏）
+    scroller.scrollTo({ left: Math.max(0, left), behavior: 'instant' })
+  }, 150)
+  revealSettle = state
+}
+
 /** 把某个标签滚入可视区（已完整可见则原样不动）。滚动容器即标签的直接父节点 */
 function revealPill(pill) {
   const scroller = pill && pill.parentElement
@@ -7057,9 +7117,11 @@ function revealPill(pill) {
   const box = scroller.getBoundingClientRect()
   if (el.left >= box.left - 1 && el.right <= box.right + 1) return
   // 居中而非「贴边」：贴边只能保证露出，居中才看得出是它被选中
+  // （末端标签居中会超出 max，浏览器自动钳到 max——即「完全露出+箭头隐藏」）
   const left = scroller.scrollLeft + (el.left - box.left) - (scroller.clientWidth - el.width) / 2
   pillRevealGuardUntil = performance.now() + 1000
   scroller.scrollTo({ left: Math.max(0, left), behavior: SMOOTH })
+  scheduleRevealSettle(scroller, pill)
 }
 
 // 平台筛选的点击统一走事件委托：pill 与九宫格两处入口共用同一状态
