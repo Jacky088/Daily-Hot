@@ -361,13 +361,15 @@ function initSiteSearch() {
   // 每次显隐、窗口 resize、顶栏两行换行变化时重新锚定。
   const anchorOverlay = (el, align) => {
     const r = form.getBoundingClientRect()
+    // clientWidth 而非 innerWidth：后者含滚动条宽度，右对齐会差出一个滚动条的量
+    const vw = document.documentElement.clientWidth
     el.style.top = r.bottom + (align === 'menu' ? 8 : 6) + 'px'
     if (align === 'menu') {
       el.style.left = 'auto'
-      el.style.right = Math.max(8, window.innerWidth - r.right) + 'px'
+      el.style.right = Math.max(8, vw - r.right) + 'px'
     } else {
       el.style.left = r.left - 1 + 'px'
-      el.style.right = Math.max(8, window.innerWidth - r.right - 1) + 'px'
+      el.style.right = Math.max(8, vw - r.right - 1) + 'px'
     }
   }
   const mountOverlay = (el) => {

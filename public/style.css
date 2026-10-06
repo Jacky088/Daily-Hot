@@ -720,15 +720,21 @@ select:focus-visible {
 /* 候选列表：表面材质来自统一浮层类 dd-pop（与万年历/搜索提示同一套玻璃）。
    定位改由 JS 锚定（fixed + 实时坐标）：浮层挂在 body 直下（见 app.js
    initSiteSearch 的 mountOverlay）——困在 .topbar 内会被它的 backdrop-filter
-   限制采样范围，磨不到壁纸，材质与日历不一致。右缘对齐搜索框右端 */
+   限制采样范围，磨不到壁纸，材质与日历不一致。右缘对齐搜索框右端。
+   z-index 必须压过顶栏（100）：挂到 body 后不再身处 .site-search 的
+   suggest-open 高层级栈里，层级要自己挣——10 会被顶栏整个盖住（回归教训）。
+   宽度收窄为内容自适应：下拉只有两三个短条目，固定 168px 会让「名称—勾」
+   之间空出一大条，观感松散 */
 .ss-menu {
   position: fixed;
-  z-index: 10;
+  z-index: 300;
   display: none;
   flex-direction: column;
   gap: 2px;
-  min-width: 168px;
-  padding: 6px;
+  width: max-content;
+  min-width: 124px;
+  max-width: 72vw;
+  padding: 5px;
 }
 /* 展开即显示；入场动画由 dd-pop 统一提供 */
 .ss-menu.open {
@@ -738,11 +744,11 @@ select:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 34px;
-  padding: 0 8px;
+  min-height: 36px;
+  padding: 0 10px;
   background: transparent;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   color: var(--text-dim);
   font-size: 13px;
   font-weight: 600;
@@ -768,16 +774,23 @@ select:focus-visible {
   flex: 1;
   min-width: 0;
 }
-/* 当前引擎：橙字 + 橙色勾。勾用 opacity 隐显而不是 display，
-   否则选中项比其他项窄一截，切换时整行文字会左右跳 */
+/* 当前引擎：橙勾 + 淡橙底衬。勾用 SVG 图标（文本 ✓ 字形随字体走、粗细不可控，
+   观感差），opacity 隐显而不是 display——否则选中项比其他项窄一截，
+   切换时整行文字会左右跳 */
 .ss-tick {
+  display: flex;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
   color: var(--accent);
-  font-size: 12px;
-  font-weight: 700;
   opacity: 0;
 }
+.ss-tick svg {
+  width: 100%;
+  height: 100%;
+}
 .ss-item[aria-selected='true'] {
+  background: var(--accent-bg);
   color: var(--accent-text);
 }
 .ss-item[aria-selected='true'] .ss-tick {
@@ -6998,9 +7011,8 @@ select:focus-visible {
     width: 16px;
     height: 16px;
   }
-  .ss-menu {
-    min-width: 176px;
-  }
+  /* 菜单宽度已在基础规则改为内容自适应（max-content + min-width 124px），
+     移动端条目同样是两三个短名，固定 176px 的旧覆盖已删 */
   .ss-item {
     min-height: 40px;
   }
