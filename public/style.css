@@ -7566,13 +7566,18 @@ select:focus-visible {
    定位（absolute/fixed + top/left/right）、尺寸（width/max-width/max-height）、
    padding、display 开合与内容排版；表面材质（底色/模糊/描边/圆角 20/投影/
    入场动画）一律从这里继承，不要重写 */
+/* 不透明度取 0.94/0.96：浮层是「阅读面板」，底下一层是实时滚动的榜单文字，
+   0.78~0.82 的玻璃底压不住后景笔画，残影直接干扰正文可读性（实测反馈）。
+   模糊保留（28px 足够化掉色块与光影），信息仍能隐约透出一层景深，
+   但文字对比度由底色保证——大表面弹层与顶部小玻璃条（topbar 的 0.55 系列）
+   场景不同，不共用同一个不透明度档位 */
 .dd-pop {
   box-sizing: border-box;
   border: 1px solid var(--glass-border);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(32px) saturate(190%) brightness(1.04);
-  -webkit-backdrop-filter: blur(32px) saturate(190%) brightness(1.04);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(28px) saturate(190%) brightness(1.04);
+  -webkit-backdrop-filter: blur(28px) saturate(190%) brightness(1.04);
   box-shadow:
     0 24px 60px rgba(0, 0, 0, 0.28),
     inset 0 1px 0 var(--glass-hi),
@@ -7581,9 +7586,9 @@ select:focus-visible {
   animation: ddPopIn var(--dur-base) var(--ease);
 }
 :root[data-theme='dark'] .dd-pop {
-  background: rgba(28, 22, 38, 0.82);
-  backdrop-filter: blur(32px) saturate(190%) brightness(1.02);
-  -webkit-backdrop-filter: blur(32px) saturate(190%) brightness(1.02);
+  background: rgba(28, 22, 38, 0.96);
+  backdrop-filter: blur(28px) saturate(190%) brightness(1.02);
+  -webkit-backdrop-filter: blur(28px) saturate(190%) brightness(1.02);
   box-shadow:
     0 24px 64px rgba(0, 0, 0, 0.65),
     inset 0 1px 0 var(--glass-hi),
