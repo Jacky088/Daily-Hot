@@ -823,8 +823,15 @@ function fmtFullTime(ts) {
 function heroRefreshTime() {
   const el = document.getElementById('heroTime')
   if (!el) return
+  el.textContent = heroTimeText()
+}
+
+// Hero 时间戳的统一取值：各卡片加载时间(epLoadedAt)里最新的一条；
+// 一条都没有(刚进页面/缓存全空)才显示「获取中…」。buildHero 直接用它预填——
+// 此前切分类重渲染 hero 时永远先闪一下「获取中…」,等数据回来才恢复。
+function heroTimeText() {
   const times = Object.values(epLoadedAt)
-  if (times.length) el.textContent = fmtFullTime(Math.max(...times))
+  return times.length ? fmtFullTime(Math.max(...times)) : '获取中…'
 }
 // 分组标题装饰泡泡：纯装饰元素（绝对定位不占布局），默认 CSS 隐藏，
 // 标题启用 .anim-bubble 时显示；尺寸/时长/相位由 CSS nth-of-type 伪随机错开
@@ -931,7 +938,7 @@ function buildHero() {
           <!-- 数字都要包 <b>：效果图里三颗芯片的「值」都是粗体深色，
                而「更新于 / 个热榜模块 / 大分类」是常规字重的中灰。
                之前只有 chip1 有时间戳的 <b>，chip2/chip3 的数字是普通文本，看着就"塌"了一档。 -->
-          <span class="hero-chip">${HERO_ICON_CLOCK}<span>更新于 <b id="heroTime">获取中…</b></span></span>
+          <span class="hero-chip">${HERO_ICON_CLOCK}<span>更新于 <b id="heroTime">${heroTimeText()}</b></span></span>
           <span class="hero-chip">${HERO_ICON_BARS}<span><b>${EPS.length}</b> 个热榜模块</span></span>
           <span class="hero-chip">${HERO_ICON_LAYERS}<span><b>${CATS.length - 1}</b> 大分类</span></span>
         </div>
@@ -3386,6 +3393,9 @@ function init() {
     curView = 'cat'
     // 移动端模块面板是悬浮层：定位即收起，避免遮住落点卡片
     setCatPanelOpen(false)
+    // 移动端侧栏抽屉里发起的定位同理：抽屉与遮罩挡着落点卡片，定位即收起
+    // （桌面侧栏常驻不受影响；sb-locked 解除后，下方滚动定位不会再被 overflow:hidden 吞掉）
+    if (isMobileLayout() && appShell && appShell.classList.contains('sidebar-open')) setSidebarOpen(false)
     let switched = false
     if (curCat !== ep.cat) {
       switched = true
@@ -3607,7 +3617,14 @@ function init() {
     b.dataset.cat = c.id
     if (curView === 'cat' && c.id === curCat) b.classList.add('active')
     // aria-expanded：已激活分类的按钮兼有「展开/收起目录」语义（桌面手风琴/移动面板）
-    b.setAttribute('aria-expanded', curView === 'cat' && c.id === curCat && c.id !== 'all' ? 'true' : 'false')
+    // 构建时按平台实际状态给值：桌面默认展开（手风琴随分类切换自动展开），
+    // 移动端面板默认收起，且已开时保持 true——pill 随 render 重建，nav 的状态是持久的
+    b.setAttribute(
+      'aria-expanded',
+      curView === 'cat' && c.id === curCat && c.id !== 'all'
+        ? String(isMobileLayout() ? nav.classList.contains('toc-open') : true)
+        : 'false',
+    )
     // 计数徽章：分类下的模块数（移动端由 CSS 隐藏，pill 空间优先给名称）
     const cnt = document.createElement('span')
     cnt.className = 'cnt'
@@ -3622,9 +3639,18 @@ function init() {
       // 抽屉的关闭只留给点击遮罩 / ✕ 按钮 / Esc（见下面的绑定）
       if (curCat === c.id && !fromHome) {
         if (c.id === 'all') return
-        // 重复点击当前分类 = 展开/收起它下面的数据源目录（移动端与桌面同一套手风琴）
-        nav.classList.toggle('sub-collapsed')
-        b.setAttribute('aria-expanded', nav.classList.contains('sub-collapsed') ? 'false' : 'true')
+        // 重复点击当前分类 = 展开/收起它下面的数据源目录：
+        // 桌面是侧栏手风琴（sub-collapsed）；移动端是悬浮模块面板（toc-open）。
+        // 面板开关只能经 setCatPanelOpen 驱动——此前这条分支只切桌面语义的类，
+        // 移动端面板永远打不开（改版回归），"▸"箭头也因 toc-open 缺失而不转
+        if (isMobileLayout()) {
+          const opening = !nav.classList.contains('toc-open')
+          setCatPanelOpen(opening)
+          b.setAttribute('aria-expanded', String(opening))
+        } else {
+          nav.classList.toggle('sub-collapsed')
+          b.setAttribute('aria-expanded', nav.classList.contains('sub-collapsed') ? 'false' : 'true')
+        }
         return
       }
       curCat = c.id
@@ -3823,6 +3849,20 @@ function init() {
   })
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') setCatPanelOpen(false)
+  })
+  // 浏览器前进/后退与手动改 hash 时同步视图：hash 只在站内点击时写入、从不回读，
+  // 返回键改了 hash 页面却停在原视图（全站没有 hashchange 监听）。
+  // 复用 pill / 首页按钮的 click 走完整副作用链（render、滚动、高亮、抽屉状态）；
+  // hash 与当前视图一致时忽略——站内导航自己触发的 hashchange 不能再点击一遍打转
+  window.addEventListener('hashchange', () => {
+    const h = location.hash.replace('#', '')
+    if (h === 'home') {
+      if (curView !== 'home') document.querySelector('.cat-pills > button[data-view="home"]')?.click()
+      return
+    }
+    if (h && CATS.some((c) => c.id === h) && (curView !== 'cat' || curCat !== h)) {
+      catPills.querySelector(`button[data-cat="${h}"]`)?.click()
+    }
   })
   // 刷新/hash 恢复后：把当前激活的分类 pill 滚入视野，避免落在屏幕外
   const activeBtn = catPills.querySelector('button.active')
@@ -6289,6 +6329,17 @@ document.addEventListener('click', (e) => {
   revealPill(pill)
   const ep = EPS.find((x) => x.id === pill.dataset.ep)
   if (ep && locateCardFn) locateCardFn(ep)
+})
+
+// 榜单条目整行可点：行的命中区此前只有标题文字那一行（<a> 高约 20px），
+// 移动端指尖难命中。点击行内「非控件」区域时代为打开行内主链接——
+// 与点标题同效（新标签打开）；行内的链接/按钮/表单控件照常自行响应，不劫持
+document.addEventListener('click', (e) => {
+  const row = e.target.closest('.hl-item, .item')
+  if (!row || e.target.closest('a, button, input, select, textarea, label')) return
+  const link = row.querySelector('a[href]')
+  if (!link) return
+  window.open(link.href, link.target || '_blank', 'noopener')
 })
 
 // 筛选行的左右箭头：只在溢出时出现，滚到某一端后该侧箭头隐藏。

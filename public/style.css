@@ -549,6 +549,9 @@ select:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
+  /* GitHub 是 <a>、其余是 <button>：UA 默认字号不同(16/13.33)会让两族盒子
+     的计算样式对不上；内容都是 SVG 图标，统一继承父级字号拉平 */
+  font: inherit;
   cursor: pointer;
   transition:
     border-color var(--dur-fast),
@@ -999,6 +1002,8 @@ select:focus-visible {
 .ss-mod-pill {
   display: inline-flex;
   align-items: center;
+  /* 触控下限：suggest 浮层在移动端高频使用，27px 的行高指尖难命中 */
+  min-height: 30px;
   gap: 4px;
   padding: 4px 8px;
   border-radius: 6px;
@@ -9874,6 +9879,12 @@ html.fs-fake-on .main {
   border-radius: 12px;
   transition: background var(--dur-fast);
 }
+/* 整行可点（点击委托见 app.js「榜单条目整行可点」）：有主链接的行给 pointer
+   手势，:has 不支持的旧浏览器只是不显示手型，行为不受影响 */
+.hl-item:has(a[href]),
+.item:has(a[href]) {
+  cursor: pointer;
+}
 .hl-item + .hl-item {
   border-top: 1px solid var(--border);
 }
@@ -10245,11 +10256,14 @@ html.fs-fake-on .main {
   gap: 6px;
   align-content: flex-start;
 }
+/* 热度分级只走「字号+字重+配色」的阶梯，高度统一 28px：
+   此前高度随字号 25→29 连续变化，相邻档差异过小，视觉上像没对齐而不是分级 */
 .wc-tag {
   display: inline-flex;
   align-items: center;
+  min-height: 28px;
   gap: 4px;
-  padding: 4px 9px;
+  padding: 3px 9px;
   border-radius: 999px;
   border: 1px solid var(--glass-border);
   background: var(--card-bg, rgba(255, 255, 255, 0.05));
@@ -10275,18 +10289,18 @@ html.fs-fake-on .main {
   color: #fff;
 }
 .wc-tag.wc-t1 {
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 700;
   border-color: rgba(234, 88, 12, 0.35);
   background: var(--accent-bg);
   color: var(--accent);
 }
 .wc-tag.wc-t2 {
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
 }
 .wc-tag.wc-t3 {
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 500;
   opacity: 0.88;
 }
@@ -10830,4 +10844,21 @@ body.sb-locked {
     inset 0 1px 0 var(--glass-hi),
     inset 0 -1px 0 var(--glass-lo),
     inset 0 0 24px var(--glass-lo);
+}
+
+/* ============ 键盘可达性：表单控件焦点态 ============ */
+/* 表单控件此前无可见焦点态，Tab 导航找不到焦点在哪。
+   :focus-visible 只在键盘聚焦时显示描边，鼠标点击不打扰；
+   搜索框（.ss-input）已有 :focus-within 的整框描边，显式排除避免双框 */
+.ss-input:focus-visible {
+  outline: none;
+}
+.input-row input:focus-visible,
+.input-row select:focus-visible,
+.hw-input:focus-visible,
+#main input:focus-visible,
+#main select:focus-visible,
+#main textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
