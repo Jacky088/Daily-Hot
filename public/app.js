@@ -352,6 +352,39 @@ function initSiteSearch() {
 
   let activeRowIndex = -1
 
+  // 两个浮层（suggest / 引擎菜单）必须挂在 body 直下：顶栏 .topbar 自带
+  // backdrop-filter，会形成 backdrop root——困在它内部的毛玻璃只能采样顶栏
+  // 的玻璃底，磨不到后面的壁纸，材质退化成一层浑浊半透明（与万年历卡同款
+  // 配方却是两种观感的根源，cat-panel 注释同款问题）。挪到 body 后采样根
+  // 回到整页，与日历完全一致。
+  // CSS 改为 fixed 定位，这里按锚元素（搜索框）实时算坐标：
+  // 每次显隐、窗口 resize、顶栏两行换行变化时重新锚定。
+  const anchorOverlay = (el, align) => {
+    const r = form.getBoundingClientRect()
+    el.style.top = r.bottom + (align === 'menu' ? 8 : 6) + 'px'
+    if (align === 'menu') {
+      el.style.left = 'auto'
+      el.style.right = Math.max(8, window.innerWidth - r.right) + 'px'
+    } else {
+      el.style.left = r.left - 1 + 'px'
+      el.style.right = Math.max(8, window.innerWidth - r.right - 1) + 'px'
+    }
+  }
+  const mountOverlay = (el) => {
+    if (el.parentElement !== document.body) document.body.appendChild(el)
+  }
+  const anchorOverlays = () => {
+    if (!suggest.hidden) {
+      mountOverlay(suggest)
+      anchorOverlay(suggest, 'suggest')
+    }
+    if (menu.classList.contains('open')) {
+      mountOverlay(menu)
+      anchorOverlay(menu, 'menu')
+    }
+  }
+  window.addEventListener('resize', anchorOverlays)
+
   // 维护搜索框 suggest-open 状态，确保浮层展开时 z-index 凌驾于顶栏右侧与时钟胶囊之上
   const updateSuggestOpenState = () => {
     const isEngineOpen = menu.classList.contains('open')
@@ -361,6 +394,10 @@ function initSiteSearch() {
 
   const setSuggestVisible = (visible) => {
     suggest.hidden = !visible
+    if (visible) {
+      mountOverlay(suggest)
+      anchorOverlay(suggest, 'suggest')
+    }
     updateSuggestOpenState()
   }
 
@@ -368,7 +405,11 @@ function initSiteSearch() {
   const setEngineMenuOpen = (open) => {
     menu.classList.toggle('open', open)
     trigger.setAttribute('aria-expanded', String(open))
-    if (open) suggest.hidden = true
+    if (open) {
+      mountOverlay(menu)
+      anchorOverlay(menu, 'menu')
+      suggest.hidden = true
+    }
     updateSuggestOpenState()
   }
 
