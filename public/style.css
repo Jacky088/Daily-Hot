@@ -714,7 +714,7 @@ select:focus-visible {
 .ss-engine[aria-expanded='true'] .ss-caret {
   transform: rotate(180deg);
 }
-/* 候选列表：与移动端模块面板同款玻璃（壁纸透出的毛玻璃 + 多层内高光）。
+/* 候选列表：表面材质来自统一浮层类 dd-pop（与万年历/搜索提示同一套玻璃）。
    右对齐是因为按钮永远贴在搜索框右端，左对齐会让菜单在窄屏上顶出视口 */
 .ss-menu {
   position: absolute;
@@ -726,27 +726,10 @@ select:focus-visible {
   gap: 2px;
   min-width: 168px;
   padding: 6px;
-  background: var(--glass-bg);
-  backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
-  -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
-  border: 1px solid var(--glass-border);
-  border-radius: 12px;
-  box-shadow:
-    0 14px 30px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 var(--glass-hi),
-    inset 0 -1px 0 var(--glass-lo),
-    inset 0 0 24px var(--glass-lo);
 }
-/* 展开动画：从 -4px 落下（fadeIn 是 +8px 上浮，方向反了会像「弹上来」） */
+/* 展开即显示；入场动画由 dd-pop 统一提供 */
 .ss-menu.open {
   display: flex;
-  animation: ssMenuIn var(--dur-fast) var(--ease);
-}
-@keyframes ssMenuIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
 }
 .ss-item {
   display: flex;
@@ -841,7 +824,8 @@ select:focus-visible {
   display: none !important;
 }
 
-/* ---- 站内智能检索浮层：宽度严格与搜索框保持 1:1 绝对对齐 ---- */
+/* ---- 站内智能检索浮层：宽度严格与搜索框保持 1:1 绝对对齐 ----
+   表面材质来自统一浮层类 dd-pop（与万年历/引擎菜单同一套玻璃） */
 .ss-suggest {
   position: absolute;
   top: calc(100% + 6px);
@@ -854,46 +838,14 @@ select:focus-visible {
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  box-sizing: border-box;
   padding: 6px;
-  background: rgba(255, 255, 255, 0.86);
-  backdrop-filter: blur(30px) saturate(190%) brightness(1.04);
-  -webkit-backdrop-filter: blur(30px) saturate(190%) brightness(1.04);
-  border: 1px solid var(--glass-border);
-  border-radius: 12px;
-  box-shadow:
-    0 20px 48px rgba(0, 0, 0, 0.22),
-    0 4px 12px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 var(--glass-hi),
-    inset 0 -1px 0 var(--glass-lo);
   z-index: 210;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  animation: ssSuggestIn var(--dur-fast) var(--ease);
-}
-:root[data-theme='dark'] .ss-suggest {
-  background: rgba(28, 22, 38, 0.88);
-  backdrop-filter: blur(30px) saturate(190%) brightness(1.02);
-  -webkit-backdrop-filter: blur(30px) saturate(190%) brightness(1.02);
-  border-color: var(--glass-border);
-  box-shadow:
-    0 22px 52px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 var(--glass-hi),
-    inset 0 -1px 0 var(--glass-lo);
 }
 .ss-suggest[hidden] {
   display: none !important;
-}
-@keyframes ssSuggestIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 .ss-suggest::-webkit-scrollbar {
   width: 5px;
@@ -7606,6 +7558,49 @@ select:focus-visible {
   color: var(--text-dim);
 }
 
+/* ============ 统一下拉浮层 .dd-pop ============ */
+/* 全站「点控件弹出的浮层」共用这一套视觉语言，基准是万年历弹窗（此前三个浮层
+   各写一份玻璃参数、明暗主题还要各自补 override，越长越歪）。已接入：
+   .ss-menu（搜索引擎选择）/ .ss-suggest（搜索提示）/ .cal-modal-card（万年历）。
+   以后新增同类浮层：HTML 挂 class="dd-pop"，CSS 只写几何与布局——
+   定位（absolute/fixed + top/left/right）、尺寸（width/max-width/max-height）、
+   padding、display 开合与内容排版；表面材质（底色/模糊/描边/圆角 20/投影/
+   入场动画）一律从这里继承，不要重写 */
+.dd-pop {
+  box-sizing: border-box;
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(32px) saturate(190%) brightness(1.04);
+  -webkit-backdrop-filter: blur(32px) saturate(190%) brightness(1.04);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 var(--glass-hi),
+    inset 0 -1px 0 var(--glass-lo),
+    inset 0 0 32px var(--glass-lo);
+  animation: ddPopIn var(--dur-base) var(--ease);
+}
+:root[data-theme='dark'] .dd-pop {
+  background: rgba(28, 22, 38, 0.82);
+  backdrop-filter: blur(32px) saturate(190%) brightness(1.02);
+  -webkit-backdrop-filter: blur(32px) saturate(190%) brightness(1.02);
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 var(--glass-hi),
+    inset 0 -1px 0 var(--glass-lo),
+    inset 0 0 32px rgba(255, 255, 255, 0.03);
+}
+@keyframes ddPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
 /* ============ 万年历 / 农历 / 节假日弹窗 ============ */
 .cal-modal-overlay {
   position: fixed;
@@ -7637,44 +7632,13 @@ select:focus-visible {
   width: 100%;
   max-width: 480px;
   max-height: min(92vh, 740px);
-  box-sizing: border-box;
   /* 强制父容器裁切：100% 杜绝原生滚动条顶角，确保 4 个大圆角永远完整无损 */
   overflow: hidden !important;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(32px) saturate(190%) brightness(1.04);
-  -webkit-backdrop-filter: blur(32px) saturate(190%) brightness(1.04);
-  border: 1px solid var(--glass-border);
-  box-shadow:
-    0 24px 60px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 var(--glass-hi),
-    inset 0 -1px 0 var(--glass-lo),
-    inset 0 0 32px var(--glass-lo);
   padding: 0;
   display: flex;
   flex-direction: column;
-  animation: calModalPopIn var(--dur-base) var(--ease);
-}
-:root[data-theme='dark'] .cal-modal-card {
-  background: rgba(28, 22, 38, 0.82);
-  backdrop-filter: blur(32px) saturate(190%) brightness(1.02);
-  -webkit-backdrop-filter: blur(32px) saturate(190%) brightness(1.02);
-  border-color: var(--glass-border);
-  box-shadow:
-    0 24px 64px rgba(0, 0, 0, 0.65),
-    inset 0 1px 0 var(--glass-hi),
-    inset 0 -1px 0 var(--glass-lo),
-    inset 0 0 32px rgba(255, 255, 255, 0.03);
-}
-@keyframes calModalPopIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95) translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+  /* 表面材质（圆角 20 / 玻璃底 / 投影 / 入场动画）由 dd-pop 统一提供，
+     这里曾是基准样式的出处，改版后与引擎菜单、搜索提示共用同一套 */
 }
 
 .cal-modal-head {

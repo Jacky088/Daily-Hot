@@ -50,7 +50,7 @@
         if (wpOff) document.documentElement.classList.add('wallpaper-off')
       })()
     </script>
-    <link rel="stylesheet" href="/dist/style.08bf4d81.css" />
+    <link rel="stylesheet" href="/dist/style.440d0ece.css" />
   </head>
   <body>
     <div class="wallpaper-bg" id="wallpaperBg" aria-hidden="true" hidden></div>
@@ -245,7 +245,7 @@
               </button>
               <!-- 候选引擎列表：锚在搜索框右下角（.site-search 是定位基准）。
                当前引擎用「橙字 + 橙勾」标出，选择逻辑见 app.js 的 initSiteSearch -->
-              <div class="ss-menu" id="ssEngineMenu" role="listbox" aria-label="搜索引擎">
+              <div class="ss-menu dd-pop" id="ssEngineMenu" role="listbox" aria-label="搜索引擎">
                 <button class="ss-item" type="button" role="option" data-engine="bing" aria-selected="true">
                   <span class="ss-item-icon" aria-hidden="true"
                     ><svg viewBox="0 0 24 24">
@@ -282,7 +282,13 @@
                 </button>
               </div>
               <!-- 站内即时检索与模糊搜源智能浮层 -->
-              <div class="ss-suggest" id="ssSuggest" role="listbox" aria-label="站内即时搜索与快捷直达" hidden></div>
+              <div
+                class="ss-suggest dd-pop"
+                id="ssSuggest"
+                role="listbox"
+                aria-label="站内即时搜索与快捷直达"
+                hidden
+              ></div>
             </form>
             <div class="header-right">
               <!-- 时钟与按钮同属「右侧容器」：宽屏时搜索框紧跟 logo、时钟在右，
@@ -439,7 +445,13 @@
 
     <!-- 万年历 / 农历 / 节假日弹窗 -->
     <div class="cal-modal-overlay" id="calModalOverlay" hidden>
-      <div class="cal-modal-card" id="calModalCard" role="dialog" aria-modal="true" aria-labelledby="calModalTitle">
+      <div
+        class="cal-modal-card dd-pop"
+        id="calModalCard"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="calModalTitle"
+      >
         <div class="cal-modal-head">
           <div class="cal-modal-title" id="calModalTitle">
             <span class="cal-modal-icon"><img class="emo" src="/emoji/1f4c5.svg" alt="📅" draggable="false" /></span>
