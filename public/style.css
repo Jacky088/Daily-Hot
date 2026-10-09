@@ -8755,10 +8755,12 @@ select:focus-visible {
   background: var(--bg);
   overflow: hidden;
 }
-.card:fullscreen .btn-fs {
+.card:fullscreen .btn-fs,
+.card.fs-fake .btn-fs {
   display: none;
 }
-.card:fullscreen .btn-fs-exit {
+.card:fullscreen .btn-fs-exit,
+.card.fs-fake .btn-fs-exit {
   display: flex;
 }
 /* 全屏布局宿主是 .fs-unit（卡片本体被 UA transform 锁死，布局发生在内层） */

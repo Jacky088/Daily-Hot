@@ -5612,15 +5612,14 @@ function g2048Bind(id) {
     tracking = false,
     fired = false
   wrap.addEventListener('pointerdown', (e) => {
+    // 按钮等交互控件上不捕获指针也绝不开启手势追踪：
+    // 避免触摸/点击撤销或全屏按钮时因微小移动误触发棋盘滑动，
+    // 且 setPointerCapture 会把后续 click 重定向到 wrap 导致按钮点击丢失
+    if (e.target.closest('button, a, input, select, textarea, label')) return
     tracking = true
     fired = false
     sx = e.clientX
     sy = e.clientY
-    // 按钮等交互控件上不捕获指针：setPointerCapture 会把后续 click 重定向到 wrap，
-    // 委托在 document 的按钮点击（全屏/撤销/重开）就再也匹配不到目标——桌面鼠标
-    // 必现；触摸端因点击前常先有滚动、capture 时序不同而侥幸可用。滑动手势只
-    // 需要在棋盘上生效，这里放行按钮，手势逻辑不受影响
-    if (e.target.closest('button, a, input, select, textarea, label')) return
     try {
       wrap.setPointerCapture(e.pointerId)
     } catch {}
@@ -5656,6 +5655,7 @@ function g2048Bind(id) {
     const dir = map[e.key.toLowerCase()]
     if (dir) {
       e.preventDefault()
+      e.stopPropagation()
       g2048Move(id, dir)
     }
   })
@@ -5674,7 +5674,10 @@ document.addEventListener('click', (e) => {
   }
   const undoBtn = e.target.closest('[data-g2048-undo]')
   if (undoBtn) {
-    g2048Undo(undoBtn.dataset.g2048Undo)
+    const id = undoBtn.dataset.g2048Undo
+    g2048Undo(id)
+    const b = wrap2048Board(id)
+    if (b) b.focus({ preventScroll: true })
     return
   }
   const contBtn = e.target.closest('[data-g2048-continue]')
@@ -5684,6 +5687,8 @@ document.addEventListener('click', (e) => {
     if (st) {
       st.wonAck = true
       g2048Paint(id)
+      const b = wrap2048Board(id)
+      if (b) b.focus({ preventScroll: true })
     }
   }
 })
@@ -5950,13 +5955,17 @@ function muyuStrike(id) {
   add.innerHTML = '<span class="m-add-text">功德</span><span class="m-add-num">+1</span>'
   add.style.left = 42 + Math.random() * 16 + '%'
   stage.appendChild(add)
-  add.addEventListener('animationend', () => add.remove())
+  const cleanAdd = () => add.remove()
+  add.addEventListener('animationend', cleanAdd)
+  setTimeout(cleanAdd, 1200) // prefers-reduced-motion 或后台标签页兜底
 
   // 敲击点金色涟漪
   const rip = document.createElement('span')
   rip.className = 'm-rip'
   stage.appendChild(rip)
-  rip.addEventListener('animationend', () => rip.remove())
+  const cleanRip = () => rip.remove()
+  rip.addEventListener('animationend', cleanRip)
+  setTimeout(cleanRip, 1200)
 
   haptic(10)
   if (!st.mute) muyuKnock()
@@ -6000,6 +6009,7 @@ function rMuyu(_, c, ep) {
   stage.addEventListener('keydown', (e) => {
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault()
+      e.stopPropagation()
       muyuStrike(id)
     }
   })
@@ -6014,6 +6024,7 @@ function rMuyu(_, c, ep) {
       localStorage.setItem('muyu-merit', '0')
     } catch {}
     muyuPaint(id)
+    stage.focus({ preventScroll: true })
   }
   // （data-muyu-fs 全屏按钮由底部统一点击入口处理）
   cardFsSync() // 全屏中刷新重渲后，同步侧栏全屏按钮文案
@@ -6025,6 +6036,7 @@ function rMuyu(_, c, ep) {
     } catch {}
     // innerHTML 才能让 emoji 走 emoji.js 的统一替换（textContent 不解析 HTML）
     ev.currentTarget.innerHTML = st.mute ? '🔇 静音中' : '🔊 音效'
+    stage.focus({ preventScroll: true })
   }
 }
 
@@ -6180,9 +6192,9 @@ function cardFsToggle(card) {
       fsEnterFake(card)
     }
   }
-  // 进入后聚焦棋盘（若有）：方向键无需先点一下
+  // 进入后聚焦棋盘或木鱼击打区：方向键或空格敲击无需先点一下
   setTimeout(() => {
-    card.querySelector('.g2048-board')?.focus({ preventScroll: true })
+    card.querySelector('.g2048-board, .muyu-stage')?.focus({ preventScroll: true })
   }, 60)
 }
 
@@ -6287,17 +6299,12 @@ function fsRestoreScroll(card, prevScrollY, verifyOnly) {
 }
 
 // 全屏状态变化时，同步游戏区内按钮文案与图标（全屏 / 退出）。
-// 用 innerHTML 而不是 textContent：图标是内联 SVG，文字节点顶不住
+// 每张卡片根据自身激活状态精准设置，避免多卡片间状态串扰
 function cardFsSync() {
-  const el = cardFsEl()
-  const card = el
-    ? el.classList.contains('card')
-      ? el
-      : el.querySelector('.card')
-    : document.querySelector('.card.fs-fake')
-  const label = card ? `${ICON_FS_EXIT} 退出` : `${ICON_FS_ENTER} 全屏`
   document.querySelectorAll('[data-g2048-fs], [data-muyu-fs]').forEach((b) => {
-    b.innerHTML = label
+    const card = b.closest('.card')
+    const isActive = card && cardFsActive(card)
+    b.innerHTML = isActive ? `${ICON_FS_EXIT} 退出` : `${ICON_FS_ENTER} 全屏`
   })
 }
 
@@ -6321,6 +6328,9 @@ function onFsChange() {
       } else if (!fsState.has(card)) {
         fsState.set(card, { native: true })
       }
+      requestAnimationFrame(() => {
+        card.querySelector('.g2048-board, .muyu-stage')?.focus({ preventScroll: true })
+      })
     }
     cardFsSync()
     return
@@ -6345,6 +6355,17 @@ function onFsChange() {
 }
 document.addEventListener('fullscreenchange', onFsChange)
 document.addEventListener('webkitfullscreenchange', onFsChange)
+
+// 伪全屏下拦截 Escape 退出，与原生全屏行为完全对齐
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const fake = document.querySelector('.card.fs-fake')
+    if (fake) {
+      e.preventDefault()
+      fsExitCard(fake)
+    }
+  }
+})
 
 // 全屏按钮统一入口：卡片头部的全屏 / 退出按钮与游戏区内按钮都走这里（↻ 刷新不在此列）
 document.addEventListener('click', (e) => {
