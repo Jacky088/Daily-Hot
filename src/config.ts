@@ -25,6 +25,10 @@ export const config = {
   get encodingParamName() {
     return env('ENCODING_PARAM_NAME') || 'encoding'
   },
+  get trust_proxy() {
+    const v = env('TRUST_PROXY')
+    return v === '1' || v === 'true'
+  },
 }
 
 export const COMMON_MSG = `获取成功。开源地址 ${config.github}，反馈群 ${config.group}。`

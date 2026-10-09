@@ -8,11 +8,36 @@ import { Common } from './common.ts'
  * 返回值就是标准 Response，调用方无需改解析逻辑。
  */
 
+export class CircuitBreakerError extends Error {
+  readonly host: string
+  constructor(host: string) {
+    super(`上游服务暂时不可用，已触发熔断保护: ${host}`)
+    this.name = 'CircuitBreakerError'
+    this.host = host
+  }
+}
+
+interface CircuitState {
+  failures: number
+  nextAttempt: number
+  isOpen: boolean
+}
+
+const circuitMap = new Map<string, CircuitState>()
+const FAILURE_THRESHOLD = 5 // 连续 5 次超时或 5xx 失败触发熔断
+const COOLDOWN_MS = 30_000 // 熔断冷却 30 秒
+
+export function resetCircuitBreaker(): void {
+  circuitMap.clear()
+}
+
 export interface FetchUpstreamOptions extends RequestInit {
   /** 超时毫秒，默认 8000 */
   timeoutMs?: number
   /** 失败重试次数（不含首次），默认 1 */
   retry?: number
+  /** 是否跳过熔断器检查 */
+  ignoreCircuitBreaker?: boolean
 }
 
 function timeoutSignal(ms: number, outer?: AbortSignal | null) {
@@ -40,8 +65,28 @@ function timeoutSignal(ms: number, outer?: AbortSignal | null) {
   }
 }
 
+function getHost(url: string | URL): string {
+  try {
+    return (typeof url === 'string' ? new URL(url) : url).hostname
+  } catch {
+    return ''
+  }
+}
+
 export async function fetchUpstream(url: string | URL, opts: FetchUpstreamOptions = {}): Promise<Response> {
-  const { timeoutMs = 8000, retry = 1, headers, ...rest } = opts
+  const { timeoutMs = 8000, retry = 1, headers, ignoreCircuitBreaker = false, ...rest } = opts
+  const host = getHost(url)
+
+  if (!ignoreCircuitBreaker && host) {
+    const state = circuitMap.get(host)
+    if (state && state.isOpen) {
+      if (Date.now() < state.nextAttempt) {
+        throw new CircuitBreakerError(host)
+      }
+      // 冷却时间已过，放行本次单请求探测 (Half-Open)
+    }
+  }
+
   const mergedHeaders = new Headers(headers)
   if (!mergedHeaders.has('User-Agent')) mergedHeaders.set('User-Agent', Common.chromeUA)
 
@@ -57,14 +102,29 @@ export async function fetchUpstream(url: string | URL, opts: FetchUpstreamOption
         lastError = new Error(`upstream HTTP ${res.status}`)
         continue
       }
+      if (res.status < 500 && host && circuitMap.has(host)) {
+        circuitMap.delete(host)
+      }
       return res
     } catch (e) {
       dispose()
       lastError = e
       if (attempt < retry) continue
-      throw e
+      break
     }
   }
+
+  if (host) {
+    const now = Date.now()
+    const state = circuitMap.get(host) || { failures: 0, nextAttempt: 0, isOpen: false }
+    state.failures += 1
+    if (state.failures >= FAILURE_THRESHOLD) {
+      state.isOpen = true
+      state.nextAttempt = now + COOLDOWN_MS
+    }
+    circuitMap.set(host, state)
+  }
+
   throw lastError
 }
 

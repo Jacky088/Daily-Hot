@@ -50,8 +50,9 @@ export function rateLimit(): Middleware {
       lastCleanup = now
     }
 
-    // 优先使用真实客户端 IP（cf-connecting-ip）；取不到则回退到 oak 的连接 IP
-    const ip = serviceIP.getClientIP(ctx.request.headers) || ctx.request.ip || 'unknown'
+    // 优先使用真实客户端 IP（平台注入或受信任反代）；未信任反代时回退到 oak 连接 IP，防范请求头伪造
+    const ip =
+      serviceIP.getClientIP(ctx.request.headers, ctx.request.ip, { forSecurity: true }) || ctx.request.ip || 'unknown'
 
     let bucket = buckets.get(ip)
     if (!bucket) {

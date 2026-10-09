@@ -1,4 +1,5 @@
 import { Common } from '../common.ts'
+import { config } from '../config.ts'
 import { toChineseCity } from '../data/cn-geo.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 import { getPlatformIP } from '../platform-ip.ts'
@@ -41,20 +42,32 @@ class ServiceIP {
 
   /**
    * 解析访客 IP。优先级：
-   *   1. 平台入口提供的 IP（见 src/platform-ip.ts，如 EdgeOne 的 context.clientIp）——
-   *      它是平台承诺的字段，不依赖「转发头是否被原样透传」这一平台策略
-   *   2. 平台注入头 → 3. 反代转发头
+   *   1. 平台入口提供的 IP（见 src/platform-ip.ts，如 EdgeOne 的 context.clientIp）
+   *   2. 平台注入头 / 反代转发头（当处于受信任反代配置或非安全决策场景）
+   *   3. 连接 socket IP
    */
-  getClientIP(requestHeaders: Headers): string {
+  getClientIP(requestHeaders: Headers, socketIP?: string, options: { forSecurity?: boolean } = {}): string {
     const platformIP = getPlatformIP()
     if (platformIP) return platformIP
 
-    // 内网/本地 IP 先记下继续往后找：高优先级头里出现内网地址（CDN 内部链路常见）时，
-    // 低优先级头里的公网地址更接近访客真实位置。整轮都没有公网 IP 才用它兜底，
-    // 保留本地开发 / 内网自托管下「改用服务器出口 IP 定位」的原有行为。
-    let localFallback = ''
+    const isSecurity = options.forSecurity ?? false
+    // 判断是否在受信任代理环境下（显式配置了 TRUST_PROXY 或检测到 EdgeWorker 环境）
+    const isEdgeWorker = typeof (globalThis as unknown as { WebSocketPair?: unknown }).WebSocketPair !== 'undefined'
+    const isTrusted = config.trust_proxy || isEdgeWorker
 
-    for (const field of [...ServiceIP.PLATFORM_IP_HEADERS, ...ServiceIP.FORWARDED_IP_HEADERS]) {
+    // 在安全决策场景（黑名单、限流、强制刷新防护），若未显式信任代理，优先使用真实 socket 连接 IP 防止伪造
+    if (isSecurity && !isTrusted && socketIP && !this.isLocalIP(socketIP)) {
+      return socketIP
+    }
+
+    let localFallback = ''
+    const headersToCheck = isTrusted
+      ? [...ServiceIP.PLATFORM_IP_HEADERS, ...ServiceIP.FORWARDED_IP_HEADERS]
+      : isSecurity
+        ? []
+        : [...ServiceIP.PLATFORM_IP_HEADERS, ...ServiceIP.FORWARDED_IP_HEADERS]
+
+    for (const field of headersToCheck) {
       const value = requestHeaders.get(field)?.trim()
       if (!value) continue
 
@@ -65,7 +78,7 @@ class ServiceIP {
       if (!localFallback) localFallback = ip
     }
 
-    return localFallback
+    return socketIP || localFallback
   }
 
   /**

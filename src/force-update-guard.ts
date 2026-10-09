@@ -72,7 +72,7 @@ const forceStorage = new AsyncLocalStorage<boolean>()
 export function resolveForceUpdate(request: RequestLike): boolean {
   if (!request.url.searchParams.has('force-update')) return false
 
-  const ip = serviceIP.getClientIP(request.headers) || request.ip || 'unknown'
+  const ip = serviceIP.getClientIP(request.headers, request.ip, { forSecurity: true }) || request.ip || 'unknown'
 
   return allowForceUpdate(forceUpdateKey(request.url.pathname, ip))
 }

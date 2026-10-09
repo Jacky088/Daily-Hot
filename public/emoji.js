@@ -197,8 +197,8 @@
     })
     .join('|')
 
-  // <[^>]*> 先吃掉整段标签，只有落在文本里的 emoji 才会被第 1 组捕获
-  var RE = new RegExp('<[^>]*>|(' + ALTERNATIVES + ')', 'g')
+  // 吃掉整段标签（支持带引号的属性值中包含 > 符号，如 title="a > b"），只有落在文本里的 emoji 才会被第 1 组捕获
+  var RE = new RegExp('<(?:"[^"]*"|\'[^\']*\'|[^\'">])*>|(' + ALTERNATIVES + ')', 'g')
   var HAS_EMOJI = new RegExp(ALTERNATIVES)
 
   function emojiHtml(html) {

@@ -54,7 +54,9 @@ class ServiceOG {
             break
         }
       } catch (e: any) {
-        console.error(e)
+        if (!(e instanceof OgError)) {
+          console.error('[OG Error]', e)
+        }
         ctx.response.status = 400
         // 只转述本模块主动抛出的校验类错误，底层异常统一换成通用文案
         const msg = e instanceof OgError ? e.message : 'OG 信息解析失败，请确认链接可公开访问'
@@ -78,7 +80,7 @@ class ServiceOG {
     // SSRF：fetch 默认自动跟随 302，若只校验初始 URL，攻击者可用「公网域名 302 跳到
     // 169.254.169.254」绕过校验、直取云元数据。改为 manual 模式，逐跳校验后再请求下一跳。
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-      this.#assertSafeUrl(_url)
+      await this.#assertSafeUrl(_url)
 
       // fetchUpstream 默认补 UA + 8s 超时 + 5xx 重试；redirect/manual 与逐跳 SSRF 校验
       // 语义原样保留（fetchUpstream 透传 redirect 选项），超时按本模块 5s 口径覆盖
@@ -238,7 +240,7 @@ class ServiceOG {
   }
 
   // SSRF 防护：校验目标 URL，禁止访问内网/回环/链路本地/云元数据等敏感地址
-  #assertSafeUrl(url: URL): void {
+  async #assertSafeUrl(url: URL): Promise<void> {
     // 1) 协议白名单：阻断 file://、gopher://、dict:// 等
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
       throw new OgError('仅支持 http/https 协议')
@@ -252,7 +254,7 @@ class ServiceOG {
     // 3) 归一化主机名：WHATWG URL 会为 IPv6 保留方括号（如 [::ffff:7f00:1]），先去掉
     const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '')
 
-    // 4) 云厂商元数据等敏感地址
+    // 4) 静态黑名单：云厂商元数据等敏感地址
     if (BLOCKED_HOSTS.has(host)) {
       throw new OgError('禁止访问该地址')
     }
@@ -262,8 +264,7 @@ class ServiceOG {
       throw new OgError('禁止访问内网地址')
     }
 
-    // 6) IPv4 字面量。URL 规范已把十进制(2130706433)、八进制(0177.0.0.1)、
-    //    短式(127.1) 统一归一化为点分十进制，此处只需判定点分十进制。
+    // 6) IPv4 字面量校验
     if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
       if (this.#isBlockedIPv4(host.split('.').map(Number))) {
         throw new OgError('禁止访问内网地址')
@@ -271,31 +272,56 @@ class ServiceOG {
       return
     }
 
-    // 7) IPv6（含 IPv4-mapped）
+    // 7) IPv6 字面量校验（含 IPv4-mapped）
     if (host.includes(':')) {
-      if (host === '::1' || host === '::') throw new Error('禁止访问内网地址')
-
-      // IPv4-mapped：URL 规范会归一化为十六进制形式，如 [::ffff:127.0.0.1] → ::ffff:7f00:1
-      const mapped = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(host)
-      if (mapped) {
-        const hi = parseInt(mapped[1], 16)
-        const lo = parseInt(mapped[2], 16)
-        const octets = [(hi >> 8) & 255, hi & 255, (lo >> 8) & 255, lo & 255]
-
-        if (this.#isBlockedIPv4(octets)) throw new Error('禁止访问内网地址')
-        return
-      }
-
-      // fc00::/7 唯一本地地址、fe80::/10 链路本地
-      if (/^f[cd][0-9a-f]{2}:/.test(host) || /^fe[89ab][0-9a-f]:/.test(host)) {
+      if (this.#isBlockedIPv6(host)) {
         throw new OgError('禁止访问内网地址')
       }
       return
     }
 
-    // 8) 普通域名：Workers 无 DNS 解析能力，无法在连接前校验解析结果（DNS rebinding
-    //    残余风险）。自托管（Node/Docker）如需彻底防护，应改为「先解析 IP → 校验 →
-    //    再连接」的 connect-time 校验。
+    // 8) 域名解析校验（防范 DNS Rebinding 与解析到内网的域名，如 127.0.0.1.nip.io）
+    // 在支持 node:dns 的运行时（Node / Bun / Deno）提前解析，边缘无此模块时优雅降级
+    try {
+      const dns = await import('node:dns/promises')
+      if (dns && typeof dns.lookup === 'function') {
+        const records = await dns.lookup(host, { all: true })
+        for (const record of records) {
+          const addr = record.address
+          if (record.family === 4) {
+            if (this.#isBlockedIPv4(addr.split('.').map(Number))) {
+              throw new OgError('禁止访问内网地址')
+            }
+          } else if (record.family === 6) {
+            if (this.#isBlockedIPv6(addr)) {
+              throw new OgError('禁止访问内网地址')
+            }
+          }
+        }
+      }
+    } catch (e) {
+      if (e instanceof OgError) throw e
+      // 边缘运行时不支持 dns 模块时保持向下兼容
+    }
+  }
+
+  #isBlockedIPv6(host: string): boolean {
+    const clean = host.toLowerCase().replace(/^\[|\]$/g, '')
+    if (clean === '::1' || clean === '::') return true
+
+    const mapped = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(clean)
+    if (mapped) {
+      const hi = parseInt(mapped[1], 16)
+      const lo = parseInt(mapped[2], 16)
+      const octets = [(hi >> 8) & 255, hi & 255, (lo >> 8) & 255, lo & 255]
+      return this.#isBlockedIPv4(octets)
+    }
+
+    // fc00::/7 唯一本地地址、fe80::/10 链路本地
+    if (/^f[cd][0-9a-f]{2}:/.test(clean) || /^fe[89ab][0-9a-f]:/.test(clean)) {
+      return true
+    }
+    return false
   }
 
   #isBlockedIPv4(octets: number[]): boolean {

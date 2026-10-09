@@ -98,6 +98,7 @@ setInterval(paintRelTimes, 30 * 1000)
 // 两类来源：simple-icons 官方矢量图（按品牌色上色）与平台官网 favicon，
 // 都落在 /logos/（构建期静态资源，离线可用）。加载失败时 onerror 回退回原 emoji
 const CARD_LOGOS = {
+  muyu: 'muyu.svg',
   weibo: 'sinaweibo.svg',
   zhihu: 'zhihu.svg',
   bili: 'bilibili.svg',
@@ -394,24 +395,32 @@ function initSiteSearch() {
     form.classList.toggle('suggest-open', isEngineOpen || isSuggestVisible)
   }
 
+  let suggestCloseTimer = null
   const setSuggestVisible = (visible) => {
-    suggest.hidden = !visible
+    clearTimeout(suggestCloseTimer)
     if (visible) {
       mountOverlay(suggest)
       anchorOverlay(suggest, 'suggest')
+      suggest.hidden = false
+      requestAnimationFrame(() => suggest.classList.add('open'))
+    } else {
+      suggest.classList.remove('open')
+      suggestCloseTimer = setTimeout(() => {
+        if (!suggest.classList.contains('open')) suggest.hidden = true
+      }, 220)
     }
     updateSuggestOpenState()
   }
 
   // 开合唯一写入：引擎下拉菜单显隐
   const setEngineMenuOpen = (open) => {
-    menu.classList.toggle('open', open)
-    trigger.setAttribute('aria-expanded', String(open))
     if (open) {
       mountOverlay(menu)
       anchorOverlay(menu, 'menu')
-      suggest.hidden = true
+      setSuggestVisible(false)
     }
+    menu.classList.toggle('open', open)
+    trigger.setAttribute('aria-expanded', String(open))
     updateSuggestOpenState()
   }
 
@@ -1417,7 +1426,10 @@ function openHeroWeatherEdit(prefill) {
   box.classList.add('editing')
   const layer = box.querySelector('.hw-edit')
   const input = box.querySelector('.hw-input')
-  if (layer) layer.hidden = false
+  if (layer) {
+    layer.hidden = false
+    requestAnimationFrame(() => layer.classList.add('show'))
+  }
   if (input) {
     input.value = prefill != null ? prefill : heroCityPref()
     input.focus()
@@ -1430,7 +1442,12 @@ function closeHeroWeatherEdit() {
   const box = heroWeatherNode()
   box.classList.remove('editing')
   const layer = box.querySelector('.hw-edit')
-  if (layer) layer.hidden = true
+  if (layer) {
+    layer.classList.remove('show')
+    setTimeout(() => {
+      if (!heroWeatherEditing && layer) layer.hidden = true
+    }, 240)
+  }
 }
 
 // 手动指定的城市查不到时：撤销偏好、展开编辑层并就地提示，避免用户反复踩同一个错
@@ -2395,7 +2412,7 @@ const EPS = [
     cat: 'fun',
     id: 'muyu',
     name: '电子木鱼',
-    icon: '🥁',
+    icon: '🪵',
     path: '',
     type: 'muyu',
     auto: 1,
@@ -3397,7 +3414,7 @@ function init() {
     setCatPanelOpen(false)
     // 移动端侧栏抽屉里发起的定位同理：抽屉与遮罩挡着落点卡片，定位即收起
     // （桌面侧栏常驻不受影响；sb-locked 解除后，下方滚动定位不会再被 overflow:hidden 吞掉）
-    if (isMobileLayout() && appShell && appShell.classList.contains('sidebar-open')) setSidebarOpen(false)
+    if (appShell && appShell.classList.contains('sidebar-open')) setSidebarOpen(false)
     let switched = false
     if (curCat !== ep.cat) {
       switched = true
@@ -3641,17 +3658,13 @@ function init() {
       // 抽屉的关闭只留给点击遮罩 / ✕ 按钮 / Esc（见下面的绑定）
       if (curCat === c.id && !fromHome) {
         if (c.id === 'all') return
-        // 重复点击当前分类 = 展开/收起它下面的数据源目录：
-        // 桌面是侧栏手风琴（sub-collapsed）；移动端是悬浮模块面板（toc-open）。
-        // 面板开关只能经 setCatPanelOpen 驱动——此前这条分支只切桌面语义的类，
-        // 移动端面板永远打不开（改版回归），"▸"箭头也因 toc-open 缺失而不转
+        // 重复点击当前分类 = 手风琴展开/收起其下的子菜单（数据源目录）
+        // 保持当前激活模块（如 BBC）的高亮不变，也不改变页面的滚动位置
+        nav.classList.toggle('sub-collapsed')
+        const isCollapsed = nav.classList.contains('sub-collapsed')
+        b.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true')
         if (isMobileLayout()) {
-          const opening = !nav.classList.contains('toc-open')
-          setCatPanelOpen(opening)
-          b.setAttribute('aria-expanded', String(opening))
-        } else {
-          nav.classList.toggle('sub-collapsed')
-          b.setAttribute('aria-expanded', nav.classList.contains('sub-collapsed') ? 'false' : 'true')
+          setCatPanelOpen(!isCollapsed)
         }
         return
       }
@@ -5191,8 +5204,12 @@ function initCalendarModal() {
     renderModalContent()
   }
 
+  let isClosing = false
   const openModal = () => {
+    isClosing = false
     overlay.hidden = false
+    overlay.classList.remove('is-closing')
+    overlay.classList.add('is-open')
     document.body.style.overflow = 'hidden'
     const d = new Date()
     calModalYear = d.getFullYear()
@@ -5202,9 +5219,28 @@ function initCalendarModal() {
   }
 
   const closeModal = () => {
-    if (overlay.hidden) return
-    overlay.hidden = true
+    if (overlay.hidden || isClosing) return
+    isClosing = true
+    overlay.classList.remove('is-open')
+    overlay.classList.add('is-closing')
     document.body.style.overflow = ''
+
+    const onEnd = (e) => {
+      if (e.target !== overlay && e.target !== card) return
+      cleanup()
+    }
+    const timer = setTimeout(cleanup, 240)
+
+    function cleanup() {
+      clearTimeout(timer)
+      overlay.removeEventListener('animationend', onEnd)
+      if (isClosing) {
+        overlay.hidden = true
+        overlay.classList.remove('is-closing')
+        isClosing = false
+      }
+    }
+    overlay.addEventListener('animationend', onEnd)
   }
 
   ;[clockDesktop, clockMobile].forEach((btn) => {
@@ -5546,18 +5582,24 @@ function g2048Paint(id) {
   wrap.querySelector('[data-g2048-undo]').disabled = !st.hist
 
   const over = wrap.querySelector('.g2048-over')
-  if (st.over) {
-    over.innerHTML = `<div class="go-title">游戏结束</div><div class="go-score">得分 <b>${st.score}</b></div>
-      <div class="go-row"><button class="go-btn" type="button" data-g2048-new="${id}">再来一局</button>
-      <button class="go-btn ghost" type="button" data-g2048-undo="${id}">↶ 撤销一步</button></div>`
+  const shouldShow = st.over || (st.won && !st.wonAck)
+  if (shouldShow) {
+    if (st.over) {
+      over.innerHTML = `<div class="go-title">游戏结束</div><div class="go-score">得分 <b>${st.score}</b></div>
+        <div class="go-row"><button class="go-btn" type="button" data-g2048-new="${id}">再来一局</button>
+        <button class="go-btn ghost" type="button" data-g2048-undo="${id}">↶ 撤销一步</button></div>`
+    } else {
+      over.innerHTML = `<div class="go-title">🎉 2048 达成</div><div class="go-score">得分 <b>${st.score}</b>，可继续挑战更高分</div>
+        <div class="go-row"><button class="go-btn" type="button" data-g2048-continue="${id}">继续游戏</button>
+        <button class="go-btn ghost" type="button" data-g2048-new="${id}">重开</button></div>`
+    }
     over.hidden = false
-  } else if (st.won && !st.wonAck) {
-    over.innerHTML = `<div class="go-title">🎉 2048 达成</div><div class="go-score">得分 <b>${st.score}</b>，可继续挑战更高分</div>
-      <div class="go-row"><button class="go-btn" type="button" data-g2048-continue="${id}">继续游戏</button>
-      <button class="go-btn ghost" type="button" data-g2048-new="${id}">重开</button></div>`
-    over.hidden = false
+    requestAnimationFrame(() => over.classList.add('show'))
   } else {
-    over.hidden = true
+    over.classList.remove('show')
+    setTimeout(() => {
+      if (!over.classList.contains('show')) over.hidden = true
+    }, 280)
   }
 }
 
@@ -5654,115 +5696,166 @@ let muyuActx = null
 // 卡片伪全屏状态表（card → { rot, prevScroller }），Fullscreen API 模式不需要
 const fsState = new Map()
 
-// 木鱼造型（内联 SVG，现代扁平拟物风）：圆润团鱼形木鱼坐于红木锦垫上——
-// 单一暖木色球面渐变 + 一圈车削高光环 + 顶部音槽与侧腹螺旋雕纹，干净不喧宾；
-// 右上为木质圆棒槌，四周藏四颗受击时依次弹出的金星。
-// .my-fish / .my-mallet / .my-spark 供 CSS 做受击挤压、挥槌与金星动画；槌尾支点保持 (322,36)，
-// viewBox 高宽比 260/360 不变（全屏布局按此反推宽度）
-const MY_BODY =
-  'M 58,148 C 56,100 98,62 152,62 C 206,62 246,98 246,148 C 246,188 208,216 152,216 C 96,216 60,190 58,148 Z'
+// 木鱼造型（内联 SVG，极简暖木扁平插画风，参考治愈手绘木鱼）：
+// 采用圆润饱满的浅黄原木主体，左侧横向开槽连接中空圆孔音膛，右下带自然鱼尾微弧；
+// 表面雕琢手绘年轮木纹波线，肩部与侧下附极简通透白高光；
+// 右上配斜置圆球头原木敲槌，支点位于 (308,142)，敲击挥摆精准落在鱼身受击点；
+// 敲击时激发上方红润音波振纹与四方轻盈金星；
+// viewBox 保持 0 0 360 260，全屏模式与卡片响应式布局完全兼容
 const MUYU_SVG = `<svg class="muyu-svg" viewBox="0 0 360 260" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <defs>
-    <radialGradient id="myBody" cx="38%" cy="26%" r="85%">
-      <stop offset="0%" stop-color="#f7dcae"/>
-      <stop offset="38%" stop-color="#e8b77c"/>
-      <stop offset="72%" stop-color="#d0913f"/>
-      <stop offset="100%" stop-color="#a96c2b"/>
-    </radialGradient>
-    <radialGradient id="myBounce" cx="50%" cy="100%" r="65%">
-      <stop offset="0%" stop-color="rgba(255,130,95,.26)"/>
-      <stop offset="100%" stop-color="rgba(255,130,95,0)"/>
-    </radialGradient>
-    <radialGradient id="mySheen" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="rgba(255,244,222,.5)"/>
-      <stop offset="100%" stop-color="rgba(255,244,222,0)"/>
-    </radialGradient>
-    <linearGradient id="mySlot" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#1c0a02"/>
-      <stop offset="100%" stop-color="#4a2408"/>
+    <!-- 原木浅黄主渐变 -->
+    <linearGradient id="myWoodBody" x1="18%" y1="12%" x2="72%" y2="92%">
+      <stop offset="0%" stop-color="#fee5a5"/>
+      <stop offset="30%" stop-color="#fdd788"/>
+      <stop offset="70%" stop-color="#f8be68"/>
+      <stop offset="100%" stop-color="#f2a54b"/>
     </linearGradient>
-    <radialGradient id="myCushTop" cx="50%" cy="34%" r="75%">
-      <stop offset="0%" stop-color="#c9503f"/>
-      <stop offset="60%" stop-color="#b03a2c"/>
-      <stop offset="100%" stop-color="#8c2a1f"/>
+
+    <!-- 右下角深色温润投影 -->
+    <radialGradient id="myWoodShade" cx="85%" cy="85%" r="65%">
+      <stop offset="0%" stop-color="#e0842e" stop-opacity="0.9"/>
+      <stop offset="50%" stop-color="#e0842e" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#e0842e" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="myCushSide" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#8c2a1f"/>
-      <stop offset="100%" stop-color="#5e1811"/>
+
+    <!-- 木槌渐变 -->
+    <linearGradient id="myMalletWood" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fee6ab"/>
+      <stop offset="50%" stop-color="#fec774"/>
+      <stop offset="100%" stop-color="#f4a84e"/>
     </linearGradient>
-    <linearGradient id="myHead" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#f3cd94"/>
-      <stop offset="100%" stop-color="#c98e4b"/>
-    </linearGradient>
-    <linearGradient id="myStick" gradientUnits="userSpaceOnUse" x1="278" y1="42" x2="282" y2="52">
-      <stop offset="0%" stop-color="#eec28a"/>
-      <stop offset="100%" stop-color="#a06a30"/>
-    </linearGradient>
-    <radialGradient id="myShadow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="rgba(20,8,2,.35)"/>
-      <stop offset="100%" stop-color="rgba(20,8,2,0)"/>
+
+    <!-- 金星渐变 -->
+    <radialGradient id="mySpark" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="40%" stop-color="#ffdf79"/>
+      <stop offset="100%" stop-color="#f29a39"/>
     </radialGradient>
-    <filter id="myBlur2"><feGaussianBlur stdDeviation="2"/></filter>
-    <filter id="myBlur5"><feGaussianBlur stdDeviation="5"/></filter>
-    <clipPath id="myClip"><path d="${MY_BODY}"/></clipPath>
+
+    <!-- 柔和落地阴影滤镜 -->
+    <filter id="myFloorBlur" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3.5"/>
+    </filter>
+
+    <!-- 鱼身剪裁路径（保持年轮纹理在闭合轮廓内部） -->
+    <clipPath id="myFishClip">
+      <path d="M 62, 162 
+               C 60, 122  102, 98  160, 98 
+               C 216, 98  254, 122  260, 156 
+               C 264, 172  266, 180  276, 188 
+               C 288, 198  288, 215  272, 222 
+               C 248, 227  130, 227  86, 222 
+               C 68, 220  60, 200  62, 170 
+               L 124.5, 170 
+               A 18, 18 0 1, 0 124.5, 162 
+               Z"/>
+    </clipPath>
   </defs>
 
-  <!-- 落地阴影 -->
-  <ellipse cx="152" cy="236" rx="120" ry="12" fill="url(#myShadow)"/>
-  <ellipse cx="152" cy="229" rx="84" ry="8" fill="rgba(15,6,2,.3)" filter="url(#myBlur2)"/>
+  <!-- 1. 落地极简柔和阴影 -->
+  <ellipse cx="175" cy="232" rx="105" ry="9" fill="rgba(165, 85, 30, 0.18)" filter="url(#myFloorBlur)"/>
 
-  <!-- 红木锦垫 -->
-  <g>
-    <ellipse cx="150" cy="217" rx="104" ry="24" fill="url(#myCushSide)"/>
-    <ellipse cx="150" cy="206" rx="104" ry="24" fill="url(#myCushTop)"/>
-    <ellipse cx="150" cy="200" rx="86" ry="16" fill="rgba(255,255,255,.06)"/>
-    <ellipse cx="150" cy="206" rx="104" ry="24" fill="none" stroke="rgba(246,211,122,.5)" stroke-width="2.5"/>
-    <ellipse cx="150" cy="206" rx="90" ry="20" fill="none" stroke="rgba(0,0,0,.14)" stroke-width="1.5"/>
-    <ellipse cx="152" cy="212" rx="70" ry="13" fill="rgba(30,8,4,.45)" filter="url(#myBlur5)"/>
-  </g>
-
+  <!-- 2. 木鱼主体（扁平纯2D可爱插画风） -->
   <g class="my-fish">
-    <path d="${MY_BODY}" fill="url(#myBody)"/>
-    <g clip-path="url(#myClip)">
-      <ellipse cx="118" cy="102" rx="54" ry="38" fill="url(#mySheen)" transform="rotate(-26 118 102)"/>
-      <ellipse cx="110" cy="90" rx="13" ry="6.5" fill="rgba(255,250,238,.65)" transform="rotate(-30 110 90)" filter="url(#myBlur2)"/>
-      <ellipse cx="152" cy="146" rx="88" ry="70" fill="none" stroke="rgba(255,238,205,.14)" stroke-width="5" filter="url(#myBlur2)"/>
-      <ellipse cx="150" cy="238" rx="112" ry="58" fill="url(#myBounce)"/>
-      <path d="${MY_BODY}" fill="none" stroke="rgba(90,45,12,.45)" stroke-width="12" filter="url(#myBlur5)"/>
-      <ellipse cx="150" cy="216" rx="72" ry="12" fill="rgba(60,20,4,.4)" filter="url(#myBlur5)"/>
+    <!-- 主体填充底色与轮廓（深红棕粗描边） -->
+    <path d="M 62, 162 
+             C 60, 122  102, 98  160, 98 
+             C 216, 98  254, 122  260, 156 
+             C 264, 172  266, 180  276, 188 
+             C 288, 198  288, 215  272, 222 
+             C 248, 227  130, 227  86, 222 
+             C 68, 220  60, 200  62, 170 
+             L 124.5, 170 
+             A 18, 18 0 1, 0 124.5, 162 
+             Z" 
+          fill="url(#myWoodBody)" 
+          stroke="#822b17" 
+          stroke-width="6.5" 
+          stroke-linecap="round" 
+          stroke-linejoin="round"/>
+
+    <!-- 内部细节：裁剪至木鱼轮廓内 -->
+    <g clip-path="url(#myFishClip)">
+      <!-- 右下角深色木纹暖色遮罩 -->
+      <rect x="50" y="90" width="250" height="150" fill="url(#myWoodShade)"/>
+
+      <!-- 自然手绘感木纹年轮（细棕色柔和波浪线） -->
+      <path d="M 95, 118 C 120, 108 170, 108 190, 130 C 205, 146 200, 185 225, 205" 
+            fill="none" stroke="#d58231" stroke-width="2.6" stroke-linecap="round" opacity="0.45"/>
+      <path d="M 115, 132 C 135, 122 165, 122 178, 140 C 188, 155 180, 180 205, 212" 
+            fill="none" stroke="#d58231" stroke-width="2.2" stroke-linecap="round" opacity="0.42"/>
+      <path d="M 132, 146 C 145, 138 162, 142 168, 152 C 175, 166 166, 190 185, 220" 
+            fill="none" stroke="#d58231" stroke-width="1.8" stroke-linecap="round" opacity="0.38"/>
+      <path d="M 220, 158 C 235, 168 240, 185 255, 192" 
+            fill="none" stroke="#d58231" stroke-width="2.2" stroke-linecap="round" opacity="0.4"/>
+      <path d="M 235, 195 C 248, 202 258, 205 270, 202" 
+            fill="none" stroke="#d58231" stroke-width="2" stroke-linecap="round" opacity="0.35"/>
+      <path d="M 78, 192 C 105, 205 160, 212 210, 216" 
+            fill="none" stroke="#d58231" stroke-width="2.2" stroke-linecap="round" opacity="0.4"/>
+
+      <!-- 顶部高光弧（纯白通透反光，带小圆点） -->
+      <path d="M 205, 110 C 224, 118 238, 130 244, 146" 
+            fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" opacity="0.85"/>
+      <circle cx="192" cy="113" r="3.5" fill="#ffffff" opacity="0.85"/>
+
+      <!-- 左下小圆点高光 -->
+      <circle cx="78" cy="202" r="3.5" fill="#ffffff" opacity="0.9"/>
     </g>
-    <path d="${MY_BODY}" fill="none" stroke="rgba(122,74,26,.6)" stroke-width="2"/>
 
-    <!-- 音槽 -->
-    <path d="M 146,73 C 148,95 148.5,112 152.5,126 C 154.5,133 160.5,133 162,126 C 165,112 165,95 166,73 C 160,69 152,69 146,73 Z" fill="url(#mySlot)"/>
-    <path d="M 146,73 C 152,69 160,69 166,73" fill="none" stroke="rgba(255,226,178,.5)" stroke-width="2" stroke-linecap="round"/>
-    <path d="M 148,76 C 150,98 150.5,114 154,126" fill="none" stroke="rgba(255,180,110,.3)" stroke-width="1.5" stroke-linecap="round"/>
-    <path d="M 164.5,76 C 163.5,98 163,114 160,125" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="1.8" stroke-linecap="round"/>
+    <!-- 顶层外描边保证圆孔内侧与槽口边缘清晰利落 -->
+    <path d="M 62, 162 
+             C 60, 122  102, 98  160, 98 
+             C 216, 98  254, 122  260, 156 
+             C 264, 172  266, 180  276, 188 
+             C 288, 198  288, 215  272, 222 
+             C 248, 227  130, 227  86, 222 
+             C 68, 220  60, 200  62, 170 
+             L 124.5, 170 
+             A 18, 18 0 1, 0 124.5, 162 
+             Z" 
+          fill="none" 
+          stroke="#822b17" 
+          stroke-width="6.5" 
+          stroke-linecap="round" 
+          stroke-linejoin="round"/>
 
-    <!-- 侧腹螺旋雕纹 -->
-    <path d="M 216,170 A 24,24 0 0 1 168,170 A 20,20 0 0 1 208,170 A 16,16 0 0 1 176,170 A 12,12 0 0 1 200,170 A 8,8 0 0 1 190,170" fill="none" stroke="rgba(104,56,16,.4)" stroke-width="5" stroke-linecap="round"/>
-    <path d="M 215,168 A 24,24 0 0 1 167,168" fill="none" stroke="rgba(255,230,190,.18)" stroke-width="2" stroke-linecap="round"/>
+    <!-- 3. 生气青筋锚点（怒りマーク 💢，紧贴木鱼头顶上方，随鱼身回弹与挤压） -->
+    <g class="my-angry-anchor" transform="translate(118, 78) rotate(-10)">
+      <g class="my-angry">
+        <!-- 底部拱桥形 -->
+        <path d="M -14.1,12.3 C -11.4,5.3 -6.2,1.8 0.0,1.8 C 6.2,1.8 11.4,5.3 14.1,12.3 L 7.9,19.4 C 4.4,13.2 2.6,9.7 0.0,9.7 C -2.6,9.7 -4.4,13.2 -7.9,19.4 Z" 
+              fill="#de2320" stroke="#22120e" stroke-width="2.4" stroke-linejoin="round"/>
+        <!-- 左上角手肘形 -->
+        <path d="M -7.9,-19.8 L -0.4,-19.8 C 0.4,-10.6 -4.4,0.0 -19.4,3.5 L -19.4,-4.4 C -9.7,-6.2 -7.9,-11.4 -7.9,-19.8 Z" 
+              fill="#de2320" stroke="#22120e" stroke-width="2.4" stroke-linejoin="round"/>
+        <!-- 右上角手肘形 -->
+        <path d="M 7.9,-19.8 L 0.4,-19.8 C -0.4,-10.6 4.4,0.0 19.4,3.5 L 19.4,-4.4 C 9.7,-6.2 7.9,-11.4 7.9,-19.8 Z" 
+              fill="#de2320" stroke="#22120e" stroke-width="2.4" stroke-linejoin="round"/>
+      </g>
+    </g>
   </g>
 
-  <!-- 受击金星（CSS .hit 时依次弹出） -->
+  <!-- 4. 受击金星 -->
   <g class="my-sparks">
-    <g transform="translate(86,60)"><path class="my-spark s1" d="M 0,-7 C 1,-2 2,-1 7,0 C 2,1 1,2 0,7 C -1,2 -2,1 -7,0 C -2,-1 -1,-2 0,-7 Z"/></g>
-    <g transform="translate(268,82) scale(.8)"><path class="my-spark s2" d="M 0,-7 C 1,-2 2,-1 7,0 C 2,1 1,2 0,7 C -1,2 -2,1 -7,0 C -2,-1 -1,-2 0,-7 Z"/></g>
-    <g transform="translate(258,190) scale(.65)"><path class="my-spark s3" d="M 0,-7 C 1,-2 2,-1 7,0 C 2,1 1,2 0,7 C -1,2 -2,1 -7,0 C -2,-1 -1,-2 0,-7 Z"/></g>
-    <g transform="translate(48,178) scale(.7)"><path class="my-spark s4" d="M 0,-7 C 1,-2 2,-1 7,0 C 2,1 1,2 0,7 C -1,2 -2,1 -7,0 C -2,-1 -1,-2 0,-7 Z"/></g>
+    <g transform="translate(195, 65)"><path class="my-spark s1" d="M 0,-8 Q 1,-2 7,0 Q 1,2 0,8 Q -1,2 -7,0 Q -1,-2 0,-8 Z" fill="url(#mySpark)"/></g>
+    <g transform="translate(265, 88) scale(0.8)"><path class="my-spark s2" d="M 0,-8 Q 1,-2 7,0 Q 1,2 0,8 Q -1,2 -7,0 Q -1,-2 0,-8 Z" fill="url(#mySpark)"/></g>
+    <g transform="translate(135, 75) scale(0.7)"><path class="my-spark s3" d="M 0,-8 Q 1,-2 7,0 Q 1,2 0,8 Q -1,2 -7,0 Q -1,-2 0,-8 Z" fill="url(#mySpark)"/></g>
+    <g transform="translate(275, 185) scale(0.65)"><path class="my-spark s4" d="M 0,-8 Q 1,-2 7,0 Q 1,2 0,8 Q -1,2 -7,0 Q -1,-2 0,-8 Z" fill="url(#mySpark)"/></g>
   </g>
 
+  <!-- 5. 小木槌（右上角圆头棒，对齐敲击位置与支点） -->
   <g class="my-mallet">
-    <path d="M 322,36 L 240,53" stroke="url(#myStick)" stroke-width="10" stroke-linecap="round"/>
-    <path d="M 318,33 L 244,50" stroke="rgba(255,240,214,.35)" stroke-width="2.4" stroke-linecap="round"/>
-    <g transform="rotate(-12 226 56)">
-      <rect x="198" y="42" width="52" height="28" rx="14" fill="url(#myHead)" stroke="rgba(110,60,18,.45)" stroke-width="1.2"/>
-      <path d="M 208,48 C 220,44.5 236,44.5 246,48" fill="none" stroke="rgba(255,244,222,.55)" stroke-width="3.2" stroke-linecap="round" filter="url(#myBlur2)"/>
-      <ellipse cx="204" cy="56" rx="4.5" ry="11.5" fill="rgba(150,95,40,.3)"/>
-    </g>
-    <circle cx="322" cy="36" r="5" fill="#a06a30"/>
-    <circle cx="322" cy="36" r="2.2" fill="rgba(255,232,196,.55)"/>
-    <path d="M 318.5,31.5 L 315.5,41.5 M 314.5,33 L 311.5,43 M 310.5,34.5 L 307.5,44.5" stroke="rgba(110,60,18,.5)" stroke-width="1.8" stroke-linecap="round"/>
+    <!-- 槌柄（双层描边呈现立体质感） -->
+    <line x1="205" y1="82" x2="308" y2="142" 
+          stroke="#822b17" stroke-width="17" stroke-linecap="round"/>
+    <line x1="205" y1="82" x2="308" y2="142" 
+          stroke="url(#myMalletWood)" stroke-width="8.5" stroke-linecap="round"/>
+
+    <!-- 槌球头 -->
+    <circle cx="195" cy="76" r="23" fill="url(#myMalletWood)" stroke="#822b17" stroke-width="6.5"/>
+    <!-- 槌球高光 -->
+    <circle cx="195" cy="70" r="5" fill="#ffffff" opacity="0.9"/>
   </g>
 </svg>`
 
@@ -5843,11 +5936,18 @@ function muyuStrike(id) {
   void el.offsetWidth
   svg.classList.add('hit')
 
+  // 连击暴怒动效：连续敲击时保持 is-angry 暴怒抽动状态，木鱼很生气的样子
+  svg.classList.toggle('is-angry', st.combo > 1)
+  clearTimeout(st.angryTimer)
+  st.angryTimer = setTimeout(() => {
+    svg.classList.remove('is-angry')
+  }, 1400)
+
   // 功德飘字（位置在木鱼上方，横向轻微随机）
   const stage = el.querySelector('.muyu-stage')
   const add = document.createElement('span')
   add.className = 'm-add'
-  add.textContent = '功德 +1'
+  add.innerHTML = '<span class="m-add-text">功德</span><span class="m-add-num">+1</span>'
   add.style.left = 42 + Math.random() * 16 + '%'
   stage.appendChild(add)
   add.addEventListener('animationend', () => add.remove())
@@ -5908,6 +6008,8 @@ function rMuyu(_, c, ep) {
     st.count = 0
     st.combo = 0
     st.lastHit = 0
+    clearTimeout(st.angryTimer)
+    el.querySelector('.muyu-svg')?.classList.remove('is-angry')
     try {
       localStorage.setItem('muyu-merit', '0')
     } catch {}
