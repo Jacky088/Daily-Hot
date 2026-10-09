@@ -8795,6 +8795,9 @@ select:focus-visible {
 .card.fs-fake .g2048-main,
 .card.fs-fake .muyu-main {
   width: 100%;
+  gap: clamp(10px, 1.8vw, 18px);
+  gap: clamp(10px, 2cqw, 20px);
+  margin-top: clamp(8px, 1.5vh, 16px);
 }
 /* 2048：棋盘随视口放大；棋盘为正方形，宽度同时受视口高度约束防止纵向溢出
    （预算 = 头部 72 + 上下内边距 20 + 主体 margin 10 ≈ 102，留少量余量） */
@@ -8802,12 +8805,16 @@ select:focus-visible {
 .card.fs-fake .g2048 {
   width: min(100%, 860px, calc(100dvh - 112px));
   margin-inline: auto;
+  container-type: inline-size;
+  container-name: game;
 }
 /* 木鱼：整体加宽；viewBox 高宽比 260/360 ≈ 0.72，宽度按可用高度反推 */
 .card:fullscreen .muyu,
 .card.fs-fake .muyu {
   width: min(100%, 760px, calc((100dvh - 132px) / 0.72));
   margin-inline: auto;
+  container-type: inline-size;
+  container-name: game;
 }
 .card:fullscreen .muyu-svg,
 .card.fs-fake .muyu-svg {
@@ -8822,6 +8829,202 @@ select:focus-visible {
   .card:fullscreen .muyu,
   .card.fs-fake .muyu {
     width: min(100%, 760px, calc((100vh - 132px) / 0.72));
+  }
+}
+
+/* ============ 全屏下游戏侧栏与按钮等比例自适应缩放 ============ */
+/* 解决全屏下游戏棋盘/画布放大至 ~800px，而侧栏锁定 84px、字号仅 11/12px 的失调问题。
+   以容器查询 cqw（结合 vw/vh 兜底）实现桌面、平板、手机等不同视口与设备下的黄金比例缩放 */
+.card:fullscreen .g2048-side,
+.card.fs-fake .g2048-side,
+.card:fullscreen .muyu-side,
+.card.fs-fake .muyu-side {
+  width: clamp(84px, 15vw, 160px);
+  width: clamp(84px, 18.5cqw, 160px);
+  gap: clamp(8px, 1.4vh, 14px);
+  gap: clamp(8px, 1.6cqw, 14px);
+}
+/* 计分框 / 功德信息框比例放大与卡片化微质感 */
+.card:fullscreen .g2048-scorebox,
+.card.fs-fake .g2048-scorebox,
+.card:fullscreen .muyu-scorebox,
+.card.fs-fake .muyu-scorebox {
+  padding: clamp(9px, 1.4vh, 15px) clamp(6px, 1vw, 12px);
+  padding: clamp(9px, 1.6cqw, 15px) clamp(6px, 1.2cqw, 12px);
+  border-radius: clamp(9px, 1.3cqw, 13px);
+  gap: clamp(2px, 0.5cqw, 5px);
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.card:fullscreen .g2048-scorebox span,
+.card.fs-fake .g2048-scorebox span,
+.card:fullscreen .muyu-scorebox span,
+.card.fs-fake .muyu-scorebox span {
+  font-size: clamp(12px, 1.2vw, 15px);
+  font-size: clamp(12px, 1.5cqw, 15px);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+.card:fullscreen .g2048-scorebox b,
+.card.fs-fake .g2048-scorebox b,
+.card:fullscreen .muyu-scorebox b,
+.card.fs-fake .muyu-scorebox b {
+  font-size: clamp(18px, 2.5vw, 30px);
+  font-size: clamp(18px, 3.2cqw, 30px);
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  line-height: 1.15;
+}
+/* 操作按钮比例放大、易点击热区与触感反馈 */
+.card:fullscreen .g2048-btn,
+.card.fs-fake .g2048-btn,
+.card:fullscreen .muyu-btn,
+.card.fs-fake .muyu-btn {
+  min-height: clamp(36px, 4.2vh, 48px);
+  min-height: clamp(36px, 4.8cqw, 48px);
+  padding: clamp(8px, 1vh, 12px) clamp(8px, 1vw, 16px);
+  padding: clamp(8px, 1.1cqw, 12px) clamp(8px, 1.3cqw, 16px);
+  border-radius: clamp(8px, 1.2cqw, 12px);
+  font-size: clamp(12.5px, 1.3vw, 15.5px);
+  font-size: clamp(12.5px, 1.6cqw, 15.5px);
+  font-weight: 500;
+  line-height: 1.35;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: transform 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.card:fullscreen .g2048-btn:hover:not(:disabled),
+.card.fs-fake .g2048-btn:hover:not(:disabled),
+.card:fullscreen .muyu-btn:hover,
+.card.fs-fake .muyu-btn:hover {
+  transform: translateY(-1.5px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+}
+.card:fullscreen .g2048-btn:active:not(:disabled),
+.card.fs-fake .g2048-btn:active:not(:disabled),
+.card:fullscreen .muyu-btn:active,
+.card.fs-fake .muyu-btn:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.card:fullscreen .g2048-btn svg,
+.card.fs-fake .g2048-btn svg,
+.card:fullscreen .muyu-btn svg,
+.card.fs-fake .muyu-btn svg {
+  width: 1.15em;
+  height: 1.15em;
+  vertical-align: -0.16em;
+}
+/* 全屏下动态增量数字与功德字样放大 */
+.card:fullscreen .g-add,
+.card.fs-fake .g-add {
+  font-size: clamp(14px, 2.2cqw, 20px);
+  top: -6px;
+}
+.card:fullscreen .m-add,
+.card.fs-fake .m-add {
+  font-size: clamp(22px, 3.8cqw, 34px);
+}
+/* 2048 全屏游戏结束弹层适配放大 */
+.card:fullscreen .go-title,
+.card.fs-fake .go-title {
+  font-size: clamp(20px, 3.2cqw, 28px);
+}
+.card:fullscreen .go-score,
+.card.fs-fake .go-score {
+  font-size: clamp(13px, 1.8cqw, 16px);
+}
+.card:fullscreen .go-btn,
+.card.fs-fake .go-btn {
+  padding: clamp(8px, 1.2cqw, 12px) clamp(16px, 2.5cqw, 24px);
+  font-size: clamp(13px, 1.8cqw, 15px);
+  border-radius: clamp(8px, 1.2cqw, 10px);
+}
+
+/* 窄屏手机（纵向）全屏响应：边距适度收窄，保留棋盘最大尺寸与舒适触控 */
+@media (max-width: 480px) {
+  .card:fullscreen .card-body,
+  .card.fs-fake .card-body {
+    padding-inline: 8px;
+  }
+  .card:fullscreen .g2048-side,
+  .card.fs-fake .g2048-side,
+  .card:fullscreen .muyu-side,
+  .card.fs-fake .muyu-side {
+    width: clamp(74px, 21vw, 88px);
+    gap: 6px;
+  }
+  .card:fullscreen .g2048-main,
+  .card.fs-fake .g2048-main,
+  .card:fullscreen .muyu-main,
+  .card.fs-fake .muyu-main {
+    gap: 8px;
+  }
+  .card:fullscreen .g2048-scorebox,
+  .card.fs-fake .g2048-scorebox,
+  .card:fullscreen .muyu-scorebox,
+  .card.fs-fake .muyu-scorebox {
+    padding: 7px 4px;
+    gap: 2px;
+    border-radius: 8px;
+  }
+  .card:fullscreen .g2048-scorebox span,
+  .card.fs-fake .g2048-scorebox span,
+  .card:fullscreen .muyu-scorebox span,
+  .card.fs-fake .muyu-scorebox span {
+    font-size: 11px;
+  }
+  .card:fullscreen .g2048-scorebox b,
+  .card.fs-fake .g2048-scorebox b,
+  .card:fullscreen .muyu-scorebox b,
+  .card.fs-fake .muyu-scorebox b {
+    font-size: 16px;
+  }
+  .card:fullscreen .g2048-btn,
+  .card.fs-fake .g2048-btn,
+  .card:fullscreen .muyu-btn,
+  .card.fs-fake .muyu-btn {
+    min-height: 34px;
+    padding: 6px 4px;
+    font-size: 12px;
+    border-radius: 8px;
+  }
+}
+
+/* 矮屏设备（手机横屏全屏）：紧凑高度自适应，防止纵向溢出滚动 */
+@media (max-height: 520px) {
+  .card:fullscreen .g2048-side,
+  .card.fs-fake .g2048-side,
+  .card:fullscreen .muyu-side,
+  .card.fs-fake .muyu-side {
+    gap: 4px;
+    width: clamp(78px, 15vw, 110px);
+  }
+  .card:fullscreen .g2048-scorebox,
+  .card.fs-fake .g2048-scorebox,
+  .card:fullscreen .muyu-scorebox,
+  .card.fs-fake .muyu-scorebox {
+    padding: 4px 5px;
+    gap: 1px;
+  }
+  .card:fullscreen .g2048-scorebox span,
+  .card.fs-fake .g2048-scorebox span,
+  .card:fullscreen .muyu-scorebox span,
+  .card.fs-fake .muyu-scorebox span {
+    font-size: 10px;
+  }
+  .card:fullscreen .g2048-scorebox b,
+  .card.fs-fake .g2048-scorebox b,
+  .card:fullscreen .muyu-scorebox b,
+  .card.fs-fake .muyu-scorebox b {
+    font-size: 15px;
+  }
+  .card:fullscreen .g2048-btn,
+  .card.fs-fake .g2048-btn,
+  .card:fullscreen .muyu-btn,
+  .card.fs-fake .muyu-btn {
+    min-height: 28px;
+    padding: 4px 6px;
+    font-size: 11px;
   }
 }
 
