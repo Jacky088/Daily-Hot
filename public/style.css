@@ -8892,7 +8892,11 @@ select:focus-visible {
   font-weight: 500;
   line-height: 1.35;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  transition: transform 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .card:fullscreen .g2048-btn:hover:not(:disabled),
 .card.fs-fake .g2048-btn:hover:not(:disabled),
