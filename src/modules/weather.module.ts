@@ -254,7 +254,8 @@ class ServiceWeather {
   handle(): RouterMiddleware<'/weather'> {
     return async (ctx) => {
       try {
-        const location = (await Common.getParam('query', ctx.request)) || '北京'
+        const location =
+          (await Common.getParam('query', ctx.request)) || (await Common.getParam('city', ctx.request)) || '北京'
 
         const city = (await Common.getParam('city', ctx.request)) || ''
         const province = (await Common.getParam('province', ctx.request)) || ''
@@ -299,7 +300,8 @@ class ServiceWeather {
   handleForecast(): RouterMiddleware<'/weather/forecast'> {
     return async (ctx) => {
       try {
-        const location = (await Common.getParam('query', ctx.request)) || '北京'
+        const location =
+          (await Common.getParam('query', ctx.request)) || (await Common.getParam('city', ctx.request)) || '北京'
         // days 归一化：非法/越界值钳制到 1-15，避免 NaN 让 slice(0, NaN) 返回空数组
         const daysRaw = Number.parseInt((await Common.getParam('days', ctx.request)) || '7')
         const days = Number.isNaN(daysRaw) ? 7 : Math.min(Math.max(daysRaw, 1), 15)
@@ -686,6 +688,29 @@ class ServiceWeather {
             }
           })
         : [],
+      forecast_7d: Array.isArray(data.forecast)
+        ? data.forecast.slice(0, 7).map((f) => ({
+            date: f.date,
+            week:
+              f.week ||
+              (dayjs(f.date).isValid()
+                ? ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][dayjs(f.date).day()]
+                : ''),
+            day_condition: f.weather_day || '',
+            night_condition: f.weather_night || '',
+            max_temperature: f.temp_max != null ? Math.round(f.temp_max) : null,
+            min_temperature: f.temp_min != null ? Math.round(f.temp_min) : null,
+            wind_direction: f.wind_dir_day || '',
+            wind_power: f.wind_scale_day || '',
+            humidity: f.humidity ?? null,
+            precip: f.precip ?? null,
+            uv_index: f.uv_index ?? null,
+            sunrise: f.sunrise || '',
+            sunset: f.sunset || '',
+            aqi: data.aqi ?? null,
+            air_quality: data.aqi_category || '',
+          }))
+        : [],
     }
   }
 
@@ -876,6 +901,24 @@ class ServiceWeather {
             detail: alarm.detail,
             updated: dayjs(alarm.update_time).format('YYYY-MM-DD HH:mm:ss'),
             updated_at: dayjs(alarm.update_time).toDate().getTime(),
+          }))
+        : [],
+      forecast_7d: Array.isArray(weatherData.forecast_24h)
+        ? weatherData.forecast_24h.slice(0, 7).map((d) => ({
+            date: d.time,
+            week: dayjs(d.time).isValid()
+              ? ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][dayjs(d.time).day()]
+              : '',
+            day_condition: d.day_weather,
+            night_condition: d.night_weather,
+            max_temperature: this.safeParseInt(d.max_degree),
+            min_temperature: this.safeParseInt(d.min_degree),
+            wind_direction: d.day_wind_direction,
+            wind_power: d.day_wind_power,
+            aqi: d.aqi,
+            air_quality: d.aqi_name,
+            day_weather_icon: d.day_weather_url,
+            night_weather_icon: d.night_weather_url,
           }))
         : [],
     }

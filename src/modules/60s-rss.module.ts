@@ -69,6 +69,10 @@ class Service60sRss {
           // Try to fetch data
           const data = await this.#tryUrl(dateStr)
           if (data) {
+            if (this.#cache.size >= 100) {
+              const oldest = this.#cache.keys().next().value
+              if (oldest) this.#cache.delete(oldest)
+            }
             this.#cache.set(dateStr, data)
             return data
           }

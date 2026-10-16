@@ -151,6 +151,10 @@ class Service60s {
       const data = await this.tryUrl(date)
 
       if (data) {
+        if (this.#cache.size >= 100) {
+          const oldest = this.#cache.keys().next().value
+          if (oldest) this.#cache.delete(oldest)
+        }
         this.#cache.set(date, data)
         return data
       }

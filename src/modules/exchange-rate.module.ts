@@ -1,11 +1,10 @@
 import { Common } from '../common.ts'
 import { fetchUpstreamJson } from '../fetch-upstream.ts'
+import { cached } from '../cache.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceExRate {
-  #cache = new Map<string, RateItem>()
-
   handle(): RouterMiddleware<'/exchange_rate'> {
     return async (ctx) => {
       const currency = ctx.request.url.searchParams.get('currency') || 'CNY'
@@ -35,38 +34,30 @@ class ServiceExRate {
     }
   }
 
-  async #fetch(currency = 'CNY') {
-    const dayKey = `${Common.localeDate()}-${currency}`
-    const cache = this.#cache.get(dayKey)
+  async #fetch(currency = 'CNY'): Promise<RateItem> {
+    const dayKey = `exchange_rate:${Common.localeDate()}:${currency.toUpperCase()}`
+    return cached(
+      dayKey,
+      async () => {
+        const api = 'https://open.er-api.com/v6/latest'
+        // currency 来自 query，必须编码：未编码时用户可塞进 / 或 ? 篡改上游的 path/query
+        const data = await fetchUpstreamJson<RateResponse>(`${api}/${encodeURIComponent(currency)}`)
+        const { time_last_update_unix, time_next_update_unix, base_code, rates } = data
 
-    if (cache) {
-      return cache
-    }
-
-    const api = 'https://open.er-api.com/v6/latest'
-    // currency 来自 query，必须编码：未编码时用户可塞进 / 或 ? 篡改上游的 path/query
-    const data = await fetchUpstreamJson<RateResponse>(`${api}/${encodeURIComponent(currency)}`)
-    const { time_last_update_unix, time_next_update_unix, base_code, rates } = data
-
-    const rateItem = {
-      base_code,
-      updated: Common.localeTime(time_last_update_unix * 1000),
-      updated_at: time_last_update_unix * 1000,
-      next_updated: Common.localeTime(time_next_update_unix * 1000),
-      next_updated_at: time_next_update_unix * 1000,
-      rates: Object.entries(rates).map(([key, value]) => ({
-        currency: key,
-        rate: value,
-      })),
-    }
-
-    const count = rates ? Object.keys(rates).length : 0
-
-    if (count > 0) {
-      this.#cache.set(dayKey, rateItem)
-    }
-
-    return rateItem
+        return {
+          base_code,
+          updated: Common.localeTime(time_last_update_unix * 1000),
+          updated_at: time_last_update_unix * 1000,
+          next_updated: Common.localeTime(time_next_update_unix * 1000),
+          next_updated_at: time_next_update_unix * 1000,
+          rates: Object.entries(rates || {}).map(([key, value]) => ({
+            currency: key,
+            rate: value,
+          })),
+        }
+      },
+      { ttl: 60 * 60 * 1000, cacheIf: (item) => item.rates.length > 0 },
+    )
   }
 }
 

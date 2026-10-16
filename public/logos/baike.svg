@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="baikeGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#baikeGrad)"/>
+  <path d="M8 9C8 8.4 8.4 8 9 8H21C22.7 8 24 9.3 24 11V23C24 23.6 23.6 24 23 24H10C8.9 24 8 23.1 8 22V9Z" fill="#FFFFFF" fill-opacity="0.25"/>
+  <path d="M7 8C7 7.4 7.4 7 8 7H20C21.7 7 23 8.3 23 10V22C23 22.6 22.6 23 22 23H9C7.9 23 7 22.1 7 21V8Z" stroke="#FFFFFF" stroke-width="1.8" fill="none"/>
+  <path d="M10 12H19M10 16H16" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round"/>
+</svg>

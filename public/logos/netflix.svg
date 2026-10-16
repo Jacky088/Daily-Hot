@@ -1,1 +1,12 @@
-﻿<svg fill="#E50914" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>Netflix</title><path d="m5.398 0 8.348 23.602c2.346.059 4.856.398 4.856.398L10.113 0H5.398zm8.489 0v9.172l4.715 13.33V0h-4.715zM5.398 1.5V24c1.873-.225 2.81-.312 4.715-.398V14.83L5.398 1.5z"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="nfGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#E50914"/>
+      <stop offset="100%" stop-color="#B20710"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#nfGrad)"/>
+  <g transform="translate(6, 6) scale(0.8333)">
+    <path fill="#FFFFFF" d="m5.398 0 8.348 23.602c2.346.059 4.856.398 4.856.398L10.113 0H5.398zm8.489 0v9.172l4.715 13.33V0h-4.715zM5.398 1.5V24c1.873-.225 2.81-.312 4.715-.398V0H5.398z"/>
+  </g>
+</svg>

@@ -38,11 +38,12 @@ export function blacklist(): Middleware {
     Common.debug(`[BLACKLIST] blacklist IP list: ${blocked.join(', ')}`)
 
     if (ip && blocked.includes(ip)) {
+      const safeIp = ip.replace(/[^\w.:-]/g, '')
       ctx.response.status = 403
       ctx.response.body = Common.buildJson(
         null,
         403,
-        `由于滥用等原因，该 IP (${ip}) 已被禁止，如有疑问请联系 ${config.author}`,
+        `由于滥用等原因，该 IP (${safeIp}) 已被禁止访问，如有疑问请联系 ${config.author}`,
       )
 
       console.log(`[BLACKLIST] Blocked request from IP: ${ip}, URL: ${url}, UA: ${ua}`)

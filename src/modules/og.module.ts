@@ -158,6 +158,7 @@ class ServiceOG {
       title: this.decodeHtmlEntities(titleRaw.trim()),
       image: resolveUrl(this.decodeHtmlEntities(imageRaw.trim())),
       description: this.decodeHtmlEntities(descriptionRaw.trim()),
+      url: _url.href,
     }
   }
 
@@ -280,7 +281,19 @@ class ServiceOG {
       return
     }
 
-    // 8) 域名解析校验（防范 DNS Rebinding 与解析到内网的域名，如 127.0.0.1.nip.io）
+    // 8) 常见 DNS 重绑定与私有泛解析域名检测（针对无 node:dns 的边缘运行时提供防御兜底）
+    const wildcardMatch = /(?:^|\.)(?:(\d{1,3}(?:\.\d{1,3}){3})\.(?:nip\.io|sslip\.io)|localtest\.me)$/i.exec(host)
+    if (wildcardMatch) {
+      if (wildcardMatch[1]) {
+        if (this.#isBlockedIPv4(wildcardMatch[1].split('.').map(Number))) {
+          throw new OgError('禁止访问内网地址')
+        }
+      } else {
+        throw new OgError('禁止访问内网地址')
+      }
+    }
+
+    // 9) 域名解析校验（防范 DNS Rebinding 与解析到内网的域名）
     // 在支持 node:dns 的运行时（Node / Bun / Deno）提前解析，边缘无此模块时优雅降级
     try {
       const dns = await import('node:dns/promises')
@@ -307,14 +320,21 @@ class ServiceOG {
 
   #isBlockedIPv6(host: string): boolean {
     const clean = host.toLowerCase().replace(/^\[|\]$/g, '')
-    if (clean === '::1' || clean === '::') return true
+    if (clean === '::1' || clean === '::' || clean === '0000:0000:0000:0000:0000:0000:0000:0001') return true
 
-    const mapped = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(clean)
-    if (mapped) {
-      const hi = parseInt(mapped[1], 16)
-      const lo = parseInt(mapped[2], 16)
-      const octets = [(hi >> 8) & 255, hi & 255, (lo >> 8) & 255, lo & 255]
-      return this.#isBlockedIPv4(octets)
+    // IPv4-mapped IPv6 支持点分十进制与十六进制两种表示（如 ::ffff:127.0.0.1 或 ::ffff:7f00:1）
+    if (clean.startsWith('::ffff:')) {
+      const rest = clean.slice(7)
+      if (/^\d{1,3}(\.\d{1,3}){3}$/.test(rest)) {
+        return this.#isBlockedIPv4(rest.split('.').map(Number))
+      }
+      const mapped = /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(rest)
+      if (mapped) {
+        const hi = parseInt(mapped[1], 16)
+        const lo = parseInt(mapped[2], 16)
+        const octets = [(hi >> 8) & 255, hi & 255, (lo >> 8) & 255, lo & 255]
+        return this.#isBlockedIPv4(octets)
+      }
     }
 
     // fc00::/7 唯一本地地址、fe80::/10 链路本地

@@ -106,7 +106,7 @@
             </svg>
             <span class="sb-brand">
               <b class="text">今日热榜</b>
-              <i class="subtitle">聚合全网热点</i>
+              <span class="subtitle">聚合全网热点</span>
             </span>
           </div>
           <button class="sb-close" id="sbClose" type="button" aria-label="收起菜单">
@@ -184,7 +184,7 @@
                 id="ssInput"
                 type="search"
                 name="q"
-                placeholder="站内搜源/热词，或回车全网搜索…"
+                placeholder="搜索你想知道的内容，或回车搜索"
                 aria-label="搜索关键词"
                 autocomplete="off"
                 spellcheck="false"
@@ -324,10 +324,8 @@
                 aria-label="万年历时钟胶囊，点击查看农历与节假日"
               >
                 <div class="clock-fill" data-fill="desktop"></div>
-                <!-- 泡泡层：铺满胶囊，由 CSS clip-path 按今日进度裁出可见区（只活在橙色区间内） -->
-                <div class="clock-bubbles" aria-hidden="true">
-                  <i class="bubble"></i><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i>
-                </div>
+                <!-- 晨昏光影层：铺满胶囊，由 CSS clip-path 按今日进度裁出可见区 -->
+                <div class="clock-bubbles" aria-hidden="true"></div>
                 <span class="clock-dot"></span>
                 <span class="clock-date" id="clockDateDesktop">今天是 ----年-月-日 周-</span>
                 <span class="clock-time" id="clockTimeDesktop">--:--:--</span>
@@ -341,9 +339,7 @@
                 aria-label="万年历时钟胶囊，点击查看农历与节假日"
               >
                 <div class="clock-fill" data-fill="mobile"></div>
-                <div class="clock-bubbles" aria-hidden="true">
-                  <i class="bubble"></i><i class="bubble"></i><i class="bubble"></i><i class="bubble"></i>
-                </div>
+                <div class="clock-bubbles" aria-hidden="true"></div>
                 <span class="clock-dot"></span>
                 <span class="clock-date" id="clockDateMobile">今天是 ----年-月-日 周-</span>
                 <span class="clock-time" id="clockTimeMobile">--:--:--</span>
@@ -482,6 +478,37 @@
           </button>
         </div>
         <div class="cal-modal-body" id="calModalBody"></div>
+      </div>
+    </div>
+
+    <!-- 7天天气详细预报弹窗 -->
+    <div class="cal-modal-overlay wx-modal-overlay" id="wxModalOverlay" hidden>
+      <div
+        class="cal-modal-card wx-modal-card dd-pop"
+        id="wxModalCard"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="wxModalTitle"
+      >
+        <div class="cal-modal-head wx-modal-head">
+          <div class="cal-modal-title wx-modal-title" id="wxModalTitle">
+            <span class="cal-modal-icon wx-modal-icon"
+              ><img class="emo" src="/emoji/1f324.svg" alt="🌤️" draggable="false"
+            /></span>
+            <span class="cal-modal-text wx-modal-text">7天天气预报</span>
+            <span class="wx-modal-loc" id="wxModalLoc">--</span>
+          </div>
+          <button
+            class="cal-modal-close wx-modal-close"
+            id="wxModalClose"
+            type="button"
+            aria-label="关闭天气详情"
+            title="关闭 (Esc)"
+          >
+            ✕
+          </button>
+        </div>
+        <div class="cal-modal-body wx-modal-body" id="wxModalBody"></div>
       </div>
     </div>
 

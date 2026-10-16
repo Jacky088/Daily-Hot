@@ -24,6 +24,7 @@ interface CircuitState {
 }
 
 const circuitMap = new Map<string, CircuitState>()
+const MAX_CIRCUIT_ENTRIES = 500 // 熔断器状态容量上限，防范任意外部域名探测导致内存累积
 const FAILURE_THRESHOLD = 5 // 连续 5 次超时或 5xx 失败触发熔断
 const COOLDOWN_MS = 30_000 // 熔断冷却 30 秒
 
@@ -121,6 +122,10 @@ export async function fetchUpstream(url: string | URL, opts: FetchUpstreamOption
     if (state.failures >= FAILURE_THRESHOLD) {
       state.isOpen = true
       state.nextAttempt = now + COOLDOWN_MS
+    }
+    if (circuitMap.size >= MAX_CIRCUIT_ENTRIES && !circuitMap.has(host)) {
+      const oldestKey = circuitMap.keys().next().value
+      if (oldestKey) circuitMap.delete(oldestKey)
     }
     circuitMap.set(host, state)
   }

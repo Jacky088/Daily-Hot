@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 110" width="160" height="110">
+  <defs>
+    <linearGradient id="bg-zhihu" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0094FF"/>
+      <stop offset="50%" stop-color="#0084FF"/>
+      <stop offset="100%" stop-color="#0062D6"/>
+    </linearGradient>
+    <radialGradient id="highlight-zhihu" cx="25%" cy="25%" r="60%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow-zhihu" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#00357a" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="160" height="110" rx="12" fill="url(#bg-zhihu)"/>
+  <rect width="160" height="110" rx="12" fill="url(#highlight-zhihu)"/>
+
+  <!-- Geometric Insight Light Rays -->
+  <path d="M-20,0 L180,90 L180,95 L-20,5 Z" fill="#FFFFFF" fill-opacity="0.06"/>
+  <path d="M-20,20 L180,110 L180,115 L-20,25 Z" fill="#FFFFFF" fill-opacity="0.04"/>
+
+  <!-- Official Zhihu "知" Emblem (Centered) -->
+  <g transform="translate(62, 16) scale(1.5)" filter="url(#shadow-zhihu)">
+    <path fill="#FFFFFF" d="M5.721 0C2.251 0 0 2.25 0 5.719V18.28C0 21.751 2.252 24 5.721 24h12.56C21.751 24 24 21.75 24 18.281V5.72C24 2.249 21.75 0 18.281 0zm1.964 4.078c-.271.73-.5 1.434-.68 2.11h4.587c.545-.006.445 1.168.445 1.171H9.384a58.104 58.104 0 01-.112 3.797h2.712c.388.023.393 1.251.393 1.266H9.183a9.223 9.223 0 01-.408 2.102l.757-.604c.452.456 1.512 1.712 1.906 2.177.473.681.063 2.081.063 2.081l-2.794-3.382c-.653 2.518-1.845 3.607-1.845 3.607-.523.468-1.58.82-2.64.516 2.218-1.73 3.44-3.917 3.667-6.497H4.491c0-.015.197-1.243.806-1.266h2.71c.024-.32.086-3.254.086-3.797H6.598c-.136.406-.158.447-.268.753-.594 1.095-1.603 1.122-1.907 1.155.906-1.821 1.416-3.6 1.591-4.064.425-1.124 1.671-1.125 1.671-1.125zM13.078 6h6.377v11.33h-2.573l-2.184 1.373-.401-1.373h-1.219zm1.313 1.219v8.86h.623l.263.937 1.455-.938h1.456v-8.86z"/>
+  </g>
+
+  <!-- Brand Title -->
+  <text x="80" y="86" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700" fill="#FFFFFF" letter-spacing="1.5">知乎热榜</text>
+  <text x="80" y="98" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="8.5" font-weight="600" fill="#FFFFFF" fill-opacity="0.8" letter-spacing="1">ZHIHU HOT</text>
+</svg>

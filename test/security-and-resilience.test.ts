@@ -101,6 +101,8 @@ describe('SSRF 安全防护（ServiceOG）', () => {
       'http://169.254.169.254',
       'http://192.168.1.1',
       'http://10.0.0.1',
+      'http://[::ffff:127.0.0.1]',
+      'http://127.0.0.1.nip.io',
     ]
 
     for (const target of blockedTargets) {
@@ -116,5 +118,49 @@ describe('SSRF 安全防护（ServiceOG）', () => {
       assert.equal(ctx.response.status, 400)
       assert.match(ctx.response.body.message, /禁止访问/)
     }
+  })
+})
+
+describe('Hash 模块安全性与解压限制', async () => {
+  const { serviceHash } = await import('../src/modules/hash.module.ts')
+
+  it('正常压缩串正确解压', () => {
+    const text = 'Hello, world! 这是一个测试'
+    const encoded = serviceHash.gzipEncode(text)
+    const decoded = serviceHash.gzipDecode(encoded)
+    assert.equal(decoded, text)
+  })
+
+  it('超大解压炸弹被安全拦截，不崩溃退出', async () => {
+    const { gzipSync } = await import('node:zlib')
+    // 构造压缩比极高的零字节数据包（解压体积 > 1MB）
+    const hugeZeros = Buffer.alloc(2 * 1024 * 1024, 0)
+    const bombHex = gzipSync(hugeZeros).toString('hex')
+    // gzipDecode 遇到超过 1MB 解压上限时安全捕获并返回空串
+    const res = serviceHash.gzipDecode(bombHex)
+    assert.equal(res, '', '解压炸弹应被截断/拦截并返回空串')
+  })
+})
+
+describe('Password 模块 CSPRNG 随机性与洗牌', async () => {
+  const { servicePassword } = await import('../src/modules/password/password.module.ts')
+
+  it('生成的随机密码符合长度和字符集要求', async () => {
+    const ctx: any = {
+      request: {
+        url: new URL(
+          'http://localhost:4399/v2/password?length=24&numbers=true&symbols=true&lowercase=true&uppercase=true',
+        ),
+      },
+      response: { status: 200, body: null },
+      state: { encoding: 'json' },
+    }
+    await servicePassword.handle()(ctx, async () => {})
+    assert.equal(ctx.response.status, 200)
+    const data = typeof ctx.response.body === 'string' ? JSON.parse(ctx.response.body) : ctx.response.body
+    assert.equal(data.data.password.length, 24)
+    assert.match(data.data.password, /[a-z]/)
+    assert.match(data.data.password, /[A-Z]/)
+    assert.match(data.data.password, /\d/)
   })
 })

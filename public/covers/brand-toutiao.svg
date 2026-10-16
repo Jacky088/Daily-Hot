@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 110" width="160" height="110">
+  <defs>
+    <linearGradient id="bg-toutiao" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F84646"/>
+      <stop offset="60%" stop-color="#E5252B"/>
+      <stop offset="100%" stop-color="#C7151B"/>
+    </linearGradient>
+    <radialGradient id="highlight-toutiao" cx="25%" cy="25%" r="60%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow-toutiao" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#6b0004" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="160" height="110" rx="12" fill="url(#bg-toutiao)"/>
+  <rect width="160" height="110" rx="12" fill="url(#highlight-toutiao)"/>
+
+  <!-- Newspaper / Broadcast Background Geometry -->
+  <path d="M-10,25 L170,55 L170,60 L-10,30 Z" fill="#FFFFFF" fill-opacity="0.06"/>
+  <path d="M-10,50 L170,80 L170,85 L-10,55 Z" fill="#FFFFFF" fill-opacity="0.04"/>
+
+  <!-- Official Toutiao Emblem Icon (Card) -->
+  <g transform="translate(64, 18)" filter="url(#shadow-toutiao)">
+    <rect width="32" height="32" rx="8" fill="#FFFFFF"/>
+    <!-- Toutiao Bold Red Character / Emblem -->
+    <rect x="6" y="7" width="20" height="4" rx="1.5" fill="#E5252B"/>
+    <rect x="14" y="11" width="4" height="14" rx="1" fill="#E5252B"/>
+    <rect x="7" y="15" width="18" height="3.5" rx="1" fill="#E5252B"/>
+    <path d="M9,20 Q6,25 4,27" stroke="#E5252B" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+    <path d="M23,20 Q26,25 28,27" stroke="#E5252B" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  </g>
+
+  <!-- Brand Title -->
+  <text x="80" y="86" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700" fill="#FFFFFF" letter-spacing="1.5">今日头条</text>
+  <text x="80" y="98" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="8.5" font-weight="600" fill="#FFFFFF" fill-opacity="0.8" letter-spacing="1">TOUTIAO NEWS</text>
+</svg>

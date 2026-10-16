@@ -106,9 +106,14 @@ class ServiceHash {
     return gzipSync(Buffer.from(content)).toString('hex')
   }
 
+  // 解压体积上限：最大 1MB，防范恶意高压缩比解压炸弹（Zip Bomb DoS）耗尽内存
+  private static readonly MAX_DECOMPRESSED_BYTES = 1024 * 1024
+
   gzipDecode(content: string) {
     try {
-      return unzipSync(Buffer.from(content.replace(/\s*/g, ''), 'hex')).toString('utf8')
+      return unzipSync(Buffer.from(content.replace(/\s+/g, ''), 'hex'), {
+        maxOutputLength: ServiceHash.MAX_DECOMPRESSED_BYTES,
+      }).toString('utf8')
     } catch {
       return ''
     }
@@ -120,7 +125,9 @@ class ServiceHash {
 
   deflateDecode(content: string) {
     try {
-      return inflateSync(Buffer.from(content.replace(/\s*/g, ''), 'hex')).toString('utf8')
+      return inflateSync(Buffer.from(content.replace(/\s+/g, ''), 'hex'), {
+        maxOutputLength: ServiceHash.MAX_DECOMPRESSED_BYTES,
+      }).toString('utf8')
     } catch {
       return ''
     }
@@ -132,7 +139,9 @@ class ServiceHash {
 
   brotliDecode(content: string) {
     try {
-      return brotliDecompressSync(Buffer.from(content.replace(/\s*/g, ''), 'hex')).toString('utf8')
+      return brotliDecompressSync(Buffer.from(content.replace(/\s+/g, ''), 'hex'), {
+        maxOutputLength: ServiceHash.MAX_DECOMPRESSED_BYTES,
+      }).toString('utf8')
     } catch {
       return ''
     }

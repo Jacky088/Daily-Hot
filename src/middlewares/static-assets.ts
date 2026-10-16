@@ -106,6 +106,7 @@ export function staticAssets(): Middleware {
       // 分级缓存：入口与无 hash 的 JS/CSS 每次回源（发版即时生效），
       // 不可变图标资源长缓存（SW 侧已做 SWR，这里再给浏览器一年 immutable）
       ctx.response.headers.set('Cache-Control', cacheControlFor(path))
+      ctx.response.headers.set('X-Content-Type-Options', 'nosniff')
       ctx.response.body = content
     } catch {
       // 文件不存在，交给后续路由

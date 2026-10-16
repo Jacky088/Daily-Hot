@@ -1,11 +1,10 @@
 import { Common, dayjs, TZ_SHANGHAI } from '../common.ts'
 import { fetchUpstreamJson } from '../fetch-upstream.ts'
+import { cached } from '../cache.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
 class ServiceTodayInHistory {
-  private cache = new Map<string, HistoryItem[]>()
-
   handle(): RouterMiddleware<'/today_in_history'> {
     return async (ctx) => {
       const date = ctx.request.url.searchParams.get('date')
@@ -39,44 +38,33 @@ class ServiceTodayInHistory {
     const todayField = now.format('MMDD')
     const monthAndDay = now.format('M-D')
 
-    if (this.cache.has(monthAndDay)) {
-      return {
-        date: monthAndDay,
-        month: now.month() + 1,
-        day: now.date(),
-        items: this.cache.get(monthAndDay)!.map((e) => ({
-          title: e.title,
-          year: e.year,
-          description: e.desc,
-          event_type: e.type,
-          link: e.link,
-        })),
-      }
-    }
+    const modifiedTodayEvents = await cached(
+      `today_in_history:${monthAndDay}`,
+      async () => {
+        // 历史上的今天数据源：fetchUpstream 给 8s + 1 次重试，原来裸 fetch 无超时
+        const res = await fetchUpstreamJson<AnyObject<AnyObject<AnyObject[]>>>(this.getHistoryApi(now.month() + 1))
+        const monthEvents: AnyObject<AnyObject<AnyObject[]>> = res
+        const todayEvents = monthEvents?.[String(now.format('MM'))]?.[todayField] ?? []
 
-    // 历史上的今天数据源：fetchUpstream 给 8s + 1 次重试，原来裸 fetch 无超时
-    const res = await fetchUpstreamJson<AnyObject<AnyObject<AnyObject[]>>>(this.getHistoryApi(now.month() + 1))
-    const monthEvents: AnyObject<AnyObject<AnyObject[]>> = res
-    const todayEvents = monthEvents?.[String(now.format('MM'))]?.[todayField] ?? []
+        todayEvents.sort((a, b) => a.year - b.year)
 
-    todayEvents.sort((a, b) => a.year - b.year)
+        return todayEvents.map((e) => {
+          let desc = this.transformChars(e.desc as string)
 
-    const modifiedTodayEvents = todayEvents.map((e) => {
-      let desc = this.transformChars(e.desc as string)
+          if (!desc.endsWith('.') && !desc.endsWith('。')) desc += '...'
 
-      if (!desc.endsWith('.') && !desc.endsWith('。')) desc += '...'
-
-      return {
-        title: this.transformChars(e.title as string),
-        year: e.year as string,
-        date: monthAndDay,
-        desc: desc,
-        type: e.type as 'birth' | 'death' | 'event',
-        link: e.link as string,
-      }
-    })
-
-    this.cache.set(monthAndDay, modifiedTodayEvents)
+          return {
+            title: this.transformChars(e.title as string),
+            year: e.year as string,
+            date: monthAndDay,
+            desc: desc,
+            type: e.type as 'birth' | 'death' | 'event',
+            link: e.link as string,
+          }
+        })
+      },
+      { ttl: 24 * 60 * 60 * 1000, cacheIf: (list) => list.length > 0 },
+    )
 
     return {
       date: monthAndDay,

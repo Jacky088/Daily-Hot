@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="moyuGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#06B6D4"/>
+      <stop offset="100%" stop-color="#0891B2"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#moyuGrad)"/>
+  <path d="M8 16C12 11 18 11 23 14C24.5 15 25.5 16 25.5 16C25.5 16 24.5 17 23 18C18 21 12 21 8 16Z" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <circle cx="20.5" cy="15.5" r="1.2" fill="#FFFFFF"/>
+  <path d="M8 16L5.5 13.5M8 16L5.5 18.5" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round"/>
+</svg>

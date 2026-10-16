@@ -26,11 +26,22 @@ interface Bucket {
 
 const buckets = new Map<string, Bucket>()
 
+const MAX_BUCKETS = 10_000 // 最大桶数量上限，防止伪造 IP 洪水攻击耗尽内存
+
 // 定期清理长时间未访问的桶，避免内存无限增长
 function cleanupBuckets() {
   const now = Date.now()
   for (const [ip, b] of buckets) {
     if (now - b.lastSeen > BUCKET_TTL_MS) buckets.delete(ip)
+  }
+  // 极端突发 IP 攻击兜底：若仍超过容量上限，强制淘汰最早的条目
+  if (buckets.size > MAX_BUCKETS) {
+    const toDelete = buckets.size - MAX_BUCKETS
+    let count = 0
+    for (const ip of buckets.keys()) {
+      buckets.delete(ip)
+      if (++count >= toDelete) break
+    }
   }
 }
 // 每分钟清理一次（惰性触发，无需定时器依赖）
@@ -45,7 +56,7 @@ export function rateLimit(): Middleware {
     }
 
     const now = Date.now()
-    if (now - lastCleanup > 60_000) {
+    if (now - lastCleanup > 60_000 || buckets.size > MAX_BUCKETS) {
       cleanupBuckets()
       lastCleanup = now
     }

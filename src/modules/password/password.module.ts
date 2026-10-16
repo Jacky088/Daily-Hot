@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import { Common } from '../../common.ts'
 import commonPasswordsData from './passwords.json' with { type: 'json' }
 
@@ -366,14 +367,19 @@ class ServicePassword {
   }
 
   private getRandomChar(charset: string): string {
-    return charset[Math.floor(Math.random() * charset.length)]
+    return charset[crypto.randomInt(0, charset.length)]
   }
 
   private shuffleString(str: string): string {
-    return str
-      .split('')
-      .sort(() => Math.random() - 0.5)
-      .join('')
+    const arr = str.split('')
+    // Fisher-Yates (Knuth) 密码学安全随机洗牌，避免 Math.random() - 0.5 造成的概率偏倚
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = crypto.randomInt(0, i + 1)
+      const temp = arr[i]
+      arr[i] = arr[j]
+      arr[j] = temp
+    }
+    return arr.join('')
   }
 
   private calculateEntropy(password: string, charsetSize: number): number {

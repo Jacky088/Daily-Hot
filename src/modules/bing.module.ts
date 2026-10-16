@@ -1,5 +1,6 @@
 import { Common, dayjs } from '../common.ts'
 import { fetchUpstreamJson, fetchUpstreamText } from '../fetch-upstream.ts'
+import { cached } from '../cache.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -21,11 +22,6 @@ interface BingItem {
   update_date_at: number
 }
 class ServiceBing {
-  #cache = new Map<string, BingItem>()
-  // 列表缓存与单张缓存分开存：两者的返回类型不同，混在一个 Map 里
-  // 会让每次 get 都要做类型收窄，得不偿失
-  #listCache = new Map<string, BingItem[]>()
-
   handle(): RouterMiddleware<'/bing'> {
     return async (ctx) => {
       const data = await this.#fetch()
@@ -112,127 +108,124 @@ class ServiceBing {
     return `https://bing.com/th?id=${id}_UHD.jpg`
   }
 
-  async #fetch() {
-    const dailyUniqueKey = Common.localeDate()
-    const cache = this.#cache.get(dailyUniqueKey)
+  async #fetch(): Promise<BingItem | null> {
+    const dailyUniqueKey = `bing:today:${Common.localeDate()}`
+    return cached(
+      dailyUniqueKey,
+      async () => {
+        // 必应归属判定按出口 IP geo 来：之前伪造 X-Forwarded-For 拿国内图源，
+        // fragile 且有合规观感，已去掉；geo 漂移只影响壁纸选题，不影响功能
+        const rawContent = await fetchUpstreamText('https://global.bing.com/?setmkt=zh-cn')
 
-    if (cache) {
-      return cache
-    }
+        const rawJson = /var\s*_model\s*=\s*([^;]+);/.exec(rawContent)?.[1] || '{}'
+        const images = JSON.parse(rawJson)?.MediaContents ?? []
 
-    // 必应归属判定按出口 IP geo 来：之前伪造 X-Forwarded-For 拿国内图源，
-    // fragile 且有合规观感，已去掉；geo 漂移只影响壁纸选题，不影响功能
-    const rawContent = await fetchUpstreamText('https://global.bing.com/?setmkt=zh-cn')
+        const now = dayjs()
 
-    const rawJson = /var\s*_model\s*=\s*([^;]+);/.exec(rawContent)?.[1] || '{}'
-    const images = JSON.parse(rawJson)?.MediaContents ?? []
+        if (!images.length) {
+          const api = 'https://global.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&setmkt=zh-cn'
+          const { images = [] } = await fetchUpstreamJson<{
+            images?: Array<{ url?: string; title?: string; copyright?: string }>
+          }>(api)
+          const image = images[0]
+          if (!image) return null
 
-    const now = dayjs()
+          return {
+            title: image.title || '',
+            headline: image.title || '',
+            description: image.title || '',
+            main_text: image.title || '',
+            cover: image?.url ? this.getUrl(`https://bing.com${image.url}`) : '',
+            cover_4k: image?.url ? this.get4kUrl(`https://bing.com${image.url}`) : '',
+            copyright: image.copyright || '',
+            update_date: now.format('YYYY-MM-DD HH:mm:ss'),
+            update_date_at: now.valueOf(),
+          }
+        }
 
-    if (!images.length) {
-      const api = 'https://global.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&setmkt=zh-cn'
-      const { images = [] } = await fetchUpstreamJson<{
-        images?: Array<{ url?: string; title?: string; copyright?: string }>
-      }>(api)
-      const image = images[0]
-      if (!image) return null
+        const { ImageContent = {} } = images[0] || {}
 
-      return {
-        title: image.title || '',
-        headline: image.title || '',
-        description: image.title || '',
-        main_text: image.title || '',
-        cover: image?.url ? this.getUrl(`https://bing.com${image.url}`) : '',
-        cover_4k: image?.url ? this.get4kUrl(`https://bing.com${image.url}`) : '',
-        copyright: image.copyright || '',
-        update_date: now.format('YYYY-MM-DD HH:mm:ss'),
-        update_date_at: now.valueOf(),
-      }
-    }
+        const { Description, Image, Headline, Title, Copyright, QuickFact } = (ImageContent || {}) as {
+          Description: string
+          Image: {
+            Url: string
+            Wallpaper: string
+            Downloadable: boolean
+          }
+          Headline: string
+          Title: string
+          Copyright: string
+          SocialGood: null
+          MapLink: {
+            Url: string
+            Link: string
+          }
+          QuickFact: {
+            MainText: string
+            LinkUrl: string
+            LinkText: string
+          }
+          TriviaUrl: string
+          BackstageUrl: string
+          TriviaId: string
+        }
 
-    const { ImageContent = {} } = images[0] || {}
-
-    const { Description, Image, Headline, Title, Copyright, QuickFact } = (ImageContent || {}) as {
-      Description: string
-      Image: {
-        Url: string
-        Wallpaper: string
-        Downloadable: boolean
-      }
-      Headline: string
-      Title: string
-      Copyright: string
-      SocialGood: null
-      MapLink: {
-        Url: string
-        Link: string
-      }
-      QuickFact: {
-        MainText: string
-        LinkUrl: string
-        LinkText: string
-      }
-      TriviaUrl: string
-      BackstageUrl: string
-      TriviaId: string
-    }
-
-    const data = {
-      title: Title,
-      headline: Headline,
-      description: Description,
-      main_text: QuickFact?.MainText || '',
-      cover: Image?.Wallpaper ? this.getUrl(`https://bing.com${Image.Wallpaper}`) : '',
-      cover_4k: Image?.Wallpaper ? this.get4kUrl(`https://bing.com${Image.Wallpaper}`) : '',
-      copyright: Copyright,
-      update_date: now.format('YYYY-MM-DD HH:mm:ss'),
-      update_date_at: now.valueOf(),
-    }
-
-    this.#cache.set(dailyUniqueKey, data)
-
-    return data
+        return {
+          title: Title,
+          headline: Headline,
+          description: Description,
+          main_text: QuickFact?.MainText || '',
+          cover: Image?.Wallpaper ? this.getUrl(`https://bing.com${Image.Wallpaper}`) : '',
+          cover_4k: Image?.Wallpaper ? this.get4kUrl(`https://bing.com${Image.Wallpaper}`) : '',
+          copyright: Copyright,
+          update_date: now.format('YYYY-MM-DD HH:mm:ss'),
+          update_date_at: now.valueOf(),
+        }
+      },
+      { ttl: 30 * 60 * 1000, cacheIf: (data) => Boolean(data?.cover) },
+    )
   }
 
   // 最近 n 天壁纸（含今日，最新在前）
   async #fetchList(n: number): Promise<BingItem[]> {
     // 缓存键必须带上 n：不同条数的请求落在同一个键上会互相污染，
     // 先请求 n=3 再请求 n=7 就会拿到被截断的那份
-    const cacheKey = `${Common.localeDate()}:list:${n}`
-    const cache = this.#listCache.get(cacheKey)
-    if (cache) return cache
+    const cacheKey = `bing:list:${Common.localeDate()}:${n}`
+    return cached(
+      cacheKey,
+      async () => {
+        const api = `https://global.bing.com/HPImageArchive.aspx?format=js&idx=0&n=${n}&setmkt=zh-cn`
+        const { images = [] } = await fetchUpstreamJson<{
+          images?: Array<{ url?: string; title?: string; copyright?: string; startdate?: string }>
+        }>(api)
 
-    const api = `https://global.bing.com/HPImageArchive.aspx?format=js&idx=0&n=${n}&setmkt=zh-cn`
-    const { images = [] } = await fetchUpstreamJson<{
-      images?: Array<{ url?: string; title?: string; copyright?: string; startdate?: string }>
-    }>(api)
+        const list: BingItem[] = images
+          .filter((e) => e?.url)
+          .map((e) => {
+            // startdate 形如 20260907，转成 YYYY-MM-DD 给前端直接显示
+            const s = e.startdate || ''
+            const date = s.length === 8 ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}` : ''
+            const now = dayjs()
+            const cover = this.getUrl(`https://bing.com${e.url}`)
+            return {
+              title: e.title || '',
+              headline: e.title || '',
+              description: e.title || '',
+              main_text: '',
+              cover,
+              cover_4k: this.get4kUrl(`https://bing.com${e.url}`),
+              cover_portrait: cover.replace('_1920x1080.jpg', '_1080x1920.jpg'),
+              copyright: e.copyright || '',
+              date,
+              update_date: date ? `${date} 00:00:00` : now.format('YYYY-MM-DD HH:mm:ss'),
+              update_date_at: date ? dayjs(date).valueOf() : now.valueOf(),
+            }
+          })
 
-    const list: BingItem[] = images
-      .filter((e) => e?.url)
-      .map((e) => {
-        // startdate 形如 20260907，转成 YYYY-MM-DD 给前端直接显示
-        const s = e.startdate || ''
-        const date = s.length === 8 ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}` : ''
-        const now = dayjs()
-        const cover = this.getUrl(`https://bing.com${e.url}`)
-        return {
-          title: e.title || '',
-          headline: e.title || '',
-          description: e.title || '',
-          main_text: '',
-          cover,
-          cover_4k: this.get4kUrl(`https://bing.com${e.url}`),
-          cover_portrait: cover.replace('_1920x1080.jpg', '_1080x1920.jpg'),
-          copyright: e.copyright || '',
-          date,
-          update_date: date ? `${date} 00:00:00` : now.format('YYYY-MM-DD HH:mm:ss'),
-          update_date_at: date ? dayjs(date).valueOf() : now.valueOf(),
-        }
-      })
-
-    if (list.length) this.#listCache.set(cacheKey, list)
-
-    return list
+        return list
+      },
+      { ttl: 30 * 60 * 1000, cacheIf: (list) => list.length > 0 },
+    )
   }
 }
 

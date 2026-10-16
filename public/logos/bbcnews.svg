@@ -1,5 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="6" fill="#BB1919"/>
-  <text x="16" y="21.5" font-family="Arial, Helvetica, sans-serif" font-size="11.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle" letter-spacing="-0.3">BBC</text>
-  <rect x="4" y="24" width="24" height="3" rx="1.5" fill="#FFFFFF" opacity="0.92"/>
+  <defs>
+    <linearGradient id="bbcGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#CC1919"/>
+      <stop offset="100%" stop-color="#991111"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#bbcGrad)"/>
+  <text x="16" y="21" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,sans-serif" font-size="10.5" font-weight="900" fill="#FFFFFF" text-anchor="middle" letter-spacing="1">BBC</text>
+  <line x1="7" y1="23.5" x2="25" y2="23.5" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round"/>
 </svg>
