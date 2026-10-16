@@ -4378,6 +4378,12 @@ function init() {
   }
   document.addEventListener('click', (e) => {
     if (!appShell || !appShell.classList.contains('sidebar-open')) return
+    // 若点击发生在任何全屏弹窗（如天气详情、万年历）内部或其遮罩上，绝不得关闭侧栏抽屉
+    if (e.target && e.target.closest && e.target.closest('.cal-modal-overlay, .wx-modal-overlay')) return
+    // 若当前仍有全屏弹窗处于打开状态，点击外部不应误收抽屉
+    const activeModal = document.querySelector('.cal-modal-overlay:not([hidden]), .wx-modal-overlay:not([hidden])')
+    if (activeModal) return
+
     const sidebar = document.querySelector('.sidebar')
     if (sidebar && !sidebar.contains(e.target) && (!sbToggle || !sbToggle.contains(e.target))) {
       closeSidebar()
@@ -4385,6 +4391,10 @@ function init() {
   })
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return
+    // 若当前有全屏弹窗处于打开状态，Esc 仅用于关闭最上层弹窗，绝不得关闭侧栏抽屉
+    const activeModal = document.querySelector('.cal-modal-overlay:not([hidden]), .wx-modal-overlay:not([hidden])')
+    if (activeModal) return
+
     // 目录面板开着先收它，收完才轮到抽屉
     if (tocPanel && tocPanel.classList.contains('open')) setTocPanelOpen(false)
     else closeSidebar()
@@ -5926,9 +5936,18 @@ function initCalendarModal() {
     })
   })
 
-  closeBtn.addEventListener('click', closeModal)
+  closeBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    closeModal()
+  })
   overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) closeModal()
+    if (e.target === overlay) {
+      e.stopPropagation()
+      closeModal()
+    }
+  })
+  card.addEventListener('click', (e) => {
+    e.stopPropagation()
   })
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !overlay.hidden) closeModal()
@@ -6308,9 +6327,18 @@ function initWeatherModal() {
     closeBtn.focus()
   }
 
-  closeBtn.addEventListener('click', closeModal)
+  closeBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    closeModal()
+  })
   overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) closeModal()
+    if (e.target === overlay) {
+      e.stopPropagation()
+      closeModal()
+    }
+  })
+  card.addEventListener('click', (e) => {
+    e.stopPropagation()
   })
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !overlay.hidden) closeModal()
