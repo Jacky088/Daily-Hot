@@ -941,70 +941,6 @@ const HERO_FLAME_PATH =
   '3.64 16.71 3.64 15.80 3.34 15.50 3.34 12.46 3.64 12.15 3.64 11.24 3.94 10.94 4.25 9.72 ' +
   '4.25 10.63 4.55 11.24 6.38 13.06 6.98 13.06 7.29 12.76 7.29 12.15 6.98 11.85 6.98 9.11 ' +
   '7.29 8.81 7.29 7.90 7.90 6.68 8.50 6.07 8.50 5.46 10.63 2.73 11.24 1.51 11.54 1.51Z'
-// 时钟图标：形状和效果图一致（圆环 + 指针），只把颜色从 currentColor 换成实测的蓝灰。
-// 效果图里芯片图标整体比标签文字更偏蓝更亮（实心堆叠块的腐蚀核心实测 #697085，
-// 而标签文字的等效墨色要灰得多），所以单独给色而不是跟着 currentColor。
-const HERO_ICON_CLOCK =
-  '<svg class="hc-i" viewBox="0 0 24 24" fill="none" stroke="#646b84" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.1"/><path d="M12 7.1V12l3.1 1.9"/></svg>'
-// 「热榜模块」：三根实心圆头柱，绿→品红→青三色，右高左低，底边齐平。
-// 几何是量出来的（把效果图芯片2 的图标区做「彩度掩码」逐列扫描）：
-//   柱宽 2.5 / 2.5 / 3.0 CSS，缝 0.5 CSS，高 8.5 / 9.0 / 9.5 CSS，底边同在 CSS y99.25。
-//   柱心主色分别 #87d3b3（薄荷绿）/ #c66ee7（兰紫）/ #19b9ea（青）。
-// 注意：这里**不是**一根线性彩虹渐变。若是线性渐变，柱1 的中心只能拿到「绿到品红的 22%」，
-// 会是灰蓝 (158,169,200)，而实测柱心是饱和的 (131,211,180)。所以是三块纯色，不是渐变。
-// 原来画的是四根细紫柱（各 4/24 宽、分离），与效果图的三根粗柱完全不同。
-// 图标盒是 10.5 CSS，24 单位 viewBox → 1 CSS = 2.2857 单位。
-const HERO_ICON_BARS =
-  '<svg class="hc-i" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
-  '<rect x="3.40" y="4.27" width="5.70" height="18.86" rx="2.6" fill="#87d3b3"/>' +
-  '<rect x="10.20" y="3.70" width="5.70" height="19.43" rx="2.6" fill="#c66ee7"/>' +
-  '<rect x="17.00" y="1.99" width="6.90" height="21.14" rx="2.6" fill="#19b9ea"/></svg>'
-// 「大分类」：实心堆叠（一块宽底板 + 顶部小块 + 底边中央一个小 V 缺口）。
-// 形状同样是量出来的：把效果图芯片3 的图标区按暗度掩码打成 device 分辨率的 ASCII 图，
-// 得到 —— 底板 device x675..690 / y185..196（16×12）、顶块 x680..684 / y182..185（5×3）、
-// 缺口在底边中央 y194..196 处宽 1~2 device px。整体 7.5 CSS 见方。
-// 原来画的是「菱形 + 两道细 V 描边」的线稿图标，缩小到 7.5 CSS 后会散成三条，
-// 而效果图里是一整块实心——这是芯片3 最明显的差异。
-const HERO_ICON_LAYERS =
-  '<svg class="hc-i" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
-  '<path d="M5.6 6.7 L9.0 6.7 L9.0 4.6 Q9.0 3.3 10.3 3.3 L13.7 3.3 Q14.7 3.3 14.7 4.6 ' +
-  'L14.7 6.7 L18.4 6.7 Q20.7 6.7 20.7 9.0 L20.7 18.4 Q20.7 20.7 18.4 20.7 ' +
-  'L13.1 20.7 L12.0 18.4 L10.9 20.7 L5.6 20.7 Q3.3 20.7 3.3 18.4 L3.3 9.0 ' +
-  'Q3.3 6.7 5.6 6.7 Z" fill="#646b84"/></svg>'
-// 右侧装饰：三块磨砂玻璃面板（火焰 / 上扬箭头 / 柱状图）
-//
-// 这两张 SVG 的坐标系 = 面板自身坐标系（1 单位 = 1 CSS px，左上角为原点），
-// 数值全部来自 2× 参考图：先把面板逆旋转成轴对齐，再按颜色阈值量内部图形。
-//   上扬箭头（面板 63.5×62）：箭身中线 (41.5,36.25)→(52,27.25)，线宽 ≈2.9；
-//     箭头是个 V 形，顶点 (62.25,13.5)，两个倒钩 (61.3,23.7) / (53.6,19.1)；
-//     箭身是「尾巴透明 → 头部实心」的渐变，实心 #f07128。
-//   柱状图（面板 82.3×59.15）：4 根胶囊柱，宽 8.6、柱心距 13、底边齐平于 y=45.25，
-//     高分别 22 / 31.5 / 27 / 21；柱底下方 y=49.5 有一条白色虚线基线。
-//     底边 44.25 → 45.25、基线 49 → 49.5 是后来校正的：把面板逆旋转成轴对齐后，
-//     用 (B-G)>22 取柱掩码，效果图柱底在面板内 y77、实现在 y75，即实现整体高了
-//     2 面板px（=1.0 CSS）；虚线峰值同样高了 1 面板px（=0.5 CSS）。
-//     柱 2 / 柱 3 的高度也一起修了：校正后第 1、4 根高度与效果图完全一致（41 / 38 面板px），
-//     但第 2 根只有 55（效果图 58）、第 3 根 49（效果图 50），所以 30 → 31.5、26 → 26.5；
-//     复测后第 3 根仍差 1 面板px，再 26.5 → 27（y 18.75 → 18.25，底边仍 45.25）。
-//     最后收窄了柱宽 9.25 → 8.6：逆旋转后同一掩码下效果图柱宽 17/18/17/15 面板px，
-//     实现是 19，明显偏胖；柱心距（13 CSS）两边一致，所以只改宽度不动 x。
-const HERO_ART_TREND =
-  '<svg viewBox="0 0 63.5 62" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
-  '<defs><linearGradient id="heroTrendGrad" gradientUnits="userSpaceOnUse" x1="38" y1="38" x2="57.5" y2="21">' +
-  '<stop offset="0" stop-color="#f07128" stop-opacity="0"/>' +
-  '<stop offset=".45" stop-color="#f07128" stop-opacity=".4"/>' +
-  '<stop offset="1" stop-color="#f07128" stop-opacity="1"/></linearGradient></defs>' +
-  '<path d="M38.2 37.8Q48.6 35.2 56.8 21.6" fill="none" stroke="url(#heroTrendGrad)" ' +
-  'stroke-width="2.9" stroke-linecap="round"/>' +
-  '<path d="M62.25 13.5 61.34 23.71 53.64 19.05Z" fill="#f07128"/></svg>'
-const HERO_ART_CHART =
-  '<svg viewBox="0 0 82.3 59.15" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
-  '<rect x="14.5" y="23.25" width="8.6" height="22" rx="4.3" fill="#b0bdea"/>' +
-  '<rect x="27.5" y="13.75" width="8.6" height="31.5" rx="4.3" fill="#aec1ef"/>' +
-  '<rect x="40.5" y="18.25" width="8.6" height="27" rx="4.3" fill="#adbdec"/>' +
-  '<rect x="53.5" y="24.25" width="8.6" height="21" rx="4.3" fill="#cbb5d8"/>' +
-  '<path d="M14.5 49.5h46.5" stroke="rgba(255,255,255,.78)" stroke-width="1.5" ' +
-  'stroke-dasharray="10.5 2.5"/></svg>'
 
 const CAT_ICONS = {
   news: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>',
@@ -1350,27 +1286,6 @@ function applyHeroWeatherFx(box) {
 }
 
 // ---- 天气装饰：云 ----
-// 整朵云是**一条闭合路径**（一个轮廓 + 一层竖向渐变），不再用「大椭圆 + 几团实心圆」拼：
-// 拼装版每个圆各带自己的渐变与透明度，交叠处会露出圆与圆的接缝——放大后就是一道硬边，
-// 这正是「云画碎了」的来源。单路径只有一条外轮廓，任何尺寸下都不会有内部拼接痕。
-// viewBox 直接取路径的真实范围（x 0~24、y 4~20），云体贴满整个 box，定位时不必再算内边距。
-const HW_CLOUD_PATH =
-  'M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z'
-// 渐变的三段色写在 CSS（.hw-cloud-s1/2/3）：阴天只要换一套色值，不必准备两份 SVG。
-// 副云复用同一份渐变（paint server 按 id 在文档内共享），因此只有主云里带 <defs>
-// 路径用字符串拼接而不是模板字符串：这段内容是 SVG 标签，里面既有双引号又有 ${
-// 之类的字符，拼接写法读起来最不容易出错，也免得编辑器/格式化工具在反引号上做手脚
-const HW_CLOUD_SHAPE_A = '<path class="hw-cloud-shape" d="' + HW_CLOUD_PATH + '"/>'
-const HW_CLOUD_SVG =
-  '<svg class="hw-cloud hw-cloud-main" viewBox="0 4 24 16" aria-hidden="true">' +
-  '<defs><linearGradient id="hwCloudGrad" x1="0" y1="0" x2="0" y2="1">' +
-  '<stop offset="0" class="hw-cloud-s1"/><stop offset="0.62" class="hw-cloud-s2"/><stop offset="1" class="hw-cloud-s3"/>' +
-  '</linearGradient></defs>' +
-  HW_CLOUD_SHAPE_A +
-  '</svg>' +
-  '<svg class="hw-cloud hw-cloud-sub" viewBox="0 4 24 16" aria-hidden="true">' +
-  HW_CLOUD_SHAPE_A +
-  '</svg>'
 
 // 会出云的天气：多云 / 阴 / 雨 / 雪 / 雷（雾霾走自己的雾带，不叠云）
 // 统一 3D 气象图标资源映射（确保晴、月、多云、阴、雨、雷、雪全局风格一致）
@@ -3416,16 +3331,6 @@ function formatHot(value) {
   if (v >= 100000000) return `${Math.round(v / 10000000) / 10}亿`
   if (v >= 10000) return `${Math.round(v / 1000) / 10}万`
   return String(v)
-}
-
-// 侧边栏菜单项内容：把「📰 新闻资讯」这类「图标 + 空格 + 名称」拆成两块——
-// 图标单独成一个色块（.mi），名称占满剩余宽度（.mn），
-// 计数徽章与展开箭头才能稳定贴到行尾（见 style.css 的 .sidebar .cat-pills 规则）
-function menuItemHtml(name) {
-  const s = String(name == null ? '' : name).trim()
-  const i = s.indexOf(' ')
-  if (i <= 0) return `<span class="mn">${esc(s)}</span>`
-  return `<span class="mi">${esc(s.slice(0, i))}</span><span class="mn">${esc(s.slice(i + 1))}</span>`
 }
 
 // 安全 URL 校验：仅放行 http/https/mailto，其余（javascript:、data: 等）替换为 #
@@ -10584,7 +10489,7 @@ function rRMB(_, c) {
     if (n === '' || n == null) return { cn: '零元整', len: 3, fmt: '¥0.00' }
     let num = Number(n)
     if (isNaN(num)) return { cn: '输入不是有效数字', len: 0, fmt: '-' }
-    if (num > 999999999999999.99) return { cn: '金额过大（最大支持百万亿元）', len: 0, fmt: '-' }
+    if (num >= 1e15) return { cn: '金额过大（最大支持百万亿元）', len: 0, fmt: '-' }
 
     let prefix = num < 0 ? '负' : ''
     num = Math.abs(num)
@@ -11579,7 +11484,7 @@ function rBase64Img(_, c) {
       const res = base64ToUtf8(clean)
       txtIn.value = res
       txtStatus.innerHTML = `<span class="tool-badge-ok">✓ 解码成功</span> <span class="tool-sub-note">字符数: ${res.length}</span>`
-    } catch (e) {
+    } catch {
       txtStatus.innerHTML = `<span class="tool-badge-bad">✗ 解码失败: 不是合法的 Base64 字符串</span>`
     }
   }
@@ -11612,7 +11517,7 @@ function rBase64Img(_, c) {
   const pasteInput = c.querySelector('#b64PasteInput')
   const pasteDecodeBtn = c.querySelector('#b64PasteDecodeBtn')
 
-  const renderImgResult = (dataUri, filename = 'image.png', size = 0, type = 'image/png') => {
+  const renderImgResult = (dataUri, filename = 'image.png', _size = 0, type = 'image/png') => {
     rawBase64 = dataUri.split(',')[1] || dataUri
     const fullUri = dataUri.startsWith('data:') ? dataUri : `data:${type};base64,${dataUri}`
     thumb.src = fullUri

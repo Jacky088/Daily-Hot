@@ -94,7 +94,7 @@ class ServiceTodayInHistory {
 
 export const serviceTodayInHistory = new ServiceTodayInHistory()
 
-interface HistoryItem {
+export interface HistoryItem {
   title: string
   year: string
   date: string
