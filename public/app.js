@@ -3595,13 +3595,16 @@ function init() {
 
     // 山体只用一张图：morning-fg 与 sunset-fg 是两套完全不同的构图（峰位、山脊高度、
     // 林带走向都不同），叠在一起交叉淡入时，先露出的低山脊会盖掉对方的高雪峰，
-    // 看起来就是"山峰被削掉一截"。改成单一图层后轮廓全程恒定，昼夜只靠 filter 推色调。
-    // 夜色的冷色叠加由 .tto-layer-peak::after 负责（用同一张图做 mask，只染山体像素），
-    // 所以这里只需要一个图层节点。
+    // 看起来就是"山峰被削掉一截"。改成单一图层后轮廓全程恒定，昼夜只靠色调推演。
+    // 色调不用 filter 动画（滤镜一变就得整张图重新光栅化，每帧几十毫秒，正是卡顿主因），
+    // 改成三层同图叠加、各自带一个「静态滤镜」：滤镜值定死，纹理只需生成一次，
+    // 之后只动 opacity，全程走合成器。夜色的偏蓝由 .tto-layer-peak::after 继续负责。
     function buildAlpineLandscapeHtml() {
       return (
         '<div class="tto-landscape-wrap">' +
         '<div class="tto-landscape-layer tto-layer-peak" aria-hidden="true"></div>' +
+        '<div class="tto-landscape-layer tto-layer-warm" aria-hidden="true"></div>' +
+        '<div class="tto-landscape-layer tto-layer-dark" aria-hidden="true"></div>' +
         '</div>'
       )
     }
@@ -3613,7 +3616,15 @@ function init() {
       overlay.className = 'theme-transition-overlay'
       overlay.setAttribute('aria-hidden', 'true')
       overlay.innerHTML = `
-        <div class="tto-sky"></div>
+        <!-- 天幕拆成「一层静态底 + 四层静态渐变」，只对 opacity 做动画：
+             直接插值 background（linear-gradient）不能走合成，等于每帧重绘一整屏，
+             是天象动画卡顿的主因。各层配色与时间点见 style.css 的 ttoSkyFill -->
+        <div class="tto-sky">
+          <i class="tto-sky-fill"></i>
+          <i class="tto-sky-fill"></i>
+          <i class="tto-sky-fill"></i>
+          <i class="tto-sky-fill"></i>
+        </div>
         <div class="tto-stars-wrap">
           <svg class="tto-star-svg" style="top:12%; left:16%; width:20px; height:20px;" viewBox="0 0 24 24">
             <path d="M12 0 C12 6.6 6.6 12 0 12 C6.6 12 12 17.4 12 24 C12 17.4 17.4 12 24 12 C17.4 12 12 6.6 12 0 Z" fill="#FFF59D" />
@@ -3736,6 +3747,19 @@ function init() {
     // 都有可读的停留时间。reduced-motion 走 CSS 的 0.4s 降级版，这里同步缩短。
     const TOTAL_MS = isReduced ? 420 : 2400
 
+    // 天象动画期间冻结底层一切常驻动画，并在画面完全被遮住后干脆不绘制它。
+    // 页面常驻 60+ 个毛玻璃面（每个都要采样并模糊背后的内容）与背景光斑的漂移/模糊，
+    // overlay 盖上去之后它们仍在逐帧重算——这才是帧率掉到二十几的直接原因。
+    // 详见 style.css 的 html.tto-running / html.tto-hide-under
+    const root = document.documentElement
+    root.classList.add('tto-running')
+    if (!isReduced) {
+      // 10% 是 overlay 淡入完成的时刻（ttoCartoonMaster 的 9%），
+      // 88% 起开始淡出，所以在 87% 先把底层放回来，避免露出空白页
+      setTimeout(() => root.classList.add('tto-hide-under'), Math.round(TOTAL_MS * 0.105))
+      setTimeout(() => root.classList.remove('tto-hide-under'), Math.round(TOTAL_MS * 0.87))
+    }
+
     // 底色在中段（太阳没入山后、月亮尚未升起的空档）切换：此时 overlay 的画面已经
     // 全暗，底层换成深色看不出来，用户感知是"天黑了"而不是"闪了一下"。
     setTimeout(
@@ -3748,6 +3772,7 @@ function init() {
     // 收尾留一点余量，确保 100% 那帧完整播完再撤 overlay
     setTimeout(() => {
       overlay.className = 'theme-transition-overlay'
+      root.classList.remove('tto-hide-under', 'tto-running')
       isThemeAnimating = false
     }, TOTAL_MS + 140)
   }
@@ -4347,12 +4372,21 @@ function init() {
   const sbToggle = $('#sbToggle')
   const sbClose = $('#sbClose')
   let sidebarTimer = 0
+  // 位移期间的毛玻璃降档标记：见 style.css 的 .app-shell.sb-animating
+  let sidebarAnimTimer = 0
   // 抽屉打开期间选过分类的标记：见 setSidebarOpen 关闭分支里的补偿定位
   let sidebarPendingLocate = false
 
   function setSidebarOpen(open) {
     if (!appShell) return
     const shouldOpen = !!open && MQ_DRAWER.matches
+    // 只在开合真正发生的那一次挂降档类：重复调用（点外部每下都关一遍）不该让
+    // 面板反复从磨砂切成轻模糊
+    if (shouldOpen !== appShell.classList.contains('sidebar-open')) {
+      appShell.classList.add('sb-animating')
+      clearTimeout(sidebarAnimTimer)
+      sidebarAnimTimer = setTimeout(() => appShell.classList.remove('sb-animating'), 400)
+    }
     appShell.classList.toggle('sidebar-open', shouldOpen)
     if (sbToggle) sbToggle.setAttribute('aria-expanded', String(shouldOpen))
     // 抽屉展开时锁住页面滚动，避免背后的列表跟着手指跑
@@ -4361,13 +4395,18 @@ function init() {
     clearTimeout(sidebarTimer)
     if (shouldOpen) {
       sbMask.hidden = false
-      requestAnimationFrame(() => sbMask.classList.add('show'))
+      // 先强制一次样式计算再上 .show：display:none → block 若和 opacity 变化落在
+      // 同一帧，浏览器会直接按最终值绘制，淡入根本不播（观感就是「啪」地出现）。
+      // rAF 在部分浏览器里仍会和绘制批到同一帧，读一次 offsetWidth 才是最稳的同步点
+      void sbMask.offsetWidth
+      sbMask.classList.add('show')
     } else {
       sbMask.classList.remove('show')
       // 等淡出过渡结束再真正隐藏，否则 display:none 会把过渡掐断
+      // 220ms：略大于抽屉收起的 200ms，遮罩不会比面板先消失
       sidebarTimer = setTimeout(() => {
         if (!appShell.classList.contains('sidebar-open')) sbMask.hidden = true
-      }, 260)
+      }, 220)
       // 补偿定位：抽屉开着时 body 是 overflow:hidden，点分类后那次 scrollToCatTitle
       // 会被吞掉（轮询校正也会因「文档高度连续不变」提前退出）。
       // 这里在解锁之后补一次，保证关掉抽屉时看到的就是刚选的那个分类
