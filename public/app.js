@@ -1358,7 +1358,7 @@ function heroWeatherHtml(d, editing) {
         </div>
         <div class="hw-temp">${esc(tempVal)}<span class="hw-unit">°</span></div>
       </div>
-      <div class="hw-sub" title="点击查看未来7天详细天气">${esc(bits.join(' · '))}</div>
+      <div class="hw-sub" title="点击查看详细天气预报">${esc(bits.join(' · '))}</div>
     </div>
     <div class="hw-edit${editing ? ' show' : ''}"${editing ? '' : ' hidden'}>
       <button type="button" class="hw-edit-close" aria-label="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
@@ -6050,6 +6050,8 @@ function initWeatherModal() {
   const closeBtn = document.getElementById('wxModalClose')
   const body = document.getElementById('wxModalBody')
   const locBadge = document.getElementById('wxModalLoc')
+  // 标题里的「N天」要按接口实际返回的条数走（国外城市常常只有 3~5 天）
+  const titleText = overlay.querySelector('.wx-modal-text')
 
   if (!overlay || !card || !closeBtn || !body) return
 
@@ -6104,6 +6106,11 @@ function initWeatherModal() {
           : []
 
     const list = rawList.map((item, idx) => normalizeForecastDay(item, idx))
+
+    // 天数按实际拿到的条数显示：写死「7天」时，新加坡这类只返回 3 天的城市
+    // 标题会与下面真正列出的行数对不上。0 条时退回中性文案
+    const dayCount = list.length
+    if (titleText) titleText.textContent = dayCount > 0 ? `${dayCount}天天气预报` : '天气预报'
 
     // 计算周温度极值
     let weekMin = 999
@@ -6198,7 +6205,7 @@ function initWeatherModal() {
       <div class="wx-forecast-box">
         <div class="wx-forecast-head">
           <div class="wx-forecast-title">
-            <span>未来7天逐日天气预报</span>
+            <span>${dayCount > 0 ? `未来${dayCount}天逐日天气预报` : '逐日天气预报'}</span>
           </div>
           <span class="wx-forecast-sub">气温走势与风力</span>
         </div>
@@ -6224,7 +6231,7 @@ function initWeatherModal() {
     body.innerHTML = `
       <div class="wx-loading-state">
         <div class="wx-spinner"></div>
-        <span>正在加载7天详细天气预报...</span>
+        <span>正在加载详细天气预报...</span>
       </div>
     `
   }
@@ -6311,6 +6318,8 @@ function initWeatherModal() {
       '无锡'
     currentCity = String(targetCity).replace(/市$/, '')
     if (locBadge) locBadge.textContent = currentCity
+    // 换城市时先回到中性标题：别让上一座城市的「N天」残留到新数据回来之前
+    if (titleText) titleText.textContent = '天气预报'
 
     loadWeatherData(currentCity)
     closeBtn.focus()
