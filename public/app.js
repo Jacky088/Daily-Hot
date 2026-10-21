@@ -3599,7 +3599,11 @@ function init() {
     // 夜色的冷色叠加由 .tto-layer-peak::after 负责（用同一张图做 mask，只染山体像素），
     // 所以这里只需要一个图层节点。
     function buildAlpineLandscapeHtml() {
-      return '<div class="tto-landscape-wrap">' + '<div class="tto-landscape-layer tto-layer-peak" aria-hidden="true"></div>' + '</div>'
+      return (
+        '<div class="tto-landscape-wrap">' +
+        '<div class="tto-landscape-layer tto-layer-peak" aria-hidden="true"></div>' +
+        '</div>'
+      )
     }
 
     let overlay = document.getElementById('themeTransitionOverlay')
@@ -3742,13 +3746,10 @@ function init() {
     )
 
     // 收尾留一点余量，确保 100% 那帧完整播完再撤 overlay
-    setTimeout(
-      () => {
-        overlay.className = 'theme-transition-overlay'
-        isThemeAnimating = false
-      },
-      TOTAL_MS + 140,
-    )
+    setTimeout(() => {
+      overlay.className = 'theme-transition-overlay'
+      isThemeAnimating = false
+    }, TOTAL_MS + 140)
   }
 
   $('#themeToggle').onclick = () => {

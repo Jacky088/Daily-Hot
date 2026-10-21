@@ -12426,12 +12426,7 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(
-    180deg,
-    rgba(8, 22, 50, 0.16) 0%,
-    rgba(8, 22, 50, 0.04) 52%,
-    rgba(8, 22, 50, 0.16) 100%
-  );
+  background: linear-gradient(180deg, rgba(8, 22, 50, 0.16) 0%, rgba(8, 22, 50, 0.04) 52%, rgba(8, 22, 50, 0.16) 100%);
   z-index: 0;
 }
 /* 右上角一团柔光，避免整块只是一条平渐变；白天暖白、夜里冷月晕。
