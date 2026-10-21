@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 import { load } from 'cheerio'
@@ -39,20 +39,11 @@ class ServiceWorldNews {
         cacheIf: (list) => list.length > 0,
       })
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `${conf.name} 头条\n\n${list.map((e) => `${e.rank}. ${e.title}`).join('\n')}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 🌍 ${conf.name}\n\n${list.map((e) => `${e.rank}. [${e.title}](${e.link})`).join('\n')}`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(list)
-          break
-      }
+      renderByEncoding(ctx, {
+        text: () => `${conf.name} 头条\n\n${list.map((e) => `${e.rank}. ${e.title}`).join('\n')}`,
+        markdown: () => `# 🌍 ${conf.name}\n\n${list.map((e) => `${e.rank}. [${e.title}](${e.link})`).join('\n')}`,
+        json: () => Common.buildJson(list),
+      })
     }
   }
 

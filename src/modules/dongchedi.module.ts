@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 
@@ -9,26 +9,19 @@ class ServiceDongchedi {
     return async (ctx) => {
       const list = await cached('dongchedi', () => this.#fetch())
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `懂车帝热搜\n\n${list
+      renderByEncoding(ctx, {
+        text: () =>
+          `懂车帝热搜\n\n${list
             .slice(0, 20)
             .map((e, i) => `${i + 1}. ${e.title}`)
-            .join('\n')}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 懂车帝热搜\n\n${list
+            .join('\n')}`,
+        markdown: () =>
+          `# 懂车帝热搜\n\n${list
             .slice(0, 20)
             .map((e, i) => `${i + 1}. [${e.title}](${e.url})`)
-            .join('\n')}`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(list)
-          break
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(list),
+      })
     }
   }
 

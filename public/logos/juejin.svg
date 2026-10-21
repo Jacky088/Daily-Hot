@@ -6,7 +6,8 @@
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#jjGrad)"/>
+  <g transform="translate(16 16) scale(1.2250) translate(-15.95 -15.95)">
   <g transform="translate(6, 6) scale(0.8333)">
     <path fill="#FFFFFF" d="m12 14.316 7.454-5.88-2.022-1.625L12 11.1l-.004.003-5.432-4.288-2.02 1.624 7.452 5.88Zm0-7.247 2.89-2.298L12 2.453l-.004-.005-2.884 2.318 2.888 2.298v.005ZM12 21.547l11.996-9.467-2.022-1.625L12 18.331l-9.974-7.876-2.022 1.625L12 21.547Z"/>
   </g>
-</svg>
+</g></svg>

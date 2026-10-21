@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 import whois from 'whois-raw'
 
@@ -10,7 +10,7 @@ interface RDAPEntity {
   objectClassName: string
   handle?: string
   roles?: string[]
-  vcardArray?: [string, ...VCardProperty[]]
+  vcardArray?: [string, VCardProperty[]]
   entities?: RDAPEntity[]
 }
 
@@ -776,19 +776,11 @@ class ServiceWhois {
    * 格式化响应
    */
   private formatResponse(ctx: any, data: WhoisData): void {
-    switch (ctx.state.encoding) {
-      case 'text':
-        ctx.response.body = this.formatText(data)
-        break
-
-      case 'markdown':
-        ctx.response.body = this.formatMarkdown(data)
-        break
-
-      case 'json':
-      default:
-        ctx.response.body = Common.buildJson(data)
-    }
+    renderByEncoding(ctx, {
+      text: () => this.formatText(data),
+      markdown: () => this.formatMarkdown(data),
+      json: () => Common.buildJson(data),
+    })
   }
 
   /**

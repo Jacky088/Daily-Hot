@@ -1,4 +1,4 @@
-import { Common, dayjs } from '../../common.ts'
+import { Common, dayjs, renderByEncoding } from '../../common.ts'
 import { cached } from '../../cache.ts'
 import { fetchUpstream, fetchUpstreamText } from '../../fetch-upstream.ts'
 import { fetchBoxOfficeByType } from './encode.ts'
@@ -26,28 +26,21 @@ class ServiceMaoyan {
         update_time_at: new Date().getTime(),
       }
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `全球电影票房总榜（猫眼）\n\n${data.list
+      renderByEncoding(ctx, {
+        text: () =>
+          `全球电影票房总榜（猫眼）\n\n${data.list
             .map((e) => `${e.rank}. ${e.movie_name} (${e.release_year}) - ${e.box_office_desc}`)
             .slice(0, 20)
-            .join('\n')}\n\n${data.tip}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 🎬 全球电影票房总榜\n\n| 排名 | 电影名称 | 上映年份 | 票房 |\n|------|----------|----------|------|\n${data.list
+            .join('\n')}\n\n${data.tip}`,
+        markdown: () =>
+          `# 🎬 全球电影票房总榜\n\n| 排名 | 电影名称 | 上映年份 | 票房 |\n|------|----------|----------|------|\n${data.list
             .slice(0, 20)
             .map((e) => `| ${e.rank} | ${e.movie_name} | ${e.release_year} | ${e.box_office_desc} |`)
             .join(
               '\n',
-            )}\n\n${data.tip ? `> ${data.tip}\n\n` : ''}*更新时间: ${data.update_time}*\n\n*数据来源: 猫眼专业版*`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            )}\n\n${data.tip ? `> ${data.tip}\n\n` : ''}*更新时间: ${data.update_time}*\n\n*数据来源: 猫眼专业版*`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 
@@ -175,32 +168,25 @@ class ServiceMaoyan {
   }
 
   #renderMovieList(ctx: any, title: string, list: MovieListItemDTO[]) {
-    switch (ctx.state.encoding) {
-      case 'text':
-        ctx.response.body = `${title}\n\n${list
+    renderByEncoding(ctx, {
+      text: () =>
+        `${title}\n\n${list
           .slice(0, 20)
           .map(
             (e, i) =>
               `${i + 1}. ${e.movie_name}（${e.release_date || e.coming_title}）${e.score ? ` - 评分 ${e.score}` : ''}`,
           )
-          .join('\n')}`
-        break
-
-      case 'markdown':
-        ctx.response.body = `# ${title}\n\n${list
+          .join('\n')}`,
+      markdown: () =>
+        `# ${title}\n\n${list
           .slice(0, 20)
           .map(
             (e, i) =>
               `### ${i + 1}. [${e.movie_name}](${e.link}) ${e.score ? `\`${e.score}\` ` : ''}${e.coming_title}\n\n${e.star ? `主演：${e.star}\n\n` : ''}${e.cover ? `![${e.movie_name}](${e.cover})\n\n` : ''}---\n`,
           )
-          .join('\n')}`
-        break
-
-      case 'json':
-      default:
-        ctx.response.body = Common.buildJson({ list, total: list.length, update_time: Common.localeTime() })
-        break
-    }
+          .join('\n')}`,
+      json: () => Common.buildJson({ list, total: list.length, update_time: Common.localeTime() }),
+    })
   }
 
   /**

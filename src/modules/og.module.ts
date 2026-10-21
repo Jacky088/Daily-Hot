@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -39,20 +39,12 @@ class ServiceOG {
       try {
         const data = await this.#fetch(url)
 
-        switch (ctx.state.encoding) {
-          case 'text':
-            ctx.response.body = `标题: ${data.title}\n描述: ${data.description}`
-            break
-
-          case 'markdown':
-            ctx.response.body = `# 🔗 Open Graph 信息\n\n## [${data.title || '无标题'}](${url})\n\n${data.description ? `> ${data.description}\n\n` : ''}${data.image ? `![预览图](${data.image})` : '*无预览图*'}`
-            break
-
-          case 'json':
-          default:
-            ctx.response.body = Common.buildJson(data)
-            break
-        }
+        renderByEncoding(ctx, {
+          text: () => `标题: ${data.title}\n描述: ${data.description}`,
+          markdown: () =>
+            `# 🔗 Open Graph 信息\n\n## [${data.title || '无标题'}](${url})\n\n${data.description ? `> ${data.description}\n\n` : ''}${data.image ? `![预览图](${data.image})` : '*无预览图*'}`,
+          json: () => Common.buildJson(data),
+        })
       } catch (e: any) {
         if (!(e instanceof OgError)) {
           console.error('[OG Error]', e)

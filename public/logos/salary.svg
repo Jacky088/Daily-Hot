@@ -6,7 +6,8 @@
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#salaryGrad)"/>
+  <g transform="translate(16 16) scale(1.2374) translate(-15.95 -15.95)">
   <path d="M7 11C7 9.9 7.9 9 9 9H23C24.1 9 25 9.9 25 11V21C25 22.1 24.1 23 23 23H9C7.9 23 7 22.1 7 21V11Z" stroke="#FFFFFF" stroke-width="1.8" fill="none"/>
   <path d="M21 16C21 15.2 21.7 14.5 22.5 14.5H25V17.5H22.5C21.7 17.5 21 16.8 21 16Z" stroke="#FFFFFF" stroke-width="1.6" fill="none"/>
   <circle cx="14" cy="16" r="3" stroke="#FFFFFF" stroke-width="1.6" fill="none"/>
-</svg>
+</g></svg>

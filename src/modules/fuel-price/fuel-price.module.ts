@@ -1,6 +1,6 @@
 import regions from './regions.json' with { type: 'json' }
 import { load } from 'cheerio'
-import { Common } from '../../common.ts'
+import { Common, renderByEncoding } from '../../common.ts'
 import { fetchUpstream } from '../../fetch-upstream.ts'
 import { resolveForceUpdate } from '../../force-update-guard.ts'
 
@@ -141,16 +141,13 @@ class ServiceFuelPrice {
               .join('\n')}`
           : ''
 
-        switch (ctx.state.encoding) {
-          case 'text': {
-            ctx.response.body = `今日油价 (${queryRegion})\n\n${data.items
+        renderByEncoding(ctx, {
+          text: () =>
+            `今日油价 (${queryRegion})\n\n${data.items
               .map((e) => `${e.name}: ${e.price_desc}`)
-              .join('\n')}${trendText}${historyText}\n\n更新时间: ${data.updated}`
-            break
-          }
-
-          case 'markdown': {
-            ctx.response.body = `# 今日油价 (${queryRegion})\n\n${data.items
+              .join('\n')}${trendText}${historyText}\n\n更新时间: ${data.updated}`,
+          markdown: () =>
+            `# 今日油价 (${queryRegion})\n\n${data.items
               .map((e) => `- **${e.name}**: ${e.price_desc}`)
               .join('\n')}${data.trend ? `\n\n> ${data.trend.description}` : ''}${
               history.length
@@ -159,16 +156,9 @@ class ServiceFuelPrice {
                     .map((e) => `| ${e.date} | ${e.p92} | ${e.p95} | ${e.p98} | ${e.p0} |`)
                     .join('\n')}`
                 : ''
-            }\n\n更新时间: ${data.updated}`
-            break
-          }
-
-          case 'json':
-          default: {
-            ctx.response.body = Common.buildJson(data)
-            break
-          }
-        }
+            }\n\n更新时间: ${data.updated}`,
+          json: () => Common.buildJson(data),
+        })
       } catch (error) {
         console.error('[fuel-price]', error)
         ctx.response.body = Common.buildJson(null, 500, '油价数据获取失败，请稍后重试')

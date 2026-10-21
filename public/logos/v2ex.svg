@@ -6,5 +6,6 @@
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#v2Grad)"/>
+  <g transform="translate(16 16) scale(1.5806) translate(-15.4 -17.2)">
   <text x="16" y="21.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" font-size="12" font-weight="900" fill="#FFFFFF" text-anchor="middle" letter-spacing="0.5">V2</text>
-</svg>
+</g></svg>

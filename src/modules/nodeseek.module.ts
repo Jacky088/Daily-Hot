@@ -1,4 +1,4 @@
-import { Common, dayjs } from '../common.ts'
+import { Common, dayjs, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 
@@ -36,27 +36,18 @@ class ServiceNodeSeek {
     return async (ctx) => {
       const data = await cached('nodeseek', () => this.#fetch())
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `NodeSeek 热帖\n\n${data
-            .map((e) => `${e.rank}. ${e.title} [${e.category_label}] @${e.author}`)
-            .join('\n')}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 🌐 NodeSeek 热帖\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `NodeSeek 热帖\n\n${data.map((e) => `${e.rank}. ${e.title} [${e.category_label}] @${e.author}`).join('\n')}`,
+        markdown: () =>
+          `# 🌐 NodeSeek 热帖\n\n${data
             .map(
               (e) =>
                 `### ${e.rank}. [${e.title}](${e.link})\n\n\`${e.category_label}\` · @${e.author} · ${e.created}\n\n${e.description ? `${e.description}\n\n` : ''}---\n`,
             )
-            .join('\n')}`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

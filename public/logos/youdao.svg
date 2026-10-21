@@ -6,6 +6,7 @@
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#ydGrad)"/>
+  <g transform="translate(16 16) scale(1.4286) translate(-15.95 -15.95)">
   <path d="M9 10H14M11.5 10V22M9 22H14" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
   <path d="M17 11C19.5 11 23 12 23 16C23 20 19.5 21 17 21V11Z" stroke="#FFFFFF" stroke-width="2" stroke-linejoin="round" fill="none"/>
-</svg>
+</g></svg>

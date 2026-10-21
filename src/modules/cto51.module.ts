@@ -1,5 +1,5 @@
 import { load } from 'cheerio'
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 import { serviceUapis, cacheIfNonEmpty } from './uapis.module.ts'
@@ -41,30 +41,20 @@ class ServiceCTO51 {
         await cached(`51cto-${type}`, () => this.#fetchWithFallback(type), { cacheIf: cacheIfNonEmpty })
       ).slice(0, limit)
 
-      switch (ctx.state.encoding) {
-        case 'text': {
-          ctx.response.body = `51CTO 博客${TYPE_MAP[type]}\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `51CTO 博客${TYPE_MAP[type]}\n\n${data
             .map((e, idx) => `${idx + 1}. ${e.title}\n   ${e.author}${e.hot ? ` · 热度 ${e.hot}` : ''}\n   ${e.link}`)
-            .join('\n\n')}`
-          break
-        }
-
-        case 'markdown': {
-          ctx.response.body = `# 51CTO 博客${TYPE_MAP[type]}\n\n${data
+            .join('\n\n')}`,
+        markdown: () =>
+          `# 51CTO 博客${TYPE_MAP[type]}\n\n${data
             .map(
               (e, idx) =>
                 `### ${idx + 1}. [${e.title}](${e.link})\n\n**${e.author}**${e.hot ? ` | 🔥 ${e.hot}` : ''}\n\n---\n`,
             )
-            .join('\n')}`
-          break
-        }
-
-        case 'json':
-        default: {
-          ctx.response.body = Common.buildJson(data)
-          break
-        }
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

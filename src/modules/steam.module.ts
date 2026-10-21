@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 
@@ -9,27 +9,20 @@ class ServiceSteam {
     return async (ctx) => {
       const data = await cached('steam', () => this.#fetch(), { ttl: 10 * 60 * 1000 })
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `Steam 免费游戏\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `Steam 免费游戏\n\n${data
             .map((g, i) => `${i + 1}. ${g.title}\n   原价: ${g.original_price} | 链接: ${g.link}`)
-            .join('\n\n')}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 🎮 Steam 免费游戏\n\n${data
+            .join('\n\n')}`,
+        markdown: () =>
+          `# 🎮 Steam 免费游戏\n\n${data
             .map(
               (g, i) =>
                 `### ${i + 1}. [${g.title}](${g.link}) 🔥\n\n![${g.title}](${g.cover})\n\n**原价**: ${g.original_price} | **现价**: 免费\n\n---\n`,
             )
-            .join('\n')}`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

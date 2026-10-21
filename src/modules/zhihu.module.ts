@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstreamJson } from '../fetch-upstream.ts'
 import { withUapisFallback, cacheIfNonEmpty } from './uapis.module.ts'
@@ -15,29 +15,22 @@ class ServiceZhihuHot {
     return async (ctx) => {
       const data = await this.fetch()
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `知乎实时热搜\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `知乎实时热搜\n\n${data
             .map((e, i) => `${i + 1}. ${e.title} (${e.hot_value_desc})`)
             .slice(0, 20)
-            .join('\n')}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 知乎实时热搜\n\n${data
+            .join('\n')}`,
+        markdown: () =>
+          `# 知乎实时热搜\n\n${data
             .slice(0, 20)
             .map(
               (e, i) =>
                 `### ${i + 1}. [${e.title}](${e.link}) \`${e.hot_value_desc}\`\n\n${e.detail ? `${e.detail}\n\n` : ''}${e.cover ? `![${e.title}](${e.cover})\n\n` : ''}---\n`,
             )
-            .join('\n')}`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

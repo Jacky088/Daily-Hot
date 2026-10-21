@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { env } from '../runtime-env.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
@@ -43,28 +43,19 @@ class ServiceRednote {
         cacheIf: (list) => list.length > 0,
       })
 
-      switch (ctx.state.encoding) {
-        case 'text': {
-          ctx.response.body = `小红书实时热点\n\n${hotList
+      renderByEncoding(ctx, {
+        text: () =>
+          `小红书实时热点\n\n${hotList
             .slice(0, 20)
             .map((e) => `${e.rank}. ${e.title} (${e.score})`)
-            .join('\n')}`
-          break
-        }
-
-        case 'markdown': {
-          ctx.response.body = `# 小红书实时热点\n\n${hotList
+            .join('\n')}`,
+        markdown: () =>
+          `# 小红书实时热点\n\n${hotList
             .slice(0, 20)
             .map((e) => `${e.rank}. [${e.title}](${e.link}) \`${e.score}\``)
-            .join('\n')}`
-          break
-        }
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(hotList)
-          break
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(hotList),
+      })
     }
   }
 

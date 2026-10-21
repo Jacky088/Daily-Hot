@@ -1,4 +1,4 @@
-import { Common, dayjs, TZ_SHANGHAI } from '../common.ts'
+import { Common, dayjs, TZ_SHANGHAI, renderByEncoding } from '../common.ts'
 import { fetchUpstream, fetchUpstreamText } from '../fetch-upstream.ts'
 import { load } from 'cheerio'
 import type { RouterMiddleware } from '@oak/oak'
@@ -46,28 +46,17 @@ class ServiceITNews {
       limit = Math.min(limit, MAX_LIMIT)
       const items = (await this.#fetch()).slice(0, limit)
 
-      switch (ctx.state.encoding) {
-        case 'text': {
-          ctx.response.body = `实时 IT 资讯\n\n${items.map((e, idx) => `${idx + 1}. ${e.title}`).join('\n')}`
-          break
-        }
-
-        case 'markdown': {
-          ctx.response.body = `# 实时 IT 资讯\n\n${items
+      renderByEncoding(ctx, {
+        text: () => `实时 IT 资讯\n\n${items.map((e, idx) => `${idx + 1}. ${e.title}`).join('\n')}`,
+        markdown: () =>
+          `# 实时 IT 资讯\n\n${items
             .map(
               (e, idx) =>
                 `### ${idx + 1}. [${e.title}](${e.link})\n\n${e.description ? `${e.description}\n\n` : ''}**发布时间**：${e.created}\n\n---\n`,
             )
-            .join('\n')}`
-          break
-        }
-
-        case 'json':
-        default: {
-          ctx.response.body = Common.buildJson(items)
-          break
-        }
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(items),
+      })
     }
   }
 
@@ -83,27 +72,17 @@ class ServiceITNews {
         return
       }
 
-      switch (ctx.state.encoding) {
-        case 'text': {
-          ctx.response.body = `IT 之家${rankType === 'day' ? '日' : rankType === 'week' ? '周' : '月'}榜\n\n${
+      renderByEncoding(ctx, {
+        text: () =>
+          `IT 之家${rankType === 'day' ? '日' : rankType === 'week' ? '周' : '月'}榜\n\n${
             found.list.map((e, idx) => `${idx + 1}. ${e.title}`).join('\n') ?? ''
-          }`
-          break
-        }
-
-        case 'markdown': {
-          ctx.response.body = `# IT 之家${rankType === 'day' ? '日' : rankType === 'week' ? '周' : '月'}榜\n\n${
+          }`,
+        markdown: () =>
+          `# IT 之家${rankType === 'day' ? '日' : rankType === 'week' ? '周' : '月'}榜\n\n${
             found.list.map((e, idx) => `${idx + 1}. [${e.title}](${e.link})`).join('\n\n') ?? ''
-          }`
-          break
-        }
-
-        case 'json':
-        default: {
-          ctx.response.body = Common.buildJson(found.list || [])
-          break
-        }
-      }
+          }`,
+        json: () => Common.buildJson(found.list || []),
+      })
     }
   }
 

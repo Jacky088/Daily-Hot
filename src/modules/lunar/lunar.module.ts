@@ -1,5 +1,5 @@
 import { SolarTime, SolarMonth, LegalHoliday, Zodiac, Week, Phase, Constellation } from 'tyme4ts'
-import { Common, dayjs, TZ_SHANGHAI } from '../../common.ts'
+import { Common, dayjs, TZ_SHANGHAI, renderByEncoding } from '../../common.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -31,7 +31,6 @@ class ServiceLunar {
       const solarMonth = solarDay.getSolarMonth()
       const solarYear = solarMonth.getSolarYear()
       const solarWeek = solarDay.getSolarWeek(0)
-      // const solarWeekCN = solarDay.getSolarWeek(1)
 
       const lunarHour = solarTime.getLunarHour()
       const lunarDay = lunarHour.getLunarDay()
@@ -221,13 +220,11 @@ class ServiceLunar {
         },
       }
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `${data.solar.full} ${data.solar.week_desc} ${data.lunar.desc_short}\n${data.term.stage.name}第${data.term.stage.position}天\n${data.constellation.name} ${data.zodiac.year}年\n宜: ${data.taboo.day.recommends || '无'}\n忌: ${data.taboo.day.avoids || '无'}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 📅 ${data.solar.full} ${data.solar.week_desc}\n\n## 农历信息\n\n**${data.lunar.desc_short}** (${data.lunar.is_leap_month ? '闰月' : '平月'})\n\n**干支**: ${data.sixty_cycle.year.name} ${data.sixty_cycle.month.name} ${data.sixty_cycle.day.name}\n\n**生肖**: ${data.zodiac.year}年 ${data.zodiac.month}月 ${data.zodiac.day}日\n\n**纳音**: ${data.nayin.year}\n\n## 节气与星座\n\n**节气**: ${data.term.stage.name}第${data.term.stage.position}天${data.term.today ? ` (今日${data.term.today})` : ''}\n\n**星座**: ${data.constellation.name}\n\n**月相**: ${data.phase.name}\n\n## 宜忌\n\n${data.taboo.day.recommends ? `**宜**: ${data.taboo.day.recommends}\n\n` : ''}${data.taboo.day.avoids ? `**忌**: ${data.taboo.day.avoids}\n\n` : ''}## 时辰吉凶\n\n${data.taboo.hours
+      renderByEncoding(ctx, {
+        text: () =>
+          `${data.solar.full} ${data.solar.week_desc} ${data.lunar.desc_short}\n${data.term.stage.name}第${data.term.stage.position}天\n${data.constellation.name} ${data.zodiac.year}年\n宜: ${data.taboo.day.recommends || '无'}\n忌: ${data.taboo.day.avoids || '无'}`,
+        markdown: () =>
+          `# 📅 ${data.solar.full} ${data.solar.week_desc}\n\n## 农历信息\n\n**${data.lunar.desc_short}** (${data.lunar.is_leap_month ? '闰月' : '平月'})\n\n**干支**: ${data.sixty_cycle.year.name} ${data.sixty_cycle.month.name} ${data.sixty_cycle.day.name}\n\n**生肖**: ${data.zodiac.year}年 ${data.zodiac.month}月 ${data.zodiac.day}日\n\n**纳音**: ${data.nayin.year}\n\n## 节气与星座\n\n**节气**: ${data.term.stage.name}第${data.term.stage.position}天${data.term.today ? ` (今日${data.term.today})` : ''}\n\n**星座**: ${data.constellation.name}\n\n**月相**: ${data.phase.name}\n\n## 宜忌\n\n${data.taboo.day.recommends ? `**宜**: ${data.taboo.day.recommends}\n\n` : ''}${data.taboo.day.avoids ? `**忌**: ${data.taboo.day.avoids}\n\n` : ''}## 时辰吉凶\n\n${data.taboo.hours
             .slice(0, 12)
             .map(
               (h) =>
@@ -235,14 +232,9 @@ class ServiceLunar {
             )
             .join(
               '\n\n',
-            )}\n\n## 节日\n\n${data.festival.solar || data.festival.lunar ? data.festival.both_desc : '无'}\n\n${data.legal_holiday ? `### 法定节假日\n\n**${data.legal_holiday.name}** ${data.legal_holiday.is_work ? '(补班)' : '(休息)'}` : ''}\n\n## 运势\n\n**今日运势**: ${data.fortune.today_luck}\n\n**事业**: ${data.fortune.career}\n\n**财运**: ${data.fortune.money}\n\n**感情**: ${data.fortune.love}\n\n---\n\n*今年已过 ${data.stats.percents_formatted.year} | 本月已过 ${data.stats.percents_formatted.month}*`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            )}\n\n## 节日\n\n${data.festival.solar || data.festival.lunar ? data.festival.both_desc : '无'}\n\n${data.legal_holiday ? `### 法定节假日\n\n**${data.legal_holiday.name}** ${data.legal_holiday.is_work ? '(补班)' : '(休息)'}` : ''}\n\n## 运势\n\n**今日运势**: ${data.fortune.today_luck}\n\n**事业**: ${data.fortune.career}\n\n**财运**: ${data.fortune.money}\n\n**感情**: ${data.fortune.love}\n\n---\n\n*今年已过 ${data.stats.percents_formatted.year} | 本月已过 ${data.stats.percents_formatted.month}*`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 
@@ -324,9 +316,9 @@ class ServiceLunar {
         weeks,
       }
 
-      switch (ctx.state.encoding) {
-        case 'text': {
-          ctx.response.body = `${year}年${month}月（共 ${cells.length} 天）\n\n${weeks
+      renderByEncoding(ctx, {
+        text: () =>
+          `${year}年${month}月（共 ${cells.length} 天）\n\n${weeks
             .map((week) =>
               week
                 .map((c) =>
@@ -336,11 +328,8 @@ class ServiceLunar {
                 )
                 .join(' | '),
             )
-            .join('\n')}`
-          break
-        }
-
-        case 'markdown': {
+            .join('\n')}`,
+        markdown: () => {
           const rows = weeks
             .map((week) => {
               const cellsMd = week
@@ -354,15 +343,10 @@ class ServiceLunar {
               return '| ' + cellsMd + ' |'
             })
             .join('\n')
-          ctx.response.body = `# 📅 ${year}年${month}月万年历\n\n| 一 | 二 | 三 | 四 | 五 | 六 | 日 |\n|---|---|---|---|---|---|---|\n${rows}\n\n*今日：${todayStr}*`
-          break
-        }
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(payload)
-          break
-      }
+          return `# 📅 ${year}年${month}月万年历\n\n| 一 | 二 | 三 | 四 | 五 | 六 | 日 |\n|---|---|---|---|---|---|---|\n${rows}\n\n*今日：${todayStr}*`
+        },
+        json: () => Common.buildJson(payload),
+      })
     }
   }
 }

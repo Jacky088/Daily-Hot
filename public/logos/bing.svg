@@ -6,6 +6,7 @@
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#bingGrad)"/>
+  <g transform="translate(16 16) scale(1.1765) translate(-15.95 -15.45)">
   <path d="M19.5 7L13.5 9.5V21.5L16.2 23L22 19.5V11.2L19.5 7ZM13.5 12.8L18 15.5L13.5 18V12.8Z" fill="#FFFFFF"/>
   <path d="M10 8V24L13.5 22V10L10 8Z" fill="#FFFFFF" opacity="0.9"/>
-</svg>
+</g></svg>

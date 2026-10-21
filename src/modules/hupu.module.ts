@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { serviceUapis } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -11,26 +11,19 @@ class ServiceHupu {
     return async (ctx) => {
       const data = await serviceUapis.hotboard('hupu')
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `虎扑热榜\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `虎扑热榜\n\n${data
             .map((e, idx) => `${idx + 1}. ${e.title} (${e.hot_value})`)
             .slice(0, 20)
-            .join('\n')}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 虎扑热榜\n\n${data
+            .join('\n')}`,
+        markdown: () =>
+          `# 虎扑热榜\n\n${data
             .slice(0, 20)
             .map((e, idx) => `${idx + 1}. [${e.title}](${e.link}) \`热度: ${e.hot_value}\``)
-            .join('\n')}`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 }

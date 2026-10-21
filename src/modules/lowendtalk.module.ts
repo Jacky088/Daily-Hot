@@ -1,4 +1,4 @@
-import { Common, dayjs } from '../common.ts'
+import { Common, dayjs, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 
@@ -22,27 +22,18 @@ class ServiceLowEndTalk {
     return async (ctx) => {
       const data = await cached('lowendtalk', () => this.#fetch(), { ttl: 10 * 60 * 1000 })
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `LowEndTalk 热帖\n\n${data
-            .map((e) => `${e.rank}. ${e.title} [${e.category}] @${e.author}`)
-            .join('\n')}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 🖥️ LowEndTalk\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `LowEndTalk 热帖\n\n${data.map((e) => `${e.rank}. ${e.title} [${e.category}] @${e.author}`).join('\n')}`,
+        markdown: () =>
+          `# 🖥️ LowEndTalk\n\n${data
             .map(
               (e) =>
                 `### ${e.rank}. [${e.title}](${e.link})\n\n\`${e.category}\` · @${e.author} · ${e.created}\n\n---\n`,
             )
-            .join('\n')}`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

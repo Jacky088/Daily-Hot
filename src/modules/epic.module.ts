@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstreamJson } from '../fetch-upstream.ts'
 
@@ -9,9 +9,9 @@ class ServiceEpic {
     return async (ctx) => {
       const data = await cached('epic', () => this.#fetch(), { ttl: 60 * 60 * 1000 })
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `Epic Games 免费游戏\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `Epic Games 免费游戏\n\n${data
             .slice(0, 20)
             .map((e, idx) => {
               const date = Common.localeTime(new Date(e.free_start_at), { seconds: false })
@@ -23,11 +23,9 @@ class ServiceEpic {
 
               return `${idx + 1}. ${title}，${freeDesc}\n\n${e.description}`
             })
-            .join('\n\n')}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# Epic Games 免费游戏\n\n${data
+            .join('\n\n')}`,
+        markdown: () =>
+          `# Epic Games 免费游戏\n\n${data
             .slice(0, 20)
             .map((e, idx) => {
               const date = Common.localeTime(new Date(e.free_start_at), { seconds: false })
@@ -39,14 +37,9 @@ class ServiceEpic {
 
               return `### ${idx + 1}. [${title}](${e.link}) ${e.is_free_now ? '🔥' : ''}\n\n${freeDesc}\n\n${e.description}\n\n${e.cover ? `![${e.title}](${e.cover})\n\n` : ''}**发行商**: ${e.seller} | **原价**: ${e.original_price_desc}\n\n---\n`
             })
-            .join('\n')}`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

@@ -6,5 +6,6 @@
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#hxGrad)"/>
+  <g transform="translate(16 16) scale(1.0989) translate(-15.95 -15.95)">
   <path d="M10 8V24M22 8V24M10 16H22" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round"/>
-</svg>
+</g></svg>

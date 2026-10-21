@@ -1,4 +1,4 @@
-import { Common } from '../../common.ts'
+import { Common, renderByEncoding } from '../../common.ts'
 import fabingData from './fabing.json' with { type: 'json' }
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -31,23 +31,15 @@ class ServiceFabing {
         result = Common.randomItem(fabingData).replaceAll('[name]', name)
       }
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = result
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 💝 发病文学\n\n${result}\n\n---\n\n*献给: **${name}***`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson({
+      renderByEncoding(ctx, {
+        text: () => result,
+        markdown: () => `# 💝 发病文学\n\n${result}\n\n---\n\n*献给: **${name}***`,
+        json: () =>
+          Common.buildJson({
             index: fabingData.findIndex((item) => item.replaceAll('[name]', name) === result),
             saying: result,
-          })
-          break
-      }
+          }),
+      })
     }
   }
 }

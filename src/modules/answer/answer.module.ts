@@ -1,4 +1,4 @@
-import { Common } from '../../common.ts'
+import { Common, renderByEncoding } from '../../common.ts'
 import answerData from './answer.json' with { type: 'json' }
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -30,23 +30,15 @@ class ServiceAnswer {
         result = Common.randomItem(answerData)
       }
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = result.answer
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 答案之书\n\n## ${result.answer}\n\n---\n\n*第 ${result.id} 条答案*`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson({
+      renderByEncoding(ctx, {
+        text: () => result.answer,
+        markdown: () => `# 答案之书\n\n## ${result.answer}\n\n---\n\n*第 ${result.id} 条答案*`,
+        json: () =>
+          Common.buildJson({
             ...result,
             index: answerData.findIndex((item) => item === result),
-          })
-          break
-      }
+          }),
+      })
     }
   }
 }

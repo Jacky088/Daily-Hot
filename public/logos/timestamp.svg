@@ -6,6 +6,7 @@
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#tsGrad)"/>
+  <g transform="translate(16 16) scale(1.1111) translate(-15.95 -15.95)">
   <circle cx="16" cy="16" r="8" stroke="#FFFFFF" stroke-width="2" fill="none"/>
   <polyline points="16 11.5 16 16 19.5 18" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-</svg>
+</g></svg>

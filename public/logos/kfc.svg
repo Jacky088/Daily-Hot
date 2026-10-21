@@ -6,7 +6,8 @@
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#kfcGrad)"/>
-  <path d="M11 12C9 14 9 18 12 21C14 23 17 23 19 21C22 18 22 14 20 12C18 10 13 10 11 12Z" stroke="#FFFFFF" stroke-width="1.8" fill="none"/>
-  <line x1="8" y1="24" x2="11.5" y2="20.5" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
-  <circle cx="7.5" cy="24.5" r="1.5" stroke="#FFFFFF" stroke-width="1.5" fill="none"/>
-</svg>
+  <g transform="translate(16 16) scale(1.2048) translate(-15.95 -15.95)">
+  <rect x="9.4" y="7.7" width="13.2" height="3.2" rx="1.6" fill="#FFFFFF"/>
+  <path d="M10.4 12.5h11.2l-1.32 9.83a2.2 2.2 0 0 1-2.18 1.93h-4.2a2.2 2.2 0 0 1-2.18-1.93z" fill="#FFFFFF"/>
+  <path d="M13.1 14.7l.55 6.6M18.9 14.7l-.55 6.6" stroke="url(#kfcGrad)" stroke-width="1.7" stroke-linecap="round"/>
+</g></svg>

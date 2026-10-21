@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 
@@ -45,30 +45,20 @@ class ServiceJuejin {
       // 比干脆没数据更让人困惑。宁可如实报错，也不给一份对不上的榜单
       const data = (await cached(`juejin-${category}`, () => this.#fetch(category))).slice(0, limit)
 
-      switch (ctx.state.encoding) {
-        case 'text': {
-          ctx.response.body = `掘金热榜（${cat.name}）\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `掘金热榜（${cat.name}）\n\n${data
             .map((e, idx) => `${idx + 1}. ${e.title}\n   ${e.author} · 热度 ${e.hot}\n   ${e.link}`)
-            .join('\n\n')}`
-          break
-        }
-
-        case 'markdown': {
-          ctx.response.body = `# 掘金热榜 - ${cat.name}\n\n${data
+            .join('\n\n')}`,
+        markdown: () =>
+          `# 掘金热榜 - ${cat.name}\n\n${data
             .map(
               (e, idx) =>
                 `### ${idx + 1}. [${e.title}](${e.link})\n\n**${e.author}** | 🔥 ${e.hot_value_desc} | 👁 ${e.view} | 👍 ${e.like}\n\n---\n`,
             )
-            .join('\n')}`
-          break
-        }
-
-        case 'json':
-        default: {
-          ctx.response.body = Common.buildJson(data)
-          break
-        }
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

@@ -6,7 +6,8 @@
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#bdmGrad)"/>
+  <g transform="translate(16 16) scale(1.1236) translate(-15.95 -15.95)">
   <rect x="7" y="12" width="18" height="12" rx="2" stroke="#FFFFFF" stroke-width="1.8" fill="none"/>
   <path d="M7 12L9 8H23L25 12" stroke="#FFFFFF" stroke-width="1.8" stroke-linejoin="round" fill="none"/>
   <polygon points="14,15 19,18 14,21" fill="#FFFFFF"/>
-</svg>
+</g></svg>

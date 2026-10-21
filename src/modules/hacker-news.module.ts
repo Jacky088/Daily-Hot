@@ -1,5 +1,5 @@
 import dayjs from 'dayjs'
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 import { resolveForceUpdate } from '../force-update-guard.ts'
 import type { RouterMiddleware } from '@oak/oak'
@@ -28,31 +28,21 @@ class ServiceHackerNews {
 
       const data = await this.#fetch(type, limit, resolveForceUpdate(ctx.request))
 
-      switch (ctx.state.encoding) {
-        case 'text': {
-          ctx.response.body = `Hacker News（${HackerNewsTypeMap[type]}）\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `Hacker News（${HackerNewsTypeMap[type]}）\n\n${data
             .map((e, idx) => `${idx + 1}. ${e.title}\n${e.score} points by ${e.author}\n${e.link}\n${e.created}`)
             .slice(0, 20)
-            .join('\n\n')}`
-          break
-        }
-
-        case 'markdown': {
-          ctx.response.body = `# Hacker News - ${HackerNewsTypeMap[type]}\n\n${data
+            .join('\n\n')}`,
+        markdown: () =>
+          `# Hacker News - ${HackerNewsTypeMap[type]}\n\n${data
             .map(
               (e, idx) =>
                 `### ${idx + 1}. [${e.title}](${e.link || `https://news.ycombinator.com/item?id=${e.id}`})\n\n**${e.score}** points by **${e.author}** · ${e.created}\n\n---\n`,
             )
-            .join('\n')}`
-          break
-        }
-
-        case 'json':
-        default: {
-          ctx.response.body = Common.buildJson(data)
-          break
-        }
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

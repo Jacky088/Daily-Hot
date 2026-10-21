@@ -1,4 +1,4 @@
-import { Common, dayjs } from '../common.ts'
+import { Common, dayjs, renderByEncoding } from '../common.ts'
 import { serviceIP } from './ip.module.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
@@ -269,20 +269,11 @@ class ServiceWeather {
           { ttl: 10 * 60 * 1000 },
         )
 
-        switch (ctx.state.encoding) {
-          case 'text':
-            ctx.response.body = this.formatWeatherText(result)
-            break
-
-          case 'markdown':
-            ctx.response.body = this.formatWeatherMarkdown(result)
-            break
-
-          case 'json':
-          default:
-            ctx.response.body = Common.buildJson(result)
-            break
-        }
+        renderByEncoding(ctx, {
+          text: () => this.formatWeatherText(result),
+          markdown: () => this.formatWeatherMarkdown(result),
+          json: () => Common.buildJson(result),
+        })
       } catch (error) {
         console.error('[weather]', error)
         // 「未找到城市」这条要留着区分 404（对调用方有指导意义），
@@ -372,20 +363,11 @@ class ServiceWeather {
             : [],
         }
 
-        switch (ctx.state.encoding) {
-          case 'text':
-            ctx.response.body = this.formatForecastText(result)
-            break
-
-          case 'markdown':
-            ctx.response.body = this.formatForecastMarkdown(result)
-            break
-
-          case 'json':
-          default:
-            ctx.response.body = Common.buildJson(result)
-            break
-        }
+        renderByEncoding(ctx, {
+          text: () => this.formatForecastText(result),
+          markdown: () => this.formatForecastMarkdown(result),
+          json: () => Common.buildJson(result),
+        })
       } catch (error) {
         console.error('[weather]', error)
         // 「未找到城市」这条要留着区分 404（对调用方有指导意义），
@@ -508,20 +490,11 @@ class ServiceWeather {
           },
         }
 
-        switch (ctx.state.encoding) {
-          case 'text':
-            ctx.response.body = this.formatWeatherText(result)
-            break
-
-          case 'markdown':
-            ctx.response.body = this.formatWeatherMarkdown(result)
-            break
-
-          case 'json':
-          default:
-            ctx.response.body = Common.buildJson(result)
-            break
-        }
+        renderByEncoding(ctx, {
+          text: () => this.formatWeatherText(result),
+          markdown: () => this.formatWeatherMarkdown(result),
+          json: () => Common.buildJson(result),
+        })
       } catch (error) {
         console.error('[weather]', error)
         // 「未找到城市」这条要留着区分 404（对调用方有指导意义），

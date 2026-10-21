@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { serviceWeibo } from './weibo.module.ts'
 import { serviceZhihu } from './zhihu.module.ts'
@@ -330,27 +330,20 @@ class ServiceHotAggregate {
           })
         : await this.#aggregate(platforms, limit, per)
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `全网热榜聚合\n\n${data.items
+      renderByEncoding(ctx, {
+        text: () =>
+          `全网热榜聚合\n\n${data.items
             .map((e, i) => `${i + 1}. [${e.source_name}] ${e.title}${e.hot_text ? ` (${e.hot_text})` : ''}`)
-            .join('\n')}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 全网热榜聚合\n\n${data.items
+            .join('\n')}`,
+        markdown: () =>
+          `# 全网热榜聚合\n\n${data.items
             .map(
               (e, i) =>
                 `${i + 1}. [${e.title}](${e.link}) \`${e.source_name}\`${e.hot_text ? ` \`${e.hot_text}\`` : ''}`,
             )
-            .join('\n')}`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

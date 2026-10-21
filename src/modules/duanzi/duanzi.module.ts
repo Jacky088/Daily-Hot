@@ -1,4 +1,4 @@
-import { Common } from '../../common.ts'
+import { Common, renderByEncoding } from '../../common.ts'
 import duanziData from './duanzi.json' with { type: 'json' }
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -30,23 +30,16 @@ class ServiceDuanzi {
         result = Common.randomItem(duanziData)
       }
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = result
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 😄 段子\n\n${result}\n\n---\n\n*第 ${duanziData.findIndex((item) => item === result) + 1} 条段子*`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson({
+      renderByEncoding(ctx, {
+        text: () => result,
+        markdown: () =>
+          `# 😄 段子\n\n${result}\n\n---\n\n*第 ${duanziData.findIndex((item) => item === result) + 1} 条段子*`,
+        json: () =>
+          Common.buildJson({
             index: duanziData.findIndex((item) => item === result),
             duanzi: result,
-          })
-          break
-      }
+          }),
+      })
     }
   }
 }

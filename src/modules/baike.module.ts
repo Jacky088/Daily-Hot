@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstreamJson } from '../fetch-upstream.ts'
 
@@ -26,20 +26,12 @@ class ServiceBaike {
           cacheIf: (d) => !!d.title,
         })
 
-        switch (ctx.state.encoding) {
-          case 'text':
-            ctx.response.body = `${data.title}: ${data.abstract} (详情: ${data.link})`
-            break
-
-          case 'markdown':
-            ctx.response.body = `# 📖 ${data.title}\n\n${data.description ? `> ${data.description}\n\n` : ''}${data.cover ? `![${data.title}](${data.cover})\n\n` : ''}## 摘要\n\n${data.abstract}\n\n${data.has_other ? '**注**: 该词条有其他义项\n\n' : ''}[查看完整词条](${data.link})`
-            break
-
-          case 'json':
-          default:
-            ctx.response.body = Common.buildJson(data)
-            break
-        }
+        renderByEncoding(ctx, {
+          text: () => `${data.title}: ${data.abstract} (详情: ${data.link})`,
+          markdown: () =>
+            `# 📖 ${data.title}\n\n${data.description ? `> ${data.description}\n\n` : ''}${data.cover ? `![${data.title}](${data.cover})\n\n` : ''}## 摘要\n\n${data.abstract}\n\n${data.has_other ? '**注**: 该词条有其他义项\n\n' : ''}[查看完整词条](${data.link})`,
+          json: () => Common.buildJson(data),
+        })
       } catch (e) {
         if (e instanceof BaikeNotFoundError) {
           ctx.response.status = 404

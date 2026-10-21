@@ -7,6 +7,24 @@
   --dur-base: 0.25s; /* 淡入、展开等结构性变化 */
   --dur-slow: 0.45s; /* 进度条等大幅变化 */
   --ease: cubic-bezier(0.4, 0, 0.2, 1); /* 标准缓动：展开、位移等需要「控制感」的场景 */
+
+  /* ---- 玻璃模糊半径令牌 ----
+     backdrop-filter 的开销与半径近似线性，而首屏同时可见 60+ 个玻璃面
+     （实测覆盖面积 ≈ 3.5 个视口），28px 会把光栅化时间吃满。
+     这里统一收到 14px：卡片背后本身就是被模糊过的柔光，没有细节可丢，
+     观感几乎无差，成本直接减半。
+     滚动时由 .is-scrolling 临时压到 4px（见下方「滚动降档」一节）。 */
+  --glass-blur: 14px;
+  /* 少数大面积浮层（下拉面板等）需要更浓的磨砂才压得住背后的内容 */
+  --glass-blur-lg: 26px;
+}
+
+/* ---- 滚动降档 ----
+   吸顶的顶栏/分类条/分组标题在滚动时背景每帧都在变，是掉帧的主要来源。
+   滚动期间把全局模糊半径临时压到 4px（只是"没那么糊"，画面本来就在动，
+   几乎看不出来），停稳 160ms 后自动恢复。由 app.js 切换 .is-scrolling。 */
+:root.is-scrolling {
+  --glass-blur: 4px;
 }
 :root[data-theme='dark'] {
   /* color-scheme：让原生控件（select 下拉面板/滚动条/自动填充底色）跟随暗色渲染，
@@ -219,8 +237,10 @@ body {
   line-height: 1.5;
   /* 不设 -webkit-font-smoothing: antialiased：它会强制灰度抗锯齿、关闭次像素渲染，
      项目大量 11-12px 小字发虚。恢复系统原生渲染（默认 auto）后小字显著更实 */
+  /* 只过渡颜色：把 background 简写纳入过渡会让主题切换时整屏背景图参与插值，
+     触发大面积重绘 */
   transition:
-    background var(--dur-base),
+    background-color var(--dur-base),
     color var(--dur-base);
   min-height: 100vh;
 }
@@ -320,8 +340,12 @@ select:focus-visible {
 :root:not(.wallpaper-off) .aura {
   opacity: 0;
 }
-/* 页面切到后台（标签页离开/最小化）立即挂起动画，GPU/CPU 开销彻底归零 */
-:root.page-hidden .aura-b {
+/* 页面切到后台（标签页离开/最小化）立即挂起全部动画，GPU/CPU 开销彻底归零。
+   只暂停、不销毁，切回来时动画从原处继续，不会有跳变。
+   星标选择器 + !important 只为压过各组件自己的 animation 简写，且仅在后台生效。 */
+:root.page-hidden *,
+:root.page-hidden *::before,
+:root.page-hidden *::after {
   animation-play-state: paused !important;
 }
 
@@ -339,6 +363,18 @@ select:focus-visible {
   animation: auraDrift var(--dur, 42s) ease-in-out infinite;
   animation-delay: var(--delay, 0s);
   will-change: transform;
+}
+
+/* ---- 性能开关：停止光斑漂移 ----
+   这是整站最贵的一处：四颗光斑以 transform 无限漂移，而它们正好位于所有玻璃层
+   背后，于是 60+ 个 backdrop-filter 的缓存每帧都失效、必须整片重算模糊。
+   停掉漂移后光斑位置/配色/大小与首帧完全一致（仍是四颗柔光），观感几乎不变，
+   但玻璃层的模糊结果可以被缓存复用。同时清掉 will-change，
+   释放四张全屏 1200×1200 的合成层（约上百 MB 显存）。
+   如需恢复「流动光」，删掉下面这条规则即可。 */
+.aura-b {
+  animation: none;
+  will-change: auto;
 }
 /* 漂移轨迹：出发 → 右上放大 → 左下略收 → 回到出发。
    三个中间点而不是「左上到右下」的直线往返，是为了让四颗错开相位后
@@ -529,8 +565,8 @@ select:focus-visible {
   top: 0;
   z-index: 100;
   background: var(--glass-bg);
-  backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
-  -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%) brightness(1.06);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%) brightness(1.06);
   border-bottom: 1px solid var(--glass-border);
   box-shadow:
     inset 0 1px 0 var(--glass-hi),
@@ -1427,8 +1463,8 @@ select:focus-visible {
      否则居中会把顶部内容顶到滚动区之外、怎么滚都看不到 */
   justify-content: safe center;
   background: var(--glass-bg);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
   /* 去掉卡片边框与圆角，改为与顶栏同款的底边线：两块玻璃上下相接、连成一片 */
   border: none;
   border-bottom: 1px solid var(--glass-border);
@@ -3425,8 +3461,8 @@ select:focus-visible {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: 18px;
-  backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
-  -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%) brightness(1.06);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%) brightness(1.06);
   position: relative;
   overflow: hidden;
   box-shadow:
@@ -3584,8 +3620,8 @@ select:focus-visible {
      柔和的彩色氛围而非噪点；多层内高光与内泛光模拟玻璃厚度与边缘折射 */
   position: relative;
   background: var(--glass-bg);
-  backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
-  -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%) brightness(1.06);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%) brightness(1.06);
   /* 描边统一走 --glass-border（与顶栏/侧栏/hero 同一档「实边」） */
   border: 1px solid var(--glass-border);
   border-radius: 18px;
@@ -7103,8 +7139,8 @@ select:focus-visible {
     top: var(--topbar-h, 96px);
     z-index: 90;
     background: var(--glass-bg);
-    backdrop-filter: blur(28px) saturate(180%);
-    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
     max-height: none;
     align-self: auto;
     margin: 0;
@@ -7141,8 +7177,8 @@ select:focus-visible {
     padding: 10px 12px 12px;
     /* 折叠菜单面板：与卡片同款 Liquid Glass（玻璃底 + 强饱和/提亮折射 + 多层内高光） */
     background: var(--glass-bg);
-    backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
-    -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%) brightness(1.06);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%) brightness(1.06);
     border-bottom: 1px solid var(--glass-border);
     box-shadow:
       0 14px 30px rgba(0, 0, 0, 0.2),
@@ -7261,8 +7297,8 @@ select:focus-visible {
   .card {
     /* 移动端与桌面同为 Liquid Glass：玻璃底 + 强饱和/提亮的 backdrop-filter */
     background: var(--glass-bg);
-    backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
-    -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%) brightness(1.06);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%) brightness(1.06);
   }
   /* 健康卡三列大数字在窄屏收紧字号防换行错位 */
   .ht-big {
@@ -7516,14 +7552,20 @@ select:focus-visible {
   gap: 4px;
   margin-bottom: 4px;
 }
+/* 表头：11px 的 --text-dim 在毛玻璃上发虚，加字重并把色阶提到正文的 72%
+   （两套主题都适用，深色下同样只是略弱于正文，不会糊） */
 .cal-weeks span {
   text-align: center;
-  font-size: 11px;
-  color: var(--text-dim);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--text) 80%, transparent);
   padding: 2px 0;
 }
+/* 周末表头：--warn 在浅色是 #d97706，白底只有 ~3.3:1，11px 直接不合格。
+   与正文色混合后浅色下沉、深色上扬，两种主题都能压住对比度 */
 .cal-weeks span.wk {
-  color: var(--warn);
+  font-weight: 700;
+  color: color-mix(in srgb, var(--warn) 72%, var(--text));
 }
 .cal-grid {
   display: grid;
@@ -7542,31 +7584,42 @@ select:focus-visible {
   gap: 1px;
   padding: 3px 2px;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--card) 60%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  /* 底色提到 78%：原来 60% 的 card 压在弹窗玻璃上，格子和背景几乎同色，靠边框才勉强分得开 */
+  background: color-mix(in srgb, var(--card) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 68%, transparent);
 }
 .cal-cell.blank {
   background: transparent;
   border: none;
 }
+/* 周末块：7% 的 warn 摊在透明底上几乎看不见，改成以 card 为基底调 14%，
+   色块能明确读出"这是周末那一列"，同时不会抢过今日 */
 .cal-cell.wk {
-  background: color-mix(in srgb, var(--warn) 7%, transparent);
+  background: color-mix(in srgb, var(--warn) 14%, var(--card));
+  border-color: color-mix(in srgb, var(--warn) 22%, var(--border));
 }
 .cal-cell.today {
-  background: var(--accent-bg);
+  background: color-mix(in srgb, var(--accent) 18%, var(--card));
   border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
 }
 .cal-d {
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--text);
   line-height: 1.2;
 }
 .cal-cell.wk .cal-d {
-  color: var(--warn);
+  color: color-mix(in srgb, var(--warn) 72%, var(--text));
 }
+/* 今日数字：accent-text（#c2410c）压在 18% 橙底上只有 ~3.85:1，13.5px 粗体不算大字号，
+   浅色下沉到 orange-800 拉到 ~5.5:1；深色仍用亮橙在暗底上本来就够 */
 .cal-cell.today .cal-d {
   color: var(--accent-text);
+  font-weight: 800;
+}
+:root[data-theme='light'] .cal-cell.today .cal-d {
+  color: #9a3412;
 }
 .cal-mark {
   position: absolute;
@@ -7579,29 +7632,42 @@ select:focus-visible {
   padding: 0 3px;
   border-radius: 4px;
 }
+/* "休"原先在两种主题下都是白字压亮黄（浅色 ~3.3:1，深色只有 ~1.7:1），
+   改成深色模式下用深棕字，浅色模式把底压到烧橙 700 再配白字 */
 .cal-mark.rest {
   background: var(--warn);
+  color: #422006;
+}
+:root[data-theme='light'] .cal-mark.rest {
+  background: #b45309;
   color: #fff;
 }
 .cal-mark.work {
-  background: var(--text-dim);
+  background: color-mix(in srgb, var(--text) 62%, transparent);
   color: var(--bg);
 }
 .cal-l {
-  font-size: 10px;
-  color: var(--text-dim);
+  font-size: 10.5px;
+  /* 10.5px 小字要 4.5:1：62% 的白底等效色只到 ~4.4，抬到 66% 才稳 */
+  color: color-mix(in srgb, var(--text) 66%, transparent);
   line-height: 1.2;
   max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* 节气/节日小字：accent-light 在浅色是 #ea580c，10.5px 白底只有 ~3.7:1，
+   统一用 accent-text（浅色烧橙 700 / 深色亮橙） */
 .cal-l.sp {
-  color: var(--accent-light);
-  font-weight: 600;
+  color: var(--accent-text);
+  font-weight: 700;
 }
 .cal-cell.today .cal-l.sp {
   color: var(--accent-text);
+}
+/* 今日格内的农历小字也跟着走近色，否则白底灰字压在橙底上会糊成一片 */
+.cal-cell.today .cal-l {
+  color: color-mix(in srgb, var(--accent-text) 78%, var(--text));
 }
 .cal-tip {
   margin-top: 10px;
@@ -7631,8 +7697,8 @@ select:focus-visible {
   border: 1px solid var(--glass-border);
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.62);
-  backdrop-filter: blur(64px) saturate(175%) brightness(1.06);
-  -webkit-backdrop-filter: blur(64px) saturate(175%) brightness(1.06);
+  backdrop-filter: blur(var(--glass-blur-lg)) saturate(175%) brightness(1.06);
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(175%) brightness(1.06);
   box-shadow:
     0 24px 60px rgba(0, 0, 0, 0.28),
     inset 0 1px 0 var(--glass-hi),
@@ -7656,8 +7722,8 @@ select:focus-visible {
 }
 :root[data-theme='dark'] .dd-pop {
   background: rgba(30, 24, 40, 0.66);
-  backdrop-filter: blur(64px) saturate(175%) brightness(1.03);
-  -webkit-backdrop-filter: blur(64px) saturate(175%) brightness(1.03);
+  backdrop-filter: blur(var(--glass-blur-lg)) saturate(175%) brightness(1.03);
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(175%) brightness(1.03);
   box-shadow:
     0 24px 64px rgba(0, 0, 0, 0.65),
     inset 0 1px 0 var(--glass-hi),
@@ -9152,11 +9218,10 @@ select:focus-visible {
 }
 
 /* 伪全屏只留游戏本体（与原生 :fullscreen 行为对齐）：
-   卡片的 z-index:999 被祖先层叠上下文钳制，压不过 sticky 顶栏（z-80）
-   和悬浮目录按钮（z-150），它们会浮在全屏卡片上——索性直接隐藏。
+   卡片的 z-index:999 被祖先层叠上下文钳制，压不过 sticky 顶栏（z-80），
+   它们会浮在全屏卡片上——索性直接隐藏。
    挂在 html.fs-fake-on 上，进/出全屏由 JS 增删该类，自动还原 */
 html.fs-fake-on .app-shell .topbar,
-html.fs-fake-on .sb-toc,
 html.fs-fake-on .sidebar {
   display: none !important;
 }
@@ -9365,8 +9430,8 @@ html.fs-fake-on .main {
   --sb-menu-bg: rgba(148, 152, 168, 0.1);
   --sb-menu-bg-hover: rgba(148, 152, 168, 0.18);
   background: var(--glass-bg);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
   /* 四周同一条描边（原为只在右侧一条竖线——那是通栏贴边的画法）；
      投影取全站玻璃那一档，面板才浮得起来 */
   border: 1px solid var(--glass-border);
@@ -9389,6 +9454,16 @@ html.fs-fake-on .main {
      提到 0.6 才重新拉开「一行行」的层级 */
   --sb-menu-bg: rgba(255, 255, 255, 0.6);
   --sb-menu-bg-hover: rgba(255, 255, 255, 0.85);
+}
+
+/* 侧栏/抽屉是「定高 flex 列 + overflow-y: auto」：内容超高时浏览器会优先压缩
+   可伸缩的子项，而不是让容器滚动。菜单展开后整列高度翻倍，正处这一状态——
+   Logo、天气卡、底栏都会被压扁，其中天气卡有 aspect-ratio 定高 + overflow: hidden，
+   实测从 127px 被压到 26px，文字与图标直接被裁掉（抽屉里看起来就是「卡片被截断」）。
+   这里统一锁死各子项不参与收缩，超高一律交给容器自己的滚动条处理。
+   注意 .sb-weather 是 display: contents，卡片的 flex 项身份挂在下面那条规则上。 */
+.sidebar > * {
+  flex-shrink: 0;
 }
 
 .sb-head {
@@ -9429,8 +9504,7 @@ html.fs-fake-on .main {
 }
 
 .sb-close,
-.sb-toggle,
-.sb-toc {
+.sb-toggle {
   display: none;
   align-items: center;
   justify-content: center;
@@ -9448,21 +9522,14 @@ html.fs-fake-on .main {
     border-color var(--dur-fast);
 }
 .sb-close:hover,
-.sb-toggle:hover,
-.sb-toc:hover {
+.sb-toggle:hover {
   color: var(--accent);
   border-color: var(--accent);
 }
 .sb-close svg,
-.sb-toggle svg,
-.sb-toc svg {
+.sb-toggle svg {
   width: 17px;
   height: 17px;
-}
-
-/* 窄屏目录面板：桌面/宽视口永不出现（面板完整样式都在 ≤900px 媒体查询里） */
-.toc-panel {
-  display: none;
 }
 
 /* 侧边栏底部的主题开关与版权 */
@@ -9572,6 +9639,8 @@ html.fs-fake-on .main {
 }
 /* ---- 侧栏与抽屉里的天气卡（≤1280px / 移动端）：与宽屏右栏保持完全一致的长宽比（286:150 ≈ 1.907） ---- */
 .sb-weather .hero-weather {
+  /* 宿主 display: contents，卡片才是 .sidebar 的 flex 项，必须自己声明不收缩 */
+  flex: none;
   margin-bottom: 14px !important;
   width: 100% !important;
   aspect-ratio: 286 / 150 !important;
@@ -10003,8 +10072,8 @@ html.fs-fake-on .main {
      顶栏左缘因此与卡片左缘（以及下面页脚的文字）落在同一条竖线上 */
   margin: 10px 18px 0;
   background: var(--glass-bg);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
   /* 四周一圈描边（覆盖基础版那条 border-bottom）+ 玻璃投影。
      不能再沿用「只在朝内容那侧描边」的画法——那是通栏条的语言，
      浮起来之后四边都得有边，否则圆角处会缺一截 */
@@ -10040,8 +10109,8 @@ html.fs-fake-on .main {
   z-index: 60;
   pointer-events: none;
   background: var(--bg);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
   /* 底边 12px 内淡出，免得在走道两侧留下一条硬边。
      mask 会把 backdrop-filter 的结果一起渐隐（Chrome / Safari 都支持，
      也是「渐进模糊」的常规写法），所以模糊与底色是同步收边的 */
@@ -10272,8 +10341,8 @@ html.fs-fake-on .main {
   /* 与 .card / .hero 同一套毛玻璃材质：玻璃底 + 背景模糊 + 玻璃描边 + 内高光。
      原来是「不透明卡片底 + 实描边」，光斑根本透不过来，毛玻璃不成立 */
   background: var(--glass-bg);
-  backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
-  -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%) brightness(1.06);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%) brightness(1.06);
   border: 1px solid var(--glass-border);
   border-radius: 18px;
   padding: 6px 4px;
@@ -10484,8 +10553,8 @@ html.fs-fake-on .main {
 .rail-card {
   /* 同 .home-list：右栏卡片也换成毛玻璃，与左侧榜单同一材质 */
   background: var(--glass-bg);
-  backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
-  -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.06);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%) brightness(1.06);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%) brightness(1.06);
   border: 1px solid var(--glass-border);
   border-radius: 18px;
   padding: 14px;
@@ -10895,21 +10964,17 @@ body.sb-locked {
   .sidebar .sb-home-btn.active,
   .sidebar .sb-cat-btn.active,
   .sidebar .cat-pills > button.active,
-  .sidebar .sb-weather .hero-weather,
-  .toc-panel,
-  .toc-panel.open,
-  .toc-panel .cat-toc-item.active {
+  .sidebar .sb-weather .hero-weather {
     box-shadow: none !important;
   }
   .sb-close,
   .sb-toggle {
     display: flex;
   }
-  /* 汉堡按钮与左下目录 FAB 是同一族入口（都从左缘展开抽屉），统一尺寸语言：
+  /* 汉堡按钮是窄屏唯一的抽屉入口，尺寸语言：
      44px 触控目标（iOS 44pt 下限；48 会把顶栏第一行撑到 68px，太厚）、
-     圆角按 FAB 的 15/48 比例取 13、图标 17→20；
-     材质对齐 FAB 的 Liquid Glass（半透明玻璃底 + 玻璃描边 + 内高光，
-     backdrop-filter 由下方小控件统一规则提供 blur 20，底色透明后即生效） */
+     圆角 13、图标 17→20；材质走 Liquid Glass（半透明玻璃底 + 玻璃描边 +
+     内高光，backdrop-filter 由下方小控件统一规则提供 blur 20，底色透明后即生效） */
   .sb-toggle {
     width: 44px;
     height: 44px;
@@ -10922,45 +10987,7 @@ body.sb-locked {
     width: 20px;
     height: 20px;
   }
-  /* 目录按钮：仍是左下角悬浮玻璃 fab（汉堡已回归顶栏、搜索框左边）。
-     按钮本体挂在 body 直下（见 index.html），fixed 才相对视口定位；
-     尺寸取触屏下限 48px、留 safe-area 避开全面屏手势条；层叠压在遮罩(190)/
-     抽屉(200)之下——抽屉展开时它随内容一起被压暗，关闭走面板自己的 ✕ / 遮罩点击。
-     首页视图由 JS 写 hidden 收起，display:flex 会盖掉 hidden 的默认隐藏，末尾补一条。
-     left/bottom 取 12px：与移动端走道基准（.app-shell .layout 内边距 12px，
-     内容列即从 12px 起）同源，与顶栏 ☰ 才不会各漂各的 */
-  .sb-toc {
-    position: fixed;
-    left: max(12px, env(safe-area-inset-left));
-    bottom: max(12px, env(safe-area-inset-bottom));
-    z-index: 150;
-    display: flex;
-    width: 48px;
-    height: 48px;
-    border-radius: 15px;
-    background: var(--glass-bg);
-    backdrop-filter: blur(28px) saturate(180%);
-    -webkit-backdrop-filter: blur(28px) saturate(180%);
-    border: 1px solid var(--glass-border);
-    box-shadow:
-      var(--glass-shadow),
-      inset 0 1px 0 var(--glass-hi);
-    color: var(--text);
-    transition:
-      color var(--dur-fast),
-      border-color var(--dur-fast),
-      transform var(--dur-fast);
-  }
-  .sb-toc svg {
-    width: 22px;
-    height: 22px;
-  }
-  .sb-toc:active {
-    transform: scale(0.92);
-  }
-  .sb-toc[hidden] {
-    display: none;
-  }
+
   .app-shell .layout {
     padding: 0 12px;
   }
@@ -11044,121 +11071,6 @@ body.sb-locked {
   .sb-close svg {
     width: 19px;
     height: 19px;
-  }
-
-  /* ===== 目录抽屉（左下角目录按钮拉出，只列当前分类的数据源标签）=====
-     与侧边栏抽屉同款侧滑语言：贴左/上/下缘、只圆右侧、整块从 -100% 滑入。
-     窄一档（264 → 252px）：里面只有一列数据源条目，不需要抽屉那个宽度；
-     菜单灰阶变量同步带一份——条目 :active 要用，别去 .sidebar 身上借 */
-  .toc-panel {
-    --sb-menu-bg-hover: rgba(148, 152, 168, 0.18);
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    z-index: 200;
-    display: flex;
-    flex-direction: column;
-    width: min(76vw, 252px);
-    background: var(--glass-bg);
-    backdrop-filter: blur(28px) saturate(180%);
-    -webkit-backdrop-filter: blur(28px) saturate(180%);
-    border: none;
-    border-right: 1px solid var(--glass-border);
-    border-radius: 0 20px 20px 0;
-    transform: translateX(-100%);
-    transition: transform var(--dur-base) var(--ease);
-    box-shadow: 0 0 42px rgba(0, 0, 0, 0.34);
-    padding: max(14px, env(safe-area-inset-top)) 8px max(10px, env(safe-area-inset-bottom));
-  }
-  .toc-panel.open {
-    transform: none;
-  }
-  /* 面板里的 ✕ 收回桌面档的 34px：全局窄屏规则把它放大到 40px，
-     在这份紧凑列表的头部显得笨重 */
-  .toc-head .sb-close {
-    width: 34px;
-    height: 34px;
-  }
-  .toc-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 2px 8px 8px;
-  }
-  .toc-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text);
-  }
-  .toc-body {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    /* 与 .sidebar 同款处理：触摸/滚轮都能滚，但不画原生滚动条——
-     那条灰色轨道挤在玻璃面板右缘，是整块面板里最脏的元素 */
-    scrollbar-width: none;
-  }
-  .toc-body::-webkit-scrollbar {
-    width: 0;
-    height: 0;
-  }
-  /* 条目与抽屉菜单同语言但更紧凑：37px 窄行 + 18px 小图标，一屏多看几条。
-     类名复用 .cat-toc-item 换全局高亮同步，样式在这里自成一档（不带 .sidebar 前缀） */
-  .toc-panel .cat-toc-item {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    min-height: 37px;
-    padding: 4px 10px;
-    border-radius: 9px;
-    font-size: 13px;
-    font-weight: 500;
-    background: transparent;
-    border: none;
-    color: var(--text-dim);
-    cursor: pointer;
-    transition:
-      color var(--dur-fast),
-      background var(--dur-fast);
-  }
-  .toc-panel .cat-toc-item .mm {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex: 1;
-    min-width: 0;
-  }
-  .toc-panel .cat-toc-item .nm {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .toc-panel .cat-toc-item .ci {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-  }
-  .toc-panel .cat-toc-item .ci .card-logo {
-    width: 18px;
-    height: 18px;
-    border-radius: 5px;
-  }
-  .toc-panel .cat-toc-item.active {
-    background: linear-gradient(135deg, var(--accent), var(--accent-light));
-    color: #fff;
-    font-weight: 700;
-    box-shadow: var(--accent-glow);
-  }
-  .toc-panel .cat-toc-item:active {
-    background: var(--sb-menu-bg-hover);
-  }
-  .toc-panel .cat-toc-item.active:active {
-    background: var(--accent-light);
   }
 }
 
@@ -11253,8 +11165,8 @@ body.sb-locked {
 .sb-toggle,
 .hf-pill,
 .hf-arrow {
-  backdrop-filter: blur(20px) saturate(170%);
-  -webkit-backdrop-filter: blur(20px) saturate(170%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(170%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(170%);
 }
 
 /* 分组标题条补上与卡片同一档冷调投影：它此前只有内高光没有外投影，
@@ -11308,8 +11220,8 @@ body {
 /* 顶部导航与品牌胶囊 */
 .topbar {
   background: rgba(255, 255, 255, 0.78) !important;
-  backdrop-filter: blur(20px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%) !important;
   border-bottom: 1px solid rgba(226, 232, 240, 0.6) !important;
 }
 
@@ -11382,8 +11294,8 @@ body {
 /* 左侧边栏分类按钮 */
 .sidebar {
   background: rgba(255, 255, 255, 0.75) !important;
-  backdrop-filter: blur(24px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%) !important;
   border-right: 1px solid rgba(226, 232, 240, 0.7) !important;
 }
 
@@ -12489,23 +12401,68 @@ body {
   gap: 16px;
 }
 
-/* 顶部实况概览卡片 */
+/* 顶部实况概览卡片：背景由 app.js 按「天气类型 + 真实日出日落」写入 hwSkyGradient，
+   与右栏天气卡同源，所以这里是"天空"而不是玻璃面——白天是蓝到浅蓝，入夜后转深蓝紫。
+   底色一深，原来那套 var(--text) 深色文字就不可读了，卡内一律转白。
+   这里只写兜底渐变（≈白天晴空），实际值由行内 style 覆盖 */
 .wx-hero-card {
   position: relative;
   overflow: hidden;
   border-radius: 18px;
   padding: 18px 20px;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.18) 0%, rgba(147, 197, 253, 0.12) 100%);
-  border: 1px solid var(--glass-border);
+  background: linear-gradient(160deg, #1d6fe9, #3b82f6, #60a5fa);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    0 4px 16px rgba(0, 0, 0, 0.04);
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    0 8px 22px rgba(15, 40, 90, 0.16);
   flex-shrink: 0;
+  color: #fff;
+  isolation: isolate;
 }
+/* 一层极淡的暗罩托住文字：天空渐变中段偏亮（#3b82f6 上 11.5px 白字只有约 2.9:1），
+   压 22% 的深蓝后各档都稳过线，视觉上只是"天略沉"，不改变整体色调 */
+.wx-hero-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(8, 22, 50, 0.16) 0%,
+    rgba(8, 22, 50, 0.04) 52%,
+    rgba(8, 22, 50, 0.16) 100%
+  );
+  z-index: 0;
+}
+/* 右上角一团柔光，避免整块只是一条平渐变；白天暖白、夜里冷月晕。
+   放在暗罩之上（z-index 1），否则会被压灰 */
+.wx-hero-card::before {
+  content: '';
+  position: absolute;
+  top: -48px;
+  right: -28px;
+  width: 196px;
+  height: 196px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0) 66%);
+  z-index: 1;
+}
+.wx-hero-card.is-night::before {
+  background: radial-gradient(circle, rgba(186, 210, 255, 0.24) 0%, rgba(186, 210, 255, 0) 68%);
+}
+/* 深色主题：天空本身已经很深，只收一下描边和投影，别让这张卡片从深色页面上"浮"起来 */
 [data-theme='dark'] .wx-hero-card {
-  background: linear-gradient(135deg, rgba(30, 58, 138, 0.3) 0%, rgba(15, 23, 42, 0.6) 100%);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 10px 26px rgba(0, 0, 0, 0.4);
+}
+/* 内容压在暗罩与柔光之上 */
+.wx-hero-top,
+.wx-hero-grid {
+  position: relative;
+  z-index: 2;
 }
 
 .wx-hero-top {
@@ -12531,21 +12488,24 @@ body {
   font-size: 44px;
   font-weight: 800;
   line-height: 1;
-  color: var(--text);
+  color: #fff;
   font-variant-numeric: tabular-nums;
   letter-spacing: -1.5px;
+  text-shadow: 0 2px 10px rgba(6, 20, 46, 0.28);
 }
 
 .wx-hero-current-cond {
   font-size: 18px;
   font-weight: 700;
-  color: var(--text);
+  color: #fff;
+  text-shadow: 0 1px 6px rgba(6, 20, 46, 0.24);
 }
 
+/* 次要行用 84% 白：既压住对比度，又不至于和主温度抢层级 */
 .wx-hero-range {
   font-size: 13.5px;
   font-weight: 500;
-  color: var(--text-dim);
+  color: rgba(255, 255, 255, 0.84);
 }
 
 .wx-hero-icon {
@@ -12553,7 +12513,8 @@ body {
   height: 64px;
   flex-shrink: 0;
   object-fit: contain;
-  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.16));
+  /* 夜间背景很深，改用带冷调的柔光托住 3D 图标，避免黑投影糊在深蓝上 */
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.22));
 }
 
 /* 顶部实况指标网格（4小格） */
@@ -12563,7 +12524,7 @@ body {
   gap: 10px;
   margin-top: 14px;
   padding-top: 14px;
-  border-top: 1px solid var(--glass-border);
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
 }
 
 .wx-grid-item {
@@ -12577,15 +12538,36 @@ body {
 
 .wx-grid-label {
   font-size: 11.5px;
-  font-weight: 500;
-  color: var(--text-dim);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.86);
 }
 
 .wx-grid-val {
   font-size: 13.5px;
   font-weight: 700;
-  color: var(--text);
+  color: #fff;
   white-space: nowrap;
+}
+
+/* 天空底上的空气质量徽章：原配色是「12% 透明底 + 深绿字」，专为白卡片设计，
+   压到深蓝渐变上会整块糊掉。这里改成实色底 + 白字，四档都 ≥4.6:1；
+   选择器多带一层 .wx-aqi-badge 以稳过深色主题那条覆盖 */
+.wx-hero-card .wx-aqi-badge {
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 2px 6px rgba(6, 20, 46, 0.22);
+}
+.wx-hero-card .wx-aqi-badge.wx-aqi-1 {
+  background: #15803d;
+}
+.wx-hero-card .wx-aqi-badge.wx-aqi-2 {
+  background: #a16207;
+}
+.wx-hero-card .wx-aqi-badge.wx-aqi-3 {
+  background: #c2410c;
+}
+.wx-hero-card .wx-aqi-badge.wx-aqi-4 {
+  background: #b91c1c;
 }
 
 /* 7天预报列表卡片 */
@@ -13129,19 +13111,16 @@ body {
 
 /* 侧边栏展开子项激活高亮 */
 [data-theme='dark'] .cat-nav .cat-toc-item.active,
-[data-theme='dark'] .toc-panel .cat-toc-item.active,
 [data-theme='dark'] .cat-subitem.active {
   background: linear-gradient(135deg, #ff5e3a 0%, #ff7a59 100%) !important;
   color: #ffffff !important;
   font-weight: 700 !important;
   box-shadow: 0 4px 14px rgba(255, 94, 58, 0.4) !important;
 }
-[data-theme='dark'] .cat-nav .cat-toc-item.active .nm,
-[data-theme='dark'] .toc-panel .cat-toc-item.active .nm {
+[data-theme='dark'] .cat-nav .cat-toc-item.active .nm {
   color: #ffffff !important;
 }
-[data-theme='dark'] .cat-nav .cat-toc-item.active .tb,
-[data-theme='dark'] .toc-panel .cat-toc-item.active .tb {
+[data-theme='dark'] .cat-nav .cat-toc-item.active .tb {
   color: #ffffff !important;
   background: rgba(255, 255, 255, 0.25) !important;
 }
@@ -14876,9 +14855,12 @@ select.tool-input-txt {
 .tto-sun-wrap {
   position: absolute;
   left: 50%;
-  bottom: clamp(140px, 30vh, 280px);
-  width: clamp(120px, 18vw, 180px);
-  height: clamp(120px, 18vw, 180px);
+  /* 太阳要和月亮处在同一高度带：月亮固定在 top:26%，这里用 46vh 的底距 + 终帧 -104px
+     位移，让太阳中心也落在距顶约 26% 处。旧值 32vh/上限 320px 只把太阳送到 40%，
+     于是"月亮爬上天顶、太阳却停在山脊上"。 */
+  bottom: max(150px, 46vh);
+  width: clamp(132px, 19.5vw, 196px);
+  height: clamp(132px, 19.5vw, 196px);
   transform: translate3d(-50%, 0, 0);
   pointer-events: none;
   z-index: 2;
@@ -14890,20 +14872,9 @@ select.tool-input-txt {
 .tto-sun-svg {
   width: 100%;
   height: 100%;
-  filter: drop-shadow(0 10px 25px rgba(245, 158, 11, 0.45));
+  filter: drop-shadow(0 6px 30px rgba(255, 176, 58, 0.42));
 }
-.tto-sun-rays {
-  transform-origin: 65px 65px;
-  animation: ttoSpinRays 14s linear infinite;
-}
-@keyframes ttoSpinRays {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
+/* 太阳已改成纯辉光塑形，不再有可旋转的光芒组，ttoSpinRays 一并移除 */
 
 /* 扁平卡通月亮容器（右上角星空定位，z-index: 2） */
 .tto-moon-wrap {
@@ -14926,70 +14897,99 @@ select.tool-input-txt {
 }
 
 /* 高精全屏雪山自然风景图层（像素级贴合 Hero 卡片雪山与冷杉林） */
+/* 山体贴图是 1376×614（比例 2.241）。容器高度必须由这个比例反算，
+   不能再用 clamp() 硬卡：宽度铺满时图高 = 宽/2.241，一旦超过容器高，
+   background 就会被 border-box 裁掉顶部——表现就是山峰被切平一截。
+   --peak-w 取「够宽」和「够高」里较小的那个，所以永远只可能裁左右，绝不裁顶。 */
 .tto-landscape-wrap {
+  --peak-min-w: 1100px;
+  --peak-w: min(max(var(--peak-min-w), 100vw), calc(100dvh * 2.241));
+  --peak-h: calc(var(--peak-w) / 2.241);
   position: absolute;
   bottom: 0;
   left: 0;
   width: 100%;
-  height: clamp(340px, 72vh, 640px);
+  height: var(--peak-h);
   pointer-events: none;
   z-index: 4;
   overflow: hidden;
+  /* 把夜染层的 multiply 圈在这一层内，只作用于山体，不往下混到天空 */
+  isolation: isolate;
 }
 @media (max-width: 640px) {
   .tto-landscape-wrap {
-    height: clamp(280px, 52vh, 460px);
+    /* 980/2.241 ≈ 437px，竖屏下约占屏高一半，和改版前的占比接近 */
+    --peak-min-w: 980px;
   }
 }
+/* 宽高同源（--peak-w / --peak-h），且比例恒等于图片比例，
+   所以 background-size 用 100% 100% 不会变形，也不会再有多出来的高度被裁掉。 */
 .tto-landscape-layer {
   position: absolute;
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 100%;
-  min-width: 1100px;
+  width: var(--peak-w);
   height: 100%;
-  background-size: 100% auto;
+  background-size: 100% 100%;
   background-position: center bottom;
   background-repeat: no-repeat;
   will-change: opacity, filter;
 }
-@media (max-width: 640px) {
-  .tto-landscape-layer {
-    width: 860px;
-    min-width: 860px;
-  }
-}
-.tto-layer-morning {
+/* 全站过渡只用一张山体图。morning / sunset 两张前景是两套构图（峰位、山脊高度、
+   林带走向都不同），叠着交叉淡入时，先穿透出来的低山脊会盖掉对方的高雪峰，
+   观感就是「山峰被削掉一截」。合并成单层后轮廓全程恒定，昼夜完全由 filter 推演。 */
+.tto-layer-peak {
   background-image: url(/hero-morning-fg.webp);
   z-index: 1;
-  opacity: 1;
+  filter: brightness(1) saturate(1) sepia(0) hue-rotate(0deg);
+  will-change: opacity, filter;
 }
-.tto-layer-sunset {
-  background-image: url(/hero-sunset-fg.webp);
-  z-index: 2;
+/* 夜空染色：冷色 multiply 叠在山体上，opacity 由昼夜动画驱动。
+   只压 brightness 会让山变成"发灰的白天照"，补这层才有真正的月下偏蓝。
+   必须用同一张图做 mask：否则染色是个矩形，会把山峰上方本该透明、留给天空的
+   区域一起涂上颜色，wrap 的顶边就成了一条突兀的横线。 */
+.tto-layer-peak::after {
+  content: '';
+  position: absolute;
+  inset: 0;
   opacity: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(26, 38, 92, 0.62) 0%, rgba(10, 16, 46, 0.88) 100%);
+  mix-blend-mode: multiply;
+  -webkit-mask-image: url(/hero-morning-fg.webp);
+  mask-image: url(/hero-morning-fg.webp);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-position: center bottom;
+  mask-position: center bottom;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  will-change: opacity;
 }
 
 /* ================================================================
    动画模式 1：日落动画 (Light -> Dark: Sunset 🌇 浅色变深色)
    ================================================================ */
+/* 天象时间轴统一 2.4s。相位约定（日落）：
+   0-10% overlay 淡入 → 10-30% 太阳最高、晚霞铺开 → 30-52% 太阳落到山后
+   → 52-74% 月亮升起、山体转夜 → 74-90% 夜色坐实 → 90-100% overlay 淡出 */
 .theme-transition-overlay.mode-sunset {
-  animation: ttoCartoonMaster 1.25s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: ttoCartoonMaster 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 /* 日落天空渐变过渡 */
 .theme-transition-overlay.mode-sunset .tto-sky {
-  animation: ttoSunsetSky 1.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: ttoSunsetSky 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 @keyframes ttoSunsetSky {
   0% {
     background: linear-gradient(180deg, #53488d 0%, #ff6584 38%, #ffa07a 72%, #feeaa7 100%);
   }
-  40% {
+  34% {
     background: linear-gradient(180deg, #372a66 0%, #b83b5e 35%, #f07b3f 70%, #ffd460 100%);
   }
-  72% {
+  66% {
     background: linear-gradient(180deg, #12162d 0%, #1d2248 40%, #302652 75%, #4a3362 100%);
   }
   100% {
@@ -14997,78 +14997,101 @@ select.tool-input-txt {
   }
 }
 
-/* 日落清晨底图：始终作为 100% 实体山川基底，杜绝任何透明度衰减引起的虚化消失感 */
-.theme-transition-overlay.mode-sunset .tto-layer-morning {
-  opacity: 1;
-  filter: brightness(1);
+/* 日落山体：单层常驻 100% 不透明，只推色调——暖光 → 日照金山 → 暮色 → 静谧夜色。
+   opacity 恒为 1，所以任何时刻都只有一套峰形，不会再有"山被削掉"的断层。 */
+.theme-transition-overlay.mode-sunset .tto-layer-peak {
+  animation: ttoSunsetPeakTone 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
-
-/* 日落晚霞金辉山景：在基底上平滑覆盖淡入，并在夜幕降临转为静谧夜色 */
-.theme-transition-overlay.mode-sunset .tto-layer-sunset {
-  animation: ttoSunsetSunsetFade 1.25s cubic-bezier(0.4, 0, 0.2, 1) both;
-}
-@keyframes ttoSunsetSunsetFade {
+@keyframes ttoSunsetPeakTone {
   0% {
+    filter: brightness(1.02) saturate(1.04) sepia(0.05) hue-rotate(-2deg);
+  }
+  36% {
+    filter: brightness(1.16) saturate(1.32) sepia(0.52) hue-rotate(-14deg); /* 日照金山 */
+  }
+  56% {
+    filter: brightness(0.76) saturate(0.88) sepia(0.14) hue-rotate(-8deg); /* 暮色 */
+  }
+  100% {
+    filter: brightness(0.62) saturate(0.8) sepia(0) hue-rotate(0deg); /* 底色交给夜染层 */
+  }
+}
+/* 夜染层：40% 前不动，天色转深时同步加浓，100% 到位——和 ttoSunsetSky 的节奏对齐，
+   避免出现"天已经黑透、山还亮着"的割裂。 */
+.theme-transition-overlay.mode-sunset .tto-layer-peak::after {
+  animation: ttoSunsetTint 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@keyframes ttoSunsetTint {
+  0%,
+  22% {
     opacity: 0;
-    filter: brightness(0.95);
   }
-  42% {
-    opacity: 1;
-    filter: brightness(1.08) saturate(1.1); /* 辉煌晚霞金山时刻 */
+  50% {
+    opacity: 0.52;
   }
-  68% {
-    opacity: 1;
-    filter: brightness(0.68) saturate(0.88);
+  74% {
+    opacity: 0.86;
   }
   100% {
     opacity: 1;
-    filter: brightness(0.35) saturate(0.7) hue-rotate(-15deg); /* 静谧夜色 */
   }
 }
 
 /* 日落太阳：欢快滑向山峦后方沉入地平线 */
+/* 日落太阳：先在最高处停留一下（30%），再匀速沉入山后（52% 触山、66% 没尽）。
+   旧版 0.94s 内要走完 360px，每帧挪 6px 以上，看起来像被"甩"下去。 */
 .theme-transition-overlay.mode-sunset .tto-sun-wrap {
-  animation: ttoSunsetSunMotion 1.25s cubic-bezier(0.25, 0.1, 0.45, 1) forwards;
+  animation: ttoSunsetSunMotion 2.4s cubic-bezier(0.32, 0, 0.5, 1) forwards;
 }
 @keyframes ttoSunsetSunMotion {
   0% {
-    transform: translate3d(-50%, -80px, 0) scale(1);
-    opacity: 0.95;
-  }
-  25% {
-    transform: translate3d(-50%, -30px, 0) scale(1.05);
+    transform: translate3d(-50%, -104px, 0) scale(1); /* 与日升终帧同高 */
     opacity: 1;
   }
-  55% {
-    transform: translate3d(-50%, 85px, 0) scale(0.92);
-    opacity: 0.95;
+  14% {
+    transform: translate3d(-50%, -132px, 0) scale(1.05);
+    opacity: 1;
   }
-  75% {
-    transform: translate3d(-50%, 210px, 0) scale(0.75);
+  30% {
+    transform: translate3d(-50%, -120px, 0) scale(1.06); /* 最高点附近轻滞 */
+    opacity: 1;
+  }
+  52% {
+    transform: translate3d(-50%, 78px, 0) scale(0.94); /* 触到山脊，露出上半 */
+    opacity: 0.98;
+  }
+  68% {
+    transform: translate3d(-50%, 250px, 0) scale(0.74); /* 没入山后 */
     opacity: 0;
   }
   100% {
-    transform: translate3d(-50%, 280px, 0) scale(0.5);
+    transform: translate3d(-50%, 310px, 0) scale(0.62);
     opacity: 0;
   }
 }
 
 /* 日落月亮：弹动升上右上角夜空，安睡眨眼 */
+/* 日落月亮：等太阳基本没入（48%）才起步，与太阳错开，避免"日月同框抢戏"。
+   旧版太阳和月亮在 55%~75% 挤在一起换班，两团光叠着一起往前赶，更显仓促。 */
 .theme-transition-overlay.mode-sunset .tto-moon-wrap {
-  animation: ttoSunsetMoonMotion 1.25s cubic-bezier(0.34, 1.45, 0.64, 1) forwards;
+  animation: ttoSunsetMoonMotion 2.4s cubic-bezier(0.34, 1.3, 0.64, 1) forwards;
 }
 @keyframes ttoSunsetMoonMotion {
   0%,
-  35% {
-    transform: translateY(120px) scale(0.4) rotate(-25deg);
+  48% {
+    transform: translateY(140px) scale(0.36) rotate(-24deg);
     opacity: 0;
   }
-  68% {
-    transform: translateY(-10px) scale(1.1) rotate(6deg);
+  64% {
+    transform: translateY(44px) scale(0.88) rotate(4deg);
+    opacity: 0.9;
+  }
+  84% {
+    transform: translateY(-12px) scale(1.06) rotate(2deg);
     opacity: 1;
   }
-  85% {
-    transform: translateY(2px) scale(0.98) rotate(0deg);
+  93% {
+    transform: translateY(2px) scale(0.99) rotate(0deg);
     opacity: 1;
   }
   100% {
@@ -15079,14 +15102,14 @@ select.tool-input-txt {
 
 /* 日落星星：夜幕降临时弹跳绽放 */
 .theme-transition-overlay.mode-sunset .tto-stars-wrap {
-  animation: ttoSunsetStarsFade 1.25s ease-out forwards;
+  animation: ttoSunsetStarsFade 2.4s ease-out forwards;
 }
 @keyframes ttoSunsetStarsFade {
   0%,
-  45% {
+  54% {
     opacity: 0;
   }
-  70% {
+  78% {
     opacity: 1;
   }
   100% {
@@ -15113,21 +15136,26 @@ select.tool-input-txt {
 
 /* 日落轻云 */
 .theme-transition-overlay.mode-sunset .tto-cloud-item.c1 {
-  animation: ttoDriftC1 1.25s ease-out forwards;
+  animation: ttoDriftC1 2.4s ease-out forwards;
 }
 .theme-transition-overlay.mode-sunset .tto-cloud-item.c2 {
-  animation: ttoDriftC2 1.25s ease-out forwards;
+  animation: ttoDriftC2 2.4s ease-out forwards;
 }
+/* 云在天色转深前就要退干净：旧版到 75% 还剩 0.55 的白，压到深蓝夜空上
+   会变成两块明显发灰的硬块，和月亮的光晕抢注意力。 */
 @keyframes ttoDriftC1 {
   0% {
     transform: translateX(-60px);
     opacity: 0;
   }
-  25% {
-    opacity: 0.85;
+  22% {
+    opacity: 0.82;
   }
-  75% {
-    opacity: 0.55;
+  48% {
+    opacity: 0.5;
+  }
+  72% {
+    opacity: 0.14;
   }
   100% {
     transform: translateX(70px);
@@ -15139,11 +15167,14 @@ select.tool-input-txt {
     transform: translateX(60px);
     opacity: 0;
   }
-  25% {
-    opacity: 0.75;
+  22% {
+    opacity: 0.72;
   }
-  75% {
-    opacity: 0.45;
+  48% {
+    opacity: 0.42;
+  }
+  72% {
+    opacity: 0.1;
   }
   100% {
     transform: translateX(-70px);
@@ -15155,116 +15186,142 @@ select.tool-input-txt {
    动画模式 2：日升动画 (Dark -> Light: Sunrise 🌅 深色变浅色)
    ================================================================ */
 .theme-transition-overlay.mode-sunrise {
-  animation: ttoCartoonMaster 1.25s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: ttoCartoonMaster 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 /* 日升天空：夜幕 -> 晨曦金橘 -> 晴空天蓝 */
 .theme-transition-overlay.mode-sunrise .tto-sky {
-  animation: ttoSunriseSky 1.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: ttoSunriseSky 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
+/* 天空亮度与太阳爬升同步：34% 冒头时已泛橙，50% 转蓝，太阳 60% 到位时天已亮透。
+   旧版 62% 才转蓝，太阳在 66% 才到顶，两者都比 overlay 的 88% 淡出点太近，看着像"没升完就没了"。 */
 @keyframes ttoSunriseSky {
   0% {
     background: linear-gradient(180deg, #0a0d1d 0%, #11152e 45%, #191e3e 80%, #212244 100%);
   }
-  35% {
-    background: linear-gradient(180deg, #2d2852 0%, #683b6c 35%, #d46a6a 70%, #ffaa5a 100%);
+  26% {
+    background: linear-gradient(180deg, #3b2f5c 0%, #7a4670 32%, #c96a63 66%, #f0a05e 100%);
   }
-  68% {
-    background: linear-gradient(180deg, #38bdf8 0%, #7dd3fc 35%, #bae6fd 65%, #fef08a 100%);
+  50% {
+    background: linear-gradient(180deg, #2f7fd4 0%, #6cc0f5 33%, #a8e0fd 62%, #ffe9a8 100%);
+  }
+  76% {
+    background: linear-gradient(180deg, #63befd 0%, #96dcff 34%, #d2f0ff 68%, #fdfbef 100%);
   }
   100% {
     background: linear-gradient(180deg, #70c4ff 0%, #a0e1ff 35%, #ddf4ff 70%, #ffffff 100%);
   }
 }
 
-/* 日升清晨底图：始终作为 100% 实体山川基底，待上层晚霞淡出后自然无痕显露，全程无任何透明虚化 */
-.theme-transition-overlay.mode-sunrise .tto-layer-morning {
-  opacity: 1;
-  filter: brightness(1);
+/* 日升山体：同一张图，夜色 -> 破晓暖金 -> 晨光本色，opacity 全程为 1 */
+.theme-transition-overlay.mode-sunrise .tto-layer-peak {
+  animation: ttoSunrisePeakTone 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
-
-/* 日升晚霞夜色山景：从夜幕山影 -> 破晓日照金山 -> 晨光中平滑淡出，无缝呈现清晨雪山 */
-.theme-transition-overlay.mode-sunrise .tto-layer-sunset {
-  animation: ttoSunriseSunsetFade 1.25s cubic-bezier(0.4, 0, 0.2, 1) both;
+@keyframes ttoSunrisePeakTone {
+  0% {
+    filter: brightness(0.62) saturate(0.8) sepia(0) hue-rotate(0deg); /* 夜底 */
+  }
+  34% {
+    filter: brightness(1.16) saturate(1.28) sepia(0.5) hue-rotate(-14deg); /* 破晓日照金山 */
+  }
+  66% {
+    filter: brightness(1.06) saturate(1.1) sepia(0.1) hue-rotate(-3deg);
+  }
+  100% {
+    filter: brightness(1) saturate(1) sepia(0) hue-rotate(0deg); /* 清晨本色 */
+  }
 }
-@keyframes ttoSunriseSunsetFade {
+/* 日升夜染层：与 sky 同步退去，天亮时山体刚好回到本色 */
+.theme-transition-overlay.mode-sunrise .tto-layer-peak::after {
+  animation: ttoSunriseTint 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@keyframes ttoSunriseTint {
   0% {
     opacity: 1;
-    filter: brightness(0.35) saturate(0.7) hue-rotate(-15deg); /* 夜幕山影 */
   }
-  35% {
-    opacity: 1;
-    filter: brightness(1.15) saturate(1.18); /* 破晓日照金山时刻！ */
+  34% {
+    opacity: 0.4;
   }
-  75% {
-    opacity: 0;
-    filter: brightness(1.02);
+  66% {
+    opacity: 0.08;
   }
   100% {
     opacity: 0;
-    filter: brightness(1);
   }
 }
 
 /* 日升月亮：右上角柔和滑落淡出 */
 .theme-transition-overlay.mode-sunrise .tto-moon-wrap {
-  animation: ttoSunriseMoonMotion 1.25s cubic-bezier(0.3, 0, 0.7, 1) forwards;
+  animation: ttoSunriseMoonMotion 2.4s cubic-bezier(0.3, 0, 0.7, 1) forwards;
 }
 @keyframes ttoSunriseMoonMotion {
   0% {
-    transform: translateY(0) scale(1);
-    opacity: 0.95;
+    transform: translateY(0) scale(1) rotate(0deg);
+    opacity: 1;
   }
-  25% {
-    transform: translateY(50px) scale(0.85);
-    opacity: 0.6;
+  22% {
+    transform: translateY(46px) scale(0.86) rotate(-6deg);
+    opacity: 0.72;
   }
-  42% {
-    transform: translateY(140px) scale(0.4);
+  44% {
+    transform: translateY(132px) scale(0.44) rotate(-12deg);
     opacity: 0;
   }
   100% {
-    transform: translateY(180px) scale(0.2);
+    transform: translateY(180px) scale(0.24) rotate(-16deg);
     opacity: 0;
   }
 }
 
-/* 日升太阳：从群山后欢快跃升而出，光芒四射 */
+/* 日升太阳：等月亮退到一半（14%）才从山脊后露头，66% 升到高位后稳住不动 */
 .theme-transition-overlay.mode-sunrise .tto-sun-wrap {
-  animation: ttoSunriseSunMotion 1.25s cubic-bezier(0.34, 1.45, 0.64, 1) forwards;
+  animation: ttoSunriseSunMotion 2.4s cubic-bezier(0.3, 0.9, 0.36, 1) forwards;
 }
 @keyframes ttoSunriseSunMotion {
   0%,
-  15% {
-    transform: translate3d(-50%, 220px, 0) scale(0.5);
+  10% {
+    transform: translate3d(-50%, 320px, 0) scale(0.46); /* 山后地平线以下 */
     opacity: 0;
   }
-  45% {
+  20% {
+    transform: translate3d(-50%, 250px, 0) scale(0.58); /* 一线微光 */
+    opacity: 0.5;
+  }
+  34% {
+    transform: translate3d(-50%, 150px, 0) scale(0.82);
     opacity: 1;
   }
-  72% {
-    transform: translate3d(-50%, -95px, 0) scale(1.12);
+  48% {
+    transform: translate3d(-50%, 10px, 0) scale(1); /* 跃出山脊 */
     opacity: 1;
   }
-  86% {
-    transform: translate3d(-50%, -68px, 0) scale(0.98);
+  60% {
+    transform: translate3d(-50%, -88px, 0) scale(1.07);
+    opacity: 1;
+  }
+  74% {
+    transform: translate3d(-50%, -94px, 0) scale(1.04);
+    opacity: 1;
+  }
+  88% {
+    transform: translate3d(-50%, -99px, 0) scale(1.02); /* 与月亮同高度带 */
     opacity: 1;
   }
   100% {
-    transform: translate3d(-50%, -75px, 0) scale(1);
-    opacity: 0.95;
+    transform: translate3d(-50%, -104px, 0) scale(1);
+    opacity: 1;
   }
 }
 
 /* 日升星星：晨光初现时悄然隐退 */
 .theme-transition-overlay.mode-sunrise .tto-stars-wrap {
-  animation: ttoSunriseStarsFade 1.25s ease-out forwards;
+  animation: ttoSunriseStarsFade 2.4s ease-out forwards;
 }
 @keyframes ttoSunriseStarsFade {
   0% {
     opacity: 1;
   }
-  30% {
+  26% {
     opacity: 0.6;
   }
   48% {
@@ -15277,10 +15334,10 @@ select.tool-input-txt {
 
 /* 日升白云：蓝天白云轻盈漂游 */
 .theme-transition-overlay.mode-sunrise .tto-cloud-item.c1 {
-  animation: ttoSunriseCloud1 1.25s ease-out forwards;
+  animation: ttoSunriseCloud1 2.4s ease-out forwards;
 }
 .theme-transition-overlay.mode-sunrise .tto-cloud-item.c2 {
-  animation: ttoSunriseCloud2 1.25s ease-out forwards;
+  animation: ttoSunriseCloud2 2.4s ease-out forwards;
 }
 @keyframes ttoSunriseCloud1 {
   0% {
@@ -15315,15 +15372,17 @@ select.tool-input-txt {
   }
 }
 
-/* 全屏过渡统一出入场控制器 */
+/* 全屏过渡统一出入场控制器。尾段 88%→100% 才淡出（约 0.29s）：
+   此时月亮已到位、山体早已压成夜色、底层主题色也换完了，撤掉 overlay 看不出接缝。
+   旧版 85% 就开始 fade，而山体的夜色要拖到 100% 才到位，于是"天还没黑透画面就没了"。 */
 @keyframes ttoCartoonMaster {
   0% {
     opacity: 0;
   }
-  12% {
+  9% {
     opacity: 1;
   }
-  85% {
+  88% {
     opacity: 1;
   }
   100% {

@@ -1,5 +1,5 @@
 import { load } from 'cheerio'
-import { Common, dayjs } from '../common.ts'
+import { Common, dayjs, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 
@@ -50,33 +50,23 @@ class ServiceGithubTrending {
         limit,
       )
 
-      switch (ctx.state.encoding) {
-        case 'text': {
-          ctx.response.body = `GitHub Trending（${SINCE_MAP[since]}${lang ? ` · ${lang}` : ''}）\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `GitHub Trending（${SINCE_MAP[since]}${lang ? ` · ${lang}` : ''}）\n\n${data
             .map(
               (e, idx) =>
                 `${idx + 1}. ${e.title}\n   ${e.language ? `${e.language} · ` : ''}${SINCE_MAP[since]}+${e.hot} star · 共 ${e.stars} star\n   ${e.link}`,
             )
-            .join('\n\n')}`
-          break
-        }
-
-        case 'markdown': {
-          ctx.response.body = `# GitHub Trending - ${SINCE_MAP[since]}${lang ? ` · ${lang}` : ''}\n\n${data
+            .join('\n\n')}`,
+        markdown: () =>
+          `# GitHub Trending - ${SINCE_MAP[since]}${lang ? ` · ${lang}` : ''}\n\n${data
             .map(
               (e, idx) =>
                 `### ${idx + 1}. [${e.title}](${e.link})\n\n${e.description ? `${e.description}\n\n` : ''}**${e.language || '未知语言'}** | ⭐ ${e.stars} | 🍴 ${e.forks} | ${SINCE_MAP[since]} **+${e.hot}**\n\n---\n`,
             )
-            .join('\n')}`
-          break
-        }
-
-        case 'json':
-        default: {
-          ctx.response.body = Common.buildJson(data)
-          break
-        }
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

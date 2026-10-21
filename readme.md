@@ -144,16 +144,16 @@ pnpm start            # 生产模式，端口 4399
 npx wrangler deploy
 ```
 
-| 命令                                | 说明                                           |
-| ----------------------------------- | ---------------------------------------------- |
-| `pnpm run dev`                      | 开发模式，文件变更自动重启                     |
-| `pnpm start`                        | 生产模式                                       |
-| `pnpm run typecheck`                | TypeScript 类型检查（不产出文件）              |
-| `pnpm run verify:endpoints`         | 校验前端面板引用的接口是否都在后端注册         |
-| `pnpm run format` / `pnpm run lint` | Prettier 格式化 / 格式检查                     |
-| `pnpm test`                         | 单元测试（归一化打分 / 热度口径 / 参数钳制）   |
-| `pnpm run build:frontend`           | 构建前端压缩产物到 `public/dist/` 并校验新鲜度 |
-| `pnpm run sync:version`             | 把 package.json 版本号同步进 app.js / sw.js    |
+| 命令                                | 说明                                                     |
+| ----------------------------------- | -------------------------------------------------------- |
+| `pnpm run dev`                      | 开发模式，文件变更自动重启                               |
+| `pnpm start`                        | 生产模式                                                 |
+| `pnpm run typecheck`                | TypeScript 类型检查（不产出文件）                        |
+| `pnpm run verify:endpoints`         | 校验前端面板引用的接口是否都在后端注册                   |
+| `pnpm run format` / `pnpm run lint` | Prettier 格式化 / 格式检查                               |
+| `pnpm test`                         | 单元测试 + HTTP 冒烟（打分归一化 / 缓存 / 路由与中间件） |
+| `pnpm run build:frontend`           | 构建前端压缩产物到 `public/dist/` 并校验新鲜度           |
+| `pnpm run sync:version`             | 把 package.json 版本号同步进 app.js / sw.js              |
 
 ## ⚙️ 配置
 
@@ -226,6 +226,7 @@ npx wrangler deploy
 │   ├── cache.ts             # 缓存工具
 │   ├── force-update-guard.ts # 强制刷新限流
 │   ├── platform-ip.ts       # 访客 IP 定位（天气）
+│   ├── types/               # 无类型声明的第三方依赖补丁（whois-raw 等）
 │   ├── middlewares/         # 中间件（CORS/错误处理/静态资源等）
 │   └── modules/             # 各数据源模块，一个文件对应一类榜单
 │       ├── hot-aggregate.module.ts # 全网热榜聚合（首页数据源）

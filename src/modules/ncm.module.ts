@@ -1,4 +1,4 @@
-import { Common, dayjs } from '../common.ts'
+import { Common, dayjs, renderByEncoding } from '../common.ts'
 import { filesize } from 'filesize'
 import { fetchUpstream } from '../fetch-upstream.ts'
 import type { RouterMiddleware } from '@oak/oak'
@@ -11,29 +11,22 @@ class ServiceNcm {
     return async (ctx) => {
       const data = await this.#fetchRank()
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `网易云音乐榜单\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `网易云音乐榜单\n\n${data
             .map((e, i) => `${i + 1}. ${e.name} (${e.update_frequency})`)
             .slice(0, 20)
-            .join('\n')}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 网易云音乐榜单\n\n${data
+            .join('\n')}`,
+        markdown: () =>
+          `# 网易云音乐榜单\n\n${data
             .slice(0, 20)
             .map(
               (e, i) =>
                 `### ${i + 1}. [${e.name}](${e.link}) \`${e.update_frequency}\`\n\n${e.description ? `${e.description}\n\n` : ''}${e.cover ? `![${e.name}](${e.cover})\n\n` : ''}**更新时间**: ${e.updated}\n\n---\n`,
             )
-            .join('\n')}`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 
@@ -43,9 +36,9 @@ class ServiceNcm {
       const size = +(ctx.request.url.searchParams.get('size') || '36')
       const data = await this.#fetchPlaylist(id)
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `网易云音乐${data?.[0]?.rank_name ?? ''}\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `网易云音乐${data?.[0]?.rank_name ?? ''}\n\n${data
             .slice(0, size)
             .map(
               (e, i) =>
@@ -54,11 +47,9 @@ class ServiceNcm {
                   .map((e) => e.name)
                   .join('、')}`,
             )
-            .join('\n')}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 网易云音乐${data?.[0]?.rank_name ?? ''}\n\n${data
+            .join('\n')}`,
+        markdown: () =>
+          `# 网易云音乐${data?.[0]?.rank_name ?? ''}\n\n${data
             .slice(0, size)
             .map(
               (e, i) =>
@@ -69,14 +60,9 @@ class ServiceNcm {
                     ' / ',
                   )}\n\n**专辑**: ${e.album.name}${e.album.cover ? `\n\n![${e.album.name}](${e.album.cover})` : ''}\n\n**热度**: ${e.popularity} | **评分**: ${e.score}\n\n---\n`,
             )
-            .join('\n')}`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 
@@ -52,30 +52,20 @@ class ServiceQQMusic {
       const data = (await cached(`qq-music-${topid}`, () => this.#fetch(topid))).slice(0, limit)
       const title = TOPID_MAP[topid]
 
-      switch (ctx.state.encoding) {
-        case 'text': {
-          ctx.response.body = `QQ 音乐${title}\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `QQ 音乐${title}\n\n${data
             .map((e, idx) => `${idx + 1}. ${e.title} - ${e.artist}\n   ${e.link}`)
-            .join('\n\n')}`
-          break
-        }
-
-        case 'markdown': {
-          ctx.response.body = `# QQ 音乐${title}\n\n${data
+            .join('\n\n')}`,
+        markdown: () =>
+          `# QQ 音乐${title}\n\n${data
             .map(
               (e, idx) =>
                 `### ${idx + 1}. [${e.title}](${e.link})\n\n${e.cover ? `![${e.title}](${e.cover})\n\n` : ''}**${e.artist}**${e.album ? ` · 专辑《${e.album}》` : ''}\n\n---\n`,
             )
-            .join('\n')}`
-          break
-        }
-
-        case 'json':
-        default: {
-          ctx.response.body = Common.buildJson(data)
-          break
-        }
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

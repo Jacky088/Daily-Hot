@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { fetchUpstreamJson } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -112,32 +112,25 @@ class ServiceDoubanWeekly {
       const config = CATEGORY_CONFIG[category]
       const data = await this.#fetch(category)
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `豆瓣${config.title}\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `豆瓣${config.title}\n\n${data
             .map((e) => {
               const trend = e.rank_change ? `${TREND_SYMBOL[e.trend]}${Math.abs(e.rank_change)}` : TREND_SYMBOL[e.trend]
               const rating = e.rating ? `⭐${e.rating}` : '暂无评分'
               return `${e.rank}. ${e.title} ${rating} ${trend}\n   ${e.card_subtitle}`
             })
-            .join('\n')}\n\n数据来源：豆瓣`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# ${config.emoji} 豆瓣${config.title}\n\n| 排名 | 名称 | 评分 | 好评率 | 简介 | 趋势 |\n|------|------|------|--------|------|------|\n${data
+            .join('\n')}\n\n数据来源：豆瓣`,
+        markdown: () =>
+          `# ${config.emoji} 豆瓣${config.title}\n\n| 排名 | 名称 | 评分 | 好评率 | 简介 | 趋势 |\n|------|------|------|--------|------|------|\n${data
             .map((e) => {
               const trend = e.rank_change ? `${TREND_SYMBOL[e.trend]}${Math.abs(e.rank_change)}` : TREND_SYMBOL[e.trend]
               const rating = e.rating ? `⭐${e.rating}` : '暂无'
               return `| ${e.rank} | [${e.title}](${e.url}) | ${rating} (${e.rating_count}人) | ${e.good_rate}% | ${e.card_subtitle} | ${trend} |`
             })
-            .join('\n')}\n\n*数据来源: 豆瓣*`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            .join('\n')}\n\n*数据来源: 豆瓣*`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { fetchUpstreamJson, fetchUpstreamText } from '../fetch-upstream.ts'
 import { withUapisFallback } from './uapis.module.ts'
 
@@ -14,26 +14,19 @@ class ServiceBili {
     return async (ctx) => {
       const data = await this.fetch()
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `B站实时热搜\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `B站实时热搜\n\n${data
             .map((e, i) => `${i + 1}. ${e.title}`)
             .slice(0, 20)
-            .join('\n')}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# B站实时热搜\n\n${data
+            .join('\n')}`,
+        markdown: () =>
+          `# B站实时热搜\n\n${data
             .slice(0, 20)
             .map((e, i) => `${i + 1}. [${e.title}](${e.link})`)
-            .join('\n')}`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

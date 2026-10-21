@@ -1,4 +1,4 @@
-import { Common } from '../../common.ts'
+import { Common, renderByEncoding } from '../../common.ts'
 import hitokotoData from './hitokoto.json' with { type: 'json' }
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -30,23 +30,16 @@ class ServiceHitokoto {
         result = Common.randomItem(hitokotoData)
       }
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = result
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 一言\n\n> ${result}\n\n---\n\n*第 ${hitokotoData.findIndex((item) => item === result) + 1} 条*`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson({
+      renderByEncoding(ctx, {
+        text: () => result,
+        markdown: () =>
+          `# 一言\n\n> ${result}\n\n---\n\n*第 ${hitokotoData.findIndex((item) => item === result) + 1} 条*`,
+        json: () =>
+          Common.buildJson({
             index: hitokotoData.findIndex((item) => item === result),
             hitokoto: result,
-          })
-          break
-      }
+          }),
+      })
     }
   }
 }

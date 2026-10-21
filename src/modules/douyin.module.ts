@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstreamJson } from '../fetch-upstream.ts'
 import { withUapisFallback, cacheIfNonEmpty } from './uapis.module.ts'
@@ -15,29 +15,22 @@ class ServiceDouyin {
     return async (ctx) => {
       const data = await this.fetch()
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `抖音实时热搜\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `抖音实时热搜\n\n${data
             .map((e, idx) => `${idx + 1}. ${e.title}`)
             .slice(0, 20)
-            .join('\n')}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 抖音实时热搜\n\n${data
+            .join('\n')}`,
+        markdown: () =>
+          `# 抖音实时热搜\n\n${data
             .slice(0, 20)
             .map(
               (e, idx) =>
                 `### ${idx + 1}. [${e.title}](${e.link}) \`热度: ${e.hot_value}\`\n\n${e.cover ? `![${e.title}](${e.cover})\n\n` : ''}---\n`,
             )
-            .join('\n')}`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

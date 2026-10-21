@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 
@@ -90,23 +90,15 @@ class ServiceGoogleTranslate {
       this.#fetchTranslation(text, from, to),
     )
 
-    switch (ctx.state.encoding) {
-      case 'text':
-        ctx.response.body = trans
-        break
-
-      case 'markdown':
-        ctx.response.body = `# 🔤 Google 翻译\n\n## 原文 (${detected})\n\n> ${text}\n\n## 译文 (${to})\n\n> ${trans}`
-        break
-
-      case 'json':
-      default:
-        ctx.response.body = Common.buildJson({
+    renderByEncoding(ctx, {
+      text: () => trans,
+      markdown: () => `# 🔤 Google 翻译\n\n## 原文 (${detected})\n\n> ${text}\n\n## 译文 (${to})\n\n> ${trans}`,
+      json: () =>
+        Common.buildJson({
           source: { text, type: detected, type_desc: langLabels[detected] ?? detected },
           target: { text: trans, type: to, type_desc: langLabels[to] ?? to },
-        })
-        break
-    }
+        }),
+    })
   }
 
   async #fetchTranslation(text: string, from: string, to: string): Promise<{ trans: string; detected: string }> {

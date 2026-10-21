@@ -3178,7 +3178,6 @@ let homeExpanded = false
 let activeModuleId = null // 当前高亮的子菜单模块（点击模块菜单后记录）
 let syncSubs = null // init 内部 refreshSubs 的对外钩子：分组卡片切标签页时同步子菜单高亮
 let locateCardFn = null // init 内部 locateCard 的对外钩子：分类页数据源便签点击定位用
-let syncTocFab = null // init 内部赋值：窄屏悬浮目录按钮随当前视图显隐（首页无当前分类则藏）
 let switchToHomeFn = null // init 内部 switchToHome 的对外钩子：站内搜索切回首页用
 let centerSubChip = null // init 内部 focusSubChip 的对外钩子：切标签页时让对应模块 chip 滚入可视区
 let fanyiLangs = null
@@ -3594,13 +3593,13 @@ function init() {
     // 减少动态偏好：快速降级过渡
     const isReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
+    // 山体只用一张图：morning-fg 与 sunset-fg 是两套完全不同的构图（峰位、山脊高度、
+    // 林带走向都不同），叠在一起交叉淡入时，先露出的低山脊会盖掉对方的高雪峰，
+    // 看起来就是"山峰被削掉一截"。改成单一图层后轮廓全程恒定，昼夜只靠 filter 推色调。
+    // 夜色的冷色叠加由 .tto-layer-peak::after 负责（用同一张图做 mask，只染山体像素），
+    // 所以这里只需要一个图层节点。
     function buildAlpineLandscapeHtml() {
-      return (
-        '<div class="tto-landscape-wrap">' +
-        '<div class="tto-landscape-layer tto-layer-morning" aria-hidden="true"></div>' +
-        '<div class="tto-landscape-layer tto-layer-sunset" aria-hidden="true"></div>' +
-        '</div>'
-      )
+      return '<div class="tto-landscape-wrap">' + '<div class="tto-landscape-layer tto-layer-peak" aria-hidden="true"></div>' + '</div>'
     }
 
     let overlay = document.getElementById('themeTransitionOverlay')
@@ -3637,67 +3636,86 @@ function init() {
         <div class="tto-clouds-wrap">
           <div class="tto-cloud-item c1" style="top:12%; left:8%;">
             <svg width="170" height="85" viewBox="0 0 160 80" fill="none">
-              <path d="M 30 70 L 130 70 A 20 20 0 0 0 140 32 A 26 26 0 0 0 98 18 A 32 32 0 0 0 46 28 A 22 22 0 0 0 30 70 Z" fill="#FFFFFF" />
-              <path d="M 30 70 L 130 70 A 20 20 0 0 0 140 60 C 110 65, 60 65, 30 70 Z" fill="#E2E8F0" opacity="0.55" />
+              <defs>
+                <linearGradient id="ttoCloudAGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#FFFFFF" />
+                  <stop offset="50%" stop-color="#FAFCFF" />
+                  <stop offset="82%" stop-color="#EBF2F9" />
+                  <stop offset="100%" stop-color="#D9E5F1" />
+                </linearGradient>
+              </defs>
+              <path d="M 30 70 L 130 70 A 20 20 0 0 0 140 32 A 26 26 0 0 0 98 18 A 32 32 0 0 0 46 28 A 22 22 0 0 0 30 70 Z" fill="url(#ttoCloudAGrad)" />
+              <path d="M 30 70 L 130 70 A 20 20 0 0 0 140 60 C 110 65, 60 65, 30 70 Z" fill="#C4D6E8" opacity="0.45" />
             </svg>
           </div>
           <div class="tto-cloud-item c2" style="top:28%; right:14%;">
             <svg width="210" height="105" viewBox="0 0 160 80" fill="none">
-              <path d="M 30 70 L 130 70 A 20 20 0 0 0 140 32 A 26 26 0 0 0 98 18 A 32 32 0 0 0 46 28 A 22 22 0 0 0 30 70 Z" fill="#FFFFFF" />
-              <path d="M 30 70 L 130 70 A 20 20 0 0 0 140 60 C 110 65, 60 65, 30 70 Z" fill="#E2E8F0" opacity="0.55" />
+              <defs>
+                <linearGradient id="ttoCloudBGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#FFFFFF" />
+                  <stop offset="50%" stop-color="#FAFCFF" />
+                  <stop offset="82%" stop-color="#EBF2F9" />
+                  <stop offset="100%" stop-color="#D9E5F1" />
+                </linearGradient>
+              </defs>
+              <path d="M 30 70 L 130 70 A 20 20 0 0 0 140 32 A 26 26 0 0 0 98 18 A 32 32 0 0 0 46 28 A 22 22 0 0 0 30 70 Z" fill="url(#ttoCloudBGrad)" />
+              <path d="M 30 70 L 130 70 A 20 20 0 0 0 140 60 C 110 65, 60 65, 30 70 Z" fill="#C4D6E8" opacity="0.45" />
             </svg>
           </div>
         </div>
+        <!-- 太阳：原来那 8 根等距圆角光条 + 虚线圆环是纯图标语言，和厚涂插画的山体不是一套画法。
+             改成「多层大气辉光 + 左上受光的球体渐变 + 外圈暗调」，只靠光的衰减塑形，不用任何硬边装饰。 -->
         <div class="tto-sun-wrap">
-          <svg class="tto-sun-svg" viewBox="0 0 130 130" fill="none">
+          <svg class="tto-sun-svg" viewBox="0 0 200 200" fill="none">
             <defs>
-              <radialGradient id="ttoSunCoreGrad" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="#FFFBEB" />
-                <stop offset="65%" stop-color="#FCD34D" />
-                <stop offset="100%" stop-color="#F59E0B" />
+              <radialGradient id="ttoSunGlowOuter" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#FFF7DC" stop-opacity="0.8" />
+                <stop offset="22%" stop-color="#FFE49B" stop-opacity="0.5" />
+                <stop offset="50%" stop-color="#FFC768" stop-opacity="0.22" />
+                <stop offset="78%" stop-color="#FF9E3E" stop-opacity="0.07" />
+                <stop offset="100%" stop-color="#FF8A2B" stop-opacity="0" />
               </radialGradient>
-              <radialGradient id="ttoSunHaloGrad" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="#FDE68A" stop-opacity="0.55" />
-                <stop offset="100%" stop-color="#F59E0B" stop-opacity="0" />
+              <radialGradient id="ttoSunBall" cx="38%" cy="34%" r="68%">
+                <stop offset="0%" stop-color="#FFFFFF" />
+                <stop offset="22%" stop-color="#FFFBE4" />
+                <stop offset="48%" stop-color="#FFF0A8" />
+                <stop offset="72%" stop-color="#FFD86A" />
+                <stop offset="90%" stop-color="#FBB63F" />
+                <stop offset="100%" stop-color="#F09A28" />
               </radialGradient>
-              <linearGradient id="ttoSunRayGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#FDE68A" />
-                <stop offset="100%" stop-color="#F59E0B" />
-              </linearGradient>
+              <radialGradient id="ttoSunRim" cx="38%" cy="34%" r="68%">
+                <stop offset="78%" stop-color="#C25A08" stop-opacity="0" />
+                <stop offset="100%" stop-color="#C25A08" stop-opacity="0.16" />
+              </radialGradient>
             </defs>
-            <circle cx="65" cy="65" r="56" fill="url(#ttoSunHaloGrad)" />
-            <g class="tto-sun-rays">
-              <rect x="61" y="4" width="8" height="18" rx="4" fill="url(#ttoSunRayGrad)" />
-              <rect x="61" y="108" width="8" height="18" rx="4" fill="url(#ttoSunRayGrad)" />
-              <rect x="4" y="61" width="18" height="8" rx="4" fill="url(#ttoSunRayGrad)" />
-              <rect x="108" y="61" width="18" height="8" rx="4" fill="url(#ttoSunRayGrad)" />
-              <rect x="22" y="22" width="8" height="18" rx="4" transform="rotate(-45 26 31)" fill="url(#ttoSunRayGrad)" />
-              <rect x="100" y="100" width="8" height="18" rx="4" transform="rotate(-45 104 109)" fill="url(#ttoSunRayGrad)" />
-              <rect x="100" y="22" width="8" height="18" rx="4" transform="rotate(45 104 31)" fill="url(#ttoSunRayGrad)" />
-              <rect x="22" y="100" width="8" height="18" rx="4" transform="rotate(45 26 109)" fill="url(#ttoSunRayGrad)" />
-              <circle cx="65" cy="65" r="51" stroke="#FDE68A" stroke-width="2" stroke-dasharray="3 17" opacity="0.85" />
-            </g>
-            <circle cx="65" cy="65" r="41" fill="url(#ttoSunCoreGrad)" />
-            <path d="M 38 48 A 32 32 0 0 1 82 38" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" opacity="0.65" />
+            <circle cx="100" cy="100" r="100" fill="url(#ttoSunGlowOuter)" />
+            <circle cx="100" cy="100" r="62" fill="url(#ttoSunBall)" />
+            <circle cx="100" cy="100" r="62" fill="url(#ttoSunRim)" />
+            <ellipse cx="78" cy="70" rx="31" ry="17" transform="rotate(-24 78 70)" fill="#FFFEF9" opacity="0.45" />
           </svg>
         </div>
+        <!-- 月亮：弦月形状保留，但把单层平铺渐变换成「多层辉光 + 本体渐变 + 弱高光」，
+             和太阳共用同一套发光语言；小星保留作为呼应。 -->
         <div class="tto-moon-wrap">
           <svg class="tto-moon-svg" viewBox="0 0 120 120" fill="none">
             <defs>
-              <linearGradient id="ttoMoonGrad" x1="20%" y1="0%" x2="80%" y2="100%">
-                <stop offset="0%" stop-color="#FFFFFF" />
-                <stop offset="45%" stop-color="#FEF08A" />
-                <stop offset="100%" stop-color="#FACC15" />
-              </linearGradient>
-              <radialGradient id="ttoMoonHalo" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="#FEF08A" stop-opacity="0.35" />
-                <stop offset="100%" stop-color="#FEF08A" stop-opacity="0" />
+              <radialGradient id="ttoMoonGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#FDF3B0" stop-opacity="0.42" />
+                <stop offset="38%" stop-color="#FCE97F" stop-opacity="0.2" />
+                <stop offset="70%" stop-color="#F5D75A" stop-opacity="0.06" />
+                <stop offset="100%" stop-color="#F5D75A" stop-opacity="0" />
               </radialGradient>
+              <linearGradient id="ttoMoonBody" x1="18%" y1="8%" x2="78%" y2="96%">
+                <stop offset="0%" stop-color="#FFFDF0" />
+                <stop offset="42%" stop-color="#FDF1A8" />
+                <stop offset="78%" stop-color="#F6D95E" />
+                <stop offset="100%" stop-color="#E8BE35" />
+              </linearGradient>
             </defs>
-            <circle cx="56" cy="56" r="48" fill="url(#ttoMoonHalo)" />
-            <path d="M 62 14 A 44 44 0 1 0 98 86 A 37 37 0 1 1 62 14 Z" fill="url(#ttoMoonGrad)" />
-            <path d="M 58 20 A 39 39 0 0 0 32 72" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" opacity="0.75" />
-            <path d="M 84 38 C 84 41.5 82 44 78 44 C 82 44 84 46.5 84 50 C 84 46.5 86 44 90 44 C 86 44 84 41.5 84 38 Z" fill="#FFFFFF" opacity="0.95" />
+            <circle cx="58" cy="58" r="56" fill="url(#ttoMoonGlow)" />
+            <path d="M 62 14 A 44 44 0 1 0 98 86 A 37 37 0 1 1 62 14 Z" fill="url(#ttoMoonBody)" />
+            <path d="M 58 20 A 39 39 0 0 0 32 72" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" opacity="0.5" />
+            <path d="M 84 38 C 84 41.5 82 44 78 44 C 82 44 84 46.5 84 50 C 84 46.5 86 44 90 44 C 86 44 84 41.5 84 38 Z" fill="#FFFFFF" opacity="0.85" />
           </svg>
         </div>
         ${buildAlpineLandscapeHtml()}
@@ -3709,21 +3727,27 @@ function init() {
     const mode = nextTheme === 'dark' ? 'mode-sunset' : 'mode-sunrise'
     overlay.className = `theme-transition-overlay active ${mode}`
 
-    // 动画至峰值天象（520ms）时切底色，无缝过渡
+    // 与 style.css 里 2.4s 的天象时间轴共用一条时钟。原来的 1.25s 里太阳要横跨整屏、
+    // 月亮还要在尾巴上抢着升起，一帧挪几像素，观感就是"唰一下过去了"；放慢后每个相位
+    // 都有可读的停留时间。reduced-motion 走 CSS 的 0.4s 降级版，这里同步缩短。
+    const TOTAL_MS = isReduced ? 420 : 2400
+
+    // 底色在中段（太阳没入山后、月亮尚未升起的空档）切换：此时 overlay 的画面已经
+    // 全暗，底层换成深色看不出来，用户感知是"天黑了"而不是"闪了一下"。
     setTimeout(
       () => {
         commitChange()
       },
-      isReduced ? 200 : 520,
+      isReduced ? 200 : Math.round(TOTAL_MS * 0.55),
     )
 
-    // 动画尾声收尾
+    // 收尾留一点余量，确保 100% 那帧完整播完再撤 overlay
     setTimeout(
       () => {
         overlay.className = 'theme-transition-overlay'
         isThemeAnimating = false
       },
-      isReduced ? 420 : 1260,
+      TOTAL_MS + 140,
     )
   }
 
@@ -4356,10 +4380,10 @@ function init() {
     setSidebarOpen(false)
   }
 
-  // 点汉堡先收目录面板再开/关抽屉：两个面板互斥，遮罩与滚动锁始终只归一个面板
+  // 点汉堡开/关侧栏抽屉。移动端目录面板（.cat-panel）归吸顶分类栏自己管，
+  // 不在这条路径上——它挂在 nav 上、与侧栏抽屉互不包含
   if (sbToggle)
     sbToggle.onclick = () => {
-      setTocPanelOpen(false)
       setSidebarOpen(!appShell.classList.contains('sidebar-open'))
     }
   // 抽屉的关闭路径：✕ 按钮、点遮罩空白处、点击侧栏外部、Esc。
@@ -4395,97 +4419,21 @@ function init() {
     const activeModal = document.querySelector('.cal-modal-overlay:not([hidden]), .wx-modal-overlay:not([hidden])')
     if (activeModal) return
 
-    // 目录面板开着先收它，收完才轮到抽屉
-    if (tocPanel && tocPanel.classList.contains('open')) setTocPanelOpen(false)
-    else closeSidebar()
+    closeSidebar()
   })
-  // 视口变宽回到桌面版式时收起抽屉与目录面板，避免 sidebar-open / sb-locked 残留
+  // 视口变宽回到桌面版式时收起抽屉，避免 sidebar-open / sb-locked 残留
   MQ_DRAWER.addEventListener('change', () => {
     if (!MQ_DRAWER.matches) {
       setSidebarOpen(false)
-      setTocPanelOpen(false)
     }
   })
   if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('openSidebar')) {
     setTimeout(() => setSidebarOpen(true), 50)
   }
 
-  // ===== 窄屏悬浮目录面板（左下角 ☰ 下方的目录按钮）=====
-  // 与菜单抽屉同款侧滑交互，但内容只放当前分类的数据源标签
-  // （即分类页顶部那条横向便签行，同一份 catTocEntries 口径），点条目定位到对应卡片。
-  // 首页视图没有「当前分类」，按钮由 syncTocFab 藏起；遮罩各用各的（#tocMask），样式同款
-  const sbToc = $('#sbToc')
-  const tocPanel = $('#tocPanel')
-  const tocBody = $('#tocBody')
-  const tocTitle = $('#tocTitle')
-  const tocClose = $('#tocClose')
-  const tocMask = $('#tocMask')
-  let tocTimer = 0
-
-  function setTocPanelOpen(open) {
-    if (!tocPanel) return
-    const shouldOpen = !!open && MQ_DRAWER.matches
-    if (shouldOpen) buildTocPanel()
-    tocPanel.classList.toggle('open', shouldOpen)
-    tocPanel.setAttribute('aria-hidden', String(!shouldOpen))
-    if (sbToc) sbToc.setAttribute('aria-expanded', String(shouldOpen))
-    // 与抽屉共用 body 滚动锁；两个面板互斥，不存在同时写这个类的情况
-    document.body.classList.toggle('sb-locked', shouldOpen)
-    if (!tocMask) return
-    clearTimeout(tocTimer)
-    if (shouldOpen) {
-      tocMask.hidden = false
-      requestAnimationFrame(() => tocMask.classList.add('show'))
-    } else {
-      tocMask.classList.remove('show')
-      // 等淡出过渡结束再真正隐藏，否则 display:none 会把过渡掐断
-      tocTimer = setTimeout(() => {
-        if (tocPanel && !tocPanel.classList.contains('open')) tocMask.hidden = true
-      }, 260)
-    }
-  }
-
-  // 面板内容每次打开时重建：跟随当前分类。条目复用 .cat-toc-item 类与 data-key——
-  // setTocActive / updateTocBadges 全局按类名收集，面板条目自动获得滚动高亮与徽章同步
-  function buildTocPanel() {
-    if (!tocBody) return
-    const cat = CATS.find((c) => c.id === curCat)
-    if (tocTitle) tocTitle.textContent = cat ? cat.name : '本页目录'
-    tocBody.innerHTML = ''
-    catTocEntries(curCat).forEach((e) => {
-      const item = document.createElement('button')
-      item.type = 'button'
-      item.className = 'cat-toc-item'
-      item.dataset.key = e.key
-      item.dataset.type = e.type
-      item.title = `定位到「${e.name}」`
-      item.innerHTML = `<span class="mm"><span class="ci">${e.icon}</span><span class="nm">${esc(e.name)}</span></span>`
-      item.onclick = () => {
-        // 先收面板（同步解除 body 滚动锁），紧接着的定位滚动才不会被 overflow:hidden 吞掉
-        setTocPanelOpen(false)
-        const target = EPS.find((x) => x.id === e.epId)
-        if (target) locateCard(target)
-      }
-      tocBody.appendChild(item)
-    })
-    // 条目是刚新建的，谁都不带 active——滚动期间 setTocActive 打的高亮全被重建丢了，
-    // 面板打开时就是「一片灰、不知道读到哪」。这里把 scroll-spy / 点击定位标记的
-    // 当前卡片重新套上（面板开着时 body 滚动锁死、阅读位置不会变，开面板对齐一次即可）。
-    // 顺手把高亮项滚进视野：长列表里它可能落在可视区外，亮了也看不见
-    setTocActive(lastTocActiveKey)
-    const cur = tocBody.querySelector('.cat-toc-item.active')
-    if (cur) requestAnimationFrame(() => cur.scrollIntoView({ block: 'nearest' }))
-  }
-
-  // 窄屏目录按钮随视图显隐（render 收口调用 + 初始一次）
-  syncTocFab = () => {
-    if (sbToc) sbToc.hidden = curView !== 'cat' || curCat === 'all'
-  }
-  syncTocFab()
-
-  if (sbToc) sbToc.onclick = () => setTocPanelOpen(!tocPanel.classList.contains('open'))
-  if (tocClose) tocClose.onclick = () => setTocPanelOpen(false)
-  if (tocMask) tocMask.onclick = () => setTocPanelOpen(false)
+  // 窄屏目录入口统一走吸顶分类栏：点当前分类 pill → setCatPanelOpen（见上方 catPanel）。
+  // 原来那个左下角悬浮 FAB + #tocPanel 左抽屉已移除——两者描述的是同一件事
+  // （当前分类的数据源目录），却各自维护一套高亮与滚动锁，粒度还不一致。
 
   nav.appendChild(catRow)
   // 面板挂 body 下而非 nav 内：nav 自身的 backdrop-filter 会成为 backdrop root，
@@ -4662,8 +4610,6 @@ function init() {
 // 表现就是「先跳到错误位置再慢慢修正」。而跳转本身就是瞬时定位，不需要这段过渡。
 let renderVTReady = false
 function render(sync) {
-  // 窄屏悬浮目录按钮随视图显隐：render 是所有视图切换的收口处，在这里同步一次即可
-  if (syncTocFab) syncTocFab()
   const doRender = () => {
     renderImpl()
   }
@@ -6133,8 +6079,11 @@ function initWeatherModal() {
     const tempSpan = Math.max(1, weekMax - weekMin)
 
     // 顶部 Hero 统计卡
+    // 背景与右栏天气卡同源（hwSkyGradient）：按天气类型 + 真实日出日落时间推白天/夜晚，
+    // 这块不再是写死的淡蓝底，而是跟着当前时段走的天空。is-day / is-night 供 CSS 做细节微调。
+    const heroIsDay = hwIsDay(data)
     const heroHtml = `
-      <div class="wx-hero-card">
+      <div class="wx-hero-card ${heroIsDay ? 'is-day' : 'is-night'}" style="background:${hwSkyGradient(data)}">
         <div class="wx-hero-top">
           <div class="wx-hero-left">
             <div class="wx-hero-temp-row">
@@ -6143,7 +6092,7 @@ function initWeatherModal() {
             </div>
             <div class="wx-hero-range">今日气温 ${esc(minTemp)}° ~ ${esc(maxTemp)}° · ${esc(cityName)}</div>
           </div>
-          <img class="wx-hero-icon" src="${hwWeatherIconSrc(hwFxKind(data), hwIsDay(data))}" alt="${esc(curCond)}" />
+          <img class="wx-hero-icon" src="${hwWeatherIconSrc(hwFxKind(data), heroIsDay)}" alt="${esc(curCond)}" />
         </div>
         <div class="wx-hero-grid">
           <div class="wx-grid-item">
@@ -12408,3 +12357,24 @@ init()
 document.addEventListener('visibilitychange', () => {
   document.documentElement.classList.toggle('page-hidden', document.hidden)
 })
+
+// 滚动降档：吸顶玻璃层在滚动时背景每帧都在变，是掉帧主因。滚动期间把全局模糊半径
+// 压到 4px（详见 style.css 的 --glass-blur），停稳 160ms 后恢复。
+// 用捕获阶段监听：横向胶囊条、面板内部列表等子滚动容器的 scroll 不会冒泡到 window。
+let scrollIdleTimer = 0
+let isScrolling = false
+document.addEventListener(
+  'scroll',
+  () => {
+    if (!isScrolling) {
+      isScrolling = true
+      document.documentElement.classList.add('is-scrolling')
+    }
+    clearTimeout(scrollIdleTimer)
+    scrollIdleTimer = setTimeout(() => {
+      isScrolling = false
+      document.documentElement.classList.remove('is-scrolling')
+    }, 160)
+  },
+  { passive: true, capture: true },
+)

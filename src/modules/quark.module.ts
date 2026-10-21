@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 
@@ -110,29 +110,22 @@ class ServiceQuark {
     return async (ctx) => {
       const data = await cached('quark', () => this.#fetch(), { ttl: 10 * 60 * 1000 })
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `夸克热点\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `夸克热点\n\n${data
             .slice(0, 20)
             .map((e, i) => `${i + 1}. ${e.title}${e.summary ? `\n   ${e.summary}` : ''}`)
-            .join('\n\n')}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 夸克热点\n\n${data
+            .join('\n\n')}`,
+        markdown: () =>
+          `# 夸克热点\n\n${data
             .slice(0, 20)
             .map(
               (e, i) =>
                 `### ${i + 1}. ${e.title}\n\n${e.summary ? `> ${e.summary}\n\n` : ''}${e.cover ? `![${e.title}](${e.cover})\n\n` : ''}- 来源：${e.source}\n- 时间：${Common.localeTime(e.published)}\n- 分类：${e.category.join(' / ') || '未分类'}\n${e.tags.length > 0 ? `- 标签：${e.tags.join(', ')}\n` : ''}\n---\n`,
             )
-            .join('\n')}`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

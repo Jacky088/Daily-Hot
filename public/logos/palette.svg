@@ -6,7 +6,9 @@
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#paletteGrad)"/>
-  <rect x="7" y="11" width="10" height="14" rx="2" stroke="#FFFFFF" stroke-width="1.6" fill="none" transform="rotate(-15 12 18)"/>
-  <rect x="15" y="11" width="10" height="14" rx="2" stroke="#FFFFFF" stroke-width="1.6" fill="none" transform="rotate(15 20 18)"/>
-  <circle cx="16" cy="22" r="1.5" fill="#FFFFFF"/>
+  <path d="M16 5.8a10.2 10.2 0 1 0 0 20.4c1.9 0 3-1.2 3-2.6 0-1.6-1.2-2.2-1.2-3.4 0-1.2 1-1.9 2.4-1.9h1.6a4.8 4.8 0 0 0 4.8-4.8c0-4.4-4.8-7.7-10.6-7.7z" fill="#FFFFFF"/>
+  <circle cx="11.4" cy="12.2" r="2" fill="url(#paletteGrad)"/>
+  <circle cx="16.4" cy="10.4" r="2" fill="url(#paletteGrad)"/>
+  <circle cx="21.2" cy="12.8" r="2" fill="url(#paletteGrad)"/>
+  <circle cx="11.2" cy="18.6" r="2" fill="url(#paletteGrad)"/>
 </svg>

@@ -1,4 +1,4 @@
-import { Common, dayjs } from '../common.ts'
+import { Common, dayjs, renderByEncoding } from '../common.ts'
 import { fetchUpstreamJson, fetchUpstreamText } from '../fetch-upstream.ts'
 import { cached } from '../cache.ts'
 
@@ -74,25 +74,17 @@ class ServiceBing {
         return
       }
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = list.map((e) => e.cover).join('\n')
-          break
-
-        case 'markdown':
-          ctx.response.body = list
+      renderByEncoding(ctx, {
+        text: () => list.map((e) => e.cover).join('\n'),
+        markdown: () =>
+          list
             .map(
               (e) =>
                 `## ${e.date || e.title || '必应每日壁纸'}\n\n![${e.title}](${e.cover})\n\n${e.copyright ? `*${e.copyright}*` : ''}`,
             )
-            .join('\n\n---\n\n')
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(list)
-          break
-      }
+            .join('\n\n---\n\n'),
+        json: () => Common.buildJson(list),
+      })
     }
   }
 

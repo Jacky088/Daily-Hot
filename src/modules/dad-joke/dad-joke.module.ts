@@ -1,4 +1,4 @@
-import { Common } from '../../common.ts'
+import { Common, renderByEncoding } from '../../common.ts'
 import { fetchUpstream } from '../../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -8,23 +8,15 @@ class ServiceDadJoke {
     return async (ctx) => {
       const result = await this.#fetch()
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = result.joke
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 🤣 Dad Joke\n\n${result.joke}\n\n---\n\n*icanhazdadjoke.com · ${result.id}*`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson({
+      renderByEncoding(ctx, {
+        text: () => result.joke,
+        markdown: () => `# 🤣 Dad Joke\n\n${result.joke}\n\n---\n\n*icanhazdadjoke.com · ${result.id}*`,
+        json: () =>
+          Common.buildJson({
             id: result.id,
             content: result.joke,
-          })
-          break
-      }
+          }),
+      })
     }
   }
 

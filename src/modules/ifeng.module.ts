@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 
@@ -25,33 +25,23 @@ class ServiceIfeng {
 
       const data = (await this.fetch()).slice(0, limit)
 
-      switch (ctx.state.encoding) {
-        case 'text': {
-          ctx.response.body = `凤凰热榜\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `凤凰热榜\n\n${data
             .map(
               (e, idx) =>
                 `${idx + 1}. ${e.title}\n   ${e.source}${e.hot_value_desc ? ` · ${e.hot_value_desc}` : ''}\n   ${e.link}`,
             )
-            .join('\n\n')}`
-          break
-        }
-
-        case 'markdown': {
-          ctx.response.body = `# 凤凰热榜\n\n${data
+            .join('\n\n')}`,
+        markdown: () =>
+          `# 凤凰热榜\n\n${data
             .map(
               (e, idx) =>
                 `### ${idx + 1}. [${e.title}](${e.link})\n\n${e.cover ? `![${e.title}](${e.cover})\n\n` : ''}**${e.source}**${e.hot_value_desc ? ` | 🔥 ${e.hot_value_desc}` : ''}\n\n---\n`,
             )
-            .join('\n')}`
-          break
-        }
-
-        case 'json':
-        default: {
-          ctx.response.body = Common.buildJson(data)
-          break
-        }
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

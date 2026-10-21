@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import { Common } from '../../common.ts'
+import { Common, renderByEncoding } from '../../common.ts'
 import commonPasswordsData from './passwords.json' with { type: 'json' }
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -155,18 +155,11 @@ class ServicePassword {
 
       const result = this.checkPasswordStrength(password)
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = this.formatStrengthAsText(result)
-          break
-        case 'markdown':
-          ctx.response.body = this.formatStrengthAsMarkdown(result)
-          break
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(result)
-          break
-      }
+      renderByEncoding(ctx, {
+        text: () => this.formatStrengthAsText(result),
+        markdown: () => this.formatStrengthAsMarkdown(result),
+        json: () => Common.buildJson(result),
+      })
     }
   }
 

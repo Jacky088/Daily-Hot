@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { serviceUapis } from './uapis.module.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -34,34 +34,27 @@ class ServiceV2ex {
     return async (ctx) => {
       const data = await this.#fetch()
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `V2EX 热帖\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `V2EX 热帖\n\n${data
             .map((e) => {
               const meta = [e.node && `[${e.node}]`, e.replies && `${e.replies} 回复`, e.author && `@${e.author}`]
                 .filter(Boolean)
                 .join(' ')
               return `${e.rank}. ${e.title}${meta ? ` ${meta}` : ''}`
             })
-            .join('\n')}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 💻 V2EX 热帖\n\n${data
+            .join('\n')}`,
+        markdown: () =>
+          `# 💻 V2EX 热帖\n\n${data
             .map((e) => {
               const meta = [`@${e.author}`, e.node && `\`${e.node}\``, e.replies && `💬 ${e.replies} 回复`, e.created]
                 .filter(Boolean)
                 .join(' · ')
               return `### ${e.rank}. [${e.title}](${e.link})\n\n${meta}\n\n---\n`
             })
-            .join('\n')}`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

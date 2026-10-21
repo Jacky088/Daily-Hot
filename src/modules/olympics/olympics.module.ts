@@ -1,7 +1,7 @@
 // from https://www.olympics.com/zh/api/v1/b2p/menu/topbar/olympic-games
 import events from './events.json' with { type: 'json' }
 
-import { Common, dayjs, TZ_SHANGHAI } from '../../common.ts'
+import { Common, dayjs, TZ_SHANGHAI, renderByEncoding } from '../../common.ts'
 import { fetchUpstream } from '../../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -23,29 +23,23 @@ export class OlympicsService {
       const isOngoing = !eventId || eventId === ONGOING_EVENT.event_id
       const data = isOngoing ? await this.#fetchOngoing(ONGOING_EVENT_CODE) : await this.#fetchHistoryEvent(eventId)
 
-      const encoding = ctx.state.encoding as string | undefined
-
-      switch (encoding) {
-        case 'text': {
+      renderByEncoding(ctx, {
+        text: () => {
           const lines = data.list.map((item, index) => {
             const rank = index + 1
             return `${rank}. ${item.country} 🥇${item.gold} 🥈${item.silver} 🥉${item.bronze} 共 ${item.total}`
           })
-
-          ctx.response.body = `${data.event_name}
+          return `${data.event_name}
 更新时间: ${data.updated}
 
 ${lines.join('\n')}`
-          break
-        }
-
-        case 'markdown': {
+        },
+        markdown: () => {
           const rows = data.list.map((item, index) => {
             const rank = index + 1
             return `| ${rank} | ${item.country} | ${item.gold} | ${item.silver} | ${item.bronze} | ${item.total} |`
           })
-
-          ctx.response.body = `# 奥运会奖牌榜
+          return `# 奥运会奖牌榜
 
 **奥运赛事**: ${data.event_name}
 **更新时间**: ${data.updated}
@@ -53,15 +47,9 @@ ${lines.join('\n')}`
 | 排名 | 国家/地区 | 🥇 金牌 | 🥈 银牌 | 🥉 铜牌 | 总计 |
 |------|----------|---------|---------|---------|------|
 ${rows.join('\n')}`
-          break
-        }
-
-        case 'json':
-        default: {
-          ctx.response.body = Common.buildJson(data)
-          break
-        }
-      }
+        },
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

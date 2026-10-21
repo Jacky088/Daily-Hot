@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 import { withUapisFallback, cacheIfNonEmpty } from './uapis.module.ts'
@@ -14,28 +14,21 @@ class ServiceSspai {
         cacheIf: cacheIfNonEmpty,
       })
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `少数派热榜\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `少数派热榜\n\n${data
             .map((e, i) => `${i + 1}. ${e.title}\n   ${e.author} · 赞 ${e.hot} · ${e.link}`)
-            .join('\n\n')}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 少数派热榜\n\n${data
+            .join('\n\n')}`,
+        markdown: () =>
+          `# 少数派热榜\n\n${data
             .slice(0, 20)
             .map(
               (e, i) =>
                 `### ${i + 1}. [${e.title}](${e.link})\n\n${e.cover ? `![${e.title}](${e.cover})\n\n` : ''}**${e.author}** | 👍 ${e.hot} | 💬 ${e.comments}\n\n---\n`,
             )
-            .join('\n')}`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

@@ -1,5 +1,5 @@
 import chineseDays from 'chinese-days'
-import { Common, dayjs } from '../common.ts'
+import { Common, dayjs, renderByEncoding } from '../common.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -31,14 +31,12 @@ class ServiceMoyu {
       const dateParam = await Common.getParam('date', ctx.request)
       const data = this.getCalendarInfo(dateParam)
 
-      switch (ctx.state.encoding) {
-        case 'text': {
+      renderByEncoding(ctx, {
+        text: () => {
           let body = '🐟 摸鱼办·打工人日历\n\n'
           body += `📆 ${data.date.gregorian} ${data.date.weekday}\n`
           body += `🌙 农历 ${data.date.lunar.yearCN}年 ${data.date.lunar.monthCN}${data.date.lunar.dayCN}\n`
           body += `🐯 ${data.date.lunar.zodiac}年 ${data.date.lunar.yearGanZhi}\n\n`
-
-          // 当前假期状态
           if (data.currentHoliday) {
             body += `🎉 恭喜！您正处于【${this.extractChineseName(data.currentHoliday.name)}】假期中！\n`
             body += `📅 今天是假期的第 ${data.currentHoliday.dayOfHoliday} 天，还剩 ${data.currentHoliday.daysRemaining} 天（含今天）\n`
@@ -56,33 +54,25 @@ class ServiceMoyu {
               }
             }
           }
-
           if (data.today.solarTerm) {
             body += `🌾 今日节气：${data.today.solarTerm}\n`
           }
-
           if (data.today.lunarFestivals.length > 0) {
             body += `🏮 农历节日：${data.today.lunarFestivals.join('、')}\n`
           }
-
-          // 倒计时区域
           body += `\n⏰ 摸鱼倒计时\n`
-
           if (data.countdown.toWeekEnd > 0) {
             body += `📅 距离周末：还要熬 ${data.countdown.toWeekEnd} 天\n`
           } else {
             body += `📅 距离周末：今天就是周末！尽情摸鱼！\n`
           }
-
           if (data.countdown.toFriday > 0) {
             body += `🎊 距离周五：还要熬 ${data.countdown.toFriday} 天\n`
           } else if (data.date.dayOfWeek === 5) {
             body += `🎊 距离周五：今天就是周五！周末近在眼前！\n`
           }
-
           body += `🗓️ 距离月底：还剩 ${data.countdown.toMonthEnd} 天\n`
           body += `📊 距离年底：还剩 ${data.countdown.toYearEnd} 天\n`
-
           if (data.nextHoliday) {
             if (data.nextHoliday.until === 0) {
               body += `🎯 距离假期：就是明天啦！收拾行李准备摸鱼！\n`
@@ -90,12 +80,10 @@ class ServiceMoyu {
               body += `🎯 距离【${this.extractChineseName(data.nextHoliday.name)}】：还要搬砖 ${data.nextHoliday.until} 天\n`
             }
           }
-
           body += `\n📊 摸鱼进度条\n`
           body += `▓${'█'.repeat(Math.floor(data.progress.week.percentage / 5))}${'░'.repeat(20 - Math.floor(data.progress.week.percentage / 5))}▓ 本周 ${data.progress.week.percentage}%\n`
           body += `▓${'█'.repeat(Math.floor(data.progress.month.percentage / 5))}${'░'.repeat(20 - Math.floor(data.progress.month.percentage / 5))}▓ 本月 ${data.progress.month.percentage}%\n`
           body += `▓${'█'.repeat(Math.floor(data.progress.year.percentage / 5))}${'░'.repeat(20 - Math.floor(data.progress.year.percentage / 5))}▓ 本年 ${data.progress.year.percentage}%\n`
-
           if (data.nextHoliday) {
             body += `\n🎯 下一个带薪摸鱼日\n`
             body += `🎊 节日：${this.extractChineseName(data.nextHoliday.name)}\n`
@@ -107,16 +95,11 @@ class ServiceMoyu {
               body += `💼 调休：无需调休，爽！\n`
             }
           }
-
-          // 摸鱼格言
           body += `\n💬 摸鱼格言\n`
           body += data.moyuQuote + '\n'
-
-          ctx.response.body = body
-          break
-        }
-
-        case 'markdown': {
+          return body
+        },
+        markdown: () => {
           let body = '# 🐟 摸鱼办·打工人日历\n\n'
           body += `> 专为打工人打造的摸鱼必备工具\n\n`
           body += `## 📆 今日信息\n\n`
@@ -125,9 +108,7 @@ class ServiceMoyu {
           body += `- **干支**: ${data.date.lunar.zodiac}年 ${data.date.lunar.yearGanZhi}\n`
           body += `- **月柱**: ${data.date.lunar.monthGanZhi}\n`
           body += `- **日柱**: ${data.date.lunar.dayGanZhi}\n\n`
-
           body += `## 🎯 摸鱼状态\n\n`
-
           if (data.currentHoliday) {
             body += `### 🎉 当前假期中\n\n`
             body += `**【${this.extractChineseName(data.currentHoliday.name)}】假期进行中！**\n\n`
@@ -147,15 +128,12 @@ class ServiceMoyu {
               }
             }
           }
-
           if (data.today.solarTerm) {
             body += `🌾 **节气**: ${data.today.solarTerm}\n\n`
           }
-
           if (data.today.lunarFestivals.length > 0) {
             body += `🏮 **农历节日**: ${data.today.lunarFestivals.join('、')}\n\n`
           }
-
           body += `## ⏰ 摸鱼倒计时\n\n`
           body += `| 项目 | 倒计时 |\n`
           body += `|------|--------|\n`
@@ -169,14 +147,12 @@ class ServiceMoyu {
             body += `| 🎯 距离假期 | ${data.nextHoliday.until === 0 ? '就是明天啦！' : `还要搬砖 ${data.nextHoliday.until} 天`} |\n`
           }
           body += `\n`
-
           body += `## 📊 摸鱼进度条\n\n`
           body += `| 维度 | 已摸 | 总共 | 进度 |\n`
           body += `|------|------|------|------|\n`
           body += `| 📅 本周 | ${data.progress.week.passed} 天 | ${data.progress.week.total} 天 | ${data.progress.week.percentage}% |\n`
           body += `| 📆 本月 | ${data.progress.month.passed} 天 | ${data.progress.month.total} 天 | ${data.progress.month.percentage}% |\n`
           body += `| 📊 本年 | ${data.progress.year.passed} 天 | ${data.progress.year.total} 天 | ${data.progress.year.percentage}% |\n\n`
-
           if (data.nextHoliday) {
             body += `## 🎯 下一个带薪摸鱼日\n\n`
             body += `- **假期名称**: ${this.extractChineseName(data.nextHoliday.name)}\n`
@@ -190,20 +166,12 @@ class ServiceMoyu {
             }
             body += `\n`
           }
-
           body += `## 💬 摸鱼格言\n\n`
           body += `> ${data.moyuQuote}\n\n`
-
-          ctx.response.body = body
-          break
-        }
-
-        case 'json':
-        default: {
-          ctx.response.body = Common.buildJson(data)
-          break
-        }
-      }
+          return body
+        },
+        json: () => Common.buildJson(data),
+      })
     }
   }
 
@@ -310,13 +278,11 @@ class ServiceMoyu {
   private calculateProgress(today: ReturnType<typeof dayjs>) {
     // 本周进度（周一到周日）
     const startOfWeek = today.day() === 0 ? today.subtract(6, 'day') : today.subtract(today.day() - 1, 'day')
-    // const endOfWeek = startOfWeek.add(6, 'day')
     const weekPassed = today.diff(startOfWeek, 'day') + 1
     const weekTotal = 7
     const weekPercentage = Math.round((weekPassed / weekTotal) * 100)
 
     // 本月进度
-    // const startOfMonth = today.startOf('month')
     const endOfMonth = today.endOf('month')
     const monthPassed = today.date()
     const monthTotal = endOfMonth.date()

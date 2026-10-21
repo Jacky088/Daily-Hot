@@ -1,4 +1,4 @@
-import { Common, dayjs, TZ_SHANGHAI } from '../common.ts'
+import { Common, dayjs, TZ_SHANGHAI, renderByEncoding } from '../common.ts'
 import { fetchUpstreamJson } from '../fetch-upstream.ts'
 import { cached } from '../cache.ts'
 
@@ -10,24 +10,17 @@ class ServiceTodayInHistory {
       const date = ctx.request.url.searchParams.get('date')
       const data = await this.#fetch(date ?? undefined)
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `历史上的今天 (${data.date})\n\n${data.items
+      renderByEncoding(ctx, {
+        text: () =>
+          `历史上的今天 (${data.date})\n\n${data.items
             .map((e, idx) => `${idx + 1}. ${e.title} (${e.year} 年)`)
-            .join('\n')}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 历史上的今天 (${data.date})\n\n${data.items
+            .join('\n')}`,
+        markdown: () =>
+          `# 历史上的今天 (${data.date})\n\n${data.items
             .map((e, idx) => `### ${idx + 1}. [${e.title}](${e.link}) \`${e.year} 年\`\n\n${e.description}\n\n---\n`)
-            .join('\n')}`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

@@ -6,8 +6,9 @@
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#textstatGrad)"/>
+  <g transform="translate(16 16) scale(0.9174) translate(-15.95 -15.95)">
   <path d="M8 7.5C8 6.7 8.7 6 9.5 6H18L24 12V24.5C24 25.3 23.3 26 22.5 26H9.5C8.7 26 8 25.3 8 24.5V7.5Z" stroke="#FFFFFF" stroke-width="1.8" fill="none" stroke-linejoin="round"/>
   <line x1="12" y1="14" x2="20" y2="14" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round"/>
   <line x1="12" y1="18" x2="20" y2="18" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round"/>
   <line x1="12" y1="22" x2="16" y2="22" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round"/>
-</svg>
+</g></svg>

@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
 
@@ -139,20 +139,11 @@ class ServiceHealth {
 
       const result = this.calculateHealth(params)
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = this.formatAsText(result)
-          break
-
-        case 'markdown':
-          ctx.response.body = this.formatAsMarkdown(result)
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(result)
-          break
-      }
+      renderByEncoding(ctx, {
+        text: () => this.formatAsText(result),
+        markdown: () => this.formatAsMarkdown(result),
+        json: () => Common.buildJson(result),
+      })
     }
   }
 

@@ -6,7 +6,6 @@
     "module": "esnext",
     "skipLibCheck": true,
     "noEmit": true,
-    "noImplicitAny": false,
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true

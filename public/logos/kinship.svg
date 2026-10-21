@@ -6,8 +6,9 @@
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#kinshipGrad)"/>
+  <g transform="translate(16 16) scale(1.0417) translate(-15.95 -15.65)">
   <circle cx="16" cy="10" r="3" stroke="#FFFFFF" stroke-width="1.8" fill="none"/>
   <circle cx="10" cy="22" r="2.5" stroke="#FFFFFF" stroke-width="1.6" fill="none"/>
   <circle cx="22" cy="22" r="2.5" stroke="#FFFFFF" stroke-width="1.6" fill="none"/>
   <path d="M16 13V17M10 19.5V17H22V19.5" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
+</g></svg>

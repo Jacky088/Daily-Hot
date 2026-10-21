@@ -6,8 +6,9 @@
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#sspaiGrad)"/>
+  <g transform="translate(16 16) scale(1.1111) translate(-15.95 -15.95)">
   <rect x="7" y="7" width="8" height="8" rx="1.5" fill="#FFFFFF"/>
   <rect x="17" y="7" width="8" height="8" rx="1.5" fill="#FFFFFF"/>
   <rect x="7" y="17" width="8" height="8" rx="1.5" fill="#FFFFFF"/>
   <rect x="17" y="17" width="8" height="8" rx="1.5" fill="#FFFFFF"/>
-</svg>
+</g></svg>

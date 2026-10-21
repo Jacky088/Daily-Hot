@@ -6,7 +6,8 @@
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#moyuGrad)"/>
+  <g transform="translate(16 16) scale(1.1239) translate(-15.45 -15.95)">
   <path d="M8 16C12 11 18 11 23 14C24.5 15 25.5 16 25.5 16C25.5 16 24.5 17 23 18C18 21 12 21 8 16Z" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
   <circle cx="20.5" cy="15.5" r="1.2" fill="#FFFFFF"/>
   <path d="M8 16L5.5 13.5M8 16L5.5 18.5" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round"/>
-</svg>
+</g></svg>

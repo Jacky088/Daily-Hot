@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 // 本地补充的 2025-2026 年疯四文案：与远程 v50 库合并去重，远程不可用时兜底
 import kfcExtra from './kfc/kfc-extra.json' with { type: 'json' }
 
@@ -14,26 +14,16 @@ class ServiceKfc {
       const list = await this.#fetch()
       const result = Common.randomItem(list)
 
-      switch (ctx.state.encoding) {
-        case 'text': {
-          ctx.response.body = result
-          break
-        }
-
-        case 'markdown': {
-          ctx.response.body = `# 🍗 疯狂星期四文案\n\n${result}\n\n---\n\n*v50 文案第 ${list.findIndex((item: string) => item === result) + 1} 条*`
-          break
-        }
-
-        case 'json':
-        default: {
-          ctx.response.body = Common.buildJson({
+      renderByEncoding(ctx, {
+        text: () => result,
+        markdown: () =>
+          `# 🍗 疯狂星期四文案\n\n${result}\n\n---\n\n*v50 文案第 ${list.findIndex((item: string) => item === result) + 1} 条*`,
+        json: () =>
+          Common.buildJson({
             index: list.findIndex((item: string) => item === result),
             kfc: result,
-          })
-          break
-        }
-      }
+          }),
+      })
     }
   }
 

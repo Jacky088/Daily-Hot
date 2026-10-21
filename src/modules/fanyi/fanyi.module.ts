@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import { Common } from '../../common.ts'
+import { Common, renderByEncoding } from '../../common.ts'
 import { cached } from '../../cache.ts'
 import { fetchUpstream, fetchUpstreamJson } from '../../fetch-upstream.ts'
 import langData from './langs.json' with { type: 'json' }
@@ -47,29 +47,20 @@ class ServiceFanyi {
       ctx.response.status = isSuccess ? 200 : 500
       const [sourceType, targetType] = data?.type?.split('2') || []
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = isSuccess ? responseItems.map((e) => e.tgt).join('') || '' : '[翻译服务异常]'
-          break
-
-        case 'markdown': {
-          if (!isSuccess) {
-            ctx.response.body = '# 翻译服务异常'
-            break
-          }
+      renderByEncoding(ctx, {
+        text: () => (isSuccess ? responseItems.map((e) => e.tgt).join('') || '' : '[翻译服务异常]'),
+        markdown: () => {
+          if (!isSuccess) return '# 翻译服务异常'
           const sourceText = responseItems.map((e) => e.src).join('') || ''
           const targetText = responseItems.map((e) => e.tgt).join('') || ''
           const sourcePronounce = responseItems.map((e) => e.srcPronounce).join('') || ''
           const targetPronounce = responseItems.map((e) => e.tgtPronounce).join('') || ''
           const sourceLang = this.langMap.get(sourceType)?.label || sourceType
           const targetLang = this.langMap.get(targetType)?.label || targetType
-          ctx.response.body = `# 🌐 翻译结果\n\n## 原文 (${sourceLang})\n\n> ${sourceText}\n\n${sourcePronounce ? `*发音: ${sourcePronounce}*\n\n` : ''}## 译文 (${targetLang})\n\n> ${targetText}\n\n${targetPronounce ? `*发音: ${targetPronounce}*` : ''}`
-          break
-        }
-
-        case 'json':
-        default:
-          ctx.response.body = isSuccess
+          return `# 🌐 翻译结果\n\n## 原文 (${sourceLang})\n\n> ${sourceText}\n\n${sourcePronounce ? `*发音: ${sourcePronounce}*\n\n` : ''}## 译文 (${targetLang})\n\n> ${targetText}\n\n${targetPronounce ? `*发音: ${targetPronounce}*` : ''}`
+        },
+        json: () =>
+          isSuccess
             ? Common.buildJson({
                 source: {
                   text: responseItems.map((e) => e.src).join('') || '',
@@ -86,9 +77,8 @@ class ServiceFanyi {
               })
             : // 原先把整个上游响应对象序列化进错误文案当「调试信息」，等于把上游数据
               // 原样透出给调用方；真实原因只进服务端日志
-              Common.buildJson(null, 500, '翻译服务异常，请稍后重试')
-          break
-      }
+              Common.buildJson(null, 500, '翻译服务异常，请稍后重试'),
+      })
     }
   }
 

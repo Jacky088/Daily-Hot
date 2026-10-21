@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstreamJson } from '../fetch-upstream.ts'
 import { env } from '../runtime-env.ts'
@@ -27,26 +27,19 @@ class ServiceWeibo {
     return async (ctx) => {
       const data = await this.fetch()
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `微博实时热搜\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `微博实时热搜\n\n${data
             .map((e, i) => `${i + 1}. ${e.title} (${e.hot_value})`)
             .slice(0, 20)
-            .join('\n')}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 微博实时热搜\n\n${data
+            .join('\n')}`,
+        markdown: () =>
+          `# 微博实时热搜\n\n${data
             .slice(0, 20)
             .map((e, i) => `${i + 1}. [${e.title}](${e.link}) (${e.hot_value})`)
-            .join('\n')}`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 
@@ -54,13 +47,13 @@ class ServiceWeibo {
     const api =
       'https://m.weibo.cn/api/container/getIndex?containerid=106003type%3D25%26t%3D3%26disable_hot%3D1%26filter_type%3Drealtimehot'
 
-    const { data = {} } = await fetchUpstreamJson<{ data?: Record<string, unknown> }>(api, {
+    const { data } = await fetchUpstreamJson<{ data?: { cards?: { card_group?: Item[] }[] } }>(api, {
       headers: {
         Cookie: this.cookie,
       },
     })
 
-    const list = (data?.cards?.[0]?.card_group || []) as Item[]
+    const list = data?.cards?.[0]?.card_group || []
     const hot_value_regex = /(?<value>\d+)/i
 
     return list

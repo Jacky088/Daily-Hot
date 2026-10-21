@@ -21,6 +21,34 @@ export const TZ_SHANGHAI = 'Asia/Shanghai'
 
 export const dayjs = _dayjs
 
+/**
+ * encoding 分发所需的最小上下文面。只声明真正用到的两个成员，
+ * 这样 Oak 的 RouterContext（各种路径泛型）都能直接传进来，无需强制转换。
+ */
+export interface EncodingContext {
+  state: { encoding?: string }
+  response: { body: unknown }
+}
+
+export interface EncodingRenderers {
+  text: () => unknown
+  markdown: () => unknown
+  json: () => unknown
+}
+
+/**
+ * 统一 text / markdown / json（默认）三分支分发。
+ *
+ * 各渲染器都是惰性求值：只有命中的分支会被执行，未命中分支里的模板字符串、
+ * 数组 map 等一律不产生开销，与原 `switch (ctx.state.encoding)` 的行为完全一致。
+ */
+export function renderByEncoding(ctx: EncodingContext, renderers: EncodingRenderers) {
+  const encoding = ctx.state.encoding
+
+  ctx.response.body =
+    encoding === 'text' ? renderers.text() : encoding === 'markdown' ? renderers.markdown() : renderers.json()
+}
+
 interface FormatOptions {
   locale?: string
   timeZone?: string

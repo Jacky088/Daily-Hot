@@ -1,4 +1,4 @@
-import { Common } from '../../common.ts'
+import { Common, renderByEncoding } from '../../common.ts'
 import { cached } from '../../cache.ts'
 import { fetchUpstream } from '../../fetch-upstream.ts'
 
@@ -27,28 +27,20 @@ class ServiceSimkl {
       // 按播出平台过滤（TV 有 network 字段，如 Netflix / HBO / Disney+），大小写不敏感包含匹配
       const filtered = network ? list.filter((e) => e.network.toLowerCase().includes(network.toLowerCase())) : list
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `SIMKL ${t} 热门${network ? ` · ${network}` : ''}\n\n${filtered
+      renderByEncoding(ctx, {
+        text: () =>
+          `SIMKL ${t} 热门${network ? ` · ${network}` : ''}\n\n${filtered
             .map((e) => `${e.rank}. ${e.title}${e.rating ? ` ⭐${e.rating}` : ''}${e.network ? ` [${e.network}]` : ''}`)
-            .join('\n')}`
-          break
-
-        case 'markdown': {
-          ctx.response.body = `# 🍿 SIMKL 热门${t === 'tv' ? '剧集' : t === 'anime' ? '动画' : '电影'}${network ? ` · ${network}` : ''}\n\n${filtered
+            .join('\n')}`,
+        markdown: () =>
+          `# 🍿 SIMKL 热门${t === 'tv' ? '剧集' : t === 'anime' ? '动画' : '电影'}${network ? ` · ${network}` : ''}\n\n${filtered
             .map(
               (e) =>
                 `${e.rank}. [${e.title}](${e.link})${e.rating ? ` ⭐${e.rating}` : ''}${e.network ? ` — ${e.network}` : ''}`,
             )
-            .join('\n')}`
-          break
-        }
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(filtered)
-          break
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(filtered),
+      })
     }
   }
 

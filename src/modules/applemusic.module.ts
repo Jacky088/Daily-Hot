@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 
@@ -44,30 +44,20 @@ class ServiceAppleMusic {
 
       const data = (await cached(`apple-music-${region}`, () => this.#fetch(region))).slice(0, limit)
 
-      switch (ctx.state.encoding) {
-        case 'text': {
-          ctx.response.body = `Apple Music 热门歌曲（${REGION_MAP[region]}）\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `Apple Music 热门歌曲（${REGION_MAP[region]}）\n\n${data
             .map((e, idx) => `${idx + 1}. ${e.title} - ${e.artist}\n   ${e.link}`)
-            .join('\n\n')}`
-          break
-        }
-
-        case 'markdown': {
-          ctx.response.body = `# Apple Music 热门歌曲 - ${REGION_MAP[region]}\n\n${data
+            .join('\n\n')}`,
+        markdown: () =>
+          `# Apple Music 热门歌曲 - ${REGION_MAP[region]}\n\n${data
             .map(
               (e, idx) =>
                 `### ${idx + 1}. [${e.title}](${e.link})\n\n${e.cover ? `![${e.title}](${e.cover})\n\n` : ''}**${e.artist}**${e.genre ? ` · ${e.genre}` : ''}\n\n---\n`,
             )
-            .join('\n')}`
-          break
-        }
-
-        case 'json':
-        default: {
-          ctx.response.body = Common.buildJson(data)
-          break
-        }
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

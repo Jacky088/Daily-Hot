@@ -1,7 +1,7 @@
 import crypto from 'node:crypto'
 import dayjs from 'dayjs'
 import bcrypt from 'bcryptjs'
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 import { Buffer } from 'node:buffer'
@@ -106,30 +106,21 @@ class ServiceKuan {
     return async (ctx) => {
       const data = await cached('kuan', () => this.#fetch())
 
-      switch (ctx.state.encoding) {
-        case 'text': {
+      renderByEncoding(ctx, {
+        text: () => {
           const items = data.topics.map((item, idx) => `${idx + 1}. ${item.title}`).join('\n')
-          ctx.response.body = `酷安热门话题n\n${items}`
-          break
-        }
-
-        case 'markdown': {
-          ctx.response.body = `# 📱 酷安热门话题\n\n${data.topics
+          return `酷安热门话题n\n${items}`
+        },
+        markdown: () =>
+          `# 📱 酷安热门话题\n\n${data.topics
             .slice(0, 20)
             .map(
               (item, idx) =>
                 `### ${idx + 1}. [${item.title}](${item.url})\n\n${item.description ? `${item.description}\n\n` : ''}${item.cover ? `![${item.title}](${item.cover})\n\n` : ''}📊 **热度**: ${item.hotness} | 👥 **关注**: ${item.followers} | 💬 **评论**: ${item.comments} | ⭐ **评分**: ${item.rating.score} (${item.rating.total}人)\n\n---`,
             )
-            .join('\n\n')}\n\n*更新时间: ${data.updated}*`
-          break
-        }
-
-        case 'json':
-        default: {
-          ctx.response.body = Common.buildJson(data)
-          break
-        }
-      }
+            .join('\n\n')}\n\n*更新时间: ${data.updated}*`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

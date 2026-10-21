@@ -1,4 +1,4 @@
-import { Common } from '../../common.ts'
+import { Common, renderByEncoding } from '../../common.ts'
 import luckData from './luck.json' with { type: 'json' }
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -46,20 +46,12 @@ class ServiceLuck {
         }
       }
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `${result.luck_desc}: ${result.luck_tip}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 🍀 今日运势\n\n## ${result.luck_desc}\n\n> ${result.luck_tip}\n\n**运势等级**: ${result.luck_rank}/10`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(result)
-          break
-      }
+      renderByEncoding(ctx, {
+        text: () => `${result.luck_desc}: ${result.luck_tip}`,
+        markdown: () =>
+          `# 🍀 今日运势\n\n## ${result.luck_desc}\n\n> ${result.luck_tip}\n\n**运势等级**: ${result.luck_rank}/10`,
+        json: () => Common.buildJson(result),
+      })
     }
   }
 }

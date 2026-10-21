@@ -6,7 +6,8 @@
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#engGrad)"/>
+  <g transform="translate(16 16) scale(1.0870) translate(-15.2 -15.25)">
   <path d="M7 8.5C7 7.7 7.7 7 8.5 7H23.5V23H8.5C7.7 23 7 23.7 7 24.5V8.5Z" stroke="#FFFFFF" stroke-width="1.8" fill="none"/>
   <line x1="7" y1="21" x2="23.5" y2="21" stroke="#FFFFFF" stroke-width="1.6"/>
   <text x="15" y="17" font-family="-apple-system,sans-serif" font-size="8.5" font-weight="900" fill="#FFFFFF" text-anchor="middle">EN</text>
-</svg>
+</g></svg>

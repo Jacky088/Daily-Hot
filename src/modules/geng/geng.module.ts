@@ -1,4 +1,4 @@
-import { Common } from '../../common.ts'
+import { Common, renderByEncoding } from '../../common.ts'
 import gengData from './geng.json' with { type: 'json' }
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -42,25 +42,18 @@ class ServiceGeng {
         result = data[index]
       }
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `${result.title}：${result.content}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# 🎭 ${result.title}\n\n${result.content}\n\n---\n\n*${result.year ? `${result.year} 年热梗 · ` : ''}第 ${index + 1} 个梗*`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson({
+      renderByEncoding(ctx, {
+        text: () => `${result.title}：${result.content}`,
+        markdown: () =>
+          `# 🎭 ${result.title}\n\n${result.content}\n\n---\n\n*${result.year ? `${result.year} 年热梗 · ` : ''}第 ${index + 1} 个梗*`,
+        json: () =>
+          Common.buildJson({
             index,
             year: result.year ?? null,
             title: result.title,
             content: result.content,
-          })
-          break
-      }
+          }),
+      })
     }
   }
 }

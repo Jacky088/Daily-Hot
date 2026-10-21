@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { fetchUpstreamJson } from '../fetch-upstream.ts'
 import { cached } from '../cache.ts'
 
@@ -11,26 +11,19 @@ class ServiceExRate {
 
       const data = await this.#fetch(currency)
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `${Common.localeDate()} 的 ${currency} 汇率\n\n${data.rates
+      renderByEncoding(ctx, {
+        text: () =>
+          `${Common.localeDate()} 的 ${currency} 汇率\n\n${data.rates
             .slice(0, 20)
             .map((e) => `${e.currency} => ${e.rate}`)
-            .join('\n')}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# ${currency} 汇率\n\n> 更新时间: ${data.updated}\n\n| 货币 | 汇率 |\n|------|------|\n${data.rates
+            .join('\n')}`,
+        markdown: () =>
+          `# ${currency} 汇率\n\n> 更新时间: ${data.updated}\n\n| 货币 | 汇率 |\n|------|------|\n${data.rates
             .slice(0, 30)
             .map((e) => `| **${e.currency}** | ${e.rate.toFixed(4)} |`)
-            .join('\n')}\n\n*下次更新: ${data.next_updated}*`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            .join('\n')}\n\n*下次更新: ${data.next_updated}*`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

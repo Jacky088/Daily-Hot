@@ -393,6 +393,3 @@ appRouter.get(
   '/olympics/events',
   lazyService(() => import('./modules/olympics/olympics.module.ts').then((m) => m.olympicsService.handleEventList())),
 )
-
-// === 以下为待定接口，还在计划、开发中 ===
-// appRouter.get('/slacking-calendar', serviceSlackingCalendar.handle())

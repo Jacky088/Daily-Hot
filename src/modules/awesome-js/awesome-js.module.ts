@@ -1,4 +1,4 @@
-import { Common } from '../../common.ts'
+import { Common, renderByEncoding } from '../../common.ts'
 import questionsData from './awesome-js.json' with { type: 'json' }
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -40,20 +40,11 @@ class ServiceAwesomeJs {
         result = Common.randomItem(questionsData)
       }
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = this.formatQuestionText(result)
-          break
-
-        case 'markdown':
-          ctx.response.body = this.formatQuestionMarkdown(result)
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(result)
-          break
-      }
+      renderByEncoding(ctx, {
+        text: () => this.formatQuestionText(result),
+        markdown: () => this.formatQuestionMarkdown(result),
+        json: () => Common.buildJson(result),
+      })
     }
   }
 

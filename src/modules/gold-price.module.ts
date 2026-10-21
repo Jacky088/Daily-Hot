@@ -1,5 +1,5 @@
 import { load } from 'cheerio'
-import { Common, dayjs, TZ_SHANGHAI } from '../common.ts'
+import { Common, dayjs, TZ_SHANGHAI, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 
@@ -205,19 +205,16 @@ export class GoldPriceService {
   handle(): RouterMiddleware<'/gold-price'> {
     return async (ctx) => {
       const data = await cached('gold-price', () => this.#fetch(), { ttl: 10 * 60 * 1000 })
-      const encoding = ctx.state.encoding as string | undefined
 
-      switch (encoding) {
-        case 'text': {
+      renderByEncoding(ctx, {
+        text: () => {
           const metalTexts = data.metals
             .map((metal) => `${metal.name}: ${metal.sell_price}${UNIT_MAP[metal.name]}`)
             .join('\n')
-
           const storeTexts = data.stores.map((store) => `${store.brand}: ${store.price}`).join('\n')
           const bankTexts = data.banks.map((bank) => `${bank.bank}: ${bank.price}`).join('\n')
           const recycleTexts = data.recycle.map((item) => `${item.type}: ${item.price}`).join('\n')
-
-          ctx.response.body = `贵金属价格 (${dayjs().tz(TZ_SHANGHAI).format('YYYY-MM-DD HH:mm:ss')})
+          return `贵金属价格 (${dayjs().tz(TZ_SHANGHAI).format('YYYY-MM-DD HH:mm:ss')})
 
 〓 实时行情 〓
 ${metalTexts}
@@ -230,30 +227,24 @@ ${bankTexts}
 
 〓 黄金回收今日金价 〓
 ${recycleTexts}`
-          break
-        }
-
-        case 'markdown': {
+        },
+        markdown: () => {
           const metalRows = data.metals
             .map(
               (metal) =>
                 `| ${metal.name} | ${metal.sell_price} | ${metal.today_price} | ${metal.high_price} | ${metal.low_price} |`,
             )
             .join('\n')
-
           const storeRows = data.stores
             .map((store) => `| ${store.brand} | ${store.product} | ${store.price} | ${store.updated} |`)
             .join('\n')
-
           const bankRows = data.banks
             .map((bank) => `| ${bank.bank} | ${bank.product} | ${bank.price} | ${bank.updated} |`)
             .join('\n')
-
           const recycleRows = data.recycle
             .map((item) => `| ${item.type} | ${item.price} | ${item.purity} | ${item.updated} |`)
             .join('\n')
-
-          ctx.response.body = `# 贵金属价格
+          return `# 贵金属价格
 
 **更新时间**: ${dayjs().tz(TZ_SHANGHAI).format('YYYY-MM-DD HH:mm:ss')}
 
@@ -280,15 +271,9 @@ ${bankRows}
 | 黄金种类 | 回收价格 | 黄金纯度 | 报价时间 |
 |----------|----------|----------|----------|
 ${recycleRows}`
-          break
-        }
-
-        case 'json':
-        default: {
-          ctx.response.body = Common.buildJson(data)
-          break
-        }
-      }
+        },
+        json: () => Common.buildJson(data),
+      })
     }
   }
 }

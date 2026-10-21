@@ -6,8 +6,9 @@
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#fuelGrad)"/>
+  <g transform="translate(16 16) scale(1.1905) translate(-15.45 -16.45)">
   <rect x="7" y="9" width="11" height="15" rx="2" stroke="#FFFFFF" stroke-width="1.8" fill="none"/>
   <rect x="9.5" y="11.5" width="6" height="4" rx="0.8" fill="#FFFFFF"/>
   <path d="M18 12C20 12 21 13 21 15V20C21 21.5 22 22 23 22" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" fill="none"/>
   <path d="M22 13L24 11V15" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" fill="none"/>
-</svg>
+</g></svg>

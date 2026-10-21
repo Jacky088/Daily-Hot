@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { fetchUpstreamText } from '../fetch-upstream.ts'
 import { load } from 'cheerio'
 
@@ -15,20 +15,17 @@ class ServiceAINews {
 
       const isToday = date === Common.localeDate(Date.now()).replace(/\//g, '-')
 
-      switch (ctx.state.encoding) {
-        case 'text': {
-          ctx.response.body = `AI 资讯快报（${data.date}${isToday ? '，实时更新' : ''}）\n\n${
+      renderByEncoding(ctx, {
+        text: () =>
+          `AI 资讯快报（${data.date}${isToday ? '，实时更新' : ''}）\n\n${
             data.news.length > 0
               ? data.news
                   .map((e, idx) => `${idx + 1}. ${e.title}\n\n${e.detail}（来自: ${e.source}）\n\n> 详情: ${e.link}`)
                   .join('\n\n')
               : '今日暂无重大 AI 资讯'
-          }`
-          break
-        }
-
-        case 'markdown': {
-          ctx.response.body = `# AI 资讯快报\n\n> ${data.date}${isToday ? ' · 实时更新' : ''}\n\n${
+          }`,
+        markdown: () =>
+          `# AI 资讯快报\n\n> ${data.date}${isToday ? ' · 实时更新' : ''}\n\n${
             data.news.length > 0
               ? data.news
                   .map(
@@ -37,16 +34,9 @@ class ServiceAINews {
                   )
                   .join('\n')
               : '*今日暂无重大 AI 资讯*'
-          }`
-          break
-        }
-
-        case 'json':
-        default: {
-          ctx.response.body = Common.buildJson(data)
-          break
-        }
-      }
+          }`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 

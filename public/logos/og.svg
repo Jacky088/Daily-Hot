@@ -6,10 +6,11 @@
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#ogGrad)"/>
+  <g transform="translate(16 16) scale(1.0638) translate(-15.95 -15.95)">
   <rect x="6.5" y="7.5" width="19" height="17" rx="3" stroke="#FFFFFF" stroke-width="1.8" fill="none"/>
   <line x1="6.5" y1="12" x2="25.5" y2="12" stroke="#FFFFFF" stroke-width="1.5"/>
   <circle cx="10" cy="10" r="1" fill="#FFFFFF"/>
   <circle cx="13" cy="10" r="1" fill="#FFFFFF"/>
   <circle cx="16" cy="10" r="1" fill="#FFFFFF"/>
   <rect x="10" y="15" width="12" height="5.5" rx="1" stroke="#FFFFFF" stroke-width="1.2" fill="none"/>
-</svg>
+</g></svg>

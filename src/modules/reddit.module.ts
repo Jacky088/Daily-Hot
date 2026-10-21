@@ -1,4 +1,4 @@
-import { Common } from '../common.ts'
+import { Common, renderByEncoding } from '../common.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -11,25 +11,18 @@ class ServiceReddit {
     return async (ctx) => {
       const data = await this.#fetch()
 
-      switch (ctx.state.encoding) {
-        case 'text':
-          ctx.response.body = `Reddit 热帖 (r/all)\n\n${data
+      renderByEncoding(ctx, {
+        text: () =>
+          `Reddit 热帖 (r/all)\n\n${data
             .map((e, i) => `${i + 1}. ${e.title}\n   r/${e.subreddit} · ${e.author} · ${e.link}`)
-            .join('\n\n')}`
-          break
-
-        case 'markdown':
-          ctx.response.body = `# Reddit 热帖 (r/all)\n\n${data
+            .join('\n\n')}`,
+        markdown: () =>
+          `# Reddit 热帖 (r/all)\n\n${data
             .slice(0, 25)
             .map((e, i) => `### ${i + 1}. [${e.title}](${e.link})\n\nr/${e.subreddit} · ${e.author}\n\n---\n`)
-            .join('\n')}`
-          break
-
-        case 'json':
-        default:
-          ctx.response.body = Common.buildJson(data)
-          break
-      }
+            .join('\n')}`,
+        json: () => Common.buildJson(data),
+      })
     }
   }
 
