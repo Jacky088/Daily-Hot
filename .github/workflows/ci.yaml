@@ -67,8 +67,10 @@ jobs:
       - name: Audit production dependencies
         shell: bash
         env:
-          npm_config_fetch_timeout: 60000
-          npm_config_fetch_retries: 3
+          # 超时缩短、内部重试降到 1 次：网络抖动时快速失败交给外层重试，
+          # 正常网络下 audit 只需几秒，20s 足够；60s x 多次会让 job 白白等上几分钟
+          npm_config_fetch_timeout: 20000
+          npm_config_fetch_retries: 1
         run: |
           set -uo pipefail
           for attempt in 1 2 3; do
