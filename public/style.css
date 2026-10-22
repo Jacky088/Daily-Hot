@@ -14160,6 +14160,32 @@ select.tool-input-txt {
   gap: 6px;
   flex-wrap: wrap;
 }
+/* Base64 文本模式：输入、操作、结果按列排布，间距统一交给 gap */
+.tool-b64-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* 转换类工具的「输入 / 结果」分栏：结果单独成框，按钮只写结果、不覆盖原文。
+   标题行与结果框贴成一组（tool-wrap 的 gap 是 10px，这里回收 4px） */
+.tool-out-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: -4px;
+}
+.tool-out-head .tool-out-t {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+/* 只读结果框：淡强调底区分于输入框，光标保持默认，避免被误认为可编辑 */
+.tool-textarea.tool-out-box {
+  background: var(--accent-bg);
+  border-color: var(--border-light);
+  cursor: default;
+}
 .tool-status-line {
   font-size: 12px;
   display: flex;

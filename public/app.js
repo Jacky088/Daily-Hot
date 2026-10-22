@@ -11292,29 +11292,40 @@ function rJson(_, c) {
         <button type="button" class="tool-btn-sm" id="jsonEscape">转义</button>
         <button type="button" class="tool-btn-sm" id="jsonUnescape">去转义</button>
         <button type="button" class="tool-btn-sm" id="jsonSample">填入示例</button>
-        <button type="button" class="tool-btn-sm" id="jsonCopy">复制结果</button>
         <button type="button" class="tool-btn-dim" id="jsonClear">清空</button>
       </div>
+
+      <div class="tool-out-head">
+        <span class="tool-out-t">转换结果</span>
+        <button type="button" class="tool-btn-sm" id="jsonCopy">复制结果</button>
+      </div>
+      <textarea id="jsonOut" class="tool-textarea tool-out-box" rows="6" readonly placeholder="美化 / 压缩 / 转义后的 JSON 将显示在这里"></textarea>
 
       <div id="jsonStatus" class="tool-status-line"></div>
     </div>
   `
 
   const txt = c.querySelector('#jsonTxt')
+  const out = c.querySelector('#jsonOut')
   const st = c.querySelector('#jsonStatus')
 
   const updateStatus = (ok, msg) => {
+    // 结果框为空（刚改过输入、尚未转换）时退回报告输入规模，避免显示「结果 0 字符」
+    const note = out.value
+      ? `结果字符: ${out.value.length}，大小: ${(new Blob([out.value]).size / 1024).toFixed(2)} KB`
+      : `输入字符: ${txt.value.length}`
     st.innerHTML = ok
-      ? `<span class="tool-badge-ok">✓ 有效 JSON</span> <span class="tool-sub-note">字符: ${txt.value.length}，大小: ${(new Blob([txt.value]).size / 1024).toFixed(2)} KB</span>`
+      ? `<span class="tool-badge-ok">✓ 有效 JSON</span> <span class="tool-sub-note">${note}</span>`
       : `<span class="tool-badge-bad">✗ 语法错误: ${esc(msg)}</span>`
   }
 
+  // 转换只写结果框，输入保持原样：这样「美化前 / 美化后」能对照着看
   const format = (indent) => {
     try {
-      const obj = JSON.parse(txt.value)
-      txt.value = JSON.stringify(obj, null, indent)
+      out.value = JSON.stringify(JSON.parse(txt.value), null, indent)
       updateStatus(true)
     } catch (e) {
+      out.value = ''
       updateStatus(false, e.message)
     }
   }
@@ -11323,35 +11334,41 @@ function rJson(_, c) {
   c.querySelector('#jsonFmt4').onclick = () => format(4)
   c.querySelector('#jsonMinify').onclick = () => {
     try {
-      const obj = JSON.parse(txt.value)
-      txt.value = JSON.stringify(obj)
+      out.value = JSON.stringify(JSON.parse(txt.value))
       updateStatus(true)
     } catch (e) {
+      out.value = ''
       updateStatus(false, e.message)
     }
   }
   c.querySelector('#jsonEscape').onclick = () => {
-    txt.value = JSON.stringify(txt.value)
+    // 转义只是把当前文本变成 JSON 字符串字面量，不要求原文本身是合法 JSON
+    out.value = JSON.stringify(txt.value)
     updateStatus(true)
   }
   c.querySelector('#jsonUnescape').onclick = () => {
     try {
-      txt.value = JSON.parse(txt.value)
+      const parsed = JSON.parse(txt.value)
+      // 解析结果可能是对象/数组，直接塞进 textarea 会变成 [object Object]
+      out.value = typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2)
       updateStatus(true)
     } catch (e) {
+      out.value = ''
       updateStatus(false, '去转义失败: ' + e.message)
     }
   }
   c.querySelector('#jsonSample').onclick = () => {
-    txt.value = JSON.stringify(SAMPLE, null, 2)
-    updateStatus(true)
+    txt.value = JSON.stringify(SAMPLE)
+    format(2)
   }
   c.querySelector('#jsonClear').onclick = () => {
     txt.value = ''
+    out.value = ''
     st.innerHTML = ''
   }
   c.querySelector('#jsonCopy').onclick = (e) => {
-    navigator.clipboard.writeText(txt.value || '')
+    if (!out.value) return
+    navigator.clipboard.writeText(out.value)
     const orig = e.target.textContent
     e.target.textContent = '已复制 ✓'
     setTimeout(() => {
@@ -11360,6 +11377,8 @@ function rJson(_, c) {
   }
 
   txt.oninput = () => {
+    // 输入变了，上一次的结果已经过期，直接清掉避免复制到旧内容
+    out.value = ''
     if (!txt.value.trim()) {
       st.innerHTML = ''
       return
@@ -11491,16 +11510,20 @@ function rBase64Img(_, c) {
       </div>
 
       <!-- 文本模式 -->
-      <div id="b64TextPanel" class="tool-b64-panel">
+      <div id="b64TextPanel" class="tool-b64-panel tool-b64-text">
         <textarea id="b64TxtIn" class="tool-textarea" rows="4" placeholder="在此输入需要编码或解码的文本内容..."></textarea>
-        <div class="tool-actions-bar" style="margin-top:8px;">
+        <div class="tool-actions-bar">
           <button type="button" class="tool-btn-act" id="b64BtnEncode">🔒 Base64 编码</button>
           <button type="button" class="tool-btn-act" id="b64BtnDecode">🔓 Base64 解码</button>
-          <button type="button" class="tool-btn-sm" id="b64TxtCopy">复制结果</button>
           <button type="button" class="tool-btn-dim" id="b64TxtSample">填入示例</button>
           <button type="button" class="tool-btn-dim" id="b64TxtClear">清空</button>
         </div>
-        <div id="b64TxtStatus" class="tool-status-line" style="margin-top:6px;"></div>
+        <div class="tool-out-head">
+          <span class="tool-out-t">转换结果</span>
+          <button type="button" class="tool-btn-sm" id="b64TxtCopy">复制结果</button>
+        </div>
+        <textarea id="b64TxtOut" class="tool-textarea tool-out-box" rows="4" readonly placeholder="编码 / 解码结果将显示在这里"></textarea>
+        <div id="b64TxtStatus" class="tool-status-line"></div>
       </div>
 
       <!-- 图片模式 -->
@@ -11543,13 +11566,17 @@ function rBase64Img(_, c) {
       tabs.forEach((t) => t.classList.remove('active'))
       tab.classList.add('active')
       curTab = tab.dataset.tab
-      textPanel.style.display = curTab === 'text' ? 'block' : 'none'
-      imgPanel.style.display = curTab === 'image' ? 'block' : 'none'
+      // 用空串还原样式表里的 display（文本面板是 flex 列，写死 block 会把 gap 干掉）
+      textPanel.style.display = curTab === 'text' ? '' : 'none'
+      imgPanel.style.display = curTab === 'image' ? '' : 'none'
     }
   })
 
   // 文本编解码逻辑 (UTF-8 安全)
+  // 输入与结果分成两个框：编码/解码只写结果框，原文始终留在上方，
+  // 方便对照、反复编解码，也不会一按按钮就把要转换的内容覆盖掉
   const txtIn = c.querySelector('#b64TxtIn')
+  const txtOutBox = c.querySelector('#b64TxtOut')
   const txtStatus = c.querySelector('#b64TxtStatus')
 
   const utf8ToBase64 = (str) => {
@@ -11565,42 +11592,53 @@ function rBase64Img(_, c) {
 
   c.querySelector('#b64BtnEncode').onclick = () => {
     const val = txtIn.value
-    if (!val) return
+    if (!val) {
+      txtStatus.innerHTML = '<span class="tool-sub-note">请先在上方输入需要编码的文本</span>'
+      return
+    }
     try {
       const res = utf8ToBase64(val)
-      txtIn.value = res
+      txtOutBox.value = res
       txtStatus.innerHTML = `<span class="tool-badge-ok">✓ 编码成功</span> <span class="tool-sub-note">Base64 长度: ${res.length} 字符</span>`
     } catch (e) {
+      txtOutBox.value = ''
       txtStatus.innerHTML = `<span class="tool-badge-bad">✗ 编码失败: ${esc(e.message)}</span>`
     }
   }
 
   c.querySelector('#b64BtnDecode').onclick = () => {
     const val = txtIn.value.trim()
-    if (!val) return
+    if (!val) {
+      txtStatus.innerHTML = '<span class="tool-sub-note">请先在上方输入需要解码的 Base64 内容</span>'
+      return
+    }
     try {
       // 容错处理：去掉可能的 data:*;base64, 前缀
       const clean = val.includes(',') ? val.split(',')[1] : val
       const res = base64ToUtf8(clean)
-      txtIn.value = res
+      txtOutBox.value = res
       txtStatus.innerHTML = `<span class="tool-badge-ok">✓ 解码成功</span> <span class="tool-sub-note">字符数: ${res.length}</span>`
     } catch {
+      txtOutBox.value = ''
       txtStatus.innerHTML = `<span class="tool-badge-bad">✗ 解码失败: 不是合法的 Base64 字符串</span>`
     }
   }
 
   c.querySelector('#b64TxtCopy').onclick = (e) => {
-    navigator.clipboard.writeText(txtIn.value)
+    if (!txtOutBox.value) return
+    navigator.clipboard.writeText(txtOutBox.value)
     const o = e.target.textContent
     e.target.textContent = '已复制 ✓'
     setTimeout(() => (e.target.textContent = o), 1200)
   }
   c.querySelector('#b64TxtSample').onclick = () => {
     txtIn.value = '你好，Daily-Hot！Hello, World! 🚀'
+    txtOutBox.value = ''
     txtStatus.innerHTML = ''
   }
   c.querySelector('#b64TxtClear').onclick = () => {
     txtIn.value = ''
+    txtOutBox.value = ''
     txtStatus.innerHTML = ''
   }
 
@@ -11689,15 +11727,21 @@ function rTextStat(_, c) {
         <button type="button" class="tool-btn-sm" id="tsCleanBlankLines">去除所有空行</button>
         <button type="button" class="tool-btn-sm" id="tsPanguSpace">盘古之白 (中英空格)</button>
         <button type="button" class="tool-btn-sm" id="tsFullToHalf">全角转半角</button>
-        <button type="button" class="tool-btn-sm" id="tsCopyCleaned">复制文本</button>
         <button type="button" class="tool-btn-dim" id="tsClear">清空</button>
       </div>
+
+      <div class="tool-out-head">
+        <span class="tool-out-t">清洗结果</span>
+        <button type="button" class="tool-btn-sm" id="tsCopyCleaned">复制结果</button>
+      </div>
+      <textarea id="tsOut" class="tool-textarea tool-out-box" rows="5" readonly placeholder="清洗后的文本将显示在这里，原文保持不变"></textarea>
 
       <div class="tool-stat-grid" id="tsStatMetrics" style="margin-top:10px;"></div>
     </div>
   `
 
   const inputTxt = c.querySelector('#tsInputTxt')
+  const outTxt = c.querySelector('#tsOut')
   const metricsEl = c.querySelector('#tsStatMetrics')
 
   const calc = () => {
@@ -11738,46 +11782,60 @@ function rTextStat(_, c) {
     `
   }
 
-  inputTxt.oninput = calc
-  c.querySelector('#tsCleanSpaces').onclick = () => {
-    inputTxt.value = inputTxt.value
-      .split('\n')
-      .map((l) => l.trim())
-      .join('\n')
+  // 清洗只写结果框，原文不动。结果已有内容时接着上一次结果继续处理，
+  // 这样「去空行 → 全角转半角」这串操作可以叠加，行为与以前原地改写时一致
+  const clean = (fn) => {
+    outTxt.value = fn(outTxt.value || inputTxt.value)
+  }
+
+  inputTxt.oninput = () => {
+    // 原文变了，旧的清洗结果失效
+    outTxt.value = ''
     calc()
+  }
+  c.querySelector('#tsCleanSpaces').onclick = () => {
+    clean((s) =>
+      s
+        .split('\n')
+        .map((l) => l.trim())
+        .join('\n'),
+    )
   }
   c.querySelector('#tsCleanBlankLines').onclick = () => {
-    inputTxt.value = inputTxt.value
-      .split('\n')
-      .filter((l) => l.trim().length > 0)
-      .join('\n')
-    calc()
+    clean((s) =>
+      s
+        .split('\n')
+        .filter((l) => l.trim().length > 0)
+        .join('\n'),
+    )
   }
   c.querySelector('#tsPanguSpace').onclick = () => {
-    inputTxt.value = inputTxt.value
-      .replace(/([\u4e00-\u9fa5])([a-zA-Z0-9])/g, '$1 $2')
-      .replace(/([a-zA-Z0-9])([\u4e00-\u9fa5])/g, '$1 $2')
-    calc()
+    clean((s) =>
+      s.replace(/([\u4e00-\u9fa5])([a-zA-Z0-9])/g, '$1 $2').replace(/([a-zA-Z0-9])([\u4e00-\u9fa5])/g, '$1 $2'),
+    )
   }
   c.querySelector('#tsFullToHalf').onclick = () => {
-    let out = ''
-    for (let i = 0; i < inputTxt.value.length; i++) {
-      let code = inputTxt.value.charCodeAt(i)
-      if (code === 12288) out += String.fromCharCode(32)
-      else if (code > 65280 && code < 65375) out += String.fromCharCode(code - 65248)
-      else out += inputTxt.value[i]
-    }
-    inputTxt.value = out
-    calc()
+    clean((s) => {
+      let out = ''
+      for (let i = 0; i < s.length; i++) {
+        let code = s.charCodeAt(i)
+        if (code === 12288) out += String.fromCharCode(32)
+        else if (code > 65280 && code < 65375) out += String.fromCharCode(code - 65248)
+        else out += s[i]
+      }
+      return out
+    })
   }
   c.querySelector('#tsCopyCleaned').onclick = (e) => {
-    navigator.clipboard.writeText(inputTxt.value)
+    if (!outTxt.value) return
+    navigator.clipboard.writeText(outTxt.value)
     const o = e.target.textContent
     e.target.textContent = '已复制 ✓'
     setTimeout(() => (e.target.textContent = o), 1200)
   }
   c.querySelector('#tsClear').onclick = () => {
     inputTxt.value = ''
+    outTxt.value = ''
     calc()
   }
   calc()
