@@ -59,5 +59,31 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
+      # 审计接口在 GitHub Runner 上偶发超时（ERR_SOCKET_TIMEOUT），
+      # 这类失败与「有没有漏洞」无关，不该把 CI 判红。这里做两件事：
+      # 1) 放宽 registry 超时并重试 3 次，扛住短暂的网络抖动；
+      # 2) 重试仍失败时区分原因——真扫出高危漏洞照常失败，
+      #    只有「审计服务不可达」才降级为 warning 放行
       - name: Audit production dependencies
-        run: pnpm audit --prod --audit-level high
+        shell: bash
+        env:
+          npm_config_fetch_timeout: 60000
+          npm_config_fetch_retries: 3
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            if audit_out=$(pnpm audit --prod --audit-level high 2>&1); then
+              echo "$audit_out"
+              exit 0
+            fi
+            echo "$audit_out"
+            # 只认网络类错误：漏洞报告（表格 / advisory 链接）不匹配这些关键字
+            if grep -Eq 'ERR_SOCKET_TIMEOUT|FetchError|ECONNRESET|ETIMEDOUT|EAI_AGAIN|ERR_PNPM_META_FETCH_FAIL|request to https' <<<"$audit_out"; then
+              echo "::warning::pnpm audit 第 ${attempt} 次尝试因网络问题失败，10 秒后重试"
+              sleep 10
+              continue
+            fi
+            # 非网络错误：确实扫到了高危漏洞或出现未知故障，必须失败
+            exit 1
+          done
+          echo "::warning::审计服务连续 3 次不可达，本次跳过安全门禁（并非发现漏洞）；网络恢复后请重跑 audit job"
