@@ -10685,13 +10685,18 @@ html.fs-fake-on .main {
   text-decoration: none;
   transition:
     transform var(--dur-fast),
-    background var(--dur-fast),
-    border-color var(--dur-fast);
+    box-shadow var(--dur-fast),
+    background var(--dur-fast);
 }
 .rs-item:hover {
   background: var(--card-hover);
-  transform: translateY(-1px);
-  border-color: var(--accent);
+  /* 与右侧平台卡片同一套「呼吸」语汇：轻微放大 + 柔和投影。
+     原来这里是 translateY(-1px) + border-color: accent——accent 会把四条边一起
+     染红，在只该有一条分隔线的条目上就成了刺眼的红框 */
+  transform: scale(1.02);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.07);
+  position: relative;
+  z-index: 1;
 }
 .rs-header {
   display: flex;
@@ -10729,9 +10734,9 @@ html.fs-fake-on .main {
   font-size: 12.5px;
   font-weight: 600;
   color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.45;
+  /* 长标题不截断：整句换行显示（原来是 nowrap + 省略号） */
+  overflow-wrap: anywhere;
 }
 .rs-meta {
   display: flex;
@@ -10741,10 +10746,13 @@ html.fs-fake-on .main {
   color: var(--text-dimmer);
 }
 .rs-meta img {
-  width: 13px;
-  height: 13px;
+  /* 品牌图标只作小前缀：11px 与文字齐高、压一档不透明度，不抢标题视线 */
+  flex-shrink: 0;
+  width: 11px;
+  height: 11px;
   border-radius: 3px;
   object-fit: contain;
+  opacity: 0.85;
 }
 
 /* 玻璃质感分割线 */
@@ -11744,8 +11752,12 @@ body {
 }
 .hl-item:hover {
   background: #ffffff !important;
-  transform: translateY(-2px) !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05) !important;
+  /* 与右侧平台卡片、热搜精选统一成同一套「呼吸」：轻微放大取代上浮，
+     投影只做陪衬；z-index 抬起来，避免放大时被相邻条目的分隔线压住 */
+  transform: scale(1.015) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06) !important;
+  position: relative;
+  z-index: 1;
 }
 
 /* 排名徽章 */
@@ -11996,11 +12008,6 @@ body {
   color: #ffffff !important;
   box-shadow: 0 2px 6px rgba(239, 68, 68, 0.28) !important;
 }
-.hl-trend.tag-fei {
-  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%) !important;
-  color: #ffffff !important;
-  box-shadow: 0 2px 6px rgba(249, 115, 22, 0.28) !important;
-}
 .hl-trend.tag-re {
   background: linear-gradient(135deg, #fb923c 0%, #f97316 100%) !important;
   color: #ffffff !important;
@@ -12013,12 +12020,6 @@ body {
   background: #fee2e2 !important;
   color: #dc2626 !important;
   border: 1px solid #fecaca !important;
-}
-.hl-trend.tag-wen {
-  background: #f1f5f9 !important;
-  color: #64748b !important;
-  border: 1px solid #e2e8f0 !important;
-  font-weight: 600 !important;
 }
 .hl-trend.tag-custom {
   background: #eff6ff !important;
@@ -12952,10 +12953,17 @@ body {
 /* 全网热搜精选 3 条 */
 .rs-item {
   display: block !important;
-  padding: 9px 0 !important;
+  /* 标题已允许换行，上下留白给到 11px，多行条目之间才不会挤在一起 */
+  padding: 11px 0 !important;
   text-decoration: none !important;
   color: inherit !important;
+  /* 只留底部分隔线：基础规则那圈 1px 外边在 hover 时会整圈染色，正是红框来源 */
+  border: none !important;
   border-bottom: 1px solid rgba(241, 245, 249, 0.9) !important;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease !important;
 }
 .rs-item:last-child {
   border-bottom: none !important;
@@ -12973,13 +12981,15 @@ body {
   font-weight: 700;
 }
 .rs-badge-pick {
-  height: 20px !important;
-  padding: 0 7px !important;
+  /* 18px / 9.5px 收一档：原来的 20px 徽标比标题行高还高，压在条目里显得笨重 */
+  height: 18px !important;
+  margin-top: 1px !important;
+  padding: 0 6px !important;
   border-radius: 9999px !important;
-  font-size: 10px !important;
+  font-size: 9.5px !important;
   font-weight: 800 !important;
-  letter-spacing: 0.3px !important;
-  line-height: 20px !important;
+  letter-spacing: 0.2px !important;
+  line-height: 18px !important;
   color: #ffffff !important;
   display: inline-flex !important;
   align-items: center !important;
@@ -13007,11 +13017,13 @@ body {
   font-size: 13.5px !important;
   font-weight: 600 !important;
   color: #1e293b !important;
-  line-height: 1.35 !important;
-  display: -webkit-box !important;
-  -webkit-line-clamp: 1 !important;
-  -webkit-box-orient: vertical !important;
-  overflow: hidden !important;
+  line-height: 1.45 !important;
+  /* 不再用 -webkit-line-clamp: 1 截成一行：标题再长也整句换行，
+     条目高度随行数自然长高，右侧不留省略号残影 */
+  display: block !important;
+  overflow: visible !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
 }
 .rs-meta {
   display: flex !important;
@@ -13022,10 +13034,12 @@ body {
   margin-top: 4px !important;
 }
 .rs-meta img {
-  width: 13px !important;
-  height: 13px !important;
+  flex-shrink: 0 !important;
+  width: 11px !important;
+  height: 11px !important;
   border-radius: 3px !important;
   object-fit: contain !important;
+  opacity: 0.85 !important;
 }
 
 /* 全网热词云 */
@@ -13226,11 +13240,6 @@ body {
   background: rgba(239, 68, 68, 0.22) !important;
   color: #fca5a5 !important;
   border-color: rgba(239, 68, 68, 0.38) !important;
-}
-[data-theme='dark'] .hl-trend.tag-wen {
-  background: rgba(51, 65, 85, 0.5) !important;
-  color: #94a3b8 !important;
-  border-color: #334155 !important;
 }
 [data-theme='dark'] .hl-trend.tag-custom {
   background: rgba(37, 99, 235, 0.2) !important;

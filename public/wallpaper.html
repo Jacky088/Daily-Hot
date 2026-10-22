@@ -440,7 +440,7 @@
         flex-shrink: 0;
       }
 
-      /* ================= 底部中央指示胶囊（宽屏舒展对齐，从左壁起始至右壁） ================= */
+      /* ================= 底部中央指示点（不套容器底，点直接压在壁纸上） ================= */
       .bottom-nav {
         position: fixed;
         left: 0;
@@ -452,18 +452,24 @@
         pointer-events: none;
       }
 
+      /* 只排布、不画底：没有背景、边框、投影与毛玻璃，视觉上就是一排点。
+         padding 保留一点点，用来撑出鼠标停留的接触面 */
       .indicator-capsule {
+        position: relative;
         pointer-events: auto;
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        width: 420px; /* 宽屏舒展宽度 */
-        padding: 5px 6px; /* 紧贴胶囊内壁起始，不留突兀大间距 */
+        justify-content: center;
+        gap: 5px;
+        width: auto;
+        padding: 6px 8px;
         border-radius: 999px;
         box-sizing: border-box;
-        box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.2),
-          0 10px 36px rgba(0, 0, 0, 0.45);
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
       }
 
       .ind-item {
@@ -476,47 +482,50 @@
         align-items: center;
         justify-content: center;
         line-height: 1;
-        height: 32px;
-        min-width: 32px; /* 点击命中区域 */
+        height: 24px;
+        min-width: 22px; /* 要容下激活态那段 20px 胶囊 */
         transition: all var(--dur-base) var(--ease-spring);
       }
 
-      /* 普通圆点 */
-      .ind-dot {
-        width: 8px;
-        height: 8px;
+      /* 每个槽位里的小点：只做存在感，不参与切换动画 */
+      .ind-mark {
+        width: 6px;
+        height: 6px;
         border-radius: 50%;
-        background: rgba(255, 255, 255, 0.42);
+        background: rgba(255, 255, 255, 0.32);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
         transition:
           background var(--dur-fast),
-          transform var(--dur-fast);
+          opacity var(--dur-fast);
       }
 
-      .ind-item:hover .ind-dot {
-        background: rgba(255, 255, 255, 0.95);
-        transform: scale(1.35);
+      .ind-item:hover .ind-mark {
+        background: rgba(255, 255, 255, 0.72);
       }
 
-      /* 激活项胶囊状态：精确算好显示宽度，稳定不抖动 */
-      .ind-active-pill {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        height: 32px;
-        min-width: 82px; /* 算好的显示宽度 */
-        padding: 0 18px;
+      /* 当前项的小点让位给滑块，否则白色胶囊里会透出一个半透明的点 */
+      .ind-item[aria-current='true'] .ind-mark {
+        opacity: 0;
+        background: transparent;
+      }
+
+      /* 滑块：整条指示器里唯一会移动的元素。
+         位置由 JS 按每个槽位的 offsetLeft 现算（见 syncIndicator），这里只负责
+         位移的时长与曲线。0.42s 的强缓出让它在接近目标时慢慢收住，
+         而不是匀速滑过去再硬停 */
+      .ind-tracker {
+        position: absolute;
+        top: 50%;
+        left: 0;
+        width: 20px;
+        height: 6px;
+        margin-top: -3px;
         border-radius: 999px;
-        font-size: 13.5px;
-        font-weight: 700;
-        letter-spacing: 0.4px;
-        color: #1a1208;
-        background: linear-gradient(135deg, #fed6ab 0%, #f6ad7b 100%);
-        box-shadow: 0 3px 14px rgba(246, 173, 123, 0.48);
-        cursor: default;
-        line-height: 1;
-        text-align: center;
-        font-variant-numeric: tabular-nums;
-        box-sizing: border-box;
+        background: #ffffff;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+        pointer-events: none;
+        transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+        will-change: transform;
       }
 
       /* 状态提示 */
@@ -661,31 +670,30 @@
           font-size: 12px;
         }
 
-        /* 移动端胶囊保持原设计紧凑比例 */
+        /* 移动端同一套点：整体再收一档 */
         .indicator-capsule {
           width: auto;
           min-width: auto;
           display: inline-flex;
           justify-content: center;
-          gap: 7px;
-          padding: 5px 9px;
+          gap: 3px;
+          padding: 4px 8px;
         }
 
         .ind-item {
-          min-width: auto;
-          height: auto;
+          min-width: 18px;
+          height: 22px;
         }
 
-        .ind-dot {
-          width: 6px;
-          height: 6px;
+        .ind-mark {
+          width: 5px;
+          height: 5px;
         }
 
-        .ind-active-pill {
-          min-width: auto;
-          height: 24px;
-          padding: 0 13px;
-          font-size: 11.5px;
+        .ind-tracker {
+          width: 14px;
+          height: 5px;
+          margin-top: -2.5px;
         }
       }
 
@@ -805,9 +813,9 @@
       </aside>
     </div>
 
-    <!-- 底部悬浮指示胶囊 -->
+    <!-- 底部悬浮指示点（无容器底：只有点，直接压在壁纸上） -->
     <nav class="bottom-nav">
-      <div class="indicator-capsule glass" id="indicatorCapsule"></div>
+      <div class="indicator-capsule" id="indicatorCapsule"></div>
     </nav>
 
     <script>
@@ -839,12 +847,6 @@
         function getCover(item) {
           if (!item) return ''
           return isPortrait() && item.cover_portrait ? item.cover_portrait : item.cover
-        }
-
-        function shortDate(dateStr) {
-          if (!dateStr) return ''
-          var parts = dateStr.split('-')
-          return parts.length === 3 ? parts[1] + '-' + parts[2] : dateStr
         }
 
         // 渲染文本与按钮链接
@@ -898,31 +900,58 @@
           }
         }
 
-        // 渲染底部指示器胶囊
+        // 底部指示点：只有第一次（或条目数变化时）才搭建 DOM，
+        // 之后每次切图只移动滑块。原来每次 applyImage 都清空重排一遍，
+        // 所有点跟着闪一下，切换自然显得生硬
         function renderIndicator() {
-          indicatorCapsule.innerHTML = ''
-          list.forEach(function (it, i) {
-            var itemBtn = document.createElement('button')
-            itemBtn.type = 'button'
-            itemBtn.className = 'ind-item'
-
-            if (i === activeIndex) {
-              var pill = document.createElement('span')
-              pill.className = 'ind-active-pill'
-              pill.textContent = i === 0 ? '今日' : shortDate(it.date)
-              itemBtn.appendChild(pill)
-            } else {
-              var dot = document.createElement('span')
-              dot.className = 'ind-dot'
-              itemBtn.appendChild(dot)
+          if (indicatorCapsule.querySelectorAll('.ind-item').length !== list.length) {
+            indicatorCapsule.innerHTML = ''
+            list.forEach(function (it, i) {
+              var itemBtn = document.createElement('button')
+              itemBtn.type = 'button'
+              itemBtn.className = 'ind-item'
               itemBtn.setAttribute('aria-label', '查看 ' + (it.date || i))
+              itemBtn.innerHTML = '<span class="ind-mark"></span>'
               itemBtn.onclick = function () {
                 switchTo(i)
               }
-            }
-            indicatorCapsule.appendChild(itemBtn)
+              indicatorCapsule.appendChild(itemBtn)
+            })
+            var seed = document.createElement('span')
+            seed.className = 'ind-tracker'
+            indicatorCapsule.appendChild(seed)
+          }
+          syncIndicator()
+        }
+
+        // 滑块位置按实际布局现算：offsetLeft 会跟着移动端的尺寸变化走，
+        // 不需要在 JS 里维护「槽位宽 + 间距」这种常量
+        function syncIndicator() {
+          var items = indicatorCapsule.querySelectorAll('.ind-item')
+          var tracker = indicatorCapsule.querySelector('.ind-tracker')
+          var cur = items[activeIndex]
+          if (!tracker || !cur) return
+
+          var x = cur.offsetLeft + (cur.offsetWidth - tracker.offsetWidth) / 2
+          if (tracker.dataset.ready !== '1') {
+            // 首次只能直接落位，否则会从最左边滑进来
+            tracker.style.transition = 'none'
+            tracker.style.transform = 'translateX(' + x + 'px)'
+            void tracker.offsetWidth
+            tracker.style.transition = ''
+            tracker.dataset.ready = '1'
+          } else {
+            tracker.style.transform = 'translateX(' + x + 'px)'
+          }
+
+          items.forEach(function (btn, i) {
+            if (i === activeIndex) btn.setAttribute('aria-current', 'true')
+            else btn.removeAttribute('aria-current')
           })
         }
+
+        // 视口变化后槽位尺寸会变（移动端更窄），滑块要跟着重新对位
+        window.addEventListener('resize', syncIndicator)
 
         // 核心切图逻辑（大图平滑叠化）
         function applyImage(idx, instant) {

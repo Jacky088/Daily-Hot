@@ -4376,6 +4376,77 @@ function init() {
   let sidebarAnimTimer = 0
   // 抽屉打开期间选过分类的标记：见 setSidebarOpen 关闭分支里的补偿定位
   let sidebarPendingLocate = false
+  // 打开抽屉后的对位任务（等目录展开动画收位再滚动），见 alignSidebarToCurrent
+  let sidebarLocateRAF = 0
+
+  // 当前「正在看」的那一条：scroll-spy 只改 .active 类、不写 activeModuleId，
+  // 所以不能只靠 activeModuleId 反推目标——浏览到靠后的卡片时，反推出的仍是
+  // 分类按钮，抽屉自然一动不动。高亮本身是准的（用户可见），直接拿高亮条目。
+  function currentSidebarTarget(sub) {
+    const marked = sub.querySelector('.cat-toc-item.active')
+    if (marked) return marked
+    const key = activeModuleId ? (GROUP_OF[activeModuleId] ? GROUP_OF[activeModuleId].id : activeModuleId) : null
+    return (
+      (key && sub.querySelector(`.cat-toc-item[data-key="${key}"]`)) ||
+      catPills.querySelector(`.sb-cat-btn[data-cat="${curCat}"]`)
+    )
+  }
+
+  // 只滚抽屉自身（.sidebar 就是 overflow-y:auto 的滚动容器），
+  // 不用 scrollIntoView——后者会把背后已锁滚动的页面一起带上
+  function revealInSidebar(target) {
+    const box = appShell && appShell.querySelector('.sidebar')
+    if (!box || !target) return
+    const b = box.getBoundingClientRect()
+    const t = target.getBoundingClientRect()
+    // 高度为 0 说明目录还收着（或在当前断点下不展示），位置没有意义，交给下一帧
+    if (t.height < 1) return
+    // 已经完整可见就不动：每次开抽屉都跳一下反而烦
+    if (t.top >= b.top + 12 && t.bottom <= b.bottom - 12) return
+    // rect.top 是边框外沿，换算成滚动内容坐标要先扣掉边框与内边距
+    const head = box.clientTop + (parseFloat(getComputedStyle(box).paddingTop) || 0)
+    const top = box.scrollTop + (t.top - b.top) - head - (box.clientHeight - t.height) / 2
+    box.scrollTo({ top: Math.max(0, top), behavior: SMOOTH })
+  }
+
+  // 抽屉打开时对齐到「当前在看的东西」：展开当前分类的目录，并把它滚进可视区。
+  // 窄屏下经常是从首页点卡片直接进来的，侧栏这时还停在顶部、目录也还是收起的，
+  // 打开抽屉只看到一排折叠分类，得自己再翻一遍当前分类在哪——正是这个反馈
+  function alignSidebarToCurrent() {
+    if (!catPills || curView !== 'cat' || !curCat || curCat === 'all') return
+    const sub = catPills.querySelector(`.cat-sub[data-for="${curCat}"]`)
+    if (!sub) return
+    // 手动折叠过（nav 上挂着 sub-collapsed）也一并展开：打开抽屉的意图就是「看我在哪」
+    if (nav) nav.classList.remove('sub-collapsed')
+    sub.classList.add('open')
+    // 目录展开是 250ms 的高度动画，抽屉自身也还在滑入：动画期间条目坐标一直在变，
+    // 此刻算出来的位置滚不准。轮询到 scrollHeight 连续两帧不变（动画收位）再定位，
+    // 1s 兜底；等待期间退出抽屉则直接放弃
+    cancelAnimationFrame(sidebarLocateRAF)
+    const started = performance.now()
+    let lastH = -1
+    let stable = 0
+    const tick = () => {
+      if (!appShell || !appShell.classList.contains('sidebar-open')) return
+      const box = appShell.querySelector('.sidebar')
+      if (!box) return
+      const elapsed = performance.now() - started
+      // 前 160ms 不判定「稳定」：过渡可能还没真正起步，连续两帧同高会被误判成收位
+      if (elapsed < 160) {
+        sidebarLocateRAF = requestAnimationFrame(tick)
+        return
+      }
+      if (box.scrollHeight === lastH) stable++
+      else stable = 0
+      lastH = box.scrollHeight
+      if (stable >= 2 || elapsed > 1000) {
+        revealInSidebar(currentSidebarTarget(sub))
+        return
+      }
+      sidebarLocateRAF = requestAnimationFrame(tick)
+    }
+    sidebarLocateRAF = requestAnimationFrame(tick)
+  }
 
   function setSidebarOpen(open) {
     if (!appShell) return
@@ -4400,6 +4471,8 @@ function init() {
       // rAF 在部分浏览器里仍会和绘制批到同一帧，读一次 offsetWidth 才是最稳的同步点
       void sbMask.offsetWidth
       sbMask.classList.add('show')
+      // 展开当前分类的目录并滚到当前平台那一项：抽屉每次都从顶部开始太"失忆"
+      alignSidebarToCurrent()
     } else {
       sbMask.classList.remove('show')
       // 等淡出过渡结束再真正隐藏，否则 display:none 会把过渡掐断
@@ -7839,44 +7912,45 @@ function saveRankSnapshot(items) {
 function resolveTrendBadge(it, rank, resonanceCount, rankDelta, isNewlyEntered) {
   const rawTag = it.tag ? String(it.tag).trim() : ''
 
-  // 1. 【爆款】：官方标「爆」 / 榜首 / 或跨 4+ 主流平台强共振
-  if (rawTag === '爆' || rank === 1 || resonanceCount >= 4) {
-    const tip = resonanceCount >= 3 ? `${resonanceCount}大平台同时在榜 · 全网爆款` : '全网超级爆款'
-    return { cls: 'tag-bao', text: '爆款', title: tip }
+  // 判定优先级：官方原生标签 / 跨平台共振 → 位次动量 → 其余。
+  // 名次不再单独决定标签：原来的「rank===1 → 爆款」「rank 2~3 → 飙升」「rank<=6 → 热门」
+  // 让榜首永远是同一枚角标、前六名人人带标，一屏里到处是标签，反而看不出谁更热。
+  // 全部落空时返回 null——稳定的在榜条目本身没有额外信息，不该硬挂一枚「在榜」。
+
+  // 1. 【最热】：官方标「爆」，或跨 4+ 主流平台强共振。
+  //    文案不用「爆款」：那是电商语，配社会新闻像在推销；「最热」才能表达这一档的分量
+  if (rawTag === '爆' || resonanceCount >= 4) {
+    const tip = resonanceCount >= 4 ? `${resonanceCount}大平台同时在榜 · 全网刷屏` : '全网最热 · 强势登顶'
+    return { cls: 'tag-bao', text: '最热', title: tip }
   }
 
-  // 2. 【新晋】：官方标「新」 / 或位阶检测新上榜冲进前排
-  if (rawTag === '新' || (isNewlyEntered && rank <= 8)) {
-    const tip = isNewlyEntered ? '新进入全网热搜视野 · 快速冲榜' : '新晋突发热搜'
-    return { cls: 'tag-xin', text: '新晋', title: tip }
-  }
-
-  // 3. 【沸腾】：官方标「沸」 / 或跨 3 平台高共振热议
-  if (rawTag === '沸' || resonanceCount === 3) {
-    const tip = resonanceCount === 3 ? '3大平台共振热议 · 全网沸腾' : '多方观点交锋 · 全网沸点'
-    return { cls: 'tag-fei', text: '沸腾', title: tip }
-  }
-
-  // 4. 【飙升】：位阶跳跃（较上次快照大幅上升） / 或位列冲顶加速区（Top 2~3）
-  if (rankDelta >= 3 || rank === 2 || rank === 3) {
-    const tip = rankDelta >= 2 ? `名次较上次跃升 ${rankDelta} 位 · 热度飙升` : '热度冲顶区 · 快速飙升'
+  // 2. 【飙升】：名次较上次快照跃升 3 位以上，或官方标「沸」（集中交锋通常伴随快速冲榜）
+  if (rankDelta >= 3 || rawTag === '沸') {
+    const tip = rankDelta >= 3 ? `名次较上次跃升 ${rankDelta} 位 · 热度飙升` : '多方交锋 · 热度飙升'
     return { cls: 'tag-sheng', text: '飙升', icon: true, title: tip }
   }
 
-  // 5. 【热门】：官方标「热」 / 双平台共振 / 或全网稳健前排
-  if (rawTag === '热' || resonanceCount >= 2 || rank <= 6) {
+  // 3. 【新晋】：官方标「新」，或刚进入视野且已冲到前八
+  if (rawTag === '新' || (isNewlyEntered && rank <= 8)) {
+    const tip = isNewlyEntered ? '新进入全网视野 · 快速冲榜' : '新晋突发热搜'
+    return { cls: 'tag-xin', text: '新晋', title: tip }
+  }
+
+  // 4. 【热门】：官方标「热」，或双平台共振。
+  //    原先还有一条「rank <= 6」，正是标签泛滥的来源，已去掉
+  if (rawTag === '热' || resonanceCount >= 2) {
     const tip = resonanceCount >= 2 ? '双平台同步在榜 · 持续热门' : '持续热门聚焦'
     return { cls: 'tag-re', text: '热门', title: tip }
   }
 
-  // 6. 【自定义官方角标】：如平台特有标签
+  // 5. 【自定义官方角标】：平台特有标签原样保留，超过两个字才截断
   if (rawTag) {
     const shortTag = rawTag.length > 2 ? rawTag.slice(0, 2) : rawTag
     return { cls: 'tag-custom', text: shortTag, title: rawTag }
   }
 
-  // 7. 【在榜】：稳定在榜
-  return { cls: 'tag-wen', text: '在榜', title: '全网热搜稳定在榜' }
+  // 6. 其余不挂标签
+  return null
 }
 
 function renderHomeList() {
