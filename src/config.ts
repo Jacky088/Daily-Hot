@@ -29,6 +29,11 @@ export const config = {
     const v = env('TRUST_PROXY')
     return v === '1' || v === 'true'
   },
+  // TMDB API key：国外流媒体榜的数据源（免费注册 themoviedb.org 获取）。
+  // 未配置时流媒体榜接口返回 503 配置提示，前端在卡片上渲染指引文案
+  get tmdbApiKey() {
+    return env('TMDB_API_KEY') || ''
+  },
 }
 
 export const COMMON_MSG = `获取成功。开源地址 ${config.github}，反馈群 ${config.group}。`

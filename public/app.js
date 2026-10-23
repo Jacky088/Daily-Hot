@@ -163,8 +163,6 @@ const CARD_LOGOS = {
   whois: 'whois.svg',
   pwd: 'pwd.svg',
   pwdchk: 'pwdchk.svg',
-  color: 'color.svg',
-  palette: 'palette.svg',
   timestamp: 'timestamp.svg',
   rmb: 'rmb.svg',
   salary: 'salary.svg',
@@ -1962,6 +1960,25 @@ const CATS = [
   { id: 'trans', name: '📚 学习工具' },
 ]
 
+// TMDB watch provider 平台清单（美区），与后端 tmdb.module.ts 的 PROVIDERS 保持一致。
+// 流媒体剧集/电影两张卡共用；注意没有裸「HBO」和「Apple TV」——它们与 HBO Max /
+// Apple TV+ 是同一个 provider，重复选项只会让过滤结果一模一样
+const TMDB_NETWORKS = [
+  '',
+  'Netflix',
+  'Disney+',
+  'HBO Max',
+  'Prime Video',
+  'Apple TV+',
+  'Hulu',
+  'Paramount+',
+  'Peacock',
+  'Starz',
+  'AMC+',
+  'MGM+',
+  'Crunchyroll',
+]
+
 // type: news|list|kv|obj|text|json|qr|color|palette|pwd|fanyi|lyric|hash|weather|weatherfc|fuel|gold|lunar|calendar|bing|epic|steam|ncm|maoyan|moyu|whois|js|exchange|hist|ainews|kuan|36kr|reddit|game2048|muyu
 const EPS = [
   // 新闻
@@ -2345,14 +2362,8 @@ const EPS = [
     path: '/v2/simkl-trending',
     type: 'simkl',
     auto: 1,
-    inputs: [
-      {
-        n: 'network',
-        sel: ['', 'Netflix', 'HBO', 'HBO Max', 'Disney+', 'Prime Video', 'Apple TV', 'Hulu', 'Paramount+'],
-        d: '',
-      },
-    ],
-    hint: '可选播出平台过滤，数据来自 SIMKL',
+    inputs: [{ n: 'network', sel: TMDB_NETWORKS, d: '' }],
+    hint: '可选播出平台过滤，数据来自 TMDB',
   },
   {
     cat: 'ent',
@@ -2362,8 +2373,11 @@ const EPS = [
     path: '/v2/simkl-trending',
     type: 'simkl',
     auto: 1,
-    inputs: [{ n: 'type', sel: ['movies', 'anime'], d: 'movies' }],
-    hint: '下拉可切换为动画榜；数据来自 SIMKL',
+    inputs: [
+      { n: 'type', sel: ['movies', 'anime'], d: 'movies' },
+      { n: 'network', sel: TMDB_NETWORKS, d: '' },
+    ],
+    hint: '下拉切换日本动画榜（可配 Crunchyroll 过滤）· 数据来自 TMDB',
   },
   // 官方 Data API 的 chart=mostPopular 需要 API Key，故走 Invidious / Piped 社区实例（多实例兜底，见后端模块注释）；
   // 榜单固定取「游戏」栏目且滤掉直播——实测默认栏目几乎全是直播，不适合当热榜看
@@ -2577,27 +2591,6 @@ const EPS = [
     auto: 0,
     inputs: [{ n: 'password', p: '密码', d: 'Test123456' }],
     hint: '评估密码强度与暴力破解耗时；出于安全考虑，请勿检测真实在用的密码',
-  },
-  {
-    cat: 'tools',
-    id: 'color',
-    name: '随机颜色',
-    icon: '🎨',
-    path: '/v2/color/random',
-    type: 'color',
-    auto: 1,
-    hint: '随机生成一个颜色，含 RGB/HSL/CMYK 多格式与配色建议',
-  },
-  {
-    cat: 'tools',
-    id: 'palette',
-    name: '配色方案',
-    icon: '🖌️',
-    path: '/v2/color/palette',
-    type: 'palette',
-    auto: 0,
-    inputs: [{ n: 'color', p: 'hex', d: '' }],
-    hint: '输入 hex 颜色值（如 #6366F1）生成互补、类似、三角配色方案；留空则随机',
   },
   {
     cat: 'tools',
@@ -3410,6 +3403,16 @@ function unavailableHTML(ep, detail) {
     <span class="un-text">数据源开小差了，稍后再来看看</span>
     ${detail ? `<span class="un-detail">${esc(detail)}</span>` : ''}
     <button class="retry-btn" onclick="load(window._ep_${ep.id})">↻ 再试一次</button>
+  </div>`
+}
+
+// 服务端配置缺失提示（HTTP code 503）：重试无意义，直接给部署者指引。
+// 复用 unavailable 的视觉结构，图标/文案换成配置指引
+function configHintHTML(ep, msg) {
+  return `<div class="placeholder card-unavailable">
+    <span class="un-icon">🔑</span>
+    <span class="un-text">${esc(msg)}</span>
+    <button class="retry-btn" onclick="load(window._ep_${ep.id})">↻ 配置好了，重新加载</button>
   </div>`
 }
 
@@ -5413,6 +5416,11 @@ async function fetchWithRetry(ep, url, ck, c, retriesLeft) {
         c.innerHTML = unavailableHTML(ep, json.message)
         return
       }
+      // 503 服务端配置缺失（如流媒体榜未配 TMDB_API_KEY）：重试同样无意义，直接渲染指引
+      if (json.code === 503) {
+        c.innerHTML = configHintHTML(ep, json.message)
+        return
+      }
       if (retriesLeft > 0) {
         await new Promise((r) => setTimeout(r, 1000))
         return fetchWithRetry(ep, url, ck, c, retriesLeft - 1)
@@ -5448,8 +5456,6 @@ function renderData(ep, d, c) {
       obj: rObj,
       text: rText,
       qr: () => {},
-      color: rColor,
-      palette: rPalette,
       pwd: rPwd,
       fanyi: rFanyi,
       lyric: rLyric,
@@ -9048,29 +9054,38 @@ function rGeng(d, c) {
   </div>`
 }
 
-// SIMKL 流媒体热门榜：海报 + 评分 + 观看数 + 平台徽标
+// 流媒体热门榜（数据源 TMDB）：海报 + 评分 + 平台徽标 + 一句话简介。
+// 未配 key 时后端返回 503 指引，由 fetchWithRetry 的 configHintHTML 渲染
 function rSimkl(d, c) {
   if (!Array.isArray(d) || d.length === 0) {
     c.innerHTML = '<div class="placeholder">该平台暂无上榜内容</div>'
     return
   }
+  // 1 万以上缩成「x.x万」，避免 meta 里出现一长串原始数字
+  const fmtNum = (n) => (n >= 10000 ? (n / 10000).toFixed(1).replace(/\.0$/, '') + '万' : String(n))
   let h = ''
   d.forEach((it) => {
     const rank = it.rank || 0
     const cls = rank <= 3 ? `top${rank}` : ''
     h += `<div class="simkl-item">`
     if (it.poster)
-      h += `<img class="simkl-poster" src="${esc(it.poster)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">`
+      h += `<img class="simkl-poster" src="${esc(it.poster)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
     h += `<div class="simkl-body">`
     h += it.link
       ? `<a href="${safeUrl(it.link)}" target="_blank" rel="noopener"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</a>`
       : `<span class="t"><span class="rank ${cls}">${rank}</span> ${esc(it.title)}</span>`
-    let meta = ''
-    if (it.rating) meta += `⭐ ${esc(String(it.rating))} `
-    if (it.watched != null) meta += ` · ${esc(String(it.watched))} 人在看 `
-    if (it.release_date) meta += ` · ${esc(it.release_date)}`
-    if (meta) h += `<div class="meta">${meta}</div>`
+    // meta 按字段有无动态拼装：SIMKL 兜底数据显示「人在看」，TMDB 主源显示「评分人数」
+    const parts = []
+    if (it.rating) parts.push(`⭐ ${Number(it.rating).toFixed(1)}`)
+    if (it.watched != null) parts.push(`${esc(fmtNum(Number(it.watched)))} 人在看`)
+    else if (it.votes) parts.push(`${esc(fmtNum(Number(it.votes)))} 人评`)
+    if (it.release_date) parts.push(esc(it.release_date))
+    if (parts.length) h += `<div class="meta">${parts.join(' · ')}</div>`
     if (it.network) h += `<span class="simkl-badge">${esc(it.network)}</span>`
+    if (it.overview) {
+      const ov = String(it.overview)
+      h += `<div class="desc">${esc(ov.slice(0, 60))}${ov.length > 60 ? '…' : ''}</div>`
+    }
     h += `</div></div>`
   })
   c.innerHTML = h
@@ -9177,55 +9192,6 @@ function rHealth(d, c) {
   h += `<details class="ht-details"><summary>💡 个性化建议</summary><div class="ht-tiles">${htTile('每日饮水', ha.daily_water_intake)}${htTile('运动建议', ha.exercise_recommendation)}${htTile('营养建议', ha.nutrition_advice)}</div>${tips}</details>`
   if (d.disclaimer) h += `<div class="news-tip">⚠️ ${esc(d.disclaimer)}</div>`
   c.innerHTML = h
-}
-
-// 随机颜色：大色块 hero（亮度自适应文字色）+ 各格式行带复制按钮
-function rColor(d, c) {
-  const hex = d.hex || '#888'
-  const bright = d.brightness != null ? Number(d.brightness) : 50
-  const fg = bright > 55 ? '#1c1917' : '#ffffff'
-  const rows = [
-    ['HEX', d.hex],
-    ['RGB', d.rgb?.string],
-    ['HSL', d.hsl?.string],
-    ['HSV', d.hsv?.string],
-    ['CMYK', d.cmyk?.string],
-    ['LAB', d.lab?.string],
-  ].filter((r) => r[1])
-  let h = `<div class="clr-hero" style="background:${esc(hex)};color:${fg}"><span class="clr-name">${esc(d.name || '')}</span><b>${esc(hex)}</b><span class="clr-bright">亮度 ${esc(String(bright))}%</span></div>`
-  h += `<div class="clr-rows">${rows.map(([k, v]) => `<div class="clr-row"><span class="k">${esc(k)}</span><code>${esc(String(v))}</code><button class="clr-copy" type="button" data-v="${esc(String(v))}">复制</button></div>`).join('')}</div>`
-  c.innerHTML = h
-  c.querySelectorAll('.clr-copy').forEach((btn) => {
-    btn.onclick = () => {
-      navigator.clipboard
-        .writeText(btn.dataset.v || '')
-        .then(() => {
-          btn.textContent = '已复制 ✓'
-          setTimeout(() => {
-            btn.textContent = '复制'
-          }, 1200)
-        })
-        .catch(() => {})
-    }
-  })
-}
-
-function rPalette(d, c) {
-  let h = ''
-  if (d.input) {
-    h += `<div class="swatch" style="background:${esc(d.input.hex || '#000')}"></div>`
-    h += `<div class="kv-row"><span class="k">输入</span><span class="v">${esc(d.input.hex || '')} ${esc(d.input.name || '')}</span></div>`
-  }
-  if (d.palettes) {
-    d.palettes.slice(0, 4).forEach((p) => {
-      h += `<div style="font-size:11px;font-weight:600;margin:8px 0 4px;">${esc(p.name || '')}</div><div class="palette-grid">`
-      ;(p.colors || []).forEach((col) => {
-        h += `<div class="palette-chip"><div class="c" style="background:${esc(col.hex)}"></div>${esc(col.hex)}</div>`
-      })
-      h += '</div>'
-    })
-  }
-  c.innerHTML = h || '<div class="placeholder">暂无数据</div>'
 }
 
 function rChangya(d, c) {
@@ -12066,6 +12032,55 @@ function rUnshort(_, c) {
   }
 }
 
+// ============ 全站统一弹窗组件 (Toast 提示 + Dialog 确认框) ============
+// 弹窗挂载点: 沉浸全屏(Fullscreen API)时 body 上的元素会被 top layer 遮挡,
+// 必须挂进全屏元素内部才能显示
+function popupHost() {
+  return document.fullscreenElement || document.body
+}
+
+// 顶部居中玻璃拟态提示: 不自动消失, 点击右侧"确定"后关闭
+function showToast(msg) {
+  const t = document.createElement('div')
+  t.className = 'site-toast'
+  t.innerHTML = `
+    <span class="site-toast-msg">${msg}</span>
+    <button type="button" class="site-toast-ok">确定</button>`
+  popupHost().appendChild(t)
+  t.querySelector('.site-toast-ok').onclick = () => {
+    t.classList.add('out')
+    setTimeout(() => t.remove(), 280)
+  }
+}
+
+// 居中玻璃拟态确认框, 返回 Promise<boolean>; 替代原生 confirm
+function showConfirm(msg, okText = '确定', cancelText = '取消') {
+  return new Promise((resolve) => {
+    const mask = document.createElement('div')
+    mask.className = 'site-dialog-mask'
+    mask.innerHTML = `
+      <div class="site-dialog" role="dialog" aria-modal="true">
+        <div class="site-dialog-msg">${msg}</div>
+        <div class="site-dialog-btns">
+          <button type="button" class="site-dialog-btn site-dialog-cancel">${cancelText}</button>
+          <button type="button" class="site-dialog-btn site-dialog-ok">${okText}</button>
+        </div>
+      </div>`
+    popupHost().appendChild(mask)
+    const close = (val) => {
+      mask.classList.add('out')
+      setTimeout(() => mask.remove(), 200)
+      resolve(val)
+    }
+    mask.querySelector('.site-dialog-ok').onclick = () => close(true)
+    mask.querySelector('.site-dialog-cancel').onclick = () => close(false)
+    mask.onclick = (e) => {
+      if (e.target === mask) close(false)
+    }
+    document.body.appendChild(mask)
+  })
+}
+
 // ============ 实用工具 14: 番茄时钟 (高级表盘与沉浸全屏) ============
 function rPomodoro(_, c) {
   let timer = null
@@ -12074,6 +12089,9 @@ function rPomodoro(_, c) {
   let isRunning = false
   let currentMode = 'focus' // 'focus' | 'sbreak' | 'lbreak' | 'custom'
   let roundIdx = 1 // 1 ~ 4 循环
+  let lastFocusMins = 25 // 记住上一轮专注时长，休息结束后回到该时长
+  let tickTarget = 0 // 基于时间戳的倒计时锚点，避免后台标签页节流导致计时不准
+  const dayKey = () => new Date().toDateString()
   let todayCount = Number(localStorage.getItem('pomo_count') || 0)
   let todayMinutes = Number(localStorage.getItem('pomo_mins') || 0)
 
@@ -12102,10 +12120,10 @@ function rPomodoro(_, c) {
   c.innerHTML = `
     <div class="tool-wrap pomo-wrap">
       <div class="tool-tag-pills" id="pomoModes">
-        <button type="button" class="tool-pill active" data-mode="focus" data-min="25">🍅 专注 25m</button>
-        <button type="button" class="tool-pill" data-mode="focus45" data-min="45">⚡ 深度 45m</button>
-        <button type="button" class="tool-pill" data-mode="sbreak" data-min="5">☕ 短休 5m</button>
-        <button type="button" class="tool-pill" data-mode="lbreak" data-min="15">🌿 长休 15m</button>
+        <button type="button" class="tool-pill active" data-mode="focus" data-min="25">🍅 专注 25min</button>
+        <button type="button" class="tool-pill" data-mode="focus45" data-min="45">⚡ 深度 45min</button>
+        <button type="button" class="tool-pill" data-mode="lbreak" data-min="15">🌿 长休 15min</button>
+        <button type="button" class="tool-pill" data-mode="sbreak" data-min="5">☕ 短休 5min</button>
         <button type="button" class="tool-pill" data-mode="custom">⏱️ 自定义</button>
       </div>
 
@@ -12115,51 +12133,98 @@ function rPomodoro(_, c) {
         <input type="number" id="pomoCustomIn" class="tool-input-txt" min="1" max="180" value="30" style="width:72px;text-align:center;" />
         <span class="pomo-custom-lbl">分钟</span>
         <div class="tool-actions-bar" style="gap:4px;">
-          <button type="button" class="tool-btn-sm" data-quick="-5">-5m</button>
-          <button type="button" class="tool-btn-sm" data-quick="+5">+5m</button>
-          <button type="button" class="tool-btn-sm" data-quick="+15">+15m</button>
+          <button type="button" class="tool-btn-sm" data-quick="-5">-5min</button>
+          <button type="button" class="tool-btn-sm" data-quick="+5">+5min</button>
+          <button type="button" class="tool-btn-sm" data-quick="+15">+15min</button>
           <button type="button" class="tool-btn-act" id="pomoApplyCustom" style="padding:0 12px;">确定</button>
         </div>
       </div>
 
-      <!-- 高级圆形表盘区域 -->
-      <div class="pomo-dial-container">
-        <svg class="pomo-svg-ring" viewBox="0 0 240 240">
+      <!-- 番茄树生长舞台 -->
+      <div class="pomo-dial-container pomo-tree-stage">
+        <svg class="pomo-tree-svg" viewBox="0 20 240 244" aria-hidden="true">
           <defs>
-            <linearGradient id="pomoRingGradFocus" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#ff5e3a" />
-              <stop offset="60%" stop-color="#f97316" />
-              <stop offset="100%" stop-color="#e11d48" />
+            <linearGradient id="pomoPotGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#e59a63" />
+              <stop offset="100%" stop-color="#c4743f" />
             </linearGradient>
-            <linearGradient id="pomoRingGradBreak" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#10b981" />
-              <stop offset="100%" stop-color="#06b6d4" />
+            <linearGradient id="pomoLeafGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#7cc65e" />
+              <stop offset="100%" stop-color="#3f9e44" />
             </linearGradient>
-            <filter id="pomoRingGlow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="4" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
+            <radialGradient id="pomoTomatoShine" cx="34%" cy="28%" r="72%">
+              <stop offset="0%" stop-color="rgba(255,255,255,0.5)" />
+              <stop offset="35%" stop-color="rgba(255,255,255,0.1)" />
+              <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+            </radialGradient>
+            <path id="pomoLeafShape" d="M0 0 C 9 -2 17 -11 19 -24 C 8 -23 1 -12 0 0 Z" />
           </defs>
 
-          <!-- 刻度环底图 -->
-          <circle class="pomo-ring-bg" cx="120" cy="120" r="100" />
-          <circle class="pomo-ring-track" cx="120" cy="120" r="100" />
+          <!-- 植株: 随专注进度发芽、抽枝、展叶、结果 -->
+          <g id="pomoPlant">
+            <g id="pomoSway">
+              <path id="pomoStem" d="M120 226 C 111 198 127 178 120 154 C 115 136 125 126 120 112" />
+              <path id="pomoBranchL" d="M119 170 C 106 166 94 160 85 151" />
+              <path id="pomoBranchR" d="M120 148 C 133 144 147 139 156 129" />
 
-          <!-- 动态进度条 (周长 2 * PI * 100 = 628.32) -->
-          <circle class="pomo-ring-bar ring-focus" id="pomoRingBar" cx="120" cy="120" r="100" stroke-dasharray="628.32" stroke-dashoffset="0" />
+              <g class="pomo-leaf" data-t="0.14" data-dur="0.1" data-x="120" data-y="214" data-r="-150" data-s="0.6"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
+              <g class="pomo-leaf" data-t="0.2" data-dur="0.1" data-x="121" data-y="208" data-r="-20" data-s="0.6"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
+              <g class="pomo-leaf" data-t="0.3" data-dur="0.12" data-x="118" data-y="186" data-r="-160" data-s="0.85"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
+              <g class="pomo-leaf" data-t="0.36" data-dur="0.12" data-x="122" data-y="180" data-r="-15" data-s="0.85"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
+              <g class="pomo-leaf" data-t="0.46" data-dur="0.12" data-x="100" data-y="162" data-r="-135" data-s="0.7"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
+              <g class="pomo-leaf" data-t="0.52" data-dur="0.12" data-x="141" data-y="140" data-r="-40" data-s="0.7"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
+              <g class="pomo-leaf" data-t="0.6" data-dur="0.12" data-x="119" data-y="136" data-r="-170" data-s="0.75"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
+              <g class="pomo-leaf" data-t="0.64" data-dur="0.12" data-x="121" data-y="132" data-r="-5" data-s="0.75"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
+              <g class="pomo-leaf" data-t="0.72" data-dur="0.12" data-x="120" data-y="118" data-r="-55" data-s="0.6"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
+
+              <g class="pomo-tomato" data-t="0.4" data-dur="0.22" data-x="83" data-y="159">
+                <g class="t-inner">
+                  <circle class="t-body" r="12" />
+                  <circle class="t-shine" r="12" fill="url(#pomoTomatoShine)" />
+                  <path class="t-calyx" d="M0 -10 L-5 -15 M0 -10 L0 -17 M0 -10 L5 -15" />
+                </g>
+              </g>
+              <g class="pomo-tomato" data-t="0.55" data-dur="0.22" data-x="157" data-y="137">
+                <g class="t-inner">
+                  <circle class="t-body" r="12" />
+                  <circle class="t-shine" r="12" fill="url(#pomoTomatoShine)" />
+                  <path class="t-calyx" d="M0 -10 L-5 -15 M0 -10 L0 -17 M0 -10 L5 -15" />
+                </g>
+              </g>
+              <g class="pomo-tomato" data-t="0.7" data-dur="0.28" data-x="120" data-y="116">
+                <g class="t-inner">
+                  <circle class="t-body" r="12" />
+                  <circle class="t-shine" r="12" fill="url(#pomoTomatoShine)" />
+                  <path class="t-calyx" d="M0 -10 L-5 -15 M0 -10 L0 -17 M0 -10 L5 -15" />
+                </g>
+              </g>
+            </g>
+          </g>
+
+          <!-- 花盆与土壤 -->
+          <g id="pomoPot">
+            <ellipse cx="120" cy="258" rx="42" ry="5" fill="rgba(0,0,0,0.08)" />
+            <ellipse cx="120" cy="221" rx="30" ry="5" fill="#6b4226" />
+            <path d="M88 224 L152 224 L146 258 L94 258 Z" fill="url(#pomoPotGrad)" />
+            <rect x="84" y="218" width="72" height="10" rx="5" fill="#d98d52" />
+          </g>
+
+          <!-- 丰收星光 -->
+          <g id="pomoSparks">
+            <g transform="translate(58 132)"><path class="pomo-spark" d="M0 -7 L2 -2 L7 0 L2 2 L0 7 L-2 2 L-7 0 L-2 -2 Z" fill="#ffd166" style="animation-delay:0s" /></g>
+            <g transform="translate(184 112)"><path class="pomo-spark" d="M0 -7 L2 -2 L7 0 L2 2 L0 7 L-2 2 L-7 0 L-2 -2 Z" fill="#ffd166" style="animation-delay:0.25s" /></g>
+            <g transform="translate(120 74)"><path class="pomo-spark" d="M0 -7 L2 -2 L7 0 L2 2 L0 7 L-2 2 L-7 0 L-2 -2 Z" fill="#ffd166" style="animation-delay:0.5s" /></g>
+            <g transform="translate(96 184)"><path class="pomo-spark" d="M0 -7 L2 -2 L7 0 L2 2 L0 7 L-2 2 L-7 0 L-2 -2 Z" fill="#ffd166" style="animation-delay:0.75s" /></g>
+            <g transform="translate(172 176)"><path class="pomo-spark" d="M0 -7 L2 -2 L7 0 L2 2 L0 7 L-2 2 L-7 0 L-2 -2 Z" fill="#ffd166" style="animation-delay:1s" /></g>
+          </g>
         </svg>
 
-        <!-- 表盘中央数字与状态指示 -->
-        <div class="pomo-dial-content">
+        <!-- 时间与状态 (覆盖在番茄树上) -->
+        <div class="pomo-time-block">
           <div class="pomo-mode-badge" id="pomoModeBadge">
             <span class="pomo-glow-dot"></span> <span id="pomoModeText">FOCUS · 专注中</span>
           </div>
           <div class="pomo-clock-digits" id="pomoTime">25:00</div>
-          
-          <!-- 4 组循环圆点指示 -->
           <div class="pomo-cycle-dots" id="pomoCycleDots">
             <span class="pomo-dot active"></span>
             <span class="pomo-dot"></span>
@@ -12170,17 +12235,19 @@ function rPomodoro(_, c) {
         </div>
       </div>
 
-      <!-- 操作按钮栏 -->
+      <!-- 操作按钮栏: 主按钮居中一行，辅助按钮第二行 -->
       <div class="pomo-ctrl-bar">
         <button type="button" class="tool-btn-act pomo-btn-main" id="pomoToggle">
-          <span class="pomo-btn-icon">▶</span> <span id="pomoToggleText">开始专注</span>
+          <span class="pomo-btn-icon">▶</span><span id="pomoToggleText">开始专注</span>
         </button>
-        <button type="button" class="tool-btn-dim" id="pomoReset" title="重置当前时钟">↺ 重置</button>
-        <button type="button" class="tool-btn-dim" id="pomoSkip" title="跳过当前阶段">⏭ 跳过</button>
-        <button type="button" class="tool-btn-dim pomo-fs-btn" data-pomo-fs="1" title="切换全屏沉浸模式">
-          <span class="pomo-fs-enter-label"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg> 沉浸全屏</span>
-          <span class="pomo-fs-exit-label"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14h6m0 0v6m0-6L3 21m17-7h-6m0 0v6m0-6 7 7M10 10H4m6 0V4m0 6L3 3m14 7h6m-6 0V4m0 6 7-7"/></svg> 退出全屏</span>
-        </button>
+        <div class="pomo-ctrl-sub">
+          <button type="button" class="tool-btn-dim" id="pomoReset" title="重置当前时钟">↺ 重置</button>
+          <button type="button" class="tool-btn-dim" id="pomoSkip" title="跳过当前阶段">⏭ 跳过</button>
+          <button type="button" class="tool-btn-dim pomo-fs-btn" data-pomo-fs="1" title="切换全屏沉浸模式">
+            <span class="pomo-fs-enter-label"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg> 沉浸全屏</span>
+            <span class="pomo-fs-exit-label"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg> 退出全屏</span>
+          </button>
+        </div>
       </div>
 
       <!-- 统计元信息 -->
@@ -12191,7 +12258,6 @@ function rPomodoro(_, c) {
   `
 
   const timeEl = c.querySelector('#pomoTime')
-  const ringBar = c.querySelector('#pomoRingBar')
   const modeBadge = c.querySelector('#pomoModeBadge')
   const modeText = c.querySelector('#pomoModeText')
   const hintEl = c.querySelector('#pomoHint')
@@ -12207,22 +12273,113 @@ function rPomodoro(_, c) {
   const applyCustomBtn = c.querySelector('#pomoApplyCustom')
   const pomoWrap = c.querySelector('.pomo-wrap')
 
-  const CIRCLE_LEN = 628.32 // 2 * Math.PI * 100
+  // ---- 番茄树生长系统: 专注进度驱动发芽 -> 抽枝 -> 展叶 -> 结果转色 ----
+  const plantG = c.querySelector('#pomoPlant')
+  const stemEl = c.querySelector('#pomoStem')
+  const branchEls = [c.querySelector('#pomoBranchL'), c.querySelector('#pomoBranchR')]
+  const leafEls = [...c.querySelectorAll('.pomo-leaf')]
+  const tomatoEls = [...c.querySelectorAll('.pomo-tomato')]
+
+  const clamp01 = (v) => Math.min(1, Math.max(0, v))
+  const easeOut = (t) => 1 - Math.pow(1 - t, 3)
+  const hex2rgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]
+  const mixColor = (stops, t) => {
+    t = clamp01(t)
+    let i = 0
+    while (i < stops.length - 1 && t > stops[i + 1][0]) i++
+    const [t0, c0] = stops[i]
+    const [t1, c1] = stops[Math.min(i + 1, stops.length - 1)]
+    const k = t1 === t0 ? 0 : (t - t0) / (t1 - t0)
+    const a = hex2rgb(c0)
+    const b = hex2rgb(c1)
+    return `rgb(${Math.round(a[0] + (b[0] - a[0]) * k)},${Math.round(a[1] + (b[1] - a[1]) * k)},${Math.round(a[2] + (b[2] - a[2]) * k)})`
+  }
+
+  // 果实成熟色阶: 青绿 -> 黄绿 -> 橙 -> 红润饱满
+  const TOMATO_STOPS = [
+    [0, '#8bc34a'],
+    [0.35, '#a5c35a'],
+    [0.6, '#e8a13c'],
+    [0.8, '#f4623a'],
+    [1, '#e63946'],
+  ]
+
+  // 茎叶路径按长度揭示 (stroke-dash 描边生长)
+  const vineEls = [stemEl, ...branchEls]
+  vineEls.forEach((p) => {
+    const len = p.getTotalLength()
+    p.style.strokeDasharray = len
+    p.style.strokeDashoffset = len
+    p._len = len
+  })
+
+  const applyGrowth = (rawP) => {
+    const g = clamp01(rawP)
+    // 整株从盆中钻出的整体缩放 (嫩芽 -> 成株)
+    const s = 0.22 + 0.78 * easeOut(g)
+    plantG.setAttribute(
+      'transform',
+      `translate(${(120 * (1 - s)).toFixed(2)} ${(226 * (1 - s)).toFixed(2)}) scale(${s.toFixed(3)})`,
+    )
+    // 主茎先长，分枝随后
+    const reveal = (el, from, to) => {
+      el.style.strokeDashoffset = el._len * (1 - clamp01((g - from) / (to - from)))
+    }
+    reveal(stemEl, 0, 0.42)
+    reveal(branchEls[0], 0.28, 0.5)
+    reveal(branchEls[1], 0.36, 0.58)
+    // 叶片依阈值次第舒展
+    leafEls.forEach((leaf) => {
+      const local = easeOut(clamp01((g - Number(leaf.dataset.t)) / Number(leaf.dataset.dur || 0.12)))
+      leaf.setAttribute(
+        'transform',
+        `translate(${leaf.dataset.x} ${leaf.dataset.y}) rotate(${leaf.dataset.r}) scale(${(Number(leaf.dataset.s || 1) * Math.max(local, 0.001)).toFixed(3)})`,
+      )
+      leaf.style.opacity = local > 0 ? 1 : 0
+    })
+    // 番茄依次结果、膨大并渐渐转色
+    tomatoEls.forEach((tm) => {
+      const local = clamp01((g - Number(tm.dataset.t)) / Number(tm.dataset.dur || 0.2))
+      tm.setAttribute(
+        'transform',
+        `translate(${tm.dataset.x} ${tm.dataset.y}) scale(${Math.max(easeOut(local), 0.001).toFixed(3)})`,
+      )
+      tm.style.opacity = local > 0 ? 1 : 0
+      tm.querySelector('.t-body').style.fill = mixColor(TOMATO_STOPS, local)
+      tm.classList.toggle('is-ripe', local >= 1)
+    })
+  }
+
+  const isBreakMode = () => currentMode === 'sbreak' || currentMode === 'lbreak'
+
+  // 跨天统计清零：打开卡片时与每个阶段结束时都校验一次
+  const rollDailyStats = () => {
+    if (localStorage.getItem('pomo_date') !== dayKey()) {
+      localStorage.setItem('pomo_date', dayKey())
+      todayCount = 0
+      todayMinutes = 0
+      localStorage.setItem('pomo_count', todayCount)
+      localStorage.setItem('pomo_mins', todayMinutes)
+      statsEl.innerHTML = `今日已完成 🍅 <b>0</b> 次专注 · 累计 <b>0</b> 分钟`
+    }
+  }
+  rollDailyStats()
 
   const updateUI = () => {
     const m = Math.floor(remainSec / 60)
     const s = remainSec % 60
     timeEl.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 
-    // 环形进度偏移
-    const progress = totalSec > 0 ? (totalSec - remainSec) / totalSec : 0
-    const offset = CIRCLE_LEN * (1 - progress)
-    ringBar.style.strokeDashoffset = offset
-
     // 轮次点点点亮
     cycleDots.forEach((dot, idx) => {
       dot.classList.toggle('active', idx < roundIdx)
     })
+
+    // 专注时番茄树随进度生长；休息期间生长冻结，果实保持成熟状态
+    if (!isBreakMode()) {
+      const progress = totalSec > 0 ? (totalSec - remainSec) / totalSec : 0
+      applyGrowth(progress)
+    }
   }
 
   const setMode = (mode, minutes) => {
@@ -12232,20 +12389,25 @@ function rPomodoro(_, c) {
     remainSec = totalSec
 
     const isBreak = mode === 'sbreak' || mode === 'lbreak'
-    ringBar.classList.toggle('ring-break', isBreak)
-    ringBar.classList.toggle('ring-focus', !isBreak)
+    if (!isBreak) lastFocusMins = minutes // 专注/自定义模式均记录，供休息结束后恢复
     if (pomoWrap) pomoWrap.classList.toggle('is-break', isBreak)
     if (modeBadge) modeBadge.classList.toggle('is-break', isBreak)
 
+    if (!isBreak) {
+      // 新一轮专注: 重新播种，番茄树从头生长
+      pomoWrap.classList.remove('is-harvest')
+      applyGrowth(0)
+    }
+
     if (mode === 'sbreak') {
-      modeText.textContent = 'BREAK · 短休息'
-      hintEl.textContent = '喝口水，眺望远方放松一下'
+      modeText.textContent = 'BREAK · 小憩片刻'
+      hintEl.textContent = '果实已成熟，休息一下再出发'
     } else if (mode === 'lbreak') {
       modeText.textContent = 'RELAX · 深度长休'
-      hintEl.textContent = '起身走动，做个深呼吸'
+      hintEl.textContent = '满树红果，好好犒劳自己'
     } else {
       modeText.textContent = 'FOCUS · 专注中'
-      hintEl.textContent = `第 ${roundIdx}/4 轮专注，保持高效心流`
+      hintEl.textContent = `第 ${roundIdx}/4 轮专注，番茄正在成长`
     }
     updateUI()
   }
@@ -12258,6 +12420,49 @@ function rPomodoro(_, c) {
     c.querySelector('.pomo-btn-icon').textContent = '▶'
     toggleBtn.classList.remove('running')
     modeBadge.classList.remove('pulsing')
+    // 时间停止 → 树停止摇摆生长
+    pomoWrap.classList.remove('is-growing')
+  }
+
+  // 阶段结束 (自然走完或手动跳过): 专注结算并进入休息 / 休息结束并开启新一轮
+  const finishPhase = () => {
+    stop()
+    const elapsedSec = Math.max(0, totalSec - remainSec) // 实际专注/休息时长 (跳过时按真实秒数计)
+    remainSec = 0
+    updateUI()
+    playZenChime()
+    rollDailyStats()
+
+    if (currentMode.startsWith('focus') || currentMode === 'custom') {
+      todayCount++
+      const addedMins = Math.round(elapsedSec / 60)
+      todayMinutes += addedMins
+      localStorage.setItem('pomo_count', todayCount)
+      localStorage.setItem('pomo_mins', todayMinutes)
+      statsEl.innerHTML = `今日已完成 🍅 <b>${todayCount}</b> 次专注 · 累计 <b>${todayMinutes}</b> 分钟`
+      // 丰收时刻: 果实全部红透，星光闪烁
+      pomoWrap.classList.add('is-harvest')
+
+      if (roundIdx < 4) {
+        roundIdx++
+        showToast('🎉 番茄成熟啦，采摘成功！休息一下吧~')
+        pills.forEach((p) => p.classList.toggle('active', p.dataset.mode === 'sbreak'))
+        customRow.style.display = 'none'
+        setMode('sbreak', 5)
+      } else {
+        roundIdx = 1
+        showToast('🏆 满树红果大丰收！进入 15 分钟长休息~')
+        pills.forEach((p) => p.classList.toggle('active', p.dataset.mode === 'lbreak'))
+        customRow.style.display = 'none'
+        setMode('lbreak', 15)
+      }
+    } else {
+      showToast('⏰ 休息结束！精神满满，开启下一轮专注吧~')
+      const focusMode = lastFocusMins === 45 ? 'focus45' : 'focus'
+      pills.forEach((p) => p.classList.toggle('active', p.dataset.mode === focusMode))
+      customRow.style.display = 'none'
+      setMode(focusMode, lastFocusMins)
+    }
   }
 
   toggleBtn.onclick = () => {
@@ -12269,58 +12474,38 @@ function rPomodoro(_, c) {
       c.querySelector('.pomo-btn-icon').textContent = '⏸'
       toggleBtn.classList.add('running')
       modeBadge.classList.add('pulsing')
+      pomoWrap.classList.add('is-growing')
 
+      // 时间戳驱动: 无论标签页是否被后台节流, 剩余时间始终取自真实时钟
+      tickTarget = Date.now() + remainSec * 1000
       timer = setInterval(() => {
-        if (remainSec > 0) {
-          remainSec--
-          updateUI()
-        } else {
-          stop()
-          playZenChime()
-
-          if (currentMode.startsWith('focus') || currentMode === 'custom') {
-            todayCount++
-            const addedMins = Math.round(totalSec / 60)
-            todayMinutes += addedMins
-            localStorage.setItem('pomo_count', todayCount)
-            localStorage.setItem('pomo_mins', todayMinutes)
-            statsEl.innerHTML = `今日已完成 🍅 <b>${todayCount}</b> 次专注 · 累计 <b>${todayMinutes}</b> 分钟`
-
-            if (roundIdx < 4) {
-              roundIdx++
-              alert('🎉 太棒了，完成一轮专注！进入 5 分钟短休息吧~')
-              pills.forEach((p) => p.classList.toggle('active', p.dataset.mode === 'sbreak'))
-              customRow.style.display = 'none'
-              setMode('sbreak', 5)
-            } else {
-              roundIdx = 1
-              alert('🏆 恭喜完成整整 4 轮完整心流周期！进入 15 分钟长休息好好奖励自己~')
-              pills.forEach((p) => p.classList.toggle('active', p.dataset.mode === 'lbreak'))
-              customRow.style.display = 'none'
-              setMode('lbreak', 15)
-            }
-          } else {
-            alert('⏰ 休息结束！精神满满，开启下一轮专注吧~')
-            pills.forEach((p) => p.classList.toggle('active', p.dataset.mode === 'focus'))
-            customRow.style.display = 'none'
-            setMode('focus', 25)
-          }
+        // 卡片已重渲染/移除: 清掉旧定时器避免泄漏
+        if (!c.isConnected) {
+          clearInterval(timer)
+          timer = null
+          return
         }
-      }, 1000)
+        const left = Math.max(0, Math.round((tickTarget - Date.now()) / 1000))
+        if (left !== remainSec) {
+          remainSec = left
+          updateUI()
+        }
+        if (remainSec === 0) finishPhase()
+      }, 250)
     }
   }
 
   resetBtn.onclick = () => {
     stop()
     remainSec = totalSec
+    pomoWrap.classList.remove('is-harvest')
     updateUI()
   }
 
-  skipBtn.onclick = () => {
-    if (confirm('确定跳过当前时钟阶段吗？')) {
-      stop()
-      remainSec = 0
-      updateUI()
+  skipBtn.onclick = async () => {
+    if (await showConfirm('确定跳过当前时钟阶段吗？', '跳过')) {
+      // 与自然走完同一条结算链路: 跳过专注=番茄成熟+进入休息; 跳过休息=开启新一轮专注(树重新生长)
+      finishPhase()
     }
   }
 
@@ -12330,8 +12515,13 @@ function rPomodoro(_, c) {
       p.classList.add('active')
       const mode = p.dataset.mode
       if (mode === 'custom') {
-        customRow.style.display = 'flex'
-        setMode('custom', parseInt(customIn.value, 10) || 30)
+        // 再点一次折叠抽屉；展开时应用当前自定义时长
+        if (customRow.style.display === 'flex') {
+          customRow.style.display = 'none'
+        } else {
+          customRow.style.display = 'flex'
+          setMode('custom', parseInt(customIn.value, 10) || 30)
+        }
       } else {
         customRow.style.display = 'none'
         const mins = parseInt(p.dataset.min, 10)
@@ -12355,59 +12545,186 @@ function rPomodoro(_, c) {
     const cur = Math.min(180, Math.max(1, parseInt(customIn.value, 10) || 30))
     customIn.value = cur
     setMode('custom', cur)
+    // 应用后收起自定义抽屉，不长期占据卡片空间
+    customRow.style.display = 'none'
   }
 
   updateUI()
 }
 
-// ============ 实用工具 15: 随机决策与摇号机 ============
+// ============ 实用工具 15: 随机决策与 3D 掷骰子 ============
+// 骰面点数坐标 (100x100 viewBox)
+const DEC_PIPS = {
+  1: [[50, 50]],
+  2: [[32, 32], [68, 68]],
+  3: [[32, 32], [50, 50], [68, 68]],
+  4: [[32, 32], [68, 32], [32, 68], [68, 68]],
+  5: [[32, 32], [68, 32], [50, 50], [32, 68], [68, 68]],
+  6: [[32, 27], [68, 27], [32, 50], [68, 50], [32, 73], [68, 73]],
+}
+const DEC_FACE_SVG = (n) =>
+  `<svg viewBox="0 0 100 100" aria-hidden="true"><rect x="3" y="3" width="94" height="94" rx="20" fill="url(#decDieGrad)" stroke="rgba(0,0,0,0.12)" />${DEC_PIPS[n]
+    .map(([x, y]) => `<circle cx="${x}" cy="${y}" r="9" fill="#3d3d4a" />`)
+    .join('')}</svg>`
+// 六面在立方体上的摆位 (骰子边长 110px -> 位移 55px)
+const DEC_FACE_TF = {
+  1: 'translateZ(55px)',
+  6: 'rotateY(180deg) translateZ(55px)',
+  2: 'rotateY(90deg) translateZ(55px)',
+  5: 'rotateY(-90deg) translateZ(55px)',
+  3: 'rotateX(90deg) translateZ(55px)',
+  4: 'rotateX(-90deg) translateZ(55px)',
+}
+// 让第 N 面朝向观众所需的立方体旋转量
+const DEC_FACE_ROT = { 1: [0, 0], 2: [0, -90], 3: [-90, 0], 4: [90, 0], 5: [0, 90], 6: [0, 180] }
+
 function rDecision(_, c) {
   const PRESETS = {
+    dice: { name: '🎲 掷骰子', dice: true },
     food: {
-      name: '今天吃什么',
+      name: '🍜 今天吃什么',
       options: [
-        '火锅',
-        '麻辣烫',
+        '沙县小吃',
+        '兰州拉面',
         '黄焖鸡米饭',
-        '兰州牛肉面',
-        '日料寿司',
-        '意式披萨',
-        '轻食沙拉',
-        '汉堡炸鸡',
-        '水饺馄饨',
-        '酸菜鱼',
-        '重庆小面',
-        '麻辣香锅',
-        '广式煲仔饭',
+        '隆江猪脚饭',
         '螺蛳粉',
-        '烤鸭卷饼',
+        '麻辣烫',
+        '冒菜',
+        '重庆小面',
+        '肥肠粉',
+        '热干面',
+        '桂林米粉',
+        '新疆炒米粉',
+        '炸酱面',
+        '肉夹馍',
+        '煎饼果子',
+        '手抓饼',
+        '鸡蛋灌饼',
+        '烤冷面',
+        '关东煮',
+        '肠粉',
+        '广式烧腊饭',
+        '木桶饭',
+        '馄饨',
+        '蒸饺',
+        '灌汤包',
+        '豆浆油条',
+        '汉堡炸鸡',
+        'KFC',
+        '麦当劳',
+        '塔斯汀汉堡',
+        '华莱士',
+        '韩式炸鸡',
+        '便利饭团',
+        '钵钵鸡',
       ],
-    },
-    yesno: {
-      name: '纠结二选一',
-      options: ['果断去做！', '不要去 / 稍后再说', '问问朋友的意见', '再思考 10 分钟'],
-    },
-    dice: {
-      name: '掷骰子 (1~6)',
-      options: ['1 点 ⚀', '2 点 ⚁', '3 点 ⚂', '4 点 ⚃', '5 点 ⚄', '6 点 ⚅'],
     },
   }
 
-  let curPreset = 'food'
-  let rollingTimer = null
+  let curPreset = 'dice'
+  let rolling = false
+  let spinX = -20
+  let spinY = 30
 
   c.innerHTML = `
     <div class="tool-wrap">
       <div class="tool-tag-pills" id="decModes">
-        ${Object.keys(PRESETS)
+        ${Object.entries(PRESETS)
           .map(
-            (k) =>
-              `<button type="button" class="tool-pill ${k === curPreset ? 'active' : ''}" data-k="${k}">${PRESETS[k].name}</button>`,
+            ([k, g]) =>
+              `<button type="button" class="tool-pill ${k === 'dice' ? 'active' : ''}" data-k="${k}">${g.name}</button>`,
           )
           .join('')}
       </div>
 
       <div class="tool-dec-display">
+        <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+          <linearGradient id="decDieGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#ffffff" />
+            <stop offset="100%" stop-color="#e9ebf0" />
+          </linearGradient>
+        </defs></svg>
+        <div class="dec-dice-scene" id="decDiceScene">
+          <div class="dec-dice-shadow"></div>
+          <div class="dec-dice-cube" id="decCube">
+            ${[1, 2, 3, 4, 5, 6]
+              .map((n) => `<div class="dec-dice-face" style="transform:${DEC_FACE_TF[n]}">${DEC_FACE_SVG(n)}</div>`)
+              .join('')}
+          </div>
+        </div>
+        <div class="dec-kiosk-scene hidden" id="decKioskScene">
+          <svg class="dec-kiosk" viewBox="0 0 200 200" aria-hidden="true">
+            <defs>
+              <pattern id="decStripe" width="20" height="18" patternUnits="userSpaceOnUse">
+                <rect width="10" height="18" fill="#f4623a" />
+                <rect x="10" width="10" height="18" fill="#fff4ec" />
+              </pattern>
+              <linearGradient id="decBodyGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#ffe8cf" />
+                <stop offset="100%" stop-color="#ffc296" />
+              </linearGradient>
+              <radialGradient id="decGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="rgba(255,140,90,0.18)" />
+                <stop offset="100%" stop-color="rgba(255,140,90,0)" />
+              </radialGradient>
+            </defs>
+
+            <!-- 背景光晕 -->
+            <ellipse cx="100" cy="108" rx="92" ry="86" fill="url(#decGlow)" />
+
+            <!-- 顶部指示灯 -->
+            <circle class="dec-kiosk-light" cx="100" cy="12" r="7" fill="#ffd166" stroke="rgba(0,0,0,0.12)" />
+            <line x1="100" y1="19" x2="100" y2="26" stroke="rgba(0,0,0,0.12)" stroke-width="2" />
+
+            <!-- 遮阳棚: 条纹顶 + 波浪边 -->
+            <rect x="20" y="26" width="160" height="24" rx="6" fill="url(#decStripe)" stroke="rgba(0,0,0,0.08)" />
+            <g fill="#f4623a">
+              <circle cx="30" cy="50" r="9" />
+              <circle cx="50" cy="50" r="9" />
+              <circle cx="70" cy="50" r="9" />
+              <circle cx="90" cy="50" r="9" />
+              <circle cx="110" cy="50" r="9" />
+              <circle cx="130" cy="50" r="9" />
+              <circle cx="150" cy="50" r="9" />
+              <circle cx="170" cy="50" r="9" />
+            </g>
+
+            <!-- 机身 -->
+            <rect x="34" y="58" width="132" height="100" rx="14" fill="url(#decBodyGrad)" stroke="rgba(0,0,0,0.08)" />
+            <rect x="44" y="66" width="112" height="72" rx="10" fill="rgba(255,255,255,0.38)" />
+
+            <!-- 屏幕 -->
+            <rect x="56" y="74" width="88" height="32" rx="8" fill="#262b3a" />
+            <rect x="56" y="74" width="88" height="32" rx="8" fill="none" stroke="#5eead4" stroke-opacity="0.25" />
+            <text id="decScreenText" x="100" y="94" text-anchor="middle" font-size="11" font-weight="700" fill="#8be0ae">READY</text>
+
+            <!-- 投币口与按钮 -->
+            <rect x="64" y="116" width="26" height="8" rx="4" fill="#2a2f3a" />
+            <circle cx="112" cy="120" r="6" fill="#ffd166" stroke="rgba(0,0,0,0.1)" />
+            <circle cx="132" cy="120" r="6" fill="#7dd3a8" stroke="rgba(0,0,0,0.1)" />
+
+            <!-- 出票口 -->
+            <rect x="56" y="136" width="88" height="12" rx="6" fill="#2a2f3a" />
+            <rect x="58" y="138" width="84" height="4" rx="2" fill="rgba(255,255,255,0.14)" />
+
+            <!-- 支脚与地面阴影 -->
+            <rect x="46" y="158" width="18" height="14" rx="5" fill="#e08556" />
+            <rect x="136" y="158" width="18" height="14" rx="5" fill="#e08556" />
+            <ellipse cx="100" cy="180" rx="72" ry="8" fill="rgba(0,0,0,0.1)" />
+
+            <!-- 装饰星光 -->
+            <path d="M12 74 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2 Z" fill="#ffd166" opacity="0.85" />
+            <path d="M188 88 l1.8 4.4 4.4 1.8 -4.4 1.8 -1.8 4.4 -1.8 -4.4 -4.4 -1.8 4.4 -1.8 Z" fill="#ffd166" opacity="0.7" />
+          </svg>
+          <div class="dec-ticket-clip">
+            <div class="dec-ticket" id="decTicket">
+              <div class="dec-ticket-brand">TODAY'S MENU</div>
+              <div class="dec-ticket-name" id="decTicketName">--</div>
+              <div class="dec-ticket-bars"></div>
+            </div>
+          </div>
+        </div>
         <div class="tool-dec-badge" id="decBadge">等待决策</div>
         <div class="tool-dec-val" id="decWinner">准备就绪</div>
       </div>
@@ -12415,66 +12732,105 @@ function rDecision(_, c) {
       <div class="tool-actions-bar" style="justify-content:center;margin-top:14px;">
         <button type="button" class="tool-btn-act" id="decRollBtn" style="padding:10px 28px;font-size:15px;">🎲 开始随机决策</button>
       </div>
-
-      <div class="tool-section-t" style="margin-top:12px;">候选选项池 (逗号或换行分隔，可编辑):</div>
-      <textarea id="decPoolTxt" class="tool-textarea" rows="3"></textarea>
     </div>
   `
 
   const winnerEl = c.querySelector('#decWinner')
   const badgeEl = c.querySelector('#decBadge')
   const rollBtn = c.querySelector('#decRollBtn')
-  const poolTxt = c.querySelector('#decPoolTxt')
+  const cube = c.querySelector('#decCube')
+  const scene = c.querySelector('#decDiceScene')
+  const kioskScene = c.querySelector('#decKioskScene')
+  const screenText = c.querySelector('#decScreenText')
+  const ticket = c.querySelector('#decTicket')
+  const ticketName = c.querySelector('#decTicketName')
   const pills = c.querySelectorAll('#decModes .tool-pill')
 
-  const loadPreset = (k) => {
+  const applyPreset = (k) => {
     curPreset = k
-    const grp = PRESETS[k]
-    poolTxt.value = grp.options.join(', ')
+    const isDice = !!PRESETS[k].dice
+    scene.classList.toggle('hidden', !isDice)
+    kioskScene.classList.toggle('hidden', isDice)
+    badgeEl.textContent = '等待决策'
     winnerEl.textContent = '准备就绪'
-    badgeEl.textContent = grp.name
+    ticket.classList.remove('out')
+    screenText.textContent = 'READY'
+    if (isDice) cube.style.transform = `rotateX(${spinX}deg) rotateY(${spinY}deg)`
+  }
+
+  // 3D 骰子: 在累计角度上多滚 2~3 圈, 缓动减速后停在目标面
+  const rollDice = () => {
+    rolling = true
+    rollBtn.disabled = true
+    badgeEl.textContent = '骰子滚动中...'
+    badgeEl.classList.add('rolling')
+    winnerEl.textContent = ''
+    scene.classList.add('rolling')
+
+    const n = 1 + Math.floor(Math.random() * 6)
+    spinX += 360 * (2 + Math.floor(Math.random() * 2))
+    spinY += 360 * (2 + Math.floor(Math.random() * 2))
+    const [fx, fy] = DEC_FACE_ROT[n]
+    cube.style.transform = `rotateX(${spinX + fx}deg) rotateY(${spinY + fy}deg)`
+
+    setTimeout(() => {
+      scene.classList.remove('rolling')
+      badgeEl.textContent = '🎉 命中结果'
+      badgeEl.classList.remove('rolling')
+      winnerEl.textContent = `${n} 点`
+      rolling = false
+      rollBtn.disabled = false
+    }, 1750)
+  }
+
+  // 出票机: 机身振动+灯闪+屏幕滚动菜名, 然后吐出印有结果的小票
+  const rollFood = () => {
+    rolling = true
+    rollBtn.disabled = true
+    badgeEl.textContent = '出票中...'
+    badgeEl.classList.add('rolling')
+    winnerEl.textContent = ''
+    ticket.classList.remove('out')
+    kioskScene.classList.add('working')
+
+    const opts = PRESETS.food.options
+    const final = opts[Math.floor(Math.random() * opts.length)]
+    let count = 0
+    const iv = setInterval(() => {
+      count++
+      if (count < 15) {
+        screenText.textContent = opts[Math.floor(Math.random() * opts.length)].slice(0, 6)
+        return
+      }
+      clearInterval(iv)
+      screenText.textContent = '出票成功'
+      ticketName.textContent = final
+      ticket.classList.add('out')
+      kioskScene.classList.remove('working')
+      badgeEl.textContent = '🎉 命中结果'
+      badgeEl.classList.remove('rolling')
+      winnerEl.textContent = final
+      rolling = false
+      rollBtn.disabled = false
+    }, 90)
+  }
+
+  rollBtn.onclick = () => {
+    if (rolling) return
+    if (PRESETS[curPreset].dice) rollDice()
+    else rollFood()
   }
 
   pills.forEach((p) => {
     p.onclick = () => {
+      if (rolling) return
       pills.forEach((x) => x.classList.remove('active'))
       p.classList.add('active')
-      loadPreset(p.dataset.k)
+      applyPreset(p.dataset.k)
     }
   })
 
-  rollBtn.onclick = () => {
-    if (rollingTimer) return
-    const raw = poolTxt.value
-      .split(/[,，\n]/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-    if (!raw.length) {
-      alert('候选池不能为空，请至少输入一个选项')
-      return
-    }
-
-    rollBtn.disabled = true
-    badgeEl.textContent = '随机抽取中...'
-    badgeEl.classList.add('rolling')
-
-    let count = 0
-    const maxCount = 20
-    rollingTimer = setInterval(() => {
-      const idx = Math.floor(Math.random() * raw.length)
-      winnerEl.textContent = raw[idx]
-      count++
-      if (count >= maxCount) {
-        clearInterval(rollingTimer)
-        rollingTimer = null
-        rollBtn.disabled = false
-        badgeEl.textContent = '🎉 命中结果'
-        badgeEl.classList.remove('rolling')
-      }
-    }, 60)
-  }
-
-  loadPreset('food')
+  applyPreset('dice')
 }
 
 // ============ P3: 键盘快捷键 ============

@@ -121,7 +121,7 @@ import { serviceFanyi } from './modules/fanyi/fanyi.module.ts'
 import { serviceGoogleTranslate } from './modules/google-translate.module.ts'
 import { serviceLyric } from './modules/lyric.module.ts'
 import { serviceDailyEng } from './modules/daily-eng/daily-eng.module.ts'
-import { serviceSimkl } from './modules/simkl/simkl.module.ts'
+import { serviceStreaming } from './modules/tmdb/tmdb.module.ts'
 import { serviceQQ } from './modules/qq.module.ts'
 import { serviceHealth } from './modules/health.module.ts'
 import { servicePassword } from './modules/password/password.module.ts'
@@ -205,7 +205,8 @@ appRouter.all(
   lazyService(() => import('./modules/fuel-price/fuel-price.module.ts').then((m) => m.serviceFuelPrice.handle())),
 )
 appRouter.get('/daily-eng', serviceDailyEng.handle())
-appRouter.get('/simkl-trending', serviceSimkl.handle())
+// 路由名沿用历史的 /simkl-trending（外部用户已在用），数据源实为 TMDB，见 tmdb 模块
+appRouter.get('/simkl-trending', serviceStreaming.handle())
 appRouter.get('/health', serviceHealth.handle())
 appRouter.get('/password', servicePassword.handle())
 appRouter.get('/password/check', servicePassword.handleCheck())

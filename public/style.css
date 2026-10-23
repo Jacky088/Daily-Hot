@@ -4579,32 +4579,6 @@ select:focus-visible {
   font-size: 11.5px;
 }
 
-/* Color */
-.swatch {
-  width: 100%;
-  height: 50px;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  border: 1px solid var(--border);
-}
-.palette-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
-}
-.palette-chip {
-  text-align: center;
-  font-size: 9px;
-}
-.palette-chip .c {
-  width: 40px;
-  height: 40px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  margin-bottom: 2px;
-}
-
 /* QR */
 .qr-wrap {
   text-align: center;
@@ -5146,80 +5120,6 @@ select:focus-visible {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 7px 10px;
-}
-
-/* ============ 随机颜色 ============ */
-.clr-hero {
-  border-radius: 12px;
-  padding: 26px 16px;
-  margin-bottom: 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-.clr-name {
-  font-size: 12px;
-  opacity: 0.85;
-}
-.clr-hero b {
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  font-variant-numeric: tabular-nums;
-}
-.clr-bright {
-  font-size: 10px;
-  opacity: 0.7;
-}
-.clr-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.clr-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 7px 10px;
-}
-.clr-row .k {
-  flex-shrink: 0;
-  width: 42px;
-  color: var(--text-dim);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-}
-.clr-row code {
-  flex: 1;
-  min-width: 0;
-  font-family: 'SF Mono', Consolas, monospace;
-  font-size: 11.5px;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.clr-copy {
-  flex-shrink: 0;
-  padding: 3px 9px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--card);
-  color: var(--text-dim);
-  font-size: 10px;
-  cursor: pointer;
-  transition:
-    color var(--dur-fast),
-    border-color var(--dur-fast);
-}
-.clr-copy:hover {
-  color: var(--accent);
-  border-color: var(--accent);
 }
 
 /* ============ 哈希加密 ============ */
@@ -6421,6 +6321,18 @@ select:focus-visible {
   font-size: 11px;
   color: var(--text-dim);
   margin-top: 3px;
+}
+/* 一句话简介：最多两行，超宽省略（TMDB 中文简介有的很长，全铺会把海报行撑得很高） */
+.simkl-body .desc {
+  font-size: 11px;
+  color: var(--text-dim);
+  opacity: 0.85;
+  line-height: 1.5;
+  margin-top: 3px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 /* 流媒体榜的 .rank 样式见文件开头的「名次角标（全站统一）」 */
 .simkl-badge {
@@ -14416,25 +14328,40 @@ select.tool-input-txt {
   flex-direction: column;
   align-items: center;
   position: relative;
-  gap: 8px;
+  gap: 6px;
 }
 .pomo-wrap #pomoModes {
   width: 100%;
   justify-content: center;
+  gap: 5px;
+}
+/* 紧凑药丸: 5 个模式收进一行 */
+.pomo-wrap #pomoModes .tool-pill {
+  height: 28px;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 11px;
 }
 .pomo-custom-bar {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
-  padding: 6px 10px;
+  padding: 4px 10px;
   background: rgba(225, 29, 72, 0.04);
   border: 1px dashed var(--border);
   border-radius: 10px;
   width: 100%;
   box-sizing: border-box;
   animation: pomoSlideDown 0.25s ease-out;
+}
+.pomo-custom-bar #pomoCustomIn {
+  height: 30px;
+}
+.pomo-custom-bar .tool-btn-sm {
+  height: 26px;
+  min-height: 26px;
 }
 @keyframes pomoSlideDown {
   from {
@@ -14581,12 +14508,18 @@ select.tool-input-txt {
 }
 .pomo-ctrl-bar {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 6px;
   width: 100%;
-  flex-wrap: wrap;
   margin-top: 2px;
+}
+.pomo-ctrl-sub {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 .pomo-ctrl-bar .tool-btn-act,
 .pomo-ctrl-bar .tool-btn-dim {
@@ -14596,7 +14529,16 @@ select.tool-input-txt {
   border-radius: 17px;
   padding: 0 12px;
 }
+.pomo-ctrl-sub .tool-btn-dim {
+  height: 28px;
+  min-height: 28px;
+  padding: 0 12px;
+}
 .pomo-btn-main {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   padding: 0 18px !important;
   font-size: 13px !important;
   font-weight: 700;
@@ -14609,12 +14551,345 @@ select.tool-input-txt {
   text-align: center;
   font-size: 12px;
   color: var(--text-dim);
-  padding-top: 8px;
+  padding-top: 6px;
   border-top: 1px solid var(--border);
   width: 100%;
 }
 .pomo-stat-footer b {
   color: var(--text);
+}
+
+/* ============ 全站统一弹窗 (Toast 提示 + Dialog 确认框) ============ */
+.site-toast {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1400; /* 压过 fs-fake 全屏卡(999) */
+  max-width: min(90vw, 460px);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px 10px 18px;
+  border-radius: 14px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 10px 30px rgba(15, 40, 90, 0.18);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  animation: siteToastIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.site-toast-msg {
+  flex: 1;
+}
+.site-toast-ok {
+  flex-shrink: 0;
+  height: 28px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  background: linear-gradient(135deg, #ff8a5c, #f4623a);
+  box-shadow: 0 2px 8px rgba(244, 98, 58, 0.35);
+  transition:
+    transform 0.15s ease,
+    filter 0.15s ease;
+}
+.site-toast-ok:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+}
+.site-toast-ok:active {
+  transform: scale(0.96);
+}
+.site-toast.out {
+  animation: siteToastOut 0.28s ease forwards;
+}
+@keyframes siteToastIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-18px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+@keyframes siteToastOut {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-14px) scale(0.96);
+  }
+}
+/* 玻璃拟态确认框 (替代原生 confirm) */
+.site-dialog-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 1450;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(10, 15, 30, 0.35);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: siteDialogFade 0.2s ease both;
+}
+.site-dialog-mask.out {
+  animation: siteDialogFade 0.2s ease forwards;
+}
+.site-dialog {
+  width: min(90vw, 340px);
+  padding: 22px 22px 18px;
+  border-radius: 16px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 18px 50px rgba(15, 40, 90, 0.25);
+  color: var(--text);
+  animation: siteDialogPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.site-dialog-msg {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.6;
+  text-align: center;
+}
+.site-dialog-btns {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 18px;
+}
+.site-dialog-btn {
+  min-width: 88px;
+  height: 36px;
+  border-radius: 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    filter 0.15s ease;
+}
+.site-dialog-btn:hover {
+  transform: translateY(-1px);
+}
+.site-dialog-btn:active {
+  transform: translateY(0) scale(0.97);
+}
+.site-dialog-btn.site-dialog-cancel {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+.site-dialog-btn.site-dialog-ok {
+  background: linear-gradient(135deg, #ff8a5c, #f4623a);
+  border: none;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(244, 98, 58, 0.35);
+}
+@keyframes siteDialogFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes siteDialogPop {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ============ 番茄树生长舞台 (Tomato Tree Stage) ============ */
+/* 舞台宽度受卡片约束，高度按 240:260 比例联动；作为容器，
+   内部文字全部用 cqw 等比缩放——卡片、全屏、横屏均不溢出 */
+.pomo-dial-container.pomo-tree-stage {
+  width: min(100%, 250px);
+  height: auto;
+  aspect-ratio: 240 / 244;
+  container-type: inline-size;
+  margin: 0 auto;
+}
+.pomo-tree-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+/* 时间文字块: 覆盖在番茄树上方，水平居中 */
+.pomo-time-block {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: center;
+  pointer-events: none;
+  padding-top: 4px;
+  box-sizing: border-box;
+  z-index: 1;
+}
+.pomo-time-block .pomo-mode-badge {
+  font-size: 6.4cqw;
+  padding: 1.4cqw 5cqw;
+  gap: 2.2cqw;
+}
+.pomo-time-block .pomo-glow-dot {
+  width: 2.8cqw;
+  height: 2.8cqw;
+}
+.pomo-time-block .pomo-clock-digits {
+  font-family: 'Baloo 2', 'Comic Sans MS', 'Chalkboard SE', 'Comic Neue', 'ZCOOL KuaiLe', ui-rounded, sans-serif;
+  font-size: 23cqw;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.05;
+  margin: 1cqw 0 1.6cqw;
+  /* 番茄主题暖色渐变: 与果实成熟色呼应, 明暗主题均和谐 */
+  color: #e63946;
+  background: linear-gradient(180deg, #ff8a5c 8%, #f4623a 55%, #e63946 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.pomo-time-block .pomo-cycle-dots {
+  gap: 3.4cqw;
+  margin-bottom: 2cqw;
+}
+.pomo-time-block .pomo-dot {
+  width: 3.4cqw;
+  height: 3.4cqw;
+}
+.pomo-time-block .pomo-hint-msg {
+  font-size: 5.8cqw;
+  max-width: none;
+}
+#pomoStem,
+#pomoBranchL,
+#pomoBranchR {
+  fill: none;
+  stroke: #5f9e4b;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+#pomoBranchL,
+#pomoBranchR {
+  stroke-width: 4;
+}
+.pomo-leaf,
+.pomo-tomato {
+  opacity: 0;
+}
+.pomo-tomato .t-body {
+  stroke: rgba(0, 0, 0, 0.08);
+  stroke-width: 1;
+}
+.pomo-tomato .t-calyx {
+  fill: none;
+  stroke: #2e7d32;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.pomo-tomato.is-ripe .t-body {
+  filter: drop-shadow(0 0 4px rgba(230, 57, 70, 0.45));
+}
+/* 运行中的树随风轻摆；时间停止则完全静止 */
+#pomoSway {
+  transform-box: view-box;
+  transform-origin: 120px 226px;
+  animation: pomoTreeSway 4.6s ease-in-out infinite;
+  animation-play-state: paused;
+}
+.pomo-wrap.is-growing #pomoSway {
+  animation-play-state: running;
+}
+@keyframes pomoTreeSway {
+  0%,
+  100% {
+    transform: rotate(-1.1deg);
+  }
+  50% {
+    transform: rotate(1.3deg);
+  }
+}
+/* 运行中果实轻轻浮动，休息时静止悬挂 */
+.pomo-tomato .t-inner {
+  animation: pomoTomatoBob 3.2s ease-in-out infinite;
+  animation-play-state: paused;
+}
+.pomo-wrap.is-growing .pomo-tomato .t-inner {
+  animation-play-state: running;
+}
+@keyframes pomoTomatoBob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(1.5px);
+  }
+}
+
+/* 丰收时刻: 番茄弹跳 + 星光闪烁 */
+.pomo-wrap.is-harvest .pomo-tomato .t-body {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pomoRipePop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes pomoRipePop {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.18);
+  }
+}
+.pomo-spark {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.pomo-wrap.is-harvest .pomo-spark {
+  animation: pomoSparkTwinkle 1.5s ease-in-out infinite;
+}
+@keyframes pomoSparkTwinkle {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.4) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1) rotate(45deg);
+  }
 }
 
 /* ============ 全屏沉浸模式自适应系统 (Multi-Screen Fluid Adaptation) ============ */
@@ -14683,11 +14958,11 @@ select.tool-input-txt {
   border-radius: 10px !important;
 }
 
-/* 核心圆环表盘容器：按视口黄金比例自适应缩放（大屏可达 560px） */
+/* 核心番茄树舞台：宽度受视口宽高双向约束，保证整列内容不超出视口（大屏可达 600px） */
 .card:fullscreen .pomo-dial-container,
 .card.fs-fake .pomo-dial-container {
-  width: clamp(280px, min(56vmin, calc(100dvh - 240px)), 560px);
-  height: clamp(280px, min(56vmin, calc(100dvh - 240px)), 560px);
+  width: clamp(220px, min(52vmin, calc(100dvh - 330px)), 600px);
+  height: auto;
   margin: clamp(4px, 1vmin, 16px) auto;
 }
 
@@ -14701,49 +14976,41 @@ select.tool-input-txt {
   filter: drop-shadow(0 clamp(6px, 1.5vmin, 20px) clamp(16px, 4vmin, 40px) rgba(16, 185, 129, 0.32));
 }
 
-/* 状态徽章 */
+/* 状态徽章 / 倒计时数字 / 轮次圆点 / 提示文案:
+   全屏档保持大字号（覆盖卡片内缩小后的基础档），随舞台 cqw 等比缩放 */
 .card:fullscreen .pomo-mode-badge,
 .card.fs-fake .pomo-mode-badge {
-  font-size: clamp(13px, 1.8vmin, 18px);
-  padding: clamp(5px, 0.8vmin, 8px) clamp(14px, 2vmin, 24px);
-  border-radius: 30px;
-  gap: clamp(6px, 1vmin, 10px);
+  font-size: 8cqw;
+  padding: 1.8cqw 6.4cqw;
+  gap: 2.8cqw;
 }
 .card:fullscreen .pomo-glow-dot,
 .card.fs-fake .pomo-glow-dot {
-  width: clamp(7px, 1vmin, 11px);
-  height: clamp(7px, 1vmin, 11px);
+  width: 3.6cqw;
+  height: 3.6cqw;
 }
-
-/* 居中倒计时大数字：字号随表盘等比放大，气势磅礴 */
 .card:fullscreen .pomo-clock-digits,
 .card.fs-fake .pomo-clock-digits {
-  font-size: clamp(64px, 11.5vmin, 120px);
-  letter-spacing: -2px;
-  margin: clamp(4px, 0.8vmin, 10px) 0 clamp(6px, 1vmin, 14px);
+  font-size: 30cqw;
+  margin: 1.4cqw 0 2cqw;
 }
-
-/* 循环轮次圆点 */
 .card:fullscreen .pomo-cycle-dots,
 .card.fs-fake .pomo-cycle-dots {
-  gap: clamp(8px, 1.5vmin, 16px);
-  margin-bottom: clamp(6px, 1vmin, 12px);
+  gap: 4.3cqw;
+  margin-bottom: 2.8cqw;
 }
 .card:fullscreen .pomo-dot,
 .card.fs-fake .pomo-dot {
-  width: clamp(8px, 1.2vmin, 13px);
-  height: clamp(8px, 1.2vmin, 13px);
+  width: 4.3cqw;
+  height: 4.3cqw;
 }
 .card:fullscreen .pomo-dot.active,
 .card.fs-fake .pomo-dot.active {
-  box-shadow: 0 0 clamp(8px, 1.5vmin, 16px) var(--accent);
+  box-shadow: 0 0 1.5cqw var(--accent);
 }
-
-/* 提示文案 */
 .card:fullscreen .pomo-hint-msg,
 .card.fs-fake .pomo-hint-msg {
-  font-size: clamp(13px, 1.8vmin, 18px);
-  max-width: clamp(200px, 38vmin, 380px);
+  font-size: 7.2cqw;
 }
 
 /* 控制按钮栏：大按钮与高触觉热区 */
@@ -14762,6 +15029,10 @@ select.tool-input-txt {
   border-radius: 30px !important;
   padding: 0 clamp(18px, 2.5vmin, 30px) !important;
 }
+.card:fullscreen .pomo-ctrl-sub,
+.card.fs-fake .pomo-ctrl-sub {
+  gap: clamp(10px, 1.8vmin, 20px);
+}
 .card:fullscreen .pomo-btn-main,
 .card.fs-fake .pomo-btn-main {
   height: clamp(48px, 6.5vmin, 64px) !important;
@@ -14773,6 +15044,11 @@ select.tool-input-txt {
 }
 
 /* 按钮全屏文字动态切换 */
+.pomo-fs-btn .pomo-fs-enter-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 .pomo-fs-btn .pomo-fs-exit-label {
   display: none;
 }
@@ -14817,12 +15093,8 @@ select.tool-input-txt {
   .card.fs-fake .pomo-dial-container {
     grid-area: dial;
     width: min(80vh, 270px) !important;
-    height: min(80vh, 270px) !important;
+    height: auto !important;
     margin: 0 !important;
-  }
-  .card:fullscreen .pomo-clock-digits,
-  .card.fs-fake .pomo-clock-digits {
-    font-size: 56px !important;
   }
   .card:fullscreen #pomoModes,
   .card.fs-fake #pomoModes {
@@ -14856,6 +15128,8 @@ select.tool-input-txt {
   border-radius: 12px;
   padding: 18px 12px;
   text-align: center;
+  width: 100%;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -14880,6 +15154,214 @@ select.tool-input-txt {
   font-weight: 800;
   color: var(--accent-text);
   min-height: 36px;
+}
+/* 锁定结果区/徽章几何尺寸: 骰子滚动清空文字时框体高度不变 */
+.tool-dec-display .tool-dec-val {
+  height: 46px;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tool-dec-display .tool-dec-badge {
+  min-width: 108px;
+}
+
+/* ============ 3D 掷骰子 ============ */
+.dec-dice-scene {
+  width: 112px;
+  height: 112px;
+  margin: 8px auto 46px; /* 底部留出骰子 3D 投影的溢出空间, 避免压住文字 */
+  perspective: 720px;
+  position: relative;
+  animation: decDiceFloat 3.6s ease-in-out infinite;
+}
+.dec-dice-scene.hidden {
+  display: none;
+}
+.dec-dice-scene.rolling {
+  animation: decDiceShake 0.32s ease-in-out infinite;
+}
+.dec-dice-cube {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transform: rotateX(-20deg) rotateY(30deg);
+  transition: transform 1.75s cubic-bezier(0.16, 0.84, 0.24, 1);
+  will-change: transform;
+}
+.dec-dice-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.06);
+  backface-visibility: hidden;
+}
+.dec-dice-face svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.dec-dice-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: -26px;
+  width: 84px;
+  height: 16px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0) 70%);
+  transition:
+    transform 1.75s cubic-bezier(0.16, 0.84, 0.24, 1),
+    opacity 1.75s ease;
+}
+.dec-dice-scene.rolling .dec-dice-shadow {
+  transform: translateX(-50%) scale(1.25);
+  opacity: 0.55;
+}
+/* ============ 今天吃什么: SVG 出票机 ============ */
+.dec-kiosk-scene {
+  position: relative;
+  width: 200px;
+  height: 242px; /* svg 200px + 底部留给小票伸出 */
+  margin: 4px auto 6px;
+}
+.dec-kiosk-scene.hidden {
+  display: none;
+}
+.dec-kiosk {
+  display: block;
+  width: 200px;
+  height: 200px;
+  animation: decKioskFloat 4s ease-in-out infinite;
+}
+.dec-kiosk-scene.working .dec-kiosk {
+  animation: decKioskWork 0.16s linear infinite;
+}
+.dec-kiosk-light {
+  transition: opacity 0.3s ease;
+}
+.dec-kiosk-scene.working .dec-kiosk-light {
+  animation: decLightBlink 0.5s ease-in-out infinite;
+}
+@keyframes decKioskWork {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(-0.9px, 0.5px);
+  }
+  75% {
+    transform: translate(0.9px, -0.5px);
+  }
+}
+@keyframes decLightBlink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+@keyframes decKioskFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+/* 小票: 从出票口向下滑出, 底部锯齿撕边 */
+.dec-ticket-clip {
+  position: absolute;
+  top: 140px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 74px;
+  height: 96px;
+  overflow: hidden;
+}
+.dec-ticket {
+  width: 74px;
+  height: 90px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 7px 6px 9px;
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.2);
+  transform: translateY(-103%);
+  transition: transform 0.7s cubic-bezier(0.22, 0.9, 0.32, 1.14);
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - 5px),
+    93.75% 100%,
+    87.5% calc(100% - 5px),
+    81.25% 100%,
+    75% calc(100% - 5px),
+    68.75% 100%,
+    62.5% calc(100% - 5px),
+    56.25% 100%,
+    50% calc(100% - 5px),
+    43.75% 100%,
+    37.5% calc(100% - 5px),
+    31.25% 100%,
+    25% calc(100% - 5px),
+    18.75% 100%,
+    12.5% calc(100% - 5px),
+    6.25% 100%,
+    0 calc(100% - 5px)
+  );
+}
+.dec-ticket.out {
+  transform: translateY(0);
+}
+.dec-ticket-brand {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #9aa0ab;
+}
+.dec-ticket-name {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: #e63946;
+  text-align: center;
+  line-height: 1.25;
+}
+.dec-ticket-bars {
+  width: 100%;
+  height: 12px;
+  background: repeating-linear-gradient(90deg, #3d3d4a 0 2px, transparent 2px 5px);
+  opacity: 0.85;
+}
+@keyframes decDiceFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+@keyframes decDiceShake {
+  0%,
+  100% {
+    transform: translate(-3px, -6px) rotate(-3deg);
+  }
+  50% {
+    transform: translate(3px, 2px) rotate(3deg);
+  }
 }
 
 /* ================================================================
