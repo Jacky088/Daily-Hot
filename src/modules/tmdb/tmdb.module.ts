@@ -156,7 +156,9 @@ export async function fetchTmdbList(t: string, network?: string | null): Promise
   for (const days of RECENCY_WINDOWS) {
     const response = await fetchUpstream(buildUrl(days), { timeoutMs: 8000 })
     if (!response.ok) {
-      throw new Error(`Failed to fetch tmdb-discover: HTTP ${response.status}`)
+      // 带上响应体摘要：区分「key 无效」（TMDB 标准 401 JSON）与 WAF/IP 拦截页
+      const body = await response.text().catch(() => '')
+      throw new Error(`Failed to fetch tmdb-discover: HTTP ${response.status} ${body.slice(0, 120)}`)
     }
     const data = (await response.json()) as { results?: TmdbResult[] }
     const results = Array.isArray(data?.results) ? data.results : []
