@@ -144,6 +144,7 @@ const CARD_LOGOS = {
   bdmovie: 'bdmovie.svg',
   'simkl-tv': 'netflix.svg',
   'simkl-movies': 'netflix.svg',
+  'simkl-anime': 'netflix.svg',
   youtube: 'youtube.svg',
   ncm: 'neteasecloudmusic.svg',
   applemusic: 'applemusic.svg',
@@ -258,7 +259,8 @@ const EP_ALIASES = {
   bdtv: ['百度电视剧', '电视剧榜'],
   bdmovie: ['百度电影', '电影榜'],
   'simkl-tv': ['流媒体剧集', 'netflix', 'hbo', 'disney', 'simkl'],
-  'simkl-movies': ['流媒体电影', '流媒体动画'],
+  'simkl-movies': ['流媒体电影', '电影榜'],
+  'simkl-anime': ['流媒体动漫', '动漫', '番剧', 'anime'],
   youtube: ['油管', 'youtube', 'ytb', '游戏视频'],
   ncm: ['网易云', '网易云音乐', 'wyy', '163', '云音乐', '听歌'],
   applemusic: ['applemusic', 'apple music', '苹果音乐'],
@@ -2354,30 +2356,40 @@ const EPS = [
   },
   { cat: 'ent', id: 'bdtv', name: '百度电视剧榜', icon: '🎭', path: '/v2/baidu/teleplay', type: 'baidu-show', auto: 1 },
   { cat: 'ent', id: 'bdmovie', name: '百度电影榜', icon: '🎥', path: '/v2/baidu/movie', type: 'baidu-show', auto: 1 },
+  // 流媒体榜三张卡：榜单类型固化在路径参数里（不再用卡内 type 下拉），
+  // 动漫独立成卡与剧集/电影并列为组卡第一级标签页；均可按播出平台过滤
   {
     cat: 'ent',
     id: 'simkl-tv',
     name: '流媒体热门剧集',
     icon: '📺',
-    path: '/v2/simkl-trending',
+    path: '/v2/simkl-trending?type=tv',
     type: 'simkl',
     auto: 1,
     inputs: [{ n: 'network', sel: TMDB_NETWORKS, d: '' }],
-    hint: '可选播出平台过滤，数据来自 TMDB',
+    hint: '优先 7 天内新上的热门剧集，不足自动放宽补齐 · 可选平台过滤 · 数据来自 TMDB',
   },
   {
     cat: 'ent',
     id: 'simkl-movies',
     name: '流媒体热门电影',
     icon: '🍿',
-    path: '/v2/simkl-trending',
+    path: '/v2/simkl-trending?type=movies',
     type: 'simkl',
     auto: 1,
-    inputs: [
-      { n: 'type', sel: ['movies', 'anime'], d: 'movies' },
-      { n: 'network', sel: TMDB_NETWORKS, d: '' },
-    ],
-    hint: '下拉切换日本动画榜（可配 Crunchyroll 过滤）· 数据来自 TMDB',
+    inputs: [{ n: 'network', sel: TMDB_NETWORKS, d: '' }],
+    hint: '优先 7 天内新上映的热门电影，不足自动放宽补齐 · 可选平台过滤 · 数据来自 TMDB',
+  },
+  {
+    cat: 'ent',
+    id: 'simkl-anime',
+    name: '流媒体热门动漫',
+    icon: '🍥',
+    path: '/v2/simkl-trending?type=anime',
+    type: 'simkl',
+    auto: 1,
+    inputs: [{ n: 'network', sel: TMDB_NETWORKS, d: '' }],
+    hint: '优先 7 天内新上的热门日本动画，不足自动放宽补齐 · 可选平台过滤 · 数据来自 TMDB',
   },
   // 官方 Data API 的 chart=mostPopular 需要 API Key，故走 Invidious / Piped 社区实例（多实例兜底，见后端模块注释）；
   // 榜单固定取「游戏」栏目且滤掉直播——实测默认栏目几乎全是直播，不适合当热榜看
@@ -2943,6 +2955,7 @@ const CARD_GROUPS = [
     tabs: [
       { ep: 'simkl-tv', label: '剧集' },
       { ep: 'simkl-movies', label: '电影' },
+      { ep: 'simkl-anime', label: '动漫' },
     ],
   },
   // 网易云音乐榜：选项不写死，卡片挂载后拉一次后端榜单清单填充下拉
@@ -2975,6 +2988,22 @@ CARD_GROUPS.forEach((g) =>
     GROUP_OF[t.ep] = g
   }),
 )
+
+// 分类计数口径 = 实际渲染的卡片数：组内每个成员 EPS 都会折叠成同一张组卡，只计一次。
+// 之前直接数 EPS 条目，分组成员逐个计入导致侧栏/标题数字虚高（如影视娱乐显示 20 实为 11）
+function countCards(eps) {
+  const seenGroups = new Set()
+  let n = 0
+  eps.forEach((ep) => {
+    const g = GROUP_OF[ep.id]
+    if (g) {
+      if (seenGroups.has(g)) return
+      seenGroups.add(g)
+    }
+    n++
+  })
+  return n
+}
 
 // ============ 响应式判定：断点与输入能力（CSS 与 JS 共用同一口径） ============
 // MQ_TOUCH  ：主输入为触摸（手机/平板）——全屏分流用；触摸设备绕开系统 Fullscreen API，
@@ -4303,7 +4332,8 @@ function init() {
         ? String(isMobileLayout() ? nav.classList.contains('toc-open') : true)
         : 'false',
     )
-    const count = c.id === 'all' ? EPS.length : EPS.filter((ep) => ep.cat === c.id).length
+    // 计数 = 实际卡片数：分组成员折叠为一张组卡只计一次（见 countCards）
+    const count = countCards(c.id === 'all' ? EPS : EPS.filter((ep) => ep.cat === c.id))
     const cleanName = c.name.replace(/^[^\s]+\s+/, '')
     b.innerHTML = `
       <span class="sb-cat-icon icon-${c.id}">${CAT_ICONS[c.id] || '📁'}</span>
@@ -4842,7 +4872,7 @@ function renderImpl() {
       const sec = document.createElement('div')
       sec.className = 'cat-section'
       sec.dataset.cat = c.id // 供分类导航点击后定位到该分类标题
-      sec.innerHTML = `<div class="cat-title">${TITLE_BUBBLES}${c.name}<span class="count">${eps.length}</span></div>`
+      sec.innerHTML = `<div class="cat-title">${TITLE_BUBBLES}${c.name}<span class="count">${countCards(eps)}</span></div>`
       const grid = document.createElement('div')
       grid.className = 'grid'
       appendCards(grid, eps)
@@ -4858,7 +4888,7 @@ function renderImpl() {
         const sec = document.createElement('div')
         sec.className = 'cat-section'
         sec.dataset.cat = curCat // 供分类导航点击后定位到该分类标题
-        sec.innerHTML = `<div class="cat-title">${TITLE_BUBBLES}${selCat.name}<span class="count">${eps.length}</span></div>`
+        sec.innerHTML = `<div class="cat-title">${TITLE_BUBBLES}${selCat.name}<span class="count">${countCards(eps)}</span></div>`
         // 数据源便签行：Hero 与卡片之间的一条横向标签，点它筛选本分类的卡片。
         // 「全部」分类不显示——那个视图本身就是按分类分组的汇总，再列一遍数据源没有意义
         sec.appendChild(buildCatFilterBar(curCat))
@@ -5280,7 +5310,8 @@ async function load(ep, forceUpdate = false) {
   }
   if (ep.type === 'qr') params.set('encoding', 'json')
   const qs = params.toString()
-  if (qs) url += '?' + qs
+  // path 自带查询参数的卡片（如流媒体榜的 ?type=tv）要用 & 续接，不能再来一个 ?
+  if (qs) url += (url.includes('?') ? '&' : '?') + qs
 
   // 缓存键不含 force-update：它只是回源手段，计入 key 会让刷新结果写到另一个键，
   // 之后普通加载仍命中旧缓存，等于白刷
@@ -12556,14 +12587,41 @@ function rPomodoro(_, c) {
 // 骰面点数坐标 (100x100 viewBox)
 const DEC_PIPS = {
   1: [[50, 50]],
-  2: [[32, 32], [68, 68]],
-  3: [[32, 32], [50, 50], [68, 68]],
-  4: [[32, 32], [68, 32], [32, 68], [68, 68]],
-  5: [[32, 32], [68, 32], [50, 50], [32, 68], [68, 68]],
-  6: [[32, 27], [68, 27], [32, 50], [68, 50], [32, 73], [68, 73]],
+  2: [
+    [32, 32],
+    [68, 68],
+  ],
+  3: [
+    [32, 32],
+    [50, 50],
+    [68, 68],
+  ],
+  4: [
+    [32, 32],
+    [68, 32],
+    [32, 68],
+    [68, 68],
+  ],
+  5: [
+    [32, 32],
+    [68, 32],
+    [50, 50],
+    [32, 68],
+    [68, 68],
+  ],
+  6: [
+    [32, 27],
+    [68, 27],
+    [32, 50],
+    [68, 50],
+    [32, 73],
+    [68, 73],
+  ],
 }
 const DEC_FACE_SVG = (n) =>
-  `<svg viewBox="0 0 100 100" aria-hidden="true"><rect x="3" y="3" width="94" height="94" rx="20" fill="url(#decDieGrad)" stroke="rgba(0,0,0,0.12)" />${DEC_PIPS[n]
+  `<svg viewBox="0 0 100 100" aria-hidden="true"><rect x="3" y="3" width="94" height="94" rx="20" fill="url(#decDieGrad)" stroke="rgba(0,0,0,0.12)" />${DEC_PIPS[
+    n
+  ]
     .map(([x, y]) => `<circle cx="${x}" cy="${y}" r="9" fill="#3d3d4a" />`)
     .join('')}</svg>`
 // 六面在立方体上的摆位 (骰子边长 110px -> 位移 55px)

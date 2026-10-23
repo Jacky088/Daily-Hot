@@ -86,8 +86,14 @@ interface TmdbResult {
 /**
  * 拉取一份流媒体热门榜。t 取值：tv / movies / anime；
  * network 传平台名（Netflix / HBO Max / Disney+ ...），不传则为全平台热度榜。
- * any 错误直接向上抛，由 serviceStreaming 统一转为 502 响应。
+ *
+ * 「最新」口径分级补齐：优先 7 天内新上的内容（窗口内按热度降序），
+ * 不满 TARGET 条时依次放宽到 14 天、21 天补齐，去重后重新编名次。
+ * 任何一级请求失败都直接向上抛，由 serviceStreaming 统一转为 502 响应。
  */
+const RECENCY_WINDOWS = [7, 14, 21]
+const TARGET = 20
+
 export async function fetchTmdbList(t: string, network?: string | null): Promise<StreamingItem[]> {
   const key = config.tmdbApiKey
   if (!key) throw new Error('TMDB_API_KEY 未配置')
@@ -99,31 +105,39 @@ export async function fetchTmdbList(t: string, network?: string | null): Promise
   // tv / movies 走常规 discover
   const isMovie = t === 'movies'
   const path = isMovie ? '/discover/movie' : '/discover/tv'
-  const params = new URLSearchParams({
-    api_key: key,
-    language: 'zh-CN',
-    sort_by: 'popularity.desc',
-    page: '1',
-  })
-  if (t === 'anime') {
-    params.set('with_genres', '16')
-    params.set('with_original_language', 'ja')
-  }
-  if (providerId) {
-    params.set('with_watch_providers', String(providerId))
-    params.set('watch_region', 'US')
+
+  const day = 24 * 60 * 60 * 1000
+  const today = new Date().toISOString().slice(0, 10)
+
+  const buildUrl = (days: number) => {
+    // 不加时间窗的话 discover 返回的是全量历史热门（绝命毒师 2008…），那是历史榜不是最新榜
+    const since = new Date(Date.now() - days * day).toISOString().slice(0, 10)
+    const params = new URLSearchParams({
+      api_key: key,
+      language: 'zh-CN',
+      sort_by: 'popularity.desc',
+      page: '1',
+    })
+    if (t === 'anime') {
+      params.set('with_genres', '16')
+      params.set('with_original_language', 'ja')
+    }
+    // 电影同时限定上映日不晚于今天，排除未上映的待映片
+    if (isMovie) {
+      params.set('primary_release_date.gte', since)
+      params.set('primary_release_date.lte', today)
+    } else {
+      params.set('first_air_date.gte', since)
+    }
+    if (providerId) {
+      params.set('with_watch_providers', String(providerId))
+      params.set('watch_region', 'US')
+    }
+    return `${tmdbApi}${path}?${params}`
   }
 
-  const response = await fetchUpstream(`${tmdbApi}${path}?${params}`, { timeoutMs: 8000 })
-  if (!response.ok) {
-    throw new Error(`Failed to fetch tmdb-discover: HTTP ${response.status}`)
-  }
-
-  const data = (await response.json()) as { results?: TmdbResult[] }
-  const results = Array.isArray(data?.results) ? data.results : []
-
-  return results.slice(0, 30).map((e, idx) => ({
-    rank: idx + 1,
+  const toItem = (e: TmdbResult, rank: number): StreamingItem => ({
+    rank,
     title: e.title || e.name || '',
     rating: e.vote_average ? Math.round(e.vote_average * 10) / 10 : null,
     votes: e.vote_count || null,
@@ -134,7 +148,27 @@ export async function fetchTmdbList(t: string, network?: string | null): Promise
     poster: e.poster_path ? `${tmdbImage}${e.poster_path}` : '',
     link: `https://www.themoviedb.org/${isMovie ? 'movie' : 'tv'}/${e.id}`,
     overview: (e.overview || '').slice(0, 120),
-  }))
+  })
+
+  // 逐级放宽时间窗，新条目排在后面（7 天内的永远优先于 14/21 天的）
+  const seen = new Set<number>()
+  const list: StreamingItem[] = []
+  for (const days of RECENCY_WINDOWS) {
+    const response = await fetchUpstream(buildUrl(days), { timeoutMs: 8000 })
+    if (!response.ok) {
+      throw new Error(`Failed to fetch tmdb-discover: HTTP ${response.status}`)
+    }
+    const data = (await response.json()) as { results?: TmdbResult[] }
+    const results = Array.isArray(data?.results) ? data.results : []
+    for (const e of results) {
+      if (list.length >= TARGET) break
+      if (seen.has(e.id)) continue
+      seen.add(e.id)
+      list.push(toItem(e, list.length + 1))
+    }
+    if (list.length >= TARGET) break
+  }
+  return list
 }
 
 // 未配置 key 时的提示文案（text/markdown/json 三种编码共用一份事实描述）
@@ -172,7 +206,9 @@ class ServiceStreaming {
         renderByEncoding(ctx, {
           text: () =>
             `TMDB ${label} 热门${network ? ` · ${network}` : ''}\n\n${list
-              .map((e) => `${e.rank}. ${e.title}${e.rating ? ` ⭐${e.rating}` : ''}${e.network ? ` [${e.network}]` : ''}`)
+              .map(
+                (e) => `${e.rank}. ${e.title}${e.rating ? ` ⭐${e.rating}` : ''}${e.network ? ` [${e.network}]` : ''}`,
+              )
               .join('\n')}`,
           markdown: () =>
             `# 🍿 TMDB 热门${label}${network ? ` · ${network}` : ''}\n\n${list
