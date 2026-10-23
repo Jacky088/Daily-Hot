@@ -17,7 +17,12 @@ import type { RouterMiddleware } from '@oak/oak'
 //
 // ⚠️ 时间字段两边都不可信（Piped 的 uploaded 对直播是 0；Invidious 的 publishedText 跟随
 // 实例语言、published 等于响应时刻），所以时间一律从时间戳自己算，取不到就不显示。
-const INVIDIOUS_INSTANCES = ['invidious.f5.si', 'inv.nadeko.net', 'invidious.nerdvpn.de']
+// 实例存活状态 2026-10-23 实测：
+//   invidious.materialio.us   -> 200，gaming 榜 49 条、0 直播，数据完整（当前主力）
+//   inv.nadeko.net / nerdvpn  -> 403/401（疑似开始要求授权，留作观察）
+//   pipedapi.ducks.party      -> 200，但返回的全是直播（duration=-1）会被过滤
+//   invidious.f5.si / kavin   -> 530/525（Cloudflare 源站挂了）
+const INVIDIOUS_INSTANCES = ['invidious.materialio.us', 'inv.nadeko.net', 'invidious.nerdvpn.de']
 const PIPED_INSTANCES = ['pipedapi.ducks.party', 'pipedapi.kavin.rocks']
 
 const DEFAULT_LIMIT = 20
