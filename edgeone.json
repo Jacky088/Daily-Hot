@@ -1,5 +1,5 @@
 {
-  "installCommand": "npm install --no-audit --no-fund",
+  "installCommand": "npm install --no-audit --no-fund --registry=https://registry.npmmirror.com --replace-registry-host=always --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 --fetch-timeout=600000 --no-progress",
   "buildCommand": "node scripts/copy-assets.mjs",
   "outputDirectory": ".edgeone"
 }
