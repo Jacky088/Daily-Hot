@@ -4,7 +4,7 @@
 // 否则用户浏览器会一直沿用上一版的 JS/CSS
 // 注意：构建产物走 /dist/app.[hash].js（见 scripts/build-frontend.mjs），
 // hash 变化即新 URL，SW 里对 /dist/* 用 Cache-First + 后台更新即可，不会锁死旧代码。
-const CACHE_NAME = 'daily-hot-v1.15.0'
+const CACHE_NAME = 'daily-hot-v1.15.13'
 const STATIC_ASSETS = [
   '/style.css',
   '/app.js',

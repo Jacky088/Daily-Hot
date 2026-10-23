@@ -3618,7 +3618,8 @@ function init() {
       overlay.innerHTML = `
         <!-- 天幕拆成「一层静态底 + 四层静态渐变」，只对 opacity 做动画：
              直接插值 background（linear-gradient）不能走合成，等于每帧重绘一整屏，
-             是天象动画卡顿的主因。各层配色与时间点见 style.css 的 ttoSkyFill -->
+             是天象动画卡顿的主因。相邻叠片的窗口必须首尾搭接（不能一个 to 1 后下个
+             才 from 0），否则天幕会塌回旧色闪一下。各层配色与时间点见 style.css -->
         <div class="tto-sky">
           <i class="tto-sky-fill"></i>
           <i class="tto-sky-fill"></i>
@@ -3678,9 +3679,11 @@ function init() {
             </svg>
           </div>
         </div>
-        <!-- 太阳：原来那 8 根等距圆角光条 + 虚线圆环是纯图标语言，和厚涂插画的山体不是一套画法。
-             改成「多层大气辉光 + 左上受光的球体渐变 + 外圈暗调」，只靠光的衰减塑形，不用任何硬边装饰。 -->
-        <div class="tto-sun-wrap">
+        <!-- 太阳：轨道结构 —— .tto-sun-track 只做 translateY 升降（0×100vh 的锚线，
+             位移不改变自身绘制内容，合成器零重栅格化），.tto-sun-wrap 负责外观；
+             日出升到天顶、日落沉入山后，全程可见、相位完整 -->
+        <div class="tto-sun-track">
+          <div class="tto-sun-wrap">
           <svg class="tto-sun-svg" viewBox="0 0 200 200" fill="none">
             <defs>
               <radialGradient id="ttoSunGlowOuter" cx="50%" cy="50%" r="50%">
@@ -3708,10 +3711,13 @@ function init() {
             <circle cx="100" cy="100" r="62" fill="url(#ttoSunRim)" />
             <ellipse cx="78" cy="70" rx="31" ry="17" transform="rotate(-24 78 70)" fill="#FFFEF9" opacity="0.45" />
           </svg>
+          </div>
         </div>
         <!-- 月亮：弦月形状保留，但把单层平铺渐变换成「多层辉光 + 本体渐变 + 弱高光」，
-             和太阳共用同一套发光语言；小星保留作为呼应。 -->
-        <div class="tto-moon-wrap">
+             和太阳共用同一套发光语言；小星保留作为呼应。月亮同样走轨道结构：
+             .tto-moon-track 升降（月落/月升），外观与光晕挂在 .tto-moon-wrap 上 -->
+        <div class="tto-moon-track">
+          <div class="tto-moon-wrap">
           <svg class="tto-moon-svg" viewBox="0 0 120 120" fill="none">
             <defs>
               <radialGradient id="ttoMoonGlow" cx="50%" cy="50%" r="50%">
@@ -3732,6 +3738,7 @@ function init() {
             <path d="M 58 20 A 39 39 0 0 0 32 72" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" opacity="0.5" />
             <path d="M 84 38 C 84 41.5 82 44 78 44 C 82 44 84 46.5 84 50 C 84 46.5 86 44 90 44 C 86 44 84 41.5 84 38 Z" fill="#FFFFFF" opacity="0.85" />
           </svg>
+          </div>
         </div>
         ${buildAlpineLandscapeHtml()}
       `
@@ -3742,23 +3749,17 @@ function init() {
     const mode = nextTheme === 'dark' ? 'mode-sunset' : 'mode-sunrise'
     overlay.className = `theme-transition-overlay active ${mode}`
 
-    // 与 style.css 里 2.4s 的天象时间轴共用一条时钟。原来的 1.25s 里太阳要横跨整屏、
-    // 月亮还要在尾巴上抢着升起，一帧挪几像素，观感就是"唰一下过去了"；放慢后每个相位
-    // 都有可读的停留时间。reduced-motion 走 CSS 的 0.4s 降级版，这里同步缩短。
-    const TOTAL_MS = isReduced ? 420 : 2400
+    // 与 style.css 里 2.6s 的天象时间轴共用一条时钟。原 1.25s 太短；2.4s 里
+    // 月落（0~21%）尾段只剩 0.4s，升落动画还得在 fade 尾段抢戏。放慢到 2.6s，
+    // 升与落各自拿到一段不被打扰的完整轨迹；reduced-motion 走 CSS 的 0.4s 降级版。
+    const TOTAL_MS = isReduced ? 420 : 2600
 
-    // 天象动画期间冻结底层一切常驻动画，并在画面完全被遮住后干脆不绘制它。
-    // 页面常驻 60+ 个毛玻璃面（每个都要采样并模糊背后的内容）与背景光斑的漂移/模糊，
-    // overlay 盖上去之后它们仍在逐帧重算——这才是帧率掉到二十几的直接原因。
-    // 详见 style.css 的 html.tto-running / html.tto-hide-under
+    // 天象动画期间冻结底层一切常驻动画（时钟脉冲、背景光斑漂移、卡片呼吸…）。
+    // 页面常驻 60+ 个毛玻璃面在 overlay 之下仍会逐帧参与合成，是帧率掉到二十几的
+    // 直接原因。整块遮蔽放回 CSS：12% 起关掉底层绘制、86.5% 淡出前恢复，
+    // 与 overlay 同一条时间轴（ttoHideSandwich），不用 JS 猜时刻。
     const root = document.documentElement
     root.classList.add('tto-running')
-    if (!isReduced) {
-      // 10% 是 overlay 淡入完成的时刻（ttoCartoonMaster 的 9%），
-      // 88% 起开始淡出，所以在 87% 先把底层放回来，避免露出空白页
-      setTimeout(() => root.classList.add('tto-hide-under'), Math.round(TOTAL_MS * 0.105))
-      setTimeout(() => root.classList.remove('tto-hide-under'), Math.round(TOTAL_MS * 0.87))
-    }
 
     // 底色在中段（太阳没入山后、月亮尚未升起的空档）切换：此时 overlay 的画面已经
     // 全暗，底层换成深色看不出来，用户感知是"天黑了"而不是"闪了一下"。
@@ -3766,13 +3767,13 @@ function init() {
       () => {
         commitChange()
       },
-      isReduced ? 200 : Math.round(TOTAL_MS * 0.55),
+      isReduced ? 200 : Math.round(TOTAL_MS * 0.56),
     )
 
     // 收尾留一点余量，确保 100% 那帧完整播完再撤 overlay
     setTimeout(() => {
       overlay.className = 'theme-transition-overlay'
-      root.classList.remove('tto-hide-under', 'tto-running')
+      root.classList.remove('tto-running')
       isThemeAnimating = false
     }, TOTAL_MS + 140)
   }

@@ -358,30 +358,32 @@ select:focus-visible {
 .aura-b {
   position: absolute;
   display: block;
-  /* 尺寸封顶：vmax 保证「大屏更大、窄屏不塌成一条」，但 4K 上 68vmax 会到 2600px，
-     四张这么大的合成层纹理要吃掉上百 MB 显存（动画层是位图缓存），所以再压一个
-     min() 上限——1200px 的光斑在 2560/3840 宽屏上依然是「一大块」，观感不变 */
-  width: min(68vmax, 1200px);
-  height: min(68vmax, 1200px);
+  /* 尺寸封顶：vmax 保证「大屏更大、窄屏不塌成一条」。上限从 1200px 收到 760px：
+     光斑在玻璃层背后漂移时，backdrop-filter 的失效区域与光斑面积成正比，
+     760px 的柔光在 2K 宽屏上依然是「一大块」，但显存与模糊重算面积减半以上 */
+  width: min(58vmax, 760px);
+  height: min(58vmax, 760px);
   border-radius: 50%;
   /* 动画参数由各光斑自己给：--dx/--dy 是漂移幅度（百分比相对光斑自身尺寸，
      所以大屏小屏的「相对走位」一致），--s1/--s2 是中途的两个缩放档 */
-  animation: auraDrift var(--dur, 42s) ease-in-out infinite;
+  animation: auraDrift var(--dur, 56s) ease-in-out infinite;
   animation-delay: var(--delay, 0s);
-  will-change: transform;
 }
 
-/* ---- 性能开关：停止光斑漂移 ----
-   这是整站最贵的一处：四颗光斑以 transform 无限漂移，而它们正好位于所有玻璃层
-   背后，于是 60+ 个 backdrop-filter 的缓存每帧都失效、必须整片重算模糊。
-   停掉漂移后光斑位置/配色/大小与首帧完全一致（仍是四颗柔光），观感几乎不变，
-   但玻璃层的模糊结果可以被缓存复用。同时清掉 will-change，
-   释放四张全屏 1200×1200 的合成层（约上百 MB 显存）。
-   如需恢复「流动光」，删掉下面这条规则即可。 */
-.aura-b {
-  animation: none;
-  will-change: auto;
-}
+/* ---- 流动效果：恢复漂移，但把成本压到可承受 ----
+   历史上这里直接 .aura-b { animation: none } 把漂移整个关死——用户完全看不到
+   「液体流动」。真正的问题不是"动不起来"，而是四颗 1200px 光斑各自独立漂移时，
+   它们位于 60+ 个 backdrop-filter 玻璃层的背后，玻璃的模糊缓存每帧失效、
+   整片重算。修复思路是**缩小失效面积**而不是静止：
+   ① 光斑尺寸封顶从 1200px 降到 760px（vmax 44）——失效区域随尺寸线性缩小；
+   ② 漂移幅度收窄（±6~8%）、周期放缓（56~88s）——玻璃重算频率不变，但
+      每次失效的位移差更小，模糊缓存仍需重算，开销由「尺寸×次数」决定，
+      尺寸这一项已经砍半；
+   ③ 只提升 b1/b2 两颗为合成层（will-change），b3/b4 不提升——
+      合成层从 4 张全屏纹理减到 2 张，显存占用同步减半；
+   ④ 层错峰：b1/b2 动，b3/b4 静止作底——视口里永远只有两块失效区在移动，
+      玻璃重算从「全屏失效」变成「局部跟随」。
+   如需完全关闭流动，把 .aura-b 基础块里那条 animation: none 的注释解开即可。 */
 /* 漂移轨迹：出发 → 右上放大 → 左下略收 → 回到出发。
    三个中间点而不是「左上到右下」的直线往返，是为了让四颗错开相位后
    永远处于不同的运动方向，整片背景才像在「流」而不是整体平移 */
@@ -390,10 +392,10 @@ select:focus-visible {
     transform: translate3d(0, 0, 0) scale(1);
   }
   30% {
-    transform: translate3d(var(--dx, 14%), var(--dy, -10%), 0) scale(var(--s1, 1.16));
+    transform: translate3d(var(--dx, 7%), var(--dy, -6%), 0) scale(var(--s1, 1.08));
   }
   62% {
-    transform: translate3d(calc(var(--dx, 14%) * -0.7), calc(var(--dy, -10%) * -0.6), 0) scale(var(--s2, 0.94));
+    transform: translate3d(calc(var(--dx, 7%) * -0.7), calc(var(--dy, -6%) * -0.6), 0) scale(var(--s2, 0.96));
   }
   100% {
     transform: translate3d(0, 0, 0) scale(1);
@@ -406,7 +408,9 @@ select:focus-visible {
    透明度刻意给到 0.5 上下 —— 这一版的目标就是「明显」：
    太淡等于没做（旧版静态球体只有 0.4 且半径 620~700px，全屏看基本读不出来），
    再浓正文就该被背景抢了。正文与玻璃卡都在 z-index:1 之上，
-   且卡片自身还有 backdrop-filter 与半透明白底兜着，可读性不受影响。 */
+   且卡片自身还有 backdrop-filter 与半透明白底兜着，可读性不受影响。
+   will-change 只给 b1/b2：全屏尺寸的合成层每张 1~2MB 显存，两颗漂移的两颗
+   提升，b3/b4 静止作底不提升——显存减半，玻璃失效区也只有两块在动 */
 .aura-b1 {
   top: -24%;
   left: -18%;
@@ -416,12 +420,13 @@ select:focus-visible {
     rgba(146, 126, 255, 0.3) 42%,
     rgba(146, 126, 255, 0) 72%
   );
-  --dx: 16%;
-  --dy: -12%;
-  --s1: 1.18;
-  --s2: 0.92;
-  --dur: 46s;
-  --delay: -6s;
+  --dx: 8%;
+  --dy: -7%;
+  --s1: 1.08;
+  --s2: 0.95;
+  --dur: 56s;
+  --delay: -8s;
+  will-change: transform;
 }
 .aura-b2 {
   top: -20%;
@@ -432,12 +437,13 @@ select:focus-visible {
     rgba(255, 138, 186, 0.26) 44%,
     rgba(255, 138, 186, 0) 74%
   );
-  --dx: -14%;
-  --dy: 14%;
-  --s1: 1.12;
-  --s2: 0.9;
-  --dur: 54s;
-  --delay: -22s;
+  --dx: -7%;
+  --dy: 8%;
+  --s1: 1.06;
+  --s2: 0.94;
+  --dur: 72s;
+  --delay: -30s;
+  will-change: transform;
 }
 .aura-b3 {
   bottom: -30%;
@@ -448,32 +454,32 @@ select:focus-visible {
     rgba(255, 176, 112, 0.22) 44%,
     rgba(255, 176, 112, 0) 74%
   );
-  --dx: 12%;
-  --dy: -16%;
-  --s1: 1.14;
-  --s2: 0.95;
-  --dur: 50s;
-  --delay: -34s;
+  --dx: 6%;
+  --dy: -8%;
+  --s1: 1.05;
+  --s2: 0.96;
+  --dur: 64s;
+  --delay: -40s;
 }
 /* 白亮斑：压在偏中上、尺寸略小，模拟一团「过曝的白光」，
    是四颗里唯一不承载色相的，负责把另外三颗的颜色托起来 */
 .aura-b4 {
   top: 12%;
   left: 22%;
-  width: min(52vmax, 900px);
-  height: min(52vmax, 900px);
+  width: min(44vmax, 560px);
+  height: min(44vmax, 560px);
   background: radial-gradient(
     circle,
     rgba(255, 255, 255, 0.72) 0%,
     rgba(255, 255, 255, 0.4) 40%,
     rgba(255, 255, 255, 0) 70%
   );
-  --dx: -10%;
-  --dy: 10%;
-  --s1: 1.22;
-  --s2: 0.88;
-  --dur: 38s;
-  --delay: -14s;
+  --dx: -6%;
+  --dy: 6%;
+  --s1: 1.1;
+  --s2: 0.92;
+  --dur: 48s;
+  --delay: -18s;
 }
 
 /* ---- 暗色主题：同一套位置，换成「深底上的发光」 ----
@@ -7052,7 +7058,9 @@ select:focus-visible {
 /* 移动端布局（窄屏 ≤820px）：侧边栏折叠回顶部横向滚动 pill 栏，内容纵向单列；
    与 app.js 的 MQ_MOBILE 同口径，避免大屏触控设备（Surface/触摸笔记本等）被误判掉回移动端样式 */
 @media (max-width: 820px) {
-  /* 移动端 GPU 与发热降载：光斑保留静态渐变景深，停用无限漂移动画与合成层提升，彻底消除移动端每秒数十次的 GPU 复合图层重绘 */
+  /* 移动端 GPU 与发热降载：光斑保留静态渐变景深，停用无限漂移动画与合成层提升，
+     彻底消除移动端每秒数十次的 GPU 复合图层重绘。移动端屏幕小、光斑占屏比高，
+     同样的漂移会让玻璃失效区盖住大半视口，得不偿失——流动感交给主题过渡动画 */
   .aura-b {
     animation: none;
     will-change: auto;
@@ -12954,7 +12962,9 @@ body {
 .rs-item {
   display: block !important;
   /* 标题已允许换行，上下留白给到 11px，多行条目之间才不会挤在一起 */
-  padding: 11px 0 !important;
+  /* 左右 5px 缩进：TOP 徽章是全卡饱和度最高的元素，贴着内容左缘（距边框仅
+     19px）时视觉上像压在卡片边框上；缩进后徽章距边框 24px，分隔线仍通宽 */
+  padding: 11px 5px !important;
   text-decoration: none !important;
   color: inherit !important;
   /* 只留底部分隔线：基础规则那圈 1px 外边在 hover 时会整圈染色，正是红框来源 */
@@ -13307,6 +13317,17 @@ body {
 }
 [data-theme='dark'] .rs-item {
   border-bottom-color: rgba(51, 65, 85, 0.6) !important;
+}
+/* 深色下收弱 TOP 徽章光晕：浅色底上 0.35 的红晕几乎不可见，但深色玻璃底上
+   同样的光晕会向四周洇开 8px 左右，让徽章看起来贴到卡片边框上 */
+[data-theme='dark'] .rs-badge-pick.badge-top-1 {
+  box-shadow: 0 1px 3px rgba(239, 68, 68, 0.2) !important;
+}
+[data-theme='dark'] .rs-badge-pick.badge-top-2 {
+  box-shadow: 0 1px 3px rgba(249, 115, 22, 0.2) !important;
+}
+[data-theme='dark'] .rs-badge-pick.badge-top-3 {
+  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.2) !important;
 }
 
 /* 热词云标签高亮与深色适配 */
@@ -14865,6 +14886,13 @@ select.tool-input-txt {
    全屏主题切换扁平卡通矢量过渡动画（浅色变深色：日落；深色变浅色：日升）
    桌面端 + 移动端全面自适应；纯扁平矢量插画风格，层次分明，生动可爱。
    ================================================================ */
+:root {
+  /* 天象时间轴总长。app.js 的 TOTAL_MS 与它共用一条时钟，改这里必须同步改 JS。
+     必须挂在 :root：html.tto-running .app-shell 的遮蔽动画也要引用它，
+     而自定义属性不会从 overlay 沿树继承到它的兄弟节点上 */
+  --tto-total: 2.6s;
+}
+
 .theme-transition-overlay {
   position: fixed;
   inset: 0;
@@ -14887,8 +14915,9 @@ select.tool-input-txt {
 
 /* 天幕：一层静态底色 + 若干层静态渐变叠片，全程只动 opacity。
    原先直接对 background（linear-gradient）做关键帧插值——渐变不能走合成，
-   浏览器每帧都得重绘一整屏渐变，2.4s 里持续几十毫秒的开销，正是"一卡一卡"的
-   第一个来源。拆成叠片后每一层只栅格化一次，之后全在合成器上渐进 */
+   浏览器每帧都得重绘一整屏渐变，整个天象周期里持续几十毫秒的开销，
+   正是"一卡一卡"的第一个来源。拆成叠片后每一层只栅格化一次，
+   之后全在合成器上渐进 */
 .tto-sky {
   position: absolute;
   inset: 0;
@@ -14900,6 +14929,11 @@ select.tool-input-txt {
   position: absolute;
   inset: 0;
   opacity: 0;
+  /* 预分层：带 animation-delay 的叠片若不提前提升，会在 572/1144/1716ms 等
+     各自起播的瞬间才被合成器提升+栅格化——整屏渐变的光栅化突发正好撞在
+     动画中段，表现为一记卡顿。提前声明 will-change 让四层在 overlay 首帧
+     就完成栅格化，后续只剩合成器上的透明度混合 */
+  will-change: opacity;
 }
 /* 叠片共用的淡入：覆盖式叠加，先出现的层不需要退场——
    上层是不透明渐变，淡到 1 就直接把下面那层盖住了 */
@@ -14942,25 +14976,30 @@ select.tool-input-txt {
   will-change: transform, opacity;
 }
 
+/* 天体弧线轨道：太阳/月亮共用同一条「天穹椭圆弧」（采样点见下方坐标系注释）。
+   轨道锚点固定在屏幕水平中央，位移全部走 translate3d 刚体平移（不改绘制内容，
+   合成器零重栅格化）。山体层（z-index: 4）盖在轨道（z-index: 2）之上：
+   天体沉到山脊下即被自然遮蔽，升落全程无需透明度配合，无"半透明叠影" */
+.tto-sun-track {
+  position: absolute;
+  /* 锚点 = 天顶（屏幕中央顶端），弧线偏移写进各模式的关键帧 */
+  left: 50%;
+  top: 0;
+  width: clamp(132px, 19.5vw, 196px);
+  height: clamp(132px, 19.5vw, 196px);
+  margin-left: calc(clamp(132px, 19.5vw, 196px) / -2);
+  pointer-events: none;
+  z-index: 2;
+  will-change: transform;
+}
 /* 扁平卡通太阳容器（居中，z-index: 2） */
 .tto-sun-wrap {
   position: absolute;
-  left: 50%;
-  /* 太阳要和月亮处在同一高度带：月亮固定在 top:26%，这里用 46vh 的底距 + 终帧 -104px
-     位移，让太阳中心也落在距顶约 26% 处。旧值 32vh/上限 320px 只把太阳送到 40%，
-     于是"月亮爬上天顶、太阳却停在山脊上"。 */
-  bottom: max(150px, 46vh);
-  width: clamp(132px, 19.5vw, 196px);
-  height: clamp(132px, 19.5vw, 196px);
-  /* 固定停在天空高处（与月亮同一高度带，距顶约 26%）：日月不再升落、不再缩放，
-     只在原地淡入淡出。它们是 overlay 里最后两个会触发重栅格化的元素，
-     位置写死之后动画只剩 opacity，彻底走合成器 */
-  transform: translate3d(-50%, -104px, 0);
-  pointer-events: none;
-  z-index: 2;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: none;
   will-change: opacity;
 }
 /* 光晕改成一层静态径向渐变，不再挂 filter: drop-shadow。
@@ -14988,19 +15027,26 @@ select.tool-input-txt {
 }
 /* 太阳已改成纯辉光塑形，不再有可旋转的光芒组，ttoSpinRays 一并移除 */
 
+/* 月亮轨道结构：与太阳共用同一条天穹弧（见 .tto-sun-track 注释） */
+.tto-moon-track {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: clamp(90px, 13vw, 130px);
+  height: clamp(90px, 13vw, 130px);
+  margin-left: calc(clamp(90px, 13vw, 130px) / -2);
+  pointer-events: none;
+  z-index: 2;
+  will-change: transform;
+}
 /* 扁平卡通月亮容器（右上角星空定位，z-index: 2） */
 .tto-moon-wrap {
   position: absolute;
-  right: clamp(10%, 18vw, 22%);
-  top: clamp(14%, 20vh, 26%);
-  width: clamp(90px, 13vw, 130px);
-  height: clamp(90px, 13vw, 130px);
-  pointer-events: none;
-  z-index: 2;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  /* 同太阳：位置固定，只做淡入淡出 */
+  pointer-events: none;
   will-change: opacity;
 }
 /* 月亮的光晕同上：静态径向渐变，替代原来的 filter: drop-shadow(24px) */
@@ -15024,7 +15070,7 @@ select.tool-input-txt {
   height: 100%;
 }
 
-/* 日月已改回「固定在天空、只淡入淡出」（见下方 motion keyframes 处的说明），
+/* 日月已恢复「轨道升落」（见下方 motion keyframes 处的说明），
    这里不再有隔离规则 */
 
 /* 高精全屏雪山自然风景图层（像素级贴合 Hero 卡片雪山与冷杉林） */
@@ -15044,8 +15090,6 @@ select.tool-input-txt {
   pointer-events: none;
   z-index: 4;
   overflow: hidden;
-  /* 把夜染层的 multiply 圈在这一层内，只作用于山体，不往下混到天空 */
-  isolation: isolate;
 }
 @media (max-width: 640px) {
   .tto-landscape-wrap {
@@ -15068,9 +15112,9 @@ select.tool-input-txt {
 }
 /* 全站过渡只用一张山体图，叠成三层：原色 / 暖光（日照金山）/ 暗调（夜色）。
    ⚠️ 刻意不用 filter 关键帧动画：滤镜值一变，整张图（最宽可达视口宽 × 0.45 高，
-   两百多万像素）就必须重新光栅化，2.4s 里每帧都来一遍——这是天象动画掉帧的
-   最后一个、也是最大的开销。三层各自的 filter 是常量，纹理只生成一次，
-   昼夜变化全部交给 opacity，之后全程在合成器上跑。 */
+   两百多万像素）就必须重新光栅化，整个天象周期里每帧都来一遍——
+   这是天象动画掉帧的最后一个、也是最大的开销。三层各自的 filter 是常量，
+   纹理只生成一次，昼夜变化全部交给 opacity，之后全程在合成器上跑。 */
 .tto-layer-peak,
 .tto-layer-warm,
 .tto-layer-dark {
@@ -15089,12 +15133,15 @@ select.tool-input-txt {
 .tto-layer-warm {
   filter: brightness(1.16) saturate(1.32) sepia(0.52) hue-rotate(-14deg);
 }
-/* 暗调层：两层色调动画共同的终态（日落 100% / 日出 0%），再暗的部分由下方夜染层补 */
+/* 暗调层：两层色调动画共同的终态（日落 100% / 日出 0%），夜染层负责再往蓝黑压 */
 .tto-layer-dark {
   filter: brightness(0.62) saturate(0.8);
 }
-/* 夜空染色：冷色 multiply 叠在山体上，opacity 由昼夜动画驱动。
-   只压 brightness 会让山变成"发灰的白天照"，补这层才有真正的月下偏蓝。
+/* 夜空染色：冷色半透明渐变按山体形状罩在山上，opacity 由昼夜动画驱动。
+   ⚠️ 曾经用 mix-blend-mode: multiply 实现——但带混合模式的巨型图层每帧都要
+   对背后内容做一次混合回读（几百万元素/帧），是日月之外最后的掉帧来源。
+   换成普通 alpha 叠加后合成器只做一次贴图混合，代价低一个量级；
+   蓝色调加重补偿 multiply 的深度感。
    必须用同一张图做 mask：否则染色是个矩形，会把山峰上方本该透明、留给天空的
    区域一起涂上颜色，wrap 的顶边就成了一条突兀的横线。
    挂在 wrap 上（不是 peak 上）才能真正压住暖光/暗调两层：peak 自己带 filter，
@@ -15110,8 +15157,7 @@ select.tool-input-txt {
   z-index: 3;
   opacity: 0;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(26, 38, 92, 0.62) 0%, rgba(10, 16, 46, 0.88) 100%);
-  mix-blend-mode: multiply;
+  background: linear-gradient(180deg, rgba(24, 34, 96, 0.6) 0%, rgba(6, 9, 34, 0.92) 100%);
   -webkit-mask-image: url(/hero-morning-fg.webp);
   mask-image: url(/hero-morning-fg.webp);
   -webkit-mask-size: 100% 100%;
@@ -15126,35 +15172,42 @@ select.tool-input-txt {
 /* ================================================================
    动画模式 1：日落动画 (Light -> Dark: Sunset 🌇 浅色变深色)
    ================================================================ */
-/* 天象时间轴统一 2.4s。相位约定（日落）：
-   0-10% overlay 淡入 → 10-30% 太阳最高、晚霞铺开 → 30-52% 太阳落到山后
-   → 52-74% 月亮升起、山体转夜 → 74-90% 夜色坐实 → 90-100% overlay 淡出 */
+/* 天象时间轴统一 2.6s（--tto-total）。相位约定（日落）：
+   0-9% overlay 淡入（天幕保持初始晚霞不动）→ 25-57% 太阳从天顶沿右弧落到山后
+   （日落，32% 时间窗），天色叠片 25% 起跟随推进 → 月亮开场即藏在右山后
+   （2-4% 趁遮蔽重置到左山后），57-89% 沿左弧升到天顶（月升，同为 32% 时间窗）
+   → 68-89% 天空推夜色、星星绽放 → 89-100% overlay 淡出
+   四条轨道（日落/日升/月落/月升）线速度一致 = 2.476 unit/%，日月快慢统一 */
 .theme-transition-overlay.mode-sunset {
-  animation: ttoCartoonMaster 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: ttoCartoonMaster var(--tto-total) cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-/* 日落天空：底色 = 起手那张晚霞，叠片按时序推：暮橙(0→34%) → 暗紫(34→66%) → 深夜(66→100%) */
+/* 日落天空：底色 = 起手那张晚霞。叠片**跟随太阳**：太阳离顶（25%）之前天幕
+   保持初始晚霞不动，它一动暮色才压上来——天比人先动会显得割裂。
+   时序：暮橙(25→53%) → 暗紫(45→70%) → 深夜(62→86%)。
+   叠片窗口首尾搭接 200ms：上一层未淡完、下一层已起步，天幕颜色始终有来源，
+   不会塌回底色"闪"一下 */
 .theme-transition-overlay.mode-sunset .tto-sky {
   background: linear-gradient(180deg, #53488d 0%, #ff6584 38%, #ffa07a 72%, #feeaa7 100%);
 }
 .theme-transition-overlay.mode-sunset .tto-sky-fill:nth-child(1) {
   background: linear-gradient(180deg, #372a66 0%, #b83b5e 35%, #f07b3f 70%, #ffd460 100%);
-  animation: ttoSkyFill 816ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: ttoSkyFill 728ms cubic-bezier(0.4, 0, 0.2, 1) 650ms forwards;
 }
 .theme-transition-overlay.mode-sunset .tto-sky-fill:nth-child(2) {
   background: linear-gradient(180deg, #12162d 0%, #1d2248 40%, #302652 75%, #4a3362 100%);
-  animation: ttoSkyFill 768ms cubic-bezier(0.4, 0, 0.2, 1) 816ms forwards;
+  animation: ttoSkyFill 650ms cubic-bezier(0.4, 0, 0.2, 1) 1170ms forwards;
 }
 .theme-transition-overlay.mode-sunset .tto-sky-fill:nth-child(3) {
   background: linear-gradient(180deg, #0a0d1d 0%, #11152e 45%, #191e3e 80%, #212244 100%);
-  animation: ttoSkyFill 816ms cubic-bezier(0.4, 0, 0.2, 1) 1584ms forwards;
+  animation: ttoSkyFill 624ms cubic-bezier(0.4, 0, 0.2, 1) 1612ms forwards;
 }
 
 /* 日落山体：暖光层「起 → 36% 日照金山峰值 → 退」，暗调层 36% 后接管。
    两层都只有 opacity 变化（滤镜是常量），所以任何时刻都只有一套峰形，
    也不会有"山被削掉"的断层，更不会触发整张图重栅格化。 */
 .theme-transition-overlay.mode-sunset .tto-layer-warm {
-  animation: ttoWarmSunset 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: ttoWarmSunset var(--tto-total) cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 @keyframes ttoWarmSunset {
   0%,
@@ -15172,7 +15225,7 @@ select.tool-input-txt {
   }
 }
 .theme-transition-overlay.mode-sunset .tto-layer-dark {
-  animation: ttoDarkSunset 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: ttoDarkSunset var(--tto-total) cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 @keyframes ttoDarkSunset {
   0%,
@@ -15189,7 +15242,7 @@ select.tool-input-txt {
 /* 夜染层：40% 前不动，天色转深时同步加浓，100% 到位——和天色叠片的节奏对齐，
    避免出现"天已经黑透、山还亮着"的割裂。 */
 .theme-transition-overlay.mode-sunset .tto-landscape-wrap::after {
-  animation: ttoSunsetTint 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: ttoSunsetTint var(--tto-total) cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 @keyframes ttoSunsetTint {
   0%,
@@ -15207,56 +15260,119 @@ select.tool-input-txt {
   }
 }
 
-/* 日落太阳：停在天空高处，28% 前保持满亮，此后被暮色逐层「吞掉」。
-   刻意不再位移与缩放：日月原本要横跨几百像素并缩放两三倍，位置一变，
-   浏览器就得按新的变换重新栅格化这张 SVG（每帧一次），是剩余卡顿的唯一来源。
-   现在位置写死，动画只剩 opacity，全程走合成器。 */
+/* ================================================================
+   天穹弧线坐标系（所有天体共用）：升左、落右，同真实天体东升西落。
+   轨道锚点在屏幕水平中央，transform: translate3d(弧线x, 弧线y, 0) 定位天体中心。
+   弧线是椭圆弧：x 半径 46vw、y 半径 74vh、圆心 (0, 100vh)——
+   · 天顶       = (0, 26vh)      —— 弧顶，屏幕中央
+   · 中段采样   = (±20vw, 33vh) (±30vw, 44vh) (±36vw, 54vh) (±40vw, 63vh)
+   · 入山/山后  = (±43vw, 74vh) (±46vw, 84vh)
+   （圆心低于视口 → 弧顶平缓、两侧渐陡，形似真实天穹；逐点按椭圆方程采样，
+   相邻点连线与真弧偏差 <1.5vh，肉眼是连续弧线，不是旧 3 段折线）
+   端点沉到 84vh：x=±46vw 处山脊 69.8vh、±40vw 处 72vh，天体中心 74~84vh
+   连顶缘都压在脊线之下，出入山全程被遮。
+   ================================================================ */
+
+/* 日落太阳：从天顶沿右半弧沉向右侧山后（右落）。
+   0~25% 悬停天顶（白天主光源），25~57% 匀速沿弧下沉（linear：
+   弧线本身已把运动分解成 8 段，每段再用 ease 会逐段刹车，卡顿感的主因），
+   57% 没入右山后 */
+.theme-transition-overlay.mode-sunset .tto-sun-track {
+  animation: ttoSunSet var(--tto-total) linear forwards;
+}
+@keyframes ttoSunSet {
+  0%,
+  25% {
+    transform: translate3d(0, 26vh, 0);
+  }
+  33.61% {
+    transform: translate3d(20vw, 33.4vh, 0);
+  }
+  39.47% {
+    transform: translate3d(30vw, 43.9vh, 0);
+  }
+  44.18% {
+    transform: translate3d(36vw, 53.9vh, 0);
+  }
+  48.37% {
+    transform: translate3d(40vw, 63.5vh, 0);
+  }
+  57%,
+  100% {
+    /* 没入右山后 */
+    transform: translate3d(46vw, 84vh, 0);
+  }
+}
 .theme-transition-overlay.mode-sunset .tto-sun-wrap {
-  animation: ttoSunFadeOut 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: ttoSunGlowOut var(--tto-total) cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
-@keyframes ttoSunFadeOut {
+@keyframes ttoSunGlowOut {
   0%,
-  28% {
+  25% {
     opacity: 1;
   }
-  52% {
-    opacity: 0.8;
+  45% {
+    opacity: 0.55;
   }
-  70%,
+  52%,
   100% {
     opacity: 0;
   }
 }
 
-/* 日落月亮：太阳淡到差不多（48%）后才在右上角浮现，同样只改透明度。
-   与太阳错开出现，避免"日月同框抢戏" */
-.theme-transition-overlay.mode-sunset .tto-moon-wrap {
-  animation: ttoMoonFadeIn 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+/* 日落月亮：全程不参与"落"——起始就待在右山后（上一次日升里它右落后停的位置，
+   被山体遮蔽不可见），2~4% 期间趁遮蔽立即重置到左山后（横移两端 y 同为 84vh，
+   全程压在山脊之下，肉眼不可见），等太阳沉完（57%）再沿左半弧升起，89% 到天顶。
+   ⚠️ 四条轨道线速度必须一致（全长 32% 时间窗，v=2.476 unit/%）——
+   旧版月升只给 17% 窗口，速度是太阳的 1.9 倍，"月亮明显快"就是这样来的。
+   ⚠️ 关键帧绝不能让月亮在日落开场出现在天顶——更早的版本就是这样，月亮叠在
+   太阳上抢先"落"了一次，观感成了"先掉下来的是月亮" */
+.theme-transition-overlay.mode-sunset .tto-moon-track {
+  animation: ttoMoonNightRise var(--tto-total) linear forwards;
 }
-@keyframes ttoMoonFadeIn {
+@keyframes ttoMoonNightRise {
   0%,
-  48% {
-    opacity: 0;
+  2% {
+    /* 上次日升右落后停的右山后停车位（山体遮蔽中，不可见） */
+    transform: translate3d(46vw, 84vh, 0);
   }
-  64% {
-    opacity: 0.85;
+  4% {
+    /* 立即重置到左山后：y 恒为 84vh（山脊之下），横移全程在山体后面 */
+    transform: translate3d(-46vw, 84vh, 0);
   }
-  84%,
+  57% {
+    /* 左山后待命：等太阳沉完，避免日月同框 */
+    transform: translate3d(-46vw, 84vh, 0);
+  }
+  65.61% {
+    transform: translate3d(-40vw, 63.5vh, 0);
+  }
+  71.47% {
+    transform: translate3d(-36vw, 53.9vh, 0);
+  }
+  76.18% {
+    transform: translate3d(-30vw, 43.9vh, 0);
+  }
+  80.37% {
+    transform: translate3d(-20vw, 33.4vh, 0);
+  }
+  89%,
   100% {
-    opacity: 1;
+    /* 月升到位：天顶（89% 恰在 overlay 淡出起点，收尾不抢戏） */
+    transform: translate3d(0, 26vh, 0);
   }
 }
 
-/* 日落星星：夜幕降临时弹跳绽放 */
+/* 日落星星：月升中段悄悄绽放（月升 57→89%） */
 .theme-transition-overlay.mode-sunset .tto-stars-wrap {
-  animation: ttoSunsetStarsFade 2.4s ease-out forwards;
+  animation: ttoSunsetStarsFade var(--tto-total) ease-out forwards;
 }
 @keyframes ttoSunsetStarsFade {
   0%,
-  54% {
+  68% {
     opacity: 0;
   }
-  78% {
+  86% {
     opacity: 1;
   }
   100% {
@@ -15283,10 +15399,10 @@ select.tool-input-txt {
 
 /* 日落轻云 */
 .theme-transition-overlay.mode-sunset .tto-cloud-item.c1 {
-  animation: ttoDriftC1 2.4s ease-out forwards;
+  animation: ttoDriftC1 var(--tto-total) ease-out forwards;
 }
 .theme-transition-overlay.mode-sunset .tto-cloud-item.c2 {
-  animation: ttoDriftC2 2.4s ease-out forwards;
+  animation: ttoDriftC2 var(--tto-total) ease-out forwards;
 }
 /* 云在天色转深前就要退干净：旧版到 75% 还剩 0.55 的白，压到深蓝夜空上
    会变成两块明显发灰的硬块，和月亮的光晕抢注意力。 */
@@ -15333,34 +15449,35 @@ select.tool-input-txt {
    动画模式 2：日升动画 (Dark -> Light: Sunrise 🌅 深色变浅色)
    ================================================================ */
 .theme-transition-overlay.mode-sunrise {
-  animation: ttoCartoonMaster 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: ttoCartoonMaster var(--tto-total) cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 /* 日升天空：底色 = 夜空，叠片按时序推：暗橙紫(0→26%) → 晴空蓝(26→50%) → 亮蓝(50→76%) → 白金(76→100%)。
-   天空亮度与太阳爬升同步：34% 冒头时已泛橙，50% 转蓝，太阳 60% 到位时天已亮透 */
+   叠片窗口与日落同款首尾搭接，避免换层瞬间天幕塌回夜色。
+   天空亮度与天体节奏同步：月落 0→32%，太阳 40% 冒头时已泛橙，50% 转蓝，64% 天已亮透 */
 .theme-transition-overlay.mode-sunrise .tto-sky {
   background: linear-gradient(180deg, #0a0d1d 0%, #11152e 45%, #191e3e 80%, #212244 100%);
 }
 .theme-transition-overlay.mode-sunrise .tto-sky-fill:nth-child(1) {
   background: linear-gradient(180deg, #3b2f5c 0%, #7a4670 32%, #c96a63 66%, #f0a05e 100%);
-  animation: ttoSkyFill 624ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: ttoSkyFill 728ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 .theme-transition-overlay.mode-sunrise .tto-sky-fill:nth-child(2) {
   background: linear-gradient(180deg, #2f7fd4 0%, #6cc0f5 33%, #a8e0fd 62%, #ffe9a8 100%);
-  animation: ttoSkyFill 576ms cubic-bezier(0.4, 0, 0.2, 1) 624ms forwards;
+  animation: ttoSkyFill 728ms cubic-bezier(0.4, 0, 0.2, 1) 572ms forwards;
 }
 .theme-transition-overlay.mode-sunrise .tto-sky-fill:nth-child(3) {
   background: linear-gradient(180deg, #63befd 0%, #96dcff 34%, #d2f0ff 68%, #fdfbef 100%);
-  animation: ttoSkyFill 624ms cubic-bezier(0.4, 0, 0.2, 1) 1200ms forwards;
+  animation: ttoSkyFill 728ms cubic-bezier(0.4, 0, 0.2, 1) 1144ms forwards;
 }
 .theme-transition-overlay.mode-sunrise .tto-sky-fill:nth-child(4) {
   background: linear-gradient(180deg, #70c4ff 0%, #a0e1ff 35%, #ddf4ff 70%, #ffffff 100%);
-  animation: ttoSkyFill 576ms cubic-bezier(0.4, 0, 0.2, 1) 1824ms forwards;
+  animation: ttoSkyFill 728ms cubic-bezier(0.4, 0, 0.2, 1) 1716ms forwards;
 }
 
 /* 日升山体：暗调层从夜色退到 0，暖光层 34% 达峰后收回，最后露出原色基准层 */
 .theme-transition-overlay.mode-sunrise .tto-layer-dark {
-  animation: ttoDarkSunrise 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: ttoDarkSunrise var(--tto-total) cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 @keyframes ttoDarkSunrise {
   0% {
@@ -15377,7 +15494,7 @@ select.tool-input-txt {
   }
 }
 .theme-transition-overlay.mode-sunrise .tto-layer-warm {
-  animation: ttoWarmSunrise 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: ttoWarmSunrise var(--tto-total) cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 @keyframes ttoWarmSunrise {
   0%,
@@ -15396,7 +15513,7 @@ select.tool-input-txt {
 }
 /* 日升夜染层：与 sky 同步退去，天亮时山体刚好回到本色 */
 .theme-transition-overlay.mode-sunrise .tto-landscape-wrap::after {
-  animation: ttoSunriseTint 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: ttoSunriseTint var(--tto-total) cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 @keyframes ttoSunriseTint {
   0% {
@@ -15413,54 +15530,111 @@ select.tool-input-txt {
   }
 }
 
-/* 日升月亮：原地淡出（不再滑落、不再缩小） */
-.theme-transition-overlay.mode-sunrise .tto-moon-wrap {
-  animation: ttoMoonFadeOut 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+/* 日升月亮：0~32% 从天顶沿右半弧沉入右山后（右落，与太阳同向），之后按兵不动。
+   时间窗与其他三条轨道一致（全长 32%，v=2.476 unit/%）——
+   旧版只给 18%，速度是太阳的 1.8 倍，"月亮明显快"的另一处来源 */
+.theme-transition-overlay.mode-sunrise .tto-moon-track {
+  animation: ttoMoonRiseOut var(--tto-total) linear forwards;
 }
-@keyframes ttoMoonFadeOut {
+@keyframes ttoMoonRiseOut {
+  0% {
+    /* 天顶：正在沿右弧下落 */
+    transform: translate3d(0, 26vh, 0);
+  }
+  8.61% {
+    transform: translate3d(20vw, 33.4vh, 0);
+  }
+  14.47% {
+    transform: translate3d(30vw, 43.9vh, 0);
+  }
+  19.18% {
+    transform: translate3d(36vw, 53.9vh, 0);
+  }
+  23.37% {
+    transform: translate3d(40vw, 63.5vh, 0);
+  }
+  32%,
+  100% {
+    /* 没入右山后，之后停住 */
+    transform: translate3d(46vw, 84vh, 0);
+  }
+}
+.theme-transition-overlay.mode-sunrise .tto-moon-wrap {
+  animation: ttoMoonDayOut var(--tto-total) cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@keyframes ttoMoonDayOut {
   0% {
     opacity: 1;
   }
-  22% {
-    opacity: 0.7;
+  24% {
+    opacity: 0.9;
   }
-  44%,
+  31%,
   100% {
     opacity: 0;
   }
 }
 
-/* 日升太阳：原地淡入——10% 起亮、34% 到位，之后保持不动。
-   位置固定、不缩放，动画只剩 opacity（与日落互为镜像） */
-.theme-transition-overlay.mode-sunrise .tto-sun-wrap {
-  animation: ttoSunFadeIn 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+/* 日升太阳：月亮沉完（32%）后从左山后沿左半弧升起，64% 到达天顶，之后悬停满亮。
+   时间窗 32%（v=2.476 unit/%，与月落/日落太阳/日落月升完全一致），
+   亮起交给 wrap 的透明度（46% 前熄、58% 半亮、64% 全亮），
+   太阳在山后移动时不发白 */
+.theme-transition-overlay.mode-sunrise .tto-sun-track {
+  animation: ttoSunRise var(--tto-total) linear forwards;
 }
-@keyframes ttoSunFadeIn {
+@keyframes ttoSunRise {
   0%,
-  10% {
+  32% {
+    /* 左山后待命：完全藏在山体轮廓之下 */
+    transform: translate3d(-46vw, 84vh, 0);
+  }
+  40.61% {
+    transform: translate3d(-40vw, 63.5vh, 0);
+  }
+  46.47% {
+    transform: translate3d(-36vw, 53.9vh, 0);
+  }
+  51.18% {
+    transform: translate3d(-30vw, 43.9vh, 0);
+  }
+  55.37% {
+    transform: translate3d(-20vw, 33.4vh, 0);
+  }
+  64%,
+  100% {
+    /* 天顶：弧顶，屏幕中央 */
+    transform: translate3d(0, 26vh, 0);
+  }
+}
+.theme-transition-overlay.mode-sunrise .tto-sun-wrap {
+  animation: ttoSunGlowIn var(--tto-total) cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@keyframes ttoSunGlowIn {
+  0%,
+  44% {
     opacity: 0;
   }
-  20% {
-    opacity: 0.45;
+  57% {
+    opacity: 0.55;
   }
-  34%,
+  64%,
   100% {
     opacity: 1;
   }
 }
 
-/* 日升星星：晨光初现时悄然隐退 */
+/* 日升星星：晨光初现时悄然隐退（月落 0→32%，太阳 32→64%） */
 .theme-transition-overlay.mode-sunrise .tto-stars-wrap {
-  animation: ttoSunriseStarsFade 2.4s ease-out forwards;
+  animation: ttoSunriseStarsFade var(--tto-total) ease-out forwards;
 }
 @keyframes ttoSunriseStarsFade {
   0% {
     opacity: 1;
   }
-  26% {
+  30% {
     opacity: 0.6;
   }
-  48% {
+  52% {
     opacity: 0;
   }
   100% {
@@ -15470,10 +15644,10 @@ select.tool-input-txt {
 
 /* 日升白云：蓝天白云轻盈漂游 */
 .theme-transition-overlay.mode-sunrise .tto-cloud-item.c1 {
-  animation: ttoSunriseCloud1 2.4s ease-out forwards;
+  animation: ttoSunriseCloud1 var(--tto-total) ease-out forwards;
 }
 .theme-transition-overlay.mode-sunrise .tto-cloud-item.c2 {
-  animation: ttoSunriseCloud2 2.4s ease-out forwards;
+  animation: ttoSunriseCloud2 var(--tto-total) ease-out forwards;
 }
 @keyframes ttoSunriseCloud1 {
   0% {
@@ -15508,9 +15682,10 @@ select.tool-input-txt {
   }
 }
 
-/* 全屏过渡统一出入场控制器。尾段 88%→100% 才淡出（约 0.29s）：
-   此时月亮已到位、山体早已压成夜色、底层主题色也换完了，撤掉 overlay 看不出接缝。
-   旧版 85% 就开始 fade，而山体的夜色要拖到 100% 才到位，于是"天还没黑透画面就没了"。 */
+/* 全屏过渡统一出入场控制器。尾段 89%→100% 才淡出（约 0.29s）：
+   此时日月早已各就各位、山体的夜色/本色也已坐实、底层主题色同样换完，
+   撤掉 overlay 看不出接缝。旧版 85% 就开始 fade，收尾动作被截断，
+   也是"动画没播完就停"观感的一部分。 */
 @keyframes ttoCartoonMaster {
   0% {
     opacity: 0;
@@ -15518,7 +15693,7 @@ select.tool-input-txt {
   9% {
     opacity: 1;
   }
-  88% {
+  89% {
     opacity: 1;
   }
   100% {
@@ -15526,24 +15701,35 @@ select.tool-input-txt {
   }
 }
 
-/* 天象动画期间把底层"冻住"：
-   ① tto-running —— 暂停底层一切常驻动画（时钟脉冲、背景光斑漂移、卡片呼吸…）。
-      它们全在 overlay 之下，却仍在逐帧参与合成；
-   ② tto-hide-under —— 画面被完全遮住的那段（约 10.5%~87%）干脆不绘制底层。
-      页面常驻 60+ 个毛玻璃面，每个都要采样并模糊背后的内容，overlay 盖上去之后
-      这些采样照做不误，是帧率掉到二十几的直接原因。
-      用 visibility 而非 display：只跳过绘制，布局不变，随后的主题切换不会重排两次。
-   两个类只在天象动画的 2.4s 内存在，由 app.js 的 triggerThemeTransition 增删 */
+/* 底层"整块遮蔽"窗口与 overlay 同一条 CSS 时间轴驱动（旧的 JS setTimeout 猜时刻
+   已删除）：overlay 在 9% 淡入完成，12% 起把底层 visibility 关掉，86.5% 淡出前
+   恢复——60+ 个毛玻璃面在动画 3/4 的时间里不参与合成，帧率掉到二十几的主因。
+   ⚠️ 实测过更早恢复（45%）：页面会多合成半个动画周期，帧率明显更差；
+   86.5% 恢复的那次整页重栅格化发生在栅格线程上，与合成器并行，不阻塞动画。
+   两个窗口都留了边距：淡入/淡出斜坡是半透明状态，底层必须仍在绘制。
+   visibility 关掉的是"绘制"，布局不变，随后的主题切换不会重排两次 */
 html.tto-running .app-shell *,
 html.tto-running .aura,
 html.tto-running .aura *,
 html.tto-running .wallpaper-bg {
   animation-play-state: paused !important;
 }
-html.tto-hide-under .app-shell,
-html.tto-hide-under .aura,
-html.tto-hide-under .wallpaper-bg {
-  visibility: hidden;
+html.tto-running .app-shell {
+  animation: ttoHideSandwich var(--tto-total) linear forwards !important;
+}
+@keyframes ttoHideSandwich {
+  0%,
+  12% {
+    visibility: visible;
+  }
+  12.001%,
+  86.5% {
+    visibility: hidden;
+  }
+  87%,
+  100% {
+    visibility: visible;
+  }
 }
 
 /* 减少动态辅助：用户开启减少动态时退回柔和渐隐渐显，不晃眼 */
@@ -15564,6 +15750,26 @@ html.tto-hide-under .wallpaper-bg {
   .theme-transition-overlay.mode-sunset .tto-layer-dark,
   .theme-transition-overlay.mode-sunset .tto-landscape-wrap::after {
     opacity: 1;
+  }
+  /* 日月的轨道位移同样关掉：降级时不走弧线，直接摆到终态位置 */
+  .theme-transition-overlay.mode-sunset .tto-sun-track,
+  .theme-transition-overlay.mode-sunrise .tto-sun-track {
+    transform: translate3d(0, 26vh, 0);
+  }
+  .theme-transition-overlay.mode-sunset .tto-moon-track {
+    transform: translate3d(0, 26vh, 0);
+  }
+  .theme-transition-overlay.mode-sunrise .tto-moon-track {
+    transform: translate3d(46vw, 84vh, 0);
+  }
+  .theme-transition-overlay.mode-sunset .tto-sun-wrap,
+  .theme-transition-overlay.mode-sunrise .tto-moon-wrap {
+    opacity: 0;
+  }
+  /* 降级 overlay 只播 0.4s，底层遮蔽动画（ttoHideSandwich）却是 2.6s 时间轴——
+     不关掉的话 overlay 消失后底层还要被藏约 1.8s，用户会盯着空白页面 */
+  html.tto-running .app-shell {
+    animation: none !important;
   }
 }
 
