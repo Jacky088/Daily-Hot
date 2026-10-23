@@ -1963,23 +1963,11 @@ const CATS = [
 ]
 
 // TMDB watch provider 平台清单（美区），与后端 tmdb.module.ts 的 PROVIDERS 保持一致。
-// 流媒体剧集/电影两张卡共用；注意没有裸「HBO」和「Apple TV」——它们与 HBO Max /
-// Apple TV+ 是同一个 provider，重复选项只会让过滤结果一模一样
-const TMDB_NETWORKS = [
-  '',
-  'Netflix',
-  'Disney+',
-  'HBO Max',
-  'Prime Video',
-  'Apple TV+',
-  'Hulu',
-  'Paramount+',
-  'Peacock',
-  'Starz',
-  'AMC+',
-  'MGM+',
-  'Crunchyroll',
-]
+// 只保留「上新时间窗（7~21 天）」内有稳定新内容的几家：Apple TV+/Paramount+/
+// Peacock/Starz/AMC+/MGM+/Crunchyroll 在窗口内经常一条都凑不出，下拉里只会
+// 换来空榜，已移除（后端仍支持这些平台参数，外部 API 用户不受影响）。
+// 空值选项 = 全平台热度榜，展示为「热榜」
+const TMDB_TV_NETWORKS = ['', 'Netflix', 'Disney+', 'HBO Max', 'Prime Video', 'Hulu']
 
 // type: news|list|kv|obj|text|json|qr|color|palette|pwd|fanyi|lyric|hash|weather|weatherfc|fuel|gold|lunar|calendar|bing|epic|steam|ncm|maoyan|moyu|whois|js|exchange|hist|ainews|kuan|36kr|reddit|game2048|muyu
 const EPS = [
@@ -2366,8 +2354,8 @@ const EPS = [
     path: '/v2/simkl-trending?type=tv',
     type: 'simkl',
     auto: 1,
-    inputs: [{ n: 'network', sel: TMDB_NETWORKS, d: '' }],
-    hint: '优先 7 天内新上的热门剧集，不足自动放宽补齐 · 可选平台过滤 · 数据来自 TMDB',
+    // 只有剧集卡保留平台过滤；电影/动漫不区分平台，不出二级下拉
+    inputs: [{ n: 'network', sel: TMDB_TV_NETWORKS, d: '' }],
   },
   {
     cat: 'ent',
@@ -2377,8 +2365,6 @@ const EPS = [
     path: '/v2/simkl-trending?type=movies',
     type: 'simkl',
     auto: 1,
-    inputs: [{ n: 'network', sel: TMDB_NETWORKS, d: '' }],
-    hint: '优先 7 天内新上映的热门电影，不足自动放宽补齐 · 可选平台过滤 · 数据来自 TMDB',
   },
   {
     cat: 'ent',
@@ -2388,8 +2374,6 @@ const EPS = [
     path: '/v2/simkl-trending?type=anime',
     type: 'simkl',
     auto: 1,
-    inputs: [{ n: 'network', sel: TMDB_NETWORKS, d: '' }],
-    hint: '优先 7 天内新上的热门日本动画，不足自动放宽补齐 · 可选平台过滤 · 数据来自 TMDB',
   },
   // 官方 Data API 的 chart=mostPopular 需要 API Key，故走 Invidious / Piped 社区实例（多实例兜底，见后端模块注释）；
   // 榜单固定取「游戏」栏目且滤掉直播——实测默认栏目几乎全是直播，不适合当热榜看
@@ -5073,7 +5057,8 @@ function makeCard(ep) {
             // 支持 ['值', '显示名'] 对：显示中文、提交英文值（如性别 男性→male）
             const pair = Array.isArray(op)
             o.value = pair ? op[0] : op
-            o.textContent = pair ? op[1] : op === '' ? '全部平台' : op
+            // 空值 = 不过滤，流媒体榜语境下即「热榜」（全平台热度）
+            o.textContent = pair ? op[1] : op === '' ? '热榜' : op
             el.appendChild(o)
           })
         } else {
