@@ -1,3 +1,5 @@
 # 统一行尾为 LF：构建产物 hash 对行尾敏感（见 scripts/build-frontend.mjs），
 # CRLF/LF 混用会让同一份源码在不同机器产出不同 hash，CI 的 dist 新鲜度校验必挂。
 * text=auto eol=lf
+# brotli 预压缩产物是二进制，禁止按文本做行尾归一
+*.br binary

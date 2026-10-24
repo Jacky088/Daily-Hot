@@ -15,10 +15,17 @@
 //
 // 用法：node scripts/build-frontend.mjs [--check]
 //   --check：只校验 dist 是否新鲜（CI 用），过期则非 0 退出并提示重跑构建。
+//
+// 预压缩：每个产物同时产出 .br（brotli 最高质量）副本，Node/Docker/EdgeOne 的
+// 静态中间件按 Accept-Encoding 直接回副本（见 src/middlewares/static-assets.ts），
+// 省去运行时压缩 CPU。Workers 平台侧自带压缩，多出的副本文件无副作用。
+// 校验用「解压后等于产物」而非字节比对：brotli 编码虽跨平台一致，
+// 但不同 Node 大版本的内置 brotli 实现可能产出不同字节，语义等价即可。
 
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { brotliCompressSync, brotliDecompressSync, constants } from 'node:zlib'
 
 import { transformSync } from 'esbuild'
 
@@ -62,6 +69,23 @@ function minifyCss(src) {
   return transformSync(src, { loader: 'css', minify: true, charset: 'utf8' }).code
 }
 
+/** brotli 最高质量压缩（静态预压缩副本用，见文件头注释） */
+export function brotliOf(text) {
+  return brotliCompressSync(Buffer.from(text, 'utf-8'), {
+    params: { [constants.BROTLI_PARAM_QUALITY]: constants.BROTLI_MAX_QUALITY },
+  })
+}
+
+/** 校验 .br 副本存在且解压后与产物一致（存在性 + 语义新鲜度，不比对字节） */
+function brIsFresh(brPath, min) {
+  if (!existsSync(brPath)) return false
+  try {
+    return brotliDecompressSync(readFileSync(brPath)).toString('utf-8') === min
+  } catch {
+    return false
+  }
+}
+
 if (!checkOnly) {
   rmSync(distDir, { recursive: true, force: true })
   mkdirSync(distDir, { recursive: true })
@@ -102,9 +126,12 @@ for (const { src, kind } of ENTRIES) {
   if (checkOnly) {
     const outPath = join(distDir, name)
     if (!existsSync(outPath) || readFileSync(outPath, 'utf-8') !== min) stale = true
+    if (!brIsFresh(outPath + '.br', min)) stale = true
   } else {
     writeFileSync(join(distDir, name), min)
-    console.log(`[build-frontend] ${src} -> dist/${name} (${raw.length} -> ${min.length} bytes)`)
+    const br = brotliOf(min)
+    writeFileSync(join(distDir, name) + '.br', br)
+    console.log(`[build-frontend] ${src} -> dist/${name} (${raw.length} -> ${min.length} bytes, br ${br.length} bytes)`)
   }
 }
 
@@ -116,11 +143,16 @@ if (checkOnly) {
     }
   }
   // dist/index.html 由 rewrite-html 生成，一并校验新鲜度：
-  // 用当前源码 index.html + 刚算出的 manifest 重放改写，内容必须逐字节一致
+  // 用当前源码 index.html + 刚算出的 manifest 重放改写，内容必须逐字节一致；
+  // 它的 .br 副本由 rewrite-html 落盘，这里同样校验（解压等于重放结果）
   const distHtml = join(distDir, 'index.html')
   const srcHtml = join(publicDir, 'index.html')
   if (!existsSync(distHtml) || !existsSync(srcHtml)) stale = true
-  else if (readFileSync(distHtml, 'utf-8') !== rewriteHtml(readFileSync(srcHtml, 'utf-8'), manifest)) stale = true
+  else {
+    const expectedHtml = rewriteHtml(readFileSync(srcHtml, 'utf-8'), manifest)
+    if (readFileSync(distHtml, 'utf-8') !== expectedHtml) stale = true
+    if (!brIsFresh(join(distDir, 'index.html.br'), expectedHtml)) stale = true
+  }
   if (stale) {
     console.error('[build-frontend] dist 已过期：请本地运行 pnpm run build:frontend 后提交产物')
     process.exit(1)

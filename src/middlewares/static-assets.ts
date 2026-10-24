@@ -28,6 +28,10 @@ const MIME: Record<string, string> = {
   '.ico': 'image/x-icon',
 }
 
+// 允许走 .br 预压缩副本的扩展名：只有构建产物（/dist 下的 js/css/html）有副本，
+// 其余类型（图片等本身已压缩）即使出现同名 .br 也不参与协商
+const BROTLI_COMPRESSIBLE = new Set(['.html', '.css', '.js', '.json', '.svg'])
+
 /**
  * 为非 Worker 运行时（Node / Bun / Deno）提供 public/ 目录的静态资源服务。
  * Cloudflare Workers 通过 wrangler.toml [assets] 配置处理静态文件，不走此中间件。
@@ -90,8 +94,19 @@ export function staticAssets(): Middleware {
     }
 
     try {
+      const ext = filePath.slice(filePath.lastIndexOf('.'))
+      // brotli 预压缩协商：dist 产物随构建产出 .br 副本（见 scripts/build-frontend.mjs），
+      // 客户端 Accept-Encoding 带 br 时直接回副本——省掉运行时压缩 CPU，
+      // 体积比明文产物再降约七成；dev 源码直发与图片等无副本资源行为不变。
+      // 有副本的 URL 必须带 Vary，避免中间缓存把 br 与明文两种变体串味
+      const brPath = `${filePath}.br`
+      const hasBr = BROTLI_COMPRESSIBLE.has(ext) && existsSync(brPath)
+      if (hasBr) ctx.response.headers.set('Vary', 'Accept-Encoding')
+
       // 轻量 ETag：mtime + size；条件请求命中（If-None-Match）直接 304 空体，
-      // 浏览器用本地副本，省掉重复回源的传输体积
+      // 浏览器用本地副本，省掉重复回源的传输体积。
+      // ETag 按明文文件算，两种编码共用同一个值（配合 Vary 语义正确），
+      // 与 nginx gzip_static 等静态压缩实现一致
       const etag = `W/"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"`
       ctx.response.headers.set('ETag', etag)
       if (ctx.request.headers.get('if-none-match') === etag) {
@@ -100,14 +115,17 @@ export function staticAssets(): Middleware {
         return
       }
 
-      const content = await readFile(filePath)
-      const ext = filePath.slice(filePath.lastIndexOf('.'))
+      if (hasBr && /\bbr\b/.test(ctx.request.headers.get('accept-encoding') ?? '')) {
+        ctx.response.headers.set('Content-Encoding', 'br')
+        ctx.response.body = await readFile(brPath)
+      } else {
+        ctx.response.body = await readFile(filePath)
+      }
       ctx.response.headers.set('Content-Type', MIME[ext] || 'application/octet-stream')
       // 分级缓存：入口与无 hash 的 JS/CSS 每次回源（发版即时生效），
       // 不可变图标资源长缓存（SW 侧已做 SWR，这里再给浏览器一年 immutable）
       ctx.response.headers.set('Cache-Control', cacheControlFor(path))
       ctx.response.headers.set('X-Content-Type-Options', 'nosniff')
-      ctx.response.body = content
     } catch {
       // 文件不存在，交给后续路由
       await next()

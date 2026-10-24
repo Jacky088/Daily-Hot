@@ -12,6 +12,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { brotliCompressSync, constants } from 'node:zlib'
 
 /** 按 manifest 把 html 里的源码引用替换成 hash 产物引用（幂等，输出统一 LF 行尾） */
 export function rewriteHtml(html, manifest) {
@@ -51,5 +52,13 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
 
   mkdirSync(dirname(output), { recursive: true })
   writeFileSync(output, out)
-  console.log(`[rewrite-html] ${input} -> ${output}`)
+  // 同步产出 brotli 预压缩副本（静态中间件按 Accept-Encoding 回副本）。
+  // 不 import build-frontend.mjs 里的同名助手：那个文件被 import 时会直接执行构建
+  writeFileSync(
+    output + '.br',
+    brotliCompressSync(Buffer.from(out, 'utf-8'), {
+      params: { [constants.BROTLI_PARAM_QUALITY]: constants.BROTLI_MAX_QUALITY },
+    }),
+  )
+  console.log(`[rewrite-html] ${input} -> ${output} (+ .br)`)
 }
