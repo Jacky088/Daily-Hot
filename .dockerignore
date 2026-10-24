@@ -1,7 +1,12 @@
 node_modules
 .git
 .github
+.wrangler
 CLAUDE.md
 COPILOT.md
 readme.md
+license
 scripts
+test
+*.log
+daily-hot-preview.png
