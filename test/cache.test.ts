@@ -6,7 +6,7 @@
 import { describe, it, mock } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { cached } from '../src/cache.ts'
+import { cached, MAX_CACHE_SIZE } from '../src/cache.ts'
 import { runWithForceUpdate } from '../src/force-update-guard.ts'
 
 // 让「时间流逝」可控：cached 内部用 Date.now() 判定 TTL，这里 mock 掉 Date，
@@ -109,5 +109,23 @@ describe('cached（TTL 内存缓存）', () => {
     // 后续正常请求命中的是 force 回源后的新缓存
     assert.equal(await cached(key, loader, { ttl: 60_000 }), 'v2')
     assert.equal(calls, 2)
+  })
+
+  it('容量达到上限时按 LRU 淘汰最久未用条目，命中可续命', async () => {
+    let calls = 0
+    const loader = async () => ++calls
+    const opts = { ttl: 3_600_000 }
+
+    // 填满全部容量（各用例用唯一键前缀隔离，这里独占整个 store）
+    for (let i = 0; i < MAX_CACHE_SIZE; i++) {
+      await cached(`test:cached:lru:${i}`, loader, opts)
+    }
+    // 命中第 0 条：把它挪到「最近使用」一端
+    await cached('test:cached:lru:0', loader, opts)
+    // 再写入 1 条触发淘汰：挤掉的应是最久未用的第 1 条，而不是刚用过的第 0 条
+    await cached(`test:cached:lru:${MAX_CACHE_SIZE}`, loader, opts)
+    assert.equal(await cached('test:cached:lru:0', loader, opts), 1)
+    // 第 1 条已被淘汰：重新回源（loader 计数 = 填满 MAX 条 + 触发淘汰的 1 条 + 这次 1 条）
+    assert.equal(await cached('test:cached:lru:1', loader, opts), MAX_CACHE_SIZE + 2)
   })
 })

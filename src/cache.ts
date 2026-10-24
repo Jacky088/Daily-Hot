@@ -9,9 +9,19 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 
 import { isForceUpdate } from './force-update-guard.ts'
 
-const MAX_CACHE_SIZE = 500
+export const MAX_CACHE_SIZE = 500
 
 const store = new Map<string, { data: unknown; ts: number }>()
+
+/**
+ * LRU 触碰：命中后把条目删掉再写回，挪到 Map 尾部。
+ * Map 迭代按插入序，淘汰时删的「第一个键」才是真正最久未用的条目，
+ * 而不是最早写入的热点条目。
+ */
+function touch(key: string, entry: { data: unknown; ts: number }) {
+  store.delete(key)
+  store.set(key, entry)
+}
 
 // ============ 数据时间追踪 ============
 // 每个响应都该回答一个问题：这份数据是什么时候的？
@@ -51,6 +61,7 @@ export async function cached<T>(
 
   // 缓存新鲜且未要求强制刷新时直接命中
   if (hit && now - hit.ts < ttl && !isForceUpdate()) {
+    touch(key, hit)
     trackDataTs(hit.ts)
     return hit.data as T
   }
@@ -65,7 +76,7 @@ export async function cached<T>(
       trackDataTs(now)
       return data
     }
-    // 容量上限：超出时淘汰最早的条目（近似 LRU）
+    // 容量上限：超出时淘汰最久未使用的条目（LRU，命中会经 touch 挪到尾部）
     if (store.size >= MAX_CACHE_SIZE) {
       const firstKey = store.keys().next().value
       if (firstKey != null) store.delete(firstKey)
@@ -75,6 +86,7 @@ export async function cached<T>(
     return data
   } catch (e) {
     if (hit && now - hit.ts < staleTtl) {
+      touch(key, hit)
       trackDataTs(hit.ts)
       return hit.data as T
     }
