@@ -2,7 +2,7 @@ import { Common, renderByEncoding } from '../common.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 import whois from 'whois-raw'
 
-import type { RouterMiddleware } from '@oak/oak'
+import type { RouterContext, RouterMiddleware } from '@oak/oak'
 
 // ============== 类型定义 ==============
 
@@ -592,8 +592,8 @@ class ServiceWhois {
 
         try {
           resolve(this.parseRawWhois(data, domain))
-        } catch (e: any) {
-          reject(new Error(`WHOIS 数据解析失败: ${e.message}`))
+        } catch (e) {
+          reject(new Error(`WHOIS 数据解析失败: ${(e as Error).message}`))
         }
       })
     })
@@ -694,9 +694,9 @@ class ServiceWhois {
 
       this.setCache(cacheKey, result)
       return result
-    } catch (rdapError: any) {
+    } catch (rdapError) {
       // RDAP 失败，降级到 whois-raw
-      console.log('[whois] RDAP 查询失败，降级到 whois-raw:', rdapError.message)
+      console.log('[whois] RDAP 查询失败，降级到 whois-raw:', (rdapError as Error).message)
 
       const result = await this.fetchWhoisRaw(rootDomain)
 
@@ -764,7 +764,7 @@ class ServiceWhois {
       try {
         const data = await this.fetchWhois(domain)
         this.formatResponse(ctx, data)
-      } catch (e: any) {
+      } catch (e) {
         console.error('[whois]', e)
         ctx.response.status = 400
         ctx.response.body = Common.buildJson(null, 400, 'WHOIS 查询失败，请确认域名是否正确')
@@ -775,7 +775,7 @@ class ServiceWhois {
   /**
    * 格式化响应
    */
-  private formatResponse(ctx: any, data: WhoisData): void {
+  private formatResponse(ctx: RouterContext<any, Record<string, any>>, data: WhoisData): void {
     renderByEncoding(ctx, {
       text: () => this.formatText(data),
       markdown: () => this.formatMarkdown(data),

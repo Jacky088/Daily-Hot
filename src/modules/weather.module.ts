@@ -145,6 +145,69 @@ interface WeatherApiResponse {
   }
 }
 
+// 格式化函数（formatWeatherText / formatForecastText / formatWeatherMarkdown /
+// formatForecastMarkdown）的输入：上游 JSON 归一化后的对象，按各格式化函数
+// 实际读取的字段声明；数值字段与函数内比较逻辑（aqi <= 50 等）语义一致。
+// 可选段同时容忍 null：组装方对缺失数据置 null 而非省略键，函数内有真值守卫
+interface WeatherFormatResult {
+  location: { name: string }
+  weather?: {
+    condition: string
+    temperature: number
+    humidity: number
+    wind_direction: string
+    wind_power: string
+    pressure: number
+    precipitation: number
+    updated: string
+  }
+  air_quality?: {
+    aqi: number
+    pm25: number
+    pm10: number
+    no2: number
+    so2: number
+    o3: number
+    co: number
+    quality: string
+    rank: number
+    total_cities: number
+    updated: string
+  } | null
+  sunrise?: { sunrise_desc: string; sunset_desc: string } | null
+  life_indices?: Array<{ name: string; level: string; description: string }> | null
+  alerts?: Array<{
+    type: string
+    level: string
+    province: string
+    city: string
+    county: string
+    detail: string
+    updated: string
+  }> | null
+  hourly_forecast?: Array<{
+    datetime: string
+    condition: string
+    temperature: number
+    wind_direction: string
+    wind_power: string
+  }> | null
+  daily_forecast?: Array<{
+    date: string
+    day_condition: string
+    night_condition: string
+    min_temperature: number
+    max_temperature: number
+    day_wind_direction: string
+    day_wind_power: string
+    night_wind_direction: string
+    night_wind_power: string
+    air_quality: string
+    aqi: number
+  }> | null
+  sunrise_sunset?: Array<{ sunrise_desc: string; sunset_desc: string }> | null
+}
+
 // ============ UAPI 主源（uapis.cn）响应结构 ============
 // 字段随请求参数分档返回：基础字段 ≈ observe，extended ≈ air，forecast ≈ 今日区间 / 日出日落，
 // indices ≈ index，alerts ≈ alarm。全部可选，避免上游改档位时直接抛错。
@@ -442,7 +505,8 @@ class ServiceWeather {
 
         // 主源：UAPI。把上面解析出的城市名显式传给它——上游不认转发头，只能这样「透传」IP。
         // 按城市缓存 15 分钟：上游有 4 QPS 限流，而天气本身变化很慢
-        let realtime: Record<string, unknown> | null = null
+        // 归一化后的实时天气对象：定位/格式化链路与格式化函数共用这份形状声明
+        let realtime: WeatherFormatResult | null = null
         let provider = 'uapi'
         let usedFallback = false
         try {
@@ -1080,14 +1144,15 @@ class ServiceWeather {
       }))
   }
 
-  private formatWeatherText(result: any): string {
+  // result 是上游 JSON 归一化后的对象（各查询方法内组装），形状见下方 WeatherFormatResult
+  private formatWeatherText(result: WeatherFormatResult): string {
     const lines: string[] = []
 
     // Header with location
     lines.push(`📍 ${result.location.name}`)
 
     // Current weather - compact format
-    const w = result.weather
+    const w = result.weather!
     lines.push(`🌡️ ${w.condition} ${w.temperature}°C`)
     lines.push(`💨 ${w.humidity}% 🌬️ ${w.wind_direction}${w.wind_power}`)
 
@@ -1106,9 +1171,9 @@ class ServiceWeather {
     // Key life indices - only show important ones
     if (result.life_indices && result.life_indices.length > 0) {
       const important = result.life_indices
-        .filter((idx: any) => ['穿衣指数', '运动指数', '洗车指数', '紫外线指数'].includes(idx.name))
+        .filter((idx) => ['穿衣指数', '运动指数', '洗车指数', '紫外线指数'].includes(idx.name))
         .slice(0, 2)
-      important.forEach((idx: any) => {
+      important.forEach((idx) => {
         const emoji = idx.name.includes('穿衣')
           ? '👕'
           : idx.name.includes('运动')
@@ -1122,7 +1187,7 @@ class ServiceWeather {
 
     // Alerts - compact
     if (result.alerts && result.alerts.length > 0) {
-      result.alerts.forEach((alert: any) => {
+      result.alerts.forEach((alert) => {
         lines.push(`⚠️ ${alert.type}${alert.level}`)
       })
     }
@@ -1130,7 +1195,7 @@ class ServiceWeather {
     return lines.join('\n')
   }
 
-  private formatForecastText(result: any): string {
+  private formatForecastText(result: WeatherFormatResult): string {
     const lines: string[] = []
 
     // Header
@@ -1139,7 +1204,7 @@ class ServiceWeather {
     // Today's hourly (next 6 hours)
     if (result.hourly_forecast && result.hourly_forecast.length > 0) {
       lines.push('🕰️ 今日逐时:')
-      result.hourly_forecast.slice(0, 6).forEach((hour: any) => {
+      result.hourly_forecast.slice(0, 6).forEach((hour) => {
         const time = hour.datetime.split(' ')[1].slice(0, 5)
         lines.push(`${time} ${hour.condition} ${hour.temperature}°`)
       })
@@ -1148,7 +1213,7 @@ class ServiceWeather {
     // Daily forecast - very compact
     if (result.daily_forecast && result.daily_forecast.length > 0) {
       lines.push('\n📅 未来几日:')
-      result.daily_forecast.forEach((day: any) => {
+      result.daily_forecast.forEach((day) => {
         const date = day.date.slice(-2) + '日'
         const temp = `${day.min_temperature}-${day.max_temperature}°`
         const aqi = day.aqi <= 50 ? '😊' : day.aqi <= 100 ? '😐' : '😷'
@@ -1159,14 +1224,14 @@ class ServiceWeather {
     return lines.join('\n')
   }
 
-  private formatWeatherMarkdown(result: any): string {
+  private formatWeatherMarkdown(result: WeatherFormatResult): string {
     const sections: string[] = []
 
     // Header
     sections.push(`# 🌤️ ${result.location.name} 天气`)
 
     // Current weather
-    const w = result.weather
+    const w = result.weather!
     sections.push(
       `## 当前天气\n\n**${w.condition}** ${w.temperature}°C\n\n- 💧 **湿度**: ${w.humidity}%\n- 🌬️ **风向风力**: ${w.wind_direction} ${w.wind_power}\n- 🌡️ **气压**: ${w.pressure}hPa\n- 🌧️ **降水量**: ${w.precipitation}mm\n\n*更新时间: ${w.updated}*`,
     )
@@ -1192,21 +1257,21 @@ class ServiceWeather {
     // Life indices
     if (result.life_indices && result.life_indices.length > 0) {
       sections.push(
-        `## 生活指数\n\n${result.life_indices.map((idx: any) => `### ${idx.name}\n\n**${idx.level}**\n\n${idx.description}`).join('\n\n')}`,
+        `## 生活指数\n\n${result.life_indices.map((idx) => `### ${idx.name}\n\n**${idx.level}**\n\n${idx.description}`).join('\n\n')}`,
       )
     }
 
     // Alerts
     if (result.alerts && result.alerts.length > 0) {
       sections.push(
-        `## ⚠️ 预警信息\n\n${result.alerts.map((alert: any) => `### ${alert.type} ${alert.level}\n\n**地区**: ${alert.province} ${alert.city} ${alert.county}\n\n${alert.detail}\n\n*发布时间: ${alert.updated}*`).join('\n\n---\n\n')}`,
+        `## ⚠️ 预警信息\n\n${result.alerts.map((alert) => `### ${alert.type} ${alert.level}\n\n**地区**: ${alert.province} ${alert.city} ${alert.county}\n\n${alert.detail}\n\n*发布时间: ${alert.updated}*`).join('\n\n---\n\n')}`,
       )
     }
 
     return sections.join('\n\n')
   }
 
-  private formatForecastMarkdown(result: any): string {
+  private formatForecastMarkdown(result: WeatherFormatResult): string {
     const sections: string[] = []
 
     // Header
@@ -1218,7 +1283,7 @@ class ServiceWeather {
         `## 逐小时预报\n\n| 时间 | 天气 | 温度 | 风向风力 |\n|------|------|------|----------|\n${result.hourly_forecast
           .slice(0, 12)
           .map(
-            (hour: any) =>
+            (hour) =>
               `| ${hour.datetime.split(' ')[1].slice(0, 5)} | ${hour.condition} | ${hour.temperature}°C | ${hour.wind_direction}${hour.wind_power} |`,
           )
           .join('\n')}`,
@@ -1229,7 +1294,7 @@ class ServiceWeather {
     if (result.daily_forecast && result.daily_forecast.length > 0) {
       sections.push(
         `## 未来${result.daily_forecast.length}天预报\n\n${result.daily_forecast
-          .map((day: any) => {
+          .map((day) => {
             const aqiEmoji = day.aqi <= 50 ? '😊' : day.aqi <= 100 ? '😐' : day.aqi <= 150 ? '😟' : '😷'
             return `### ${day.date}\n\n**白天**: ${day.day_condition} | **夜间**: ${day.night_condition}\n\n🌡️ **${day.min_temperature}°C ~ ${day.max_temperature}°C**\n\n- 💨 **白天风力**: ${day.day_wind_direction}${day.day_wind_power}\n- 🌙 **夜间风力**: ${day.night_wind_direction}${day.night_wind_power}\n- ${aqiEmoji} **空气质量**: ${day.air_quality} (AQI ${day.aqi})`
           })
@@ -1240,7 +1305,7 @@ class ServiceWeather {
     // Sunrise/sunset table
     if (result.sunrise_sunset && result.sunrise_sunset.length > 0) {
       sections.push(
-        `## 日出日落时间\n\n| 日出 🌄 | 日落 🌆 |\n|---------|----------|\n${result.sunrise_sunset.map((day: any) => `| ${day.sunrise_desc} | ${day.sunset_desc} |`).join('\n')}`,
+        `## 日出日落时间\n\n| 日出 🌄 | 日落 🌆 |\n|---------|----------|\n${result.sunrise_sunset.map((day) => `| ${day.sunrise_desc} | ${day.sunset_desc} |`).join('\n')}`,
       )
     }
 

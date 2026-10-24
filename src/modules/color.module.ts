@@ -24,6 +24,13 @@ interface ColorPalette {
   }>
 }
 
+// formatAsText / formatAsHTML 的输入：handler 里组装的配色报告对象，按实际读取的字段声明
+type PaletteReport = {
+  input: { hex: string; name: string; rgb: RGBColor; hsl: HSLColor }
+  palettes: ColorPalette[]
+  metadata: { total_palettes: number; applications: string[] }
+}
+
 class ServiceColor {
   handle(): RouterMiddleware<'/color'> {
     return async (ctx) => {
@@ -524,7 +531,7 @@ class ServiceColor {
     return '中性色系'
   }
 
-  private formatAsText(data: any): string {
+  private formatAsText(data: PaletteReport): string {
     let result = `🎨 色彩搭配分析报告\n\n`
     result += `输入颜色: ${data.input.hex} (${data.input.name})\n`
     result += `RGB: ${data.input.rgb.r}, ${data.input.rgb.g}, ${data.input.rgb.b}\n`
@@ -546,7 +553,7 @@ class ServiceColor {
     return result
   }
 
-  private formatAsHTML(data: any): string {
+  private formatAsHTML(data: PaletteReport): string {
     const styles = `
       <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -947,7 +954,7 @@ class ServiceColor {
     }
   }
 
-  private formatColorAsText(data: any): string {
+  private formatColorAsText(data: ReturnType<ServiceColor['convertColorFormats']>): string {
     let result = `🎨 颜色信息\n\n`
     result += `颜色: ${data.hex} (${data.name})\n\n`
     result += `📊 格式转换:\n`
@@ -975,7 +982,7 @@ class ServiceColor {
     return result
   }
 
-  private formatColorAsHTML(data: any): string {
+  private formatColorAsHTML(data: ReturnType<ServiceColor['convertColorFormats']>): string {
     const styles = `
       <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }

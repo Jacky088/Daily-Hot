@@ -118,5 +118,5 @@ interface BaikeData {
   logo: string
   copyrights: string
   customImg: string
-  redirect: any[]
+  redirect: unknown[]
 }

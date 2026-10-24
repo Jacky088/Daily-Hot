@@ -115,7 +115,7 @@ class ServiceBili {
     try {
       const api = 'https://app.bilibili.com/x/v2/search/trending/ranking?limit=50'
       const { data = {} } = await fetchUpstreamJson<{ data?: { list?: Item[] } }>(api)
-      return ((data?.list?.filter((e: any) => +e?.is_commercial === 0) || []) as Item[]).map(toListItem)
+      return ((data?.list?.filter((e) => +e?.is_commercial === 0) || []) as Item[]).map(toListItem)
     } catch {}
 
     return []

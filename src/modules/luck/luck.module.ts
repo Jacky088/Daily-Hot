@@ -8,7 +8,8 @@ class ServiceLuck {
     return async (ctx) => {
       const id = await Common.getParam('id', ctx.request)
 
-      let result: any
+      // 两个分支组装的是同一形状的展示对象
+      let result: { luck_desc: string; luck_rank: number; luck_tip: string; luck_tip_index: number }
 
       if (id) {
         // 获取指定ID的运势

@@ -3,7 +3,7 @@ import { cached } from '../cache.ts'
 import { fetchUpstream, fetchUpstreamJson } from '../fetch-upstream.ts'
 import { withUapisFallback, cacheIfNonEmpty } from './uapis.module.ts'
 
-import type { RouterMiddleware } from '@oak/oak'
+import type { RouterContext, RouterMiddleware } from '@oak/oak'
 
 class ServiceBaidu {
   /** 供聚合接口复用，并与 /v2/baidu/hot 共享同一份服务端缓存；主源失效时退回 uapis 备用源 */
@@ -54,7 +54,7 @@ class ServiceBaidu {
     }
   }
 
-  #renderBoard(ctx: any, title: string, data: BoardItemDTO[]) {
+  #renderBoard(ctx: RouterContext<any, Record<string, any>>, title: string, data: BoardItemDTO[]) {
     renderByEncoding(ctx, {
       text: () =>
         `${title}\n\n${data
@@ -200,7 +200,7 @@ interface RealtimeItem {
   indexUrl: string
   query: string
   rawUrl: string
-  show: any[]
+  show: unknown[]
   url: string
   word: string
   isTop?: boolean

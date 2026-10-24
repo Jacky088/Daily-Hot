@@ -45,7 +45,7 @@ class ServiceOG {
             `# 🔗 Open Graph 信息\n\n## [${data.title || '无标题'}](${url})\n\n${data.description ? `> ${data.description}\n\n` : ''}${data.image ? `![预览图](${data.image})` : '*无预览图*'}`,
           json: () => Common.buildJson(data),
         })
-      } catch (e: any) {
+      } catch (e) {
         if (!(e instanceof OgError)) {
           console.error('[OG Error]', e)
         }

@@ -183,12 +183,12 @@ interface Item {
         personVoice: string[]
         vocalVoice?: string[]
         effectVoice?: string[]
-        ensembleVoice?: any[]
-        drumVoice?: any[]
-        ensembleChordVoice?: any[]
-        originalAudioVoice?: any[]
-        ensembleVocalVoice?: any[]
-        ensembleBeatVoice?: any[]
+        ensembleVoice?: unknown[]
+        drumVoice?: unknown[]
+        ensembleChordVoice?: unknown[]
+        originalAudioVoice?: unknown[]
+        ensembleVocalVoice?: unknown[]
+        ensembleBeatVoice?: unknown[]
       }
       volumeBalance: number
       vocalDoubling: number
@@ -221,7 +221,7 @@ interface Item {
         g_id: string
         n_id: string
       }>
-      melody_use_record: any[]
+      melody_use_record: unknown[]
       effect_instrument_cnt: number
       melody_instrument_cnt: number
     }

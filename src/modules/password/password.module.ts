@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 import { Common, renderByEncoding } from '../../common.ts'
 import commonPasswordsData from './passwords.json' with { type: 'json' }
 
-import type { RouterMiddleware } from '@oak/oak'
+import type { RouterContext, RouterMiddleware } from '@oak/oak'
 
 interface PasswordParams {
   length: number
@@ -163,7 +163,7 @@ class ServicePassword {
     }
   }
 
-  private parsePasswordParams(raw: any): PasswordParams {
+  private parsePasswordParams(raw: Record<string, string>): PasswordParams {
     return {
       length: raw.length ? Number.parseInt(raw.length) : 16,
       includeNumbers: raw.includeNumbers !== 'false' && raw.includeNumbers !== '0',
@@ -175,7 +175,7 @@ class ServicePassword {
     }
   }
 
-  private validateParams(params: PasswordParams, ctx: any): boolean {
+  private validateParams(params: PasswordParams, ctx: RouterContext<any, Record<string, any>>): boolean {
     if (Number.isNaN(params.length) || params.length < 4 || params.length > 128) {
       ctx.response.status = 400
       ctx.response.body = Common.buildJson(null, 400, '密码长度必须在 4-128 之间')

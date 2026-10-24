@@ -2,7 +2,7 @@ import { Common, renderByEncoding } from '../common.ts'
 import { cached } from '../cache.ts'
 import { fetchUpstream } from '../fetch-upstream.ts'
 
-import type { RouterMiddleware } from '@oak/oak'
+import type { RouterContext, RouterMiddleware } from '@oak/oak'
 
 // Google 翻译 Chrome 词典扩展使用的免费端点（client=dict-chrome-ex，无需 key）。
 // 注：translate.googleapis.com 的 gtx/webapp 端点已全面风控（返回 Sorry 拦截页），此端点实测可用。
@@ -68,7 +68,7 @@ class ServiceGoogleTranslate {
 
       try {
         await this.#translate(ctx, text, from, to)
-      } catch (e: any) {
+      } catch (e) {
         // 上游真实原因只进服务端日志：底层异常可能夹带上游响应片段与内部地址，
         // 不适合回显给调用方
         console.error('[google-translate]', e)
@@ -82,7 +82,12 @@ class ServiceGoogleTranslate {
     }
   }
 
-  async #translate(ctx: any, text: string, from: string, to: string): Promise<void> {
+  async #translate(
+    ctx: RouterContext<any, Record<string, any>>,
+    text: string,
+    from: string,
+    to: string,
+  ): Promise<void> {
     // 译文按「语言对 + 原文」缓存：同一文本短时间内译文不变，不缓存的话
     // 每次查询最多打上游 3 次（本函数自有重试），Workers 出口被 Google 拦截时会雪上加霜。
     // 键里的原文经 md5 收敛，避免长文本把 500 条的缓存池挤爆

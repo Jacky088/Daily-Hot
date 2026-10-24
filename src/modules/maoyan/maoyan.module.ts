@@ -3,7 +3,7 @@ import { cached } from '../../cache.ts'
 import { fetchUpstream, fetchUpstreamText } from '../../fetch-upstream.ts'
 import { fetchBoxOfficeByType } from './encode.ts'
 
-import type { RouterMiddleware } from '@oak/oak'
+import type { RouterContext, RouterMiddleware } from '@oak/oak'
 
 class ServiceMaoyan {
   handleAllMovie(): RouterMiddleware<'/maoyan/all/movie'> {
@@ -167,7 +167,7 @@ class ServiceMaoyan {
     }
   }
 
-  #renderMovieList(ctx: any, title: string, list: MovieListItemDTO[]) {
+  #renderMovieList(ctx: RouterContext<any, Record<string, any>>, title: string, list: MovieListItemDTO[]) {
     renderByEncoding(ctx, {
       text: () =>
         `${title}\n\n${list
@@ -213,7 +213,7 @@ class ServiceMaoyan {
 
     if (!Array.isArray(raw) || !raw.length) throw new Error('猫眼 M 站返回数据异常')
 
-    return raw.map((e: any, idx: number) => {
+    return raw.map((e: MaoyanRawMovie, idx: number) => {
       const score = Number(e.sc) > 0 ? Number(e.sc).toFixed(1) : ''
       const wish = Number(e.wish) || 0
 
@@ -282,6 +282,19 @@ interface MovieListItemDTO {
   show_info: string
   star: string
   link: string
+}
+
+/** M 站 JSON 的原始条目：映射到 MovieListItemDTO 时只取用这些字段（id 恒存在，缺失则条目本身无效） */
+interface MaoyanRawMovie {
+  id: number
+  sc?: string | number
+  wish?: number
+  nm?: string
+  img?: string
+  rt?: string
+  comingTitle?: string
+  showInfo?: string
+  star?: string
 }
 
 function formatBoxOffice(boxOffice: number | string, decimals: number = 2): string {

@@ -8,7 +8,8 @@ class ServiceAnswer {
     return async (ctx) => {
       const id = await Common.getParam('id', ctx.request)
 
-      let result: any
+      // 两个分支都产出 answerData 的元素（find 或随机取）， undefined 仅在 find 落空瞬间存在
+      let result: (typeof answerData)[number] | undefined
 
       if (id) {
         // 按数据自身的编号（id 字段）查找，与卡片印章 № 保持同一语义；

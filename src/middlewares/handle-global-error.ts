@@ -6,7 +6,7 @@ export function handleGlobalError(): Middleware {
   return async (ctx, next) => {
     try {
       await next()
-    } catch (err: any) {
+    } catch (err) {
       const isJSON = !ctx.state.encoding || ctx.state.encoding === 'json'
       // 仅在服务端日志记录完整错误，避免向前端泄露内部信息
       console.error(err)

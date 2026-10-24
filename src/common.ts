@@ -234,7 +234,7 @@ export class Common {
     }
   }
 
-  static debug(...args: any[]) {
+  static debug(...args: unknown[]) {
     if (config.debug) {
       console.log('[debug]', ...args)
     }

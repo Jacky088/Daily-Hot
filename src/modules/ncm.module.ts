@@ -268,7 +268,7 @@ export const serviceNcm = new ServiceNcm()
 export interface NcmRankRes {
   code: number
   list: {
-    subscribers: any[]
+    subscribers: unknown[]
     subscribed: null
     creator: null
     artists: null
@@ -330,7 +330,7 @@ export interface NcmRankRes {
 
 export interface NcmRankItemRes {
   result: {
-    subscribers: any[]
+    subscribers: unknown[]
     subscribed: boolean
     creator: {
       defaultAvatar: boolean
@@ -369,7 +369,7 @@ export interface NcmRankItemRes {
       name: string
       id: number
       position: number
-      alias: any[]
+      alias: unknown[]
       status: number
       fee: number
       copyrightId: number
@@ -384,7 +384,7 @@ export interface NcmRankItemRes {
         picUrl: string
         img1v1Url: string
         albumSize: number
-        alias: any[]
+        alias: unknown[]
         trans: string
         musicSize: number
         topicPerson: number
@@ -413,13 +413,13 @@ export interface NcmRankItemRes {
           picUrl: string
           img1v1Url: string
           albumSize: number
-          alias: any[]
+          alias: unknown[]
           trans: string
           musicSize: number
           topicPerson: number
         }
-        songs: any[]
-        alias: any[]
+        songs: unknown[]
+        alias: unknown[]
         status: number
         copyrightId: number
         commentThreadId: string
@@ -432,7 +432,7 @@ export interface NcmRankItemRes {
           picUrl: string
           img1v1Url: string
           albumSize: number
-          alias: any[]
+          alias: unknown[]
           trans: string
           musicSize: number
           topicPerson: number
@@ -472,7 +472,7 @@ export interface NcmRankItemRes {
       commentThreadId: string
       rtUrl: null
       ftype: number
-      rtUrls: any[]
+      rtUrls: unknown[]
       copyright: number
       transName: null
       sign: null
@@ -569,7 +569,7 @@ export interface NcmRankItemRes {
     ordered: boolean
     description: null
     status: number
-    tags: any[]
+    tags: unknown[]
     userId: number
     name: string
     id: number
