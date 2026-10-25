@@ -14796,8 +14796,11 @@ select.tool-input-txt {
 #pomoBranchR {
   fill: none;
   stroke: #5f9e4b;
-  stroke-width: 5;
   stroke-linecap: round;
+}
+/* 运行时粗细/颜色由 JS 按株龄内联覆盖（嫩芽纤细黄绿 -> 成株粗壮深绿） */
+#pomoStem {
+  stroke-width: 5;
 }
 #pomoBranchL,
 #pomoBranchR {
@@ -14807,33 +14810,42 @@ select.tool-input-txt {
 .pomo-tomato {
   opacity: 0;
 }
-.pomo-tomato .t-body {
-  stroke: rgba(0, 0, 0, 0.08);
-  stroke-width: 1;
-}
-.pomo-tomato .t-calyx {
-  fill: none;
-  stroke: #2e7d32;
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-.pomo-tomato.is-ripe .t-body {
+/* 果实本体样式都在 <use> 引用的 #pomoFruit 母版里（选择器穿不进克隆树），
+   成熟光晕挂在外层 t-inner 上 */
+.pomo-tomato.is-ripe .t-inner {
   filter: drop-shadow(0 0 4px rgba(230, 57, 70, 0.45));
 }
-/* 运行中的树随风轻摆；时间停止则完全静止 */
-#pomoSway {
+/* 运行中的树分两层错相摇摆：根部幅度小、梢部幅度大，叠加出鞭状柔摆；时间停止则完全静止 */
+#pomoSway,
+#pomoSwayMid {
   transform-box: view-box;
-  transform-origin: 120px 226px;
-  animation: pomoTreeSway 4.6s ease-in-out infinite;
   animation-play-state: paused;
 }
-.pomo-wrap.is-growing #pomoSway {
+#pomoSway {
+  transform-origin: 120px 226px;
+  animation: pomoTreeSwayLow 4.6s ease-in-out infinite;
+}
+#pomoSwayMid {
+  transform-origin: 120px 168px;
+  animation: pomoTreeSwayHigh 4.6s ease-in-out infinite;
+}
+.pomo-wrap.is-growing #pomoSway,
+.pomo-wrap.is-growing #pomoSwayMid {
   animation-play-state: running;
 }
-@keyframes pomoTreeSway {
+@keyframes pomoTreeSwayLow {
   0%,
   100% {
-    transform: rotate(-1.1deg);
+    transform: rotate(-0.5deg);
+  }
+  50% {
+    transform: rotate(0.6deg);
+  }
+}
+@keyframes pomoTreeSwayHigh {
+  0%,
+  100% {
+    transform: rotate(-1deg);
   }
   50% {
     transform: rotate(1.3deg);
@@ -14847,6 +14859,12 @@ select.tool-input-txt {
 .pomo-wrap.is-growing .pomo-tomato .t-inner {
   animation-play-state: running;
 }
+/* 红透的果实浮动之外再叠一层呼吸光晕 */
+.pomo-wrap.is-growing .pomo-tomato.is-ripe .t-inner {
+  animation:
+    pomoTomatoBob 3.2s ease-in-out infinite,
+    pomoRipeGlow 2.6s ease-in-out infinite;
+}
 @keyframes pomoTomatoBob {
   0%,
   100% {
@@ -14856,9 +14874,18 @@ select.tool-input-txt {
     transform: translateY(1.5px);
   }
 }
+@keyframes pomoRipeGlow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 3px rgba(230, 57, 70, 0.32));
+  }
+  50% {
+    filter: drop-shadow(0 0 7px rgba(230, 57, 70, 0.6));
+  }
+}
 
-/* 丰收时刻: 番茄弹跳 + 星光闪烁 */
-.pomo-wrap.is-harvest .pomo-tomato .t-body {
+/* 丰收时刻: 果实弹跳 + 整株雀跃 + 星光闪烁 */
+.pomo-wrap.is-harvest .pomo-tomato use {
   transform-box: fill-box;
   transform-origin: center;
   animation: pomoRipePop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -14870,6 +14897,50 @@ select.tool-input-txt {
   }
   40% {
     transform: scale(1.18);
+  }
+}
+.pomo-wrap.is-harvest #pomoPlant {
+  transform-box: view-box;
+  transform-origin: 120px 226px;
+  animation: pomoHarvestCheer 0.9s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes pomoHarvestCheer {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.055);
+  }
+  65% {
+    transform: scale(0.985);
+  }
+}
+
+/* 播种时刻: 土粒从盆面迸起（抛物小弧 + 淡出） */
+#pomoSoilBurst circle {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+#pomoSoilBurst.play circle {
+  animation: pomoSoilPop 0.85s cubic-bezier(0.22, 0.9, 0.32, 1) forwards;
+  animation-delay: var(--d, 0s);
+}
+@keyframes pomoSoilPop {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.5);
+  }
+  12% {
+    opacity: 1;
+  }
+  55% {
+    transform: translate(calc(var(--dx) * 0.8), calc(var(--dy) * 1.25)) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), calc(var(--dy) * 0.55)) scale(0.5);
   }
 }
 .pomo-spark {

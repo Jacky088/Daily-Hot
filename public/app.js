@@ -12140,50 +12140,98 @@ function rPomodoro(_, c) {
               <stop offset="0%" stop-color="#7cc65e" />
               <stop offset="100%" stop-color="#3f9e44" />
             </linearGradient>
-            <radialGradient id="pomoTomatoShine" cx="34%" cy="28%" r="72%">
-              <stop offset="0%" stop-color="rgba(255,255,255,0.5)" />
-              <stop offset="35%" stop-color="rgba(255,255,255,0.1)" />
-              <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+            <!-- 果实三层渐变: 青绿打底, 橙/红两层覆盖随成熟度淡入 (转色由 --ripe1/--ripe2 驱动) -->
+            <radialGradient id="pomoFruitBase" cx="35%" cy="30%" r="80%">
+              <stop offset="0%" stop-color="#c3e08e" />
+              <stop offset="45%" stop-color="#8bc34a" />
+              <stop offset="100%" stop-color="#5f9738" />
+            </radialGradient>
+            <radialGradient id="pomoFruitAmber" cx="35%" cy="30%" r="80%">
+              <stop offset="0%" stop-color="#ffd97e" />
+              <stop offset="50%" stop-color="#f2a93c" />
+              <stop offset="100%" stop-color="#d97f2a" />
+            </radialGradient>
+            <radialGradient id="pomoFruitRipe" cx="35%" cy="30%" r="80%">
+              <stop offset="0%" stop-color="#ff9a70" />
+              <stop offset="50%" stop-color="#ef4d3c" />
+              <stop offset="100%" stop-color="#c81d33" />
+            </radialGradient>
+            <radialGradient id="pomoFruitAO" cx="50%" cy="40%" r="62%">
+              <stop offset="0%" stop-color="rgba(0,0,0,0.16)" />
+              <stop offset="100%" stop-color="rgba(0,0,0,0)" />
             </radialGradient>
             <path id="pomoLeafShape" d="M0 0 C 9 -2 17 -11 19 -24 C 8 -23 1 -12 0 0 Z" />
+            <!-- 番茄果实母版: 果身 + 棱沟 + 底部暗部 + 高光 + 萼片果柄, 三个果实经 <use> 复用 -->
+            <g id="pomoFruit">
+              <path
+                d="M0 -11 C 6.6 -11 12 -6.2 12 0.3 C 12 6.8 6.6 11.4 0 11.4 C -6.6 11.4 -12 6.8 -12 0.3 C -12 -6.2 -6.6 -11 0 -11 Z"
+                fill="url(#pomoFruitBase)"
+                stroke="rgba(0,0,0,0.08)"
+                stroke-width="1"
+              />
+              <path
+                d="M0 -11 C 6.6 -11 12 -6.2 12 0.3 C 12 6.8 6.6 11.4 0 11.4 C -6.6 11.4 -12 6.8 -12 0.3 C -12 -6.2 -6.6 -11 0 -11 Z"
+                fill="url(#pomoFruitAmber)"
+                style="opacity: var(--ripe1, 0)"
+              />
+              <path
+                d="M0 -11 C 6.6 -11 12 -6.2 12 0.3 C 12 6.8 6.6 11.4 0 11.4 C -6.6 11.4 -12 6.8 -12 0.3 C -12 -6.2 -6.6 -11 0 -11 Z"
+                fill="url(#pomoFruitRipe)"
+                style="opacity: var(--ripe2, 0)"
+              />
+              <path d="M-5 -9.4 C -6.4 -3.4 -6.4 3.6 -5 9.8" fill="none" stroke="rgba(0,0,0,0.07)" stroke-width="1.1" />
+              <path d="M5 -9.4 C 6.4 -3.4 6.4 3.6 5 9.8" fill="none" stroke="rgba(0,0,0,0.07)" stroke-width="1.1" />
+              <ellipse cx="0" cy="7" rx="8.6" ry="4.4" fill="url(#pomoFruitAO)" />
+              <ellipse cx="-4.4" cy="-5" rx="4.4" ry="2.9" fill="rgba(255,255,255,0.5)" transform="rotate(-28 -4.4 -5)" />
+              <circle cx="3.4" cy="-7.6" r="1.2" fill="rgba(255,255,255,0.75)" />
+              <path d="M0 -9.8 C 0.5 -12 0.3 -13.8 1 -15.6" fill="none" stroke="#4c8c3f" stroke-width="2.2" stroke-linecap="round" />
+              <path
+                id="pomoSepal"
+                d="M0 -9.6 C -2.9 -8.9 -6.2 -9.3 -8.7 -11 C -6.2 -12.3 -2.4 -11.6 0 -9.6 Z"
+                fill="#3f9e44"
+                stroke="rgba(0,0,0,0.06)"
+                stroke-width="0.6"
+              />
+              <use href="#pomoSepal" transform="rotate(38 0 -9.6)" />
+              <use href="#pomoSepal" transform="scale(-1 1)" />
+              <use href="#pomoSepal" transform="scale(-1 1) rotate(38 0 -9.6)" />
+              <circle cx="0" cy="-9.6" r="1.7" fill="#2f7d33" />
+            </g>
           </defs>
 
           <!-- 植株: 随专注进度发芽、抽枝、展叶、结果 -->
           <g id="pomoPlant">
+            <!-- 两层错相摇摆: 根部幅度小、梢部幅度大, 叠加出鞭状柔摆 (替代整体刚性旋转) -->
             <g id="pomoSway">
-              <path id="pomoStem" d="M120 226 C 111 198 127 178 120 154 C 115 136 125 126 120 112" />
-              <path id="pomoBranchL" d="M119 170 C 106 166 94 160 85 151" />
-              <path id="pomoBranchR" d="M120 148 C 133 144 147 139 156 129" />
+              <g id="pomoSwayMid">
+                <path id="pomoStem" d="M120 226 C 111 198 127 178 120 154 C 115 136 125 126 120 112" />
+                <path id="pomoBranchL" d="M119 170 C 106 166 94 160 85 151" />
+                <path id="pomoBranchR" d="M120 148 C 133 144 147 139 156 129" />
 
-              <g class="pomo-leaf" data-t="0.14" data-dur="0.1" data-x="120" data-y="214" data-r="-150" data-s="0.6"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
-              <g class="pomo-leaf" data-t="0.2" data-dur="0.1" data-x="121" data-y="208" data-r="-20" data-s="0.6"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
-              <g class="pomo-leaf" data-t="0.3" data-dur="0.12" data-x="118" data-y="186" data-r="-160" data-s="0.85"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
-              <g class="pomo-leaf" data-t="0.36" data-dur="0.12" data-x="122" data-y="180" data-r="-15" data-s="0.85"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
-              <g class="pomo-leaf" data-t="0.46" data-dur="0.12" data-x="100" data-y="162" data-r="-135" data-s="0.7"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
-              <g class="pomo-leaf" data-t="0.52" data-dur="0.12" data-x="141" data-y="140" data-r="-40" data-s="0.7"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
-              <g class="pomo-leaf" data-t="0.6" data-dur="0.12" data-x="119" data-y="136" data-r="-170" data-s="0.75"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
-              <g class="pomo-leaf" data-t="0.64" data-dur="0.12" data-x="121" data-y="132" data-r="-5" data-s="0.75"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
-              <g class="pomo-leaf" data-t="0.72" data-dur="0.12" data-x="120" data-y="118" data-r="-55" data-s="0.6"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
+                <g class="pomo-leaf" data-t="0.14" data-dur="0.1" data-x="120" data-y="214" data-r="-150" data-s="0.6"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
+                <g class="pomo-leaf" data-t="0.2" data-dur="0.1" data-x="121" data-y="208" data-r="-20" data-s="0.6"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
+                <g class="pomo-leaf" data-t="0.3" data-dur="0.12" data-x="118" data-y="186" data-r="-160" data-s="0.85"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
+                <g class="pomo-leaf" data-t="0.36" data-dur="0.12" data-x="122" data-y="180" data-r="-15" data-s="0.85"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
+                <g class="pomo-leaf" data-t="0.46" data-dur="0.12" data-x="100" data-y="162" data-r="-135" data-s="0.7"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
+                <g class="pomo-leaf" data-t="0.52" data-dur="0.12" data-x="141" data-y="140" data-r="-40" data-s="0.7"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
+                <g class="pomo-leaf" data-t="0.6" data-dur="0.12" data-x="119" data-y="136" data-r="-170" data-s="0.75"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
+                <g class="pomo-leaf" data-t="0.64" data-dur="0.12" data-x="121" data-y="132" data-r="-5" data-s="0.75"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
+                <g class="pomo-leaf" data-t="0.72" data-dur="0.12" data-x="120" data-y="118" data-r="-55" data-s="0.6"><use href="#pomoLeafShape" fill="url(#pomoLeafGrad)" /></g>
 
-              <g class="pomo-tomato" data-t="0.4" data-dur="0.22" data-x="83" data-y="159">
-                <g class="t-inner">
-                  <circle class="t-body" r="12" />
-                  <circle class="t-shine" r="12" fill="url(#pomoTomatoShine)" />
-                  <path class="t-calyx" d="M0 -10 L-5 -15 M0 -10 L0 -17 M0 -10 L5 -15" />
+                <g class="pomo-tomato" data-t="0.4" data-dur="0.22" data-x="83" data-y="159">
+                  <g class="t-inner">
+                    <use href="#pomoFruit" />
+                  </g>
                 </g>
-              </g>
-              <g class="pomo-tomato" data-t="0.55" data-dur="0.22" data-x="157" data-y="137">
-                <g class="t-inner">
-                  <circle class="t-body" r="12" />
-                  <circle class="t-shine" r="12" fill="url(#pomoTomatoShine)" />
-                  <path class="t-calyx" d="M0 -10 L-5 -15 M0 -10 L0 -17 M0 -10 L5 -15" />
+                <g class="pomo-tomato" data-t="0.55" data-dur="0.22" data-x="157" data-y="137">
+                  <g class="t-inner">
+                    <use href="#pomoFruit" />
+                  </g>
                 </g>
-              </g>
-              <g class="pomo-tomato" data-t="0.7" data-dur="0.28" data-x="120" data-y="116">
-                <g class="t-inner">
-                  <circle class="t-body" r="12" />
-                  <circle class="t-shine" r="12" fill="url(#pomoTomatoShine)" />
-                  <path class="t-calyx" d="M0 -10 L-5 -15 M0 -10 L0 -17 M0 -10 L5 -15" />
+                <g class="pomo-tomato" data-t="0.7" data-dur="0.28" data-x="120" data-y="116">
+                  <g class="t-inner">
+                    <use href="#pomoFruit" />
+                  </g>
                 </g>
               </g>
             </g>
@@ -12195,6 +12243,16 @@ function rPomodoro(_, c) {
             <ellipse cx="120" cy="221" rx="30" ry="5" fill="#6b4226" />
             <path d="M88 224 L152 224 L146 258 L94 258 Z" fill="url(#pomoPotGrad)" />
             <rect x="84" y="218" width="72" height="10" rx="5" fill="#d98d52" />
+          </g>
+
+          <!-- 播种土粒: 生长启动瞬间从盆面迸起 (--dx/--dy 落点, --d 错相延迟) -->
+          <g id="pomoSoilBurst">
+            <circle cx="107" cy="220" r="2" fill="#8d5a2b" style="--dx: -17px; --dy: -13px" />
+            <circle cx="116" cy="223" r="1.5" fill="#a9713d" style="--dx: -7px; --dy: -19px; --d: 0.05s" />
+            <circle cx="125" cy="222" r="1.8" fill="#8d5a2b" style="--dx: 5px; --dy: -17px; --d: 0.1s" />
+            <circle cx="133" cy="220" r="1.4" fill="#a9713d" style="--dx: 14px; --dy: -11px; --d: 0.06s" />
+            <circle cx="121" cy="218" r="1.6" fill="#7a4c22" style="--dx: -1px; --dy: -21px; --d: 0.12s" />
+            <circle cx="112" cy="221" r="1.3" fill="#7a4c22" style="--dx: 10px; --dy: -9px; --d: 0.16s" />
           </g>
 
           <!-- 丰收星光 -->
@@ -12267,9 +12325,16 @@ function rPomodoro(_, c) {
   const branchEls = [c.querySelector('#pomoBranchL'), c.querySelector('#pomoBranchR')]
   const leafEls = [...c.querySelectorAll('.pomo-leaf')]
   const tomatoEls = [...c.querySelectorAll('.pomo-tomato')]
+  const soilBurstEl = c.querySelector('#pomoSoilBurst')
 
   const clamp01 = (v) => Math.min(1, Math.max(0, v))
   const easeOut = (t) => 1 - Math.pow(1 - t, 3)
+  // 弹簧回弹: 末端冲过头一点再收回, 展叶比纯 easeOut 更有生命感
+  const easeOutBack = (t) => {
+    const c1 = 1.70158
+    const c3 = c1 + 1
+    return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2)
+  }
   const hex2rgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]
   const mixColor = (stops, t) => {
     t = clamp01(t)
@@ -12283,13 +12348,10 @@ function rPomodoro(_, c) {
     return `rgb(${Math.round(a[0] + (b[0] - a[0]) * k)},${Math.round(a[1] + (b[1] - a[1]) * k)},${Math.round(a[2] + (b[2] - a[2]) * k)})`
   }
 
-  // 果实成熟色阶: 青绿 -> 黄绿 -> 橙 -> 红润饱满
-  const TOMATO_STOPS = [
-    [0, '#8bc34a'],
-    [0.35, '#a5c35a'],
-    [0.6, '#e8a13c'],
-    [0.8, '#f4623a'],
-    [1, '#e63946'],
+  // 嫩茎到老茎的色阶: 新芽纤细黄绿 -> 成株粗壮深绿 (粗细与颜色都按株龄走)
+  const STEM_STOPS = [
+    [0, '#a6d36b'],
+    [1, '#5f9e4b'],
   ]
 
   // 茎叶路径按长度揭示 (stroke-dash 描边生长)
@@ -12303,29 +12365,39 @@ function rPomodoro(_, c) {
 
   const applyGrowth = (rawP) => {
     const g = clamp01(rawP)
+    const now = Date.now()
     // 整株从盆中钻出的整体缩放 (嫩芽 -> 成株)
     const s = 0.22 + 0.78 * easeOut(g)
     plantG.setAttribute(
       'transform',
       `translate(${(120 * (1 - s)).toFixed(2)} ${(226 * (1 - s)).toFixed(2)}) scale(${s.toFixed(3)})`,
     )
-    // 主茎先长，分枝随后
+    // 主茎先长，分枝随后; 粗细与颜色随株龄变化
     const reveal = (el, from, to) => {
       el.style.strokeDashoffset = el._len * (1 - clamp01((g - from) / (to - from)))
     }
+    const stemAge = easeOut(g)
     reveal(stemEl, 0, 0.42)
-    reveal(branchEls[0], 0.28, 0.5)
-    reveal(branchEls[1], 0.36, 0.58)
-    // 叶片依阈值次第舒展
-    leafEls.forEach((leaf) => {
-      const local = easeOut(clamp01((g - Number(leaf.dataset.t)) / Number(leaf.dataset.dur || 0.12)))
+    stemEl.style.strokeWidth = (1.6 + 3.4 * stemAge).toFixed(2)
+    stemEl.style.stroke = mixColor(STEM_STOPS, stemAge)
+    branchEls.forEach((b, i) => {
+      const from = i === 0 ? 0.28 : 0.36
+      const age = easeOut(clamp01((g - from) / 0.22))
+      reveal(b, from, from + 0.22)
+      b.style.strokeWidth = (1.2 + 2.2 * age).toFixed(2)
+      b.style.stroke = mixColor(STEM_STOPS, age)
+    })
+    // 叶片依阈值次第舒展 (带回弹), 展开后随风轻微颤动且相位各异
+    leafEls.forEach((leaf, idx) => {
+      const local = easeOutBack(clamp01((g - Number(leaf.dataset.t)) / Number(leaf.dataset.dur || 0.12)))
+      const wob = Math.sin(now / 650 + idx * 1.9) * 1.8 * local
       leaf.setAttribute(
         'transform',
-        `translate(${leaf.dataset.x} ${leaf.dataset.y}) rotate(${leaf.dataset.r}) scale(${(Number(leaf.dataset.s || 1) * Math.max(local, 0.001)).toFixed(3)})`,
+        `translate(${leaf.dataset.x} ${leaf.dataset.y}) rotate(${(Number(leaf.dataset.r) + wob).toFixed(2)}) scale(${(Number(leaf.dataset.s || 1) * Math.max(local, 0.001)).toFixed(3)})`,
       )
       leaf.style.opacity = local > 0 ? 1 : 0
     })
-    // 番茄依次结果、膨大并渐渐转色
+    // 番茄依次结果、膨大; 转色走双层覆盖渐变 (青绿 -> 橙 -> 红润), 由 CSS 变量穿透 <use> 驱动
     tomatoEls.forEach((tm) => {
       const local = clamp01((g - Number(tm.dataset.t)) / Number(tm.dataset.dur || 0.2))
       tm.setAttribute(
@@ -12333,9 +12405,40 @@ function rPomodoro(_, c) {
         `translate(${tm.dataset.x} ${tm.dataset.y}) scale(${Math.max(easeOut(local), 0.001).toFixed(3)})`,
       )
       tm.style.opacity = local > 0 ? 1 : 0
-      tm.querySelector('.t-body').style.fill = mixColor(TOMATO_STOPS, local)
+      tm.style.setProperty('--ripe1', clamp01(local / 0.55).toFixed(3))
+      tm.style.setProperty('--ripe2', clamp01((local - 0.45) / 0.55).toFixed(3))
       tm.classList.toggle('is-ripe', local >= 1)
     })
+  }
+
+  // 生长动画的 rAF 循环: 进度从 tickTarget 时间戳逐帧换算, 两次整秒之间运动也连续。
+  // 只在「运行中 + 专注阶段」转, 暂停/休息/离场即停; 后台标签页 rAF 暂停,
+  // 回到前台时按时间戳直接落到正确进度, 不会累积漂移
+  let growthRaf = 0
+  const growthFrame = () => {
+    growthRaf = 0
+    if (!c.isConnected || !isRunning || isBreakMode()) return
+    const totalMs = totalSec * 1000
+    const elapsedMs = Math.min(totalMs, Math.max(0, totalMs - (tickTarget - Date.now())))
+    applyGrowth(totalMs > 0 ? elapsedMs / totalMs : 0)
+    growthRaf = requestAnimationFrame(growthFrame)
+  }
+  const startGrowthLoop = () => {
+    if (!growthRaf) growthRaf = requestAnimationFrame(growthFrame)
+  }
+  const stopGrowthLoop = () => {
+    if (growthRaf) {
+      cancelAnimationFrame(growthRaf)
+      growthRaf = 0
+    }
+  }
+
+  // 播种时刻: 土粒从盆面迸起 (重置动画以支持反复触发)
+  const soilBurst = () => {
+    if (!soilBurstEl) return
+    soilBurstEl.classList.remove('play')
+    void soilBurstEl.getBoundingClientRect()
+    soilBurstEl.classList.add('play')
   }
 
   const isBreakMode = () => currentMode === 'sbreak' || currentMode === 'lbreak'
@@ -12385,6 +12488,7 @@ function rPomodoro(_, c) {
       // 新一轮专注: 重新播种，番茄树从头生长
       pomoWrap.classList.remove('is-harvest')
       applyGrowth(0)
+      soilBurst()
     }
 
     if (mode === 'sbreak') {
@@ -12404,6 +12508,7 @@ function rPomodoro(_, c) {
     if (timer) clearInterval(timer)
     timer = null
     isRunning = false
+    stopGrowthLoop()
     toggleText.textContent = '开始专注'
     c.querySelector('.pomo-btn-icon').textContent = '▶'
     toggleBtn.classList.remove('running')
@@ -12463,6 +12568,9 @@ function rPomodoro(_, c) {
       toggleBtn.classList.add('running')
       modeBadge.classList.add('pulsing')
       pomoWrap.classList.add('is-growing')
+      // 满时长起步 = 种子刚下地, 迸起土粒; 暂停后续跑不算重新播种
+      if (remainSec === totalSec) soilBurst()
+      startGrowthLoop()
 
       // 时间戳驱动: 无论标签页是否被后台节流, 剩余时间始终取自真实时钟
       tickTarget = Date.now() + remainSec * 1000
@@ -12471,6 +12579,7 @@ function rPomodoro(_, c) {
         if (!c.isConnected) {
           clearInterval(timer)
           timer = null
+          stopGrowthLoop()
           return
         }
         const left = Math.max(0, Math.round((tickTarget - Date.now()) / 1000))
