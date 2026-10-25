@@ -1,8 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { Readable } from 'node:stream'
 
-import { app } from '../src/app.ts'
-import { runWithPlatformIP } from '../src/platform-ip.ts'
+import { app } from './src/app.ts'
+import { runWithPlatformIP } from './src/platform-ip.ts'
 
 // Vercel Serverless Functions（Node.js 运行时）入口。
 // vercel.json 把 /v2/*、/img、/health、/endpoints 重写到本函数，静态资源由

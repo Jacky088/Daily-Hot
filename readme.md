@@ -92,7 +92,7 @@ npx wrangler deploy
 
 [![Deploy with Vercel](https://vercel.com/button) ](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FJacky088%2FDaily-Hot&project-name=daily-hot&repository-name=daily-hot)
 
-已内置 `vercel.json` 与 `api/server.ts`：静态资源由 Vercel CDN 直接托管 `public/` 目录，`/v2/*`、`/img`、`/health`、`/endpoints` 四类接口重写到 Node.js Serverless Function，业务逻辑与 Workers / Docker 共用同一份 Oak 应用。点击上方按钮一键导入并部署，构建配置自动读取 `vercel.json`，保持默认即可，之后每次 `git push` 自动重新部署。
+已内置 `vercel.json` 与 `vercel.ts`：部署时入口经 esbuild 预打包为自包含的 `api/[[...path]].js`（规避 Vercel 对 `.ts` 后缀导入的运行时兼容问题），静态资源由 Vercel CDN 直接托管 `public/` 目录，`/v2/*`、`/img`、`/health`、`/endpoints` 四类接口重写到 Node.js Serverless Function，业务逻辑与 Workers / Docker 共用同一份 Oak 应用。点击上方按钮一键导入并部署，构建配置自动读取 `vercel.json`，保持默认即可，之后每次 `git push` 自动重新部署。
 
 环境变量（见 ⚙️ 配置）在 Vercel 项目「Settings → Environment Variables」中配置，均为可选。
 
@@ -217,7 +217,7 @@ npx wrangler deploy
 └──────────────────┘            └──────────────────────┘
         │                                │
         ├─ Workers: [assets] 配置        ├─ Workers: cf-worker.ts
-        ├─ Vercel: CDN 直出 public/      ├─ Vercel: api/server.ts
+        ├─ Vercel: CDN 直出 public/      ├─ Vercel: vercel.ts（打包为 api/[[...path]].js）
         └─ Docker: static-assets 中间件  ├─ Docker: node.ts
                                          ├─ EdgeOne: cloud-functions/[[default]].ts
                                          ├─ Deno: deno.ts
@@ -266,12 +266,11 @@ npx wrangler deploy
 │       ├── hitokoto/        # 一言
 │       └── ...
 ├── test/                    # 单元测试（打分归一化 / 估算算法 / 缓存防抖 / 安全韧性）
-├── api/
-│   └── server.ts            # Vercel Serverless Functions 入口
 ├── cf-worker.ts             # Cloudflare Workers 入口
 ├── node.ts                  # Node.js 入口
 ├── deno.ts                  # Deno 入口
 ├── bun.ts                   # Bun 入口
+├── vercel.ts                # Vercel Serverless Functions 入口（部署时打包为 api/[[...path]].js）
 ├── cloud-functions/         # EdgeOne Pages 云函数
 │   └── [[default]].ts       # 全栈入口（Oak 服务，统一处理 API 与健康检查）
 ├── edgeone.json             # EdgeOne Pages 构建配置
