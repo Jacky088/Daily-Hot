@@ -12780,66 +12780,108 @@ function rDecision(_, c) {
         <div class="dec-kiosk-scene hidden" id="decKioskScene">
           <svg class="dec-kiosk" viewBox="0 0 200 200" aria-hidden="true">
             <defs>
-              <pattern id="decStripe" width="20" height="18" patternUnits="userSpaceOnUse">
-                <rect width="10" height="18" fill="#f4623a" />
-                <rect x="10" width="10" height="18" fill="#fff4ec" />
+              <pattern id="decStripe" x="16" width="28" height="18" patternUnits="userSpaceOnUse">
+                <rect width="14" height="18" fill="#f0544c" />
+                <rect x="14" width="14" height="18" fill="#ffdfc2" />
               </pattern>
               <linearGradient id="decBodyGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#ffe8cf" />
-                <stop offset="100%" stop-color="#ffc296" />
+                <stop offset="0%" stop-color="#fff8ee" />
+                <stop offset="100%" stop-color="#ffe0bd" />
+              </linearGradient>
+              <linearGradient id="decSlotGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#1d2230" />
+                <stop offset="100%" stop-color="#333a4e" />
               </linearGradient>
               <radialGradient id="decGlow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="rgba(255,140,90,0.18)" />
+                <stop offset="0%" stop-color="rgba(255,140,90,0.16)" />
                 <stop offset="100%" stop-color="rgba(255,140,90,0)" />
+              </radialGradient>
+              <radialGradient id="decLampGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="rgba(255,209,102,0.5)" />
+                <stop offset="100%" stop-color="rgba(255,209,102,0)" />
               </radialGradient>
             </defs>
 
             <!-- 背景光晕 -->
-            <ellipse cx="100" cy="108" rx="92" ry="86" fill="url(#decGlow)" />
+            <ellipse cx="100" cy="104" rx="92" ry="84" fill="url(#decGlow)" />
 
-            <!-- 顶部指示灯 -->
-            <circle class="dec-kiosk-light" cx="100" cy="12" r="7" fill="#ffd166" stroke="rgba(0,0,0,0.12)" />
-            <line x1="100" y1="19" x2="100" y2="26" stroke="rgba(0,0,0,0.12)" stroke-width="2" />
-
-            <!-- 遮阳棚: 条纹顶 + 波浪边 -->
-            <rect x="20" y="26" width="160" height="24" rx="6" fill="url(#decStripe)" stroke="rgba(0,0,0,0.08)" />
-            <g fill="#f4623a">
-              <circle cx="30" cy="50" r="9" />
-              <circle cx="50" cy="50" r="9" />
-              <circle cx="70" cy="50" r="9" />
-              <circle cx="90" cy="50" r="9" />
-              <circle cx="110" cy="50" r="9" />
-              <circle cx="130" cy="50" r="9" />
-              <circle cx="150" cy="50" r="9" />
-              <circle cx="170" cy="50" r="9" />
+            <!-- 吊灯: 灯线 + 灯罩 + 灯泡 (工作时闪烁) -->
+            <line x1="100" y1="0" x2="100" y2="5" stroke="rgba(0,0,0,0.25)" stroke-width="1.5" />
+            <circle cx="100" cy="15.5" r="13" fill="url(#decLampGlow)" />
+            <g class="dec-kiosk-light">
+              <rect x="95" y="5" width="10" height="4.5" rx="2" fill="#e08556" stroke="rgba(0,0,0,0.1)" />
+              <circle cx="100" cy="15.5" r="6" fill="#ffd166" stroke="rgba(0,0,0,0.12)" />
+              <circle cx="100" cy="16.5" r="2.8" fill="#fff3c4" />
+              <circle cx="98" cy="13.5" r="1.2" fill="rgba(255,255,255,0.85)" />
             </g>
+            <line x1="100" y1="21.5" x2="100" y2="26" stroke="rgba(0,0,0,0.12)" stroke-width="1.5" />
 
-            <!-- 机身 -->
-            <rect x="34" y="58" width="132" height="100" rx="14" fill="url(#decBodyGrad)" stroke="rgba(0,0,0,0.08)" />
-            <rect x="44" y="66" width="112" height="72" rx="10" fill="rgba(255,255,255,0.38)" />
+            <!-- 遮阳棚: 条纹雨棚 + 一体波浪垂边 -->
+            <rect x="16" y="26" width="168" height="16" fill="url(#decStripe)" />
+            <path
+              d="M16 42 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 L184 36 L16 36 Z"
+              fill="url(#decStripe)"
+            />
+            <path
+              d="M16 42 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0 a7 7 0 0 0 14 0"
+              fill="none"
+              stroke="rgba(0,0,0,0.12)"
+              stroke-width="1.2"
+            />
+            <!-- 雨棚投到机身的柔影 -->
+            <rect x="24" y="52" width="152" height="5" rx="2.5" fill="rgba(0,0,0,0.07)" />
 
-            <!-- 屏幕 -->
-            <rect x="56" y="74" width="88" height="32" rx="8" fill="#262b3a" />
-            <rect x="56" y="74" width="88" height="32" rx="8" fill="none" stroke="#5eead4" stroke-opacity="0.25" />
-            <text id="decScreenText" x="100" y="94" text-anchor="middle" font-size="11" font-weight="700" fill="#8be0ae">READY</text>
+            <!-- 机身: 奶油渐变 + 顶缘高光 + 侧缘明暗 -->
+            <rect x="30" y="54" width="140" height="96" rx="14" fill="url(#decBodyGrad)" stroke="rgba(0,0,0,0.08)" />
+            <rect x="34" y="58" width="132" height="7" rx="3.5" fill="rgba(255,255,255,0.5)" />
+            <rect x="157" y="60" width="9" height="84" rx="4.5" fill="rgba(0,0,0,0.045)" />
+            <rect x="34" y="60" width="5" height="84" rx="2.5" fill="rgba(255,255,255,0.4)" />
 
-            <!-- 投币口与按钮 -->
-            <rect x="64" y="116" width="26" height="8" rx="4" fill="#2a2f3a" />
-            <circle cx="112" cy="120" r="6" fill="#ffd166" stroke="rgba(0,0,0,0.1)" />
-            <circle cx="132" cy="120" r="6" fill="#7dd3a8" stroke="rgba(0,0,0,0.1)" />
+            <!-- 招牌药丸: 一碗热汤面 + MENU -->
+            <rect x="72" y="59" width="56" height="15" rx="7.5" fill="#f0544c" stroke="rgba(0,0,0,0.06)" />
+            <path d="M92 66 a8 8 0 0 0 16 0 Z" fill="#fff6ec" />
+            <rect x="96.6" y="74.4" width="6.8" height="1.8" rx="0.9" fill="#fff6ec" opacity="0.85" />
+            <text x="117" y="70.5" text-anchor="middle" font-size="7.5" font-weight="700" fill="#fff6ec">MENU</text>
 
-            <!-- 出票口 -->
-            <rect x="56" y="136" width="88" height="12" rx="6" fill="#2a2f3a" />
-            <rect x="58" y="138" width="84" height="4" rx="2" fill="rgba(255,255,255,0.14)" />
+            <!-- 屏幕: 深色 bezel + 扫描线 + 荧光描边 -->
+            <rect x="44" y="82" width="112" height="36" rx="10" fill="#262b3a" stroke="#eec08a" stroke-opacity="0.55" />
+            <rect x="49" y="87" width="102" height="26" rx="6" fill="#1f2433" />
+            <rect x="49" y="87" width="102" height="26" rx="6" fill="none" stroke="#5eead4" stroke-opacity="0.28" />
+            <rect x="51" y="94" width="98" height="1.4" fill="rgba(255,255,255,0.05)" />
+            <rect x="51" y="102" width="98" height="1.4" fill="rgba(255,255,255,0.05)" />
+            <text id="decScreenText" x="100" y="104" text-anchor="middle" font-size="11" font-weight="700" fill="#8be0ae">READY</text>
 
-            <!-- 支脚与地面阴影 -->
-            <rect x="46" y="158" width="18" height="14" rx="5" fill="#e08556" />
-            <rect x="136" y="158" width="18" height="14" rx="5" fill="#e08556" />
-            <ellipse cx="100" cy="180" rx="72" ry="8" fill="rgba(0,0,0,0.1)" />
+            <!-- 投币口 (含半枚金币) 与状态按钮 -->
+            <rect x="40" y="124" width="10" height="15" rx="4" fill="#2a2f3a" />
+            <circle cx="45" cy="122.5" r="5" fill="#ffd166" stroke="#d9a63c" />
+            <text x="45" y="125" text-anchor="middle" font-size="6.5" font-weight="700" fill="#8a5a00">¥</text>
+            <circle cx="159" cy="122" r="4.5" fill="#ffd166" stroke="rgba(0,0,0,0.1)" />
+            <circle cx="159" cy="130.5" r="4.5" fill="#7dd3a8" stroke="rgba(0,0,0,0.1)" />
+            <circle cx="88" cy="128.5" r="1.7" fill="#7dd3a8" opacity="0.85" />
+            <circle cx="97" cy="128.5" r="1.7" fill="#ffd166" opacity="0.85" />
+            <circle cx="106" cy="128.5" r="1.7" fill="#f0705c" opacity="0.85" />
+            <circle cx="115" cy="128.5" r="1.7" fill="#7dd3a8" opacity="0.85" />
+
+            <!-- 出票口: 内凹暗槽 + 出纸白边 + 两侧螺钉 -->
+            <rect x="54" y="136" width="92" height="12" rx="6" fill="url(#decSlotGrad)" />
+            <rect x="58" y="137.5" width="84" height="3" rx="1.5" fill="rgba(255,255,255,0.22)" />
+            <rect x="56" y="146" width="88" height="1.5" rx="0.75" fill="rgba(255,255,255,0.16)" />
+            <circle cx="49" cy="142" r="1.7" fill="#e8a568" stroke="rgba(0,0,0,0.12)" />
+            <circle cx="151" cy="142" r="1.7" fill="#e8a568" stroke="rgba(0,0,0,0.12)" />
+
+            <!-- 支脚与地面 -->
+            <rect x="44" y="150" width="20" height="11" rx="4.5" fill="#e08556" />
+            <rect x="44" y="156" width="20" height="5" rx="2.5" fill="rgba(0,0,0,0.08)" />
+            <rect x="136" y="150" width="20" height="11" rx="4.5" fill="#e08556" />
+            <rect x="136" y="156" width="20" height="5" rx="2.5" fill="rgba(0,0,0,0.08)" />
+            <ellipse cx="100" cy="179" rx="74" ry="7" fill="rgba(0,0,0,0.09)" />
+            <ellipse cx="100" cy="178" rx="44" ry="4" fill="rgba(0,0,0,0.06)" />
 
             <!-- 装饰星光 -->
-            <path d="M12 74 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2 Z" fill="#ffd166" opacity="0.85" />
-            <path d="M188 88 l1.8 4.4 4.4 1.8 -4.4 1.8 -1.8 4.4 -1.8 -4.4 -4.4 -1.8 4.4 -1.8 Z" fill="#ffd166" opacity="0.7" />
+            <path d="M13 72 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2 Z" fill="#ffd166" opacity="0.85" />
+            <path d="M189 86 l1.8 4.4 4.4 1.8 -4.4 1.8 -1.8 4.4 -1.8 -4.4 -4.4 -1.8 4.4 -1.8 Z" fill="#ffd166" opacity="0.7" />
+            <circle cx="22" cy="118" r="1.6" fill="#f0705c" opacity="0.5" />
+            <circle cx="180" cy="118" r="1.3" fill="#7dd3a8" opacity="0.55" />
           </svg>
           <div class="dec-ticket-clip">
             <div class="dec-ticket" id="decTicket">
@@ -12878,6 +12920,7 @@ function rDecision(_, c) {
     badgeEl.textContent = '等待决策'
     winnerEl.textContent = '准备就绪'
     ticket.classList.remove('out')
+    kioskScene.classList.remove('done')
     screenText.textContent = 'READY'
     if (isDice) cube.style.transform = `rotateX(${spinX}deg) rotateY(${spinY}deg)`
   }
@@ -12915,6 +12958,7 @@ function rDecision(_, c) {
     badgeEl.classList.add('rolling')
     winnerEl.textContent = ''
     ticket.classList.remove('out')
+    kioskScene.classList.remove('done')
     kioskScene.classList.add('working')
 
     const opts = PRESETS.food.options
@@ -12931,6 +12975,7 @@ function rDecision(_, c) {
       ticketName.textContent = final
       ticket.classList.add('out')
       kioskScene.classList.remove('working')
+      kioskScene.classList.add('done')
       badgeEl.textContent = '🎉 命中结果'
       badgeEl.classList.remove('rolling')
       winnerEl.textContent = final

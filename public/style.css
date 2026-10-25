@@ -15317,6 +15317,26 @@ select.tool-input-txt {
 .dec-kiosk-scene.working .dec-kiosk-light {
   animation: decLightBlink 0.5s ease-in-out infinite;
 }
+/* 出票成功: 整机开心一跳, 吊灯常亮 */
+.dec-kiosk-scene.done .dec-kiosk {
+  animation: decKioskCheer 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.dec-kiosk-scene.done .dec-kiosk-light {
+  animation: none;
+  opacity: 1;
+}
+@keyframes decKioskCheer {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  40% {
+    transform: translateY(-7px) scale(1.03);
+  }
+  70% {
+    transform: translateY(1px) scale(0.99);
+  }
+}
 @keyframes decKioskWork {
   0%,
   100% {
@@ -15360,12 +15380,14 @@ select.tool-input-txt {
 .dec-ticket {
   width: 74px;
   height: 90px;
-  background: #fff;
+  background: linear-gradient(180deg, #fffefe, #fdf4e8);
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 7px 6px 9px;
-  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 5px 12px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
   transform: translateY(-103%);
   transition: transform 0.7s cubic-bezier(0.22, 0.9, 0.32, 1.14);
   clip-path: polygon(
@@ -15381,13 +15403,13 @@ select.tool-input-txt {
     56.25% 100%,
     50% calc(100% - 5px),
     43.75% 100%,
-    37.5% calc(100% - 5px),
-    31.25% 100%,
-    25% calc(100% - 5px),
-    18.75% 100%,
-    12.5% calc(100% - 5px),
-    6.25% 100%,
-    0 calc(100% - 5px)
+    37.5% 100%,
+    31.25% calc(100% - 5px),
+    25% 100%,
+    18.75% calc(100% - 5px),
+    12.5% 100%,
+    6.25% calc(100% - 5px),
+    0 100%
   );
 }
 .dec-ticket.out {
@@ -15397,7 +15419,7 @@ select.tool-input-txt {
   font-size: 8px;
   font-weight: 700;
   letter-spacing: 1.5px;
-  color: #9aa0ab;
+  color: #c08a52;
 }
 .dec-ticket-name {
   flex: 1;
@@ -15413,7 +15435,10 @@ select.tool-input-txt {
 .dec-ticket-bars {
   width: 100%;
   height: 12px;
-  background: repeating-linear-gradient(90deg, #3d3d4a 0 2px, transparent 2px 5px);
+  padding-top: 3px;
+  border-top: 1.5px dashed #ecd9c2;
+  box-sizing: content-box;
+  background: repeating-linear-gradient(90deg, #3d3d4a 0 2px, transparent 2px 5px) left bottom / 100% 9px no-repeat;
   opacity: 0.85;
 }
 @keyframes decDiceFloat {
