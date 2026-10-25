@@ -8,7 +8,11 @@
 [![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white) ](https://docker.com/)
 [![License](https://img.shields.io/badge/license-MIT-green) ](./license)
 
-聚合 70+ 个热门数据源，一个页面看遍全网热点。涵盖新闻资讯、科技资讯、影视娱乐、实用工具、生活信息、趣味内容和学习工具，部署即用，支持 Cloudflare Workers、Docker 与 EdgeOne Makers 等多种部署方式。
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button) ](https://deploy.workers.cloudflare.com/?url=https://github.com/Jacky088/Daily-Hot)
+[![Deploy with Vercel](https://vercel.com/button) ](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FJacky088%2FDaily-Hot&project-name=daily-hot&repository-name=daily-hot)
+[![Deploy with EdgeOne Pages](https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg) ](https://edgeone.ai/pages/deploy?repository-url=https%3A%2F%2Fgithub.com%2FJacky088%2FDaily-Hot)
+
+聚合 70+ 个热门数据源，一个页面看遍全网热点。涵盖新闻资讯、科技资讯、影视娱乐、实用工具、生活信息、趣味内容和学习工具，部署即用，支持 Cloudflare Workers、Vercel、Docker 与 EdgeOne Makers 等多种部署方式。
 
 ## 界面预览
 
@@ -71,6 +75,10 @@
 
 ### Cloudflare Workers（推荐）
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button) ](https://deploy.workers.cloudflare.com/?url=https://github.com/Jacky088/Daily-Hot)
+
+点击上方按钮一键导入并部署；也可以用 CLI 手动部署：
+
 ```bash
 git clone https://github.com/Jacky088/Daily-Hot.git
 cd Daily-Hot
@@ -80,13 +88,32 @@ npx wrangler deploy
 
 部署完成后访问 Worker 域名即可使用。
 
+### Vercel
+
+[![Deploy with Vercel](https://vercel.com/button) ](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FJacky088%2FDaily-Hot&project-name=daily-hot&repository-name=daily-hot)
+
+已内置 `vercel.json` 与 `api/server.ts`：静态资源由 Vercel CDN 直接托管 `public/` 目录，`/v2/*`、`/img`、`/health`、`/endpoints` 四类接口重写到 Node.js Serverless Function，业务逻辑与 Workers / Docker 共用同一份 Oak 应用。点击上方按钮一键导入并部署，构建配置自动读取 `vercel.json`，保持默认即可，之后每次 `git push` 自动重新部署。
+
+环境变量（见 ⚙️ 配置）在 Vercel 项目「Settings → Environment Variables」中配置，均为可选。
+
+也可以用 CLI 手动部署：
+
+```bash
+npm install -g vercel
+vercel login
+vercel            # 预览环境
+vercel --prod     # 生产环境
+```
+
 ### EdgeOne Makers
+
+[![Deploy with EdgeOne Pages](https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg) ](https://edgeone.ai/pages/deploy?repository-url=https%3A%2F%2Fgithub.com%2FJacky088%2FDaily-Hot)
 
 已内置 `edgeone.json` 与 `cloud-functions/[[default]].ts`，前端面板与 API 一体部署。
 
 **方式一：控制台导入 Git 仓库（推荐）**
 
-Fork 本项目，在 [EdgeOne Makers](https://edgeone.ai/pages) 控制台「导入 Git 仓库」，选择本项目。构建配置自动读取 `edgeone.json`，保持默认即可，之后每次 `git push` 自动重新部署。
+点击上方按钮一键导入，或 Fork 本项目后在 [EdgeOne Makers](https://edgeone.ai/pages) 控制台「导入 Git 仓库」选择本项目。构建配置自动读取 `edgeone.json`，保持默认即可，之后每次 `git push` 自动重新部署。
 
 **方式二：CLI 部署**
 
@@ -190,6 +217,7 @@ npx wrangler deploy
 └──────────────────┘            └──────────────────────┘
         │                                │
         ├─ Workers: [assets] 配置        ├─ Workers: cf-worker.ts
+        ├─ Vercel: CDN 直出 public/      ├─ Vercel: api/server.ts
         └─ Docker: static-assets 中间件  ├─ Docker: node.ts
                                          ├─ EdgeOne: cloud-functions/[[default]].ts
                                          ├─ Deno: deno.ts
@@ -201,7 +229,7 @@ npx wrangler deploy
 - **后端**：TypeScript + [Oak](https://oakserver.github.io/oak/) 框架
 - **前端**：纯 HTML/CSS/JS，无框架依赖
 - **数据源**：聚合各大平台公开热榜与开源社区数据，涵盖社交、问答、短视频、新闻资讯、技术社区、影视音乐、游戏与实用工具等 70+ 个来源
-- **部署**：Cloudflare Workers / Docker / EdgeOne Pages / Node.js / Deno / Bun
+- **部署**：Cloudflare Workers / Vercel / Docker / EdgeOne Pages / Node.js / Deno / Bun
 
 ## 📋 项目结构
 
@@ -238,6 +266,8 @@ npx wrangler deploy
 │       ├── hitokoto/        # 一言
 │       └── ...
 ├── test/                    # 单元测试（打分归一化 / 估算算法 / 缓存防抖 / 安全韧性）
+├── api/
+│   └── server.ts            # Vercel Serverless Functions 入口
 ├── cf-worker.ts             # Cloudflare Workers 入口
 ├── node.ts                  # Node.js 入口
 ├── deno.ts                  # Deno 入口
@@ -246,6 +276,7 @@ npx wrangler deploy
 │   └── [[default]].ts       # 全栈入口（Oak 服务，统一处理 API 与健康检查）
 ├── edgeone.json             # EdgeOne Pages 构建配置
 ├── wrangler.toml            # Cloudflare Workers 配置
+├── vercel.json              # Vercel 构建与路由配置
 ├── Dockerfile               # Docker 构建文件
 └── package.json
 ```
