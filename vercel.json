@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm run build:frontend && cp public/dist/index.html public/index.html",
+  "outputDirectory": "public",
+  "rewrites": [
+    { "source": "/v2/:path*", "destination": "/api/server" },
+    { "source": "/img", "destination": "/api/server" },
+    { "source": "/health", "destination": "/api/server" },
+    { "source": "/endpoints", "destination": "/api/server" }
+  ],
+  "functions": {
+    "api/server.ts": { "maxDuration": 30 }
+  }
+}
