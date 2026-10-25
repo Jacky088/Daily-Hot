@@ -1,6 +1,6 @@
-// 易碎数据源契约测试：微博 / 小红书 / YouTube。
-// 这三个源的共性是「上游随时会变」——微博轮换游客 Cookie、小红书过期 shield 令牌、
-// YouTube 社区实例成批死亡（见 3f8b3b7）。git 历史里它们的修复占比远高于其他模块。
+// 易碎数据源契约测试：微博 / 小红书。
+// 这两个源的共性是「上游随时会变」——微博轮换游客 Cookie、小红书过期 shield 令牌。
+// git 历史里它们的修复占比远高于其他模块。
 //
 // 做法：stub 全局 fetch 按 URL 回放上游响应样本，走真实的 Oak 应用（app.fetch）
 // 验证「抓取 → 解析 → 出榜」整条链路。价值在于上游改版时能立刻区分是
@@ -158,71 +158,5 @@ describe('小红书热搜契约（rednote.module）', () => {
     assert.equal(list[1].rank, 2)
     assert.equal(list[1].work_type_icon, '', '无图标条目应回退空串而不是 undefined')
     assert.ok(list[1].link.includes(encodeURIComponent('咖啡 & 拉花')), '关键词必须 URL 编码')
-  })
-})
-
-describe('YouTube 游戏榜契约（youtube.module）', () => {
-  const INVIDIOUS_FIXTURE = [
-    { videoId: 'abc123', title: 'Game A', author: 'Chan A', viewCount: 123456, liveNow: false, published: 1760000000 },
-    // 直播条目必须被过滤（type=gaming 栏目混直播是社区实例的常态）
-    { videoId: 'live1', title: 'Live Show', author: 'Chan B', viewCount: 999, liveNow: true, published: 1760000000 },
-  ]
-
-  it('不支持的地区直接 400，且不发起任何上游请求', async () => {
-    const { status, body } = await getJson('/v2/youtube?region=XX')
-    assert.equal(status, 400)
-    assert.equal(body.code, 400)
-    assert.equal(requested.length, 0, '参数校验失败不应打上游')
-  })
-
-  it('Invidious 首实例失败时换下一实例；过滤直播、拼 ytimg 封面、数值转中文口径', async () => {
-    route = (url) => {
-      if (url.startsWith('https://invidious.materialio.us/')) return new Response(null, { status: 500 })
-      assert.ok(url.startsWith('https://inv.nadeko.net/'), `应按实例顺序兜底: ${url}`)
-      return jsonResponse(INVIDIOUS_FIXTURE)
-    }
-
-    const { status, body } = await getJson('/v2/youtube?region=US')
-    assert.equal(status, 200)
-    const list = body.data as Array<{
-      id: string
-      title: string
-      cover: string
-      link: string
-      meta: string
-      published: string
-    }>
-    assert.equal(list.length, 1, '直播条目应被过滤')
-    assert.equal(list[0].id, 'abc123')
-    assert.equal(list[0].cover, 'https://i.ytimg.com/vi/abc123/mqdefault.jpg', '封面应拼 ytimg 直链')
-    assert.equal(list[0].link, 'https://www.youtube.com/watch?v=abc123')
-    assert.ok(list[0].meta.includes('Chan A'), 'meta 应含频道名')
-    assert.ok(list[0].meta.includes('12.3万次观看'), '播放量应转「万」口径')
-    assert.match(list[0].published, /^\d{4}-\d{2}-\d{2} /, '发布时间应从时间戳自行换算')
-  })
-
-  it('Invidious 全挂时走 Piped 兜底：直播（duration<0）被过滤、id 从 url 提取', async () => {
-    route = (url) => {
-      if (url.includes('invidious')) return new Response(null, { status: 503 })
-      assert.ok(url.startsWith('https://pipedapi.ducks.party/'), `应走 Piped 首实例: ${url}`)
-      return jsonResponse([
-        {
-          url: '/watch?v=vid9',
-          title: 'Piped Game',
-          uploaderName: 'Chan P',
-          views: 500,
-          uploaded: 1760000000000,
-          duration: 200,
-        },
-        { url: '/watch?v=live9', title: 'Piped Live', uploaderName: 'Chan L', views: 1, uploaded: 0, duration: -1 },
-      ])
-    }
-
-    const { status, body } = await getJson('/v2/youtube?region=JP')
-    assert.equal(status, 200)
-    const list = body.data as Array<{ id: string; title: string }>
-    assert.equal(list.length, 1, 'Piped 直播条目应被过滤')
-    assert.equal(list[0].id, 'vid9', 'id 应从 /watch?v= 提取')
-    assert.equal(list[0].title, 'Piped Game')
   })
 })

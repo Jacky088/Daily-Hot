@@ -103,7 +103,6 @@ import { serviceDongchedi } from './modules/dongchedi.module.ts'
 import { serviceNodeSeek } from './modules/nodeseek.module.ts'
 import { serviceLowEndTalk } from './modules/lowendtalk.module.ts'
 import { serviceReddit } from './modules/reddit.module.ts'
-import { serviceYoutube } from './modules/youtube.module.ts'
 import { serviceAppleMusic } from './modules/applemusic.module.ts'
 import { serviceQQMusic } from './modules/qqmusic.module.ts'
 import { serviceNcm } from './modules/ncm.module.ts'
@@ -167,8 +166,6 @@ appRouter.get(
   '/it-news/rank',
   lazyService(() => import('./modules/it-news.module.ts').then((m) => m.serviceITNews.handleRank())),
 )
-// YouTube 热榜：官方 API 要 Key，走 Invidious / Piped 社区实例多实例兜底（见模块内注释）
-appRouter.get('/youtube', serviceYoutube.handle())
 // 音乐榜：Apple Music 官方公开 RSS（免密钥）、QQ 音乐站点榜单接口（免登录，需 Referer）
 appRouter.get('/apple-music', serviceAppleMusic.handle())
 appRouter.get('/qq-music', serviceQQMusic.handle())

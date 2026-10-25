@@ -145,7 +145,6 @@ const CARD_LOGOS = {
   'simkl-tv': 'netflix.svg',
   'simkl-movies': 'netflix.svg',
   'simkl-anime': 'netflix.svg',
-  youtube: 'youtube.svg',
   ncm: 'neteasecloudmusic.svg',
   applemusic: 'applemusic.svg',
   qqmusic: 'qqmusic.svg',
@@ -261,7 +260,6 @@ const EP_ALIASES = {
   'simkl-tv': ['流媒体剧集', 'netflix', 'hbo', 'disney', 'simkl'],
   'simkl-movies': ['流媒体电影', '电影榜'],
   'simkl-anime': ['流媒体动漫', '动漫', '番剧', 'anime'],
-  youtube: ['油管', 'youtube', 'ytb', '游戏视频'],
   ncm: ['网易云', '网易云音乐', 'wyy', '163', '云音乐', '听歌'],
   applemusic: ['applemusic', 'apple music', '苹果音乐'],
   qqmusic: ['qq音乐', 'qq music', '企鹅音乐', '绿钻'],
@@ -2375,32 +2373,6 @@ const EPS = [
     type: 'simkl',
     auto: 1,
   },
-  // 官方 Data API 的 chart=mostPopular 需要 API Key，故走 Invidious / Piped 社区实例（多实例兜底，见后端模块注释）；
-  // 榜单固定取「游戏」栏目且滤掉直播——实测默认栏目几乎全是直播，不适合当热榜看
-  {
-    cat: 'ent',
-    id: 'youtube',
-    name: 'YouTube 游戏热榜',
-    icon: '▶️',
-    path: '/v2/youtube',
-    type: 'list',
-    auto: 1,
-    inputs: [
-      {
-        n: 'region',
-        sel: [
-          ['US', '美国'],
-          ['HK', '香港'],
-          ['TW', '台湾'],
-          ['JP', '日本'],
-          ['KR', '韩国'],
-          ['GB', '英国'],
-        ],
-        d: 'US',
-      },
-    ],
-    f: { t: 'title', h: null, l: 'link', d: 'meta', p: 'cover', ps: 1 },
-  },
   // 网易云音乐榜：不再拆成热歌/飙升/ACG/Billboard 四张卡，合并为一张卡 + 下拉选榜单，
   // 选项由后端 /v2/ncm-rank/list 给出（官方 60+ 个榜单，有多少个就有多少个选项），默认热歌榜
   { cat: 'ent', id: 'ncm', name: '网易云音乐榜', icon: '🎵', path: '/v2/ncm-rank/3778678', type: 'ncm', auto: 1 },
@@ -3088,7 +3060,7 @@ function groupBadgeLabel(key) {
 
 /**
  * 普通条目：取卡片上那个下拉框当前选中项的显示名。
- * YouTube / Apple Music 的「地区」、QQ 音乐的「榜单」，和掘金的「分类」、
+ * Apple Music 的「地区」、QQ 音乐的「榜单」，和掘金的「分类」、
  * GitHub 的「时间范围」是同一类东西——卡片顶部摆着个下拉，
  * 侧边栏就该把「现在选的是哪个」标出来，不然点进去才发现不是想看的那个
  */
