@@ -7,3 +7,6 @@ package-lock.json
 
 # 一次性审计报告（脚本生成，重排版无意义；用完即删）
 css-unused-audit.md
+
+# Vercel 函数产物：由 vercel-api.ts 经 esbuild 打包（随源码提交，部署时重新生成）
+api/

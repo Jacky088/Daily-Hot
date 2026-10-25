@@ -9,6 +9,6 @@
     { "source": "/endpoints", "destination": "/api/endpoints" }
   ],
   "functions": {
-    "api/[[...path]].js": { "maxDuration": 30 }
+    "api/**": { "maxDuration": 30 }
   }
 }
