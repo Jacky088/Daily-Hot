@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm run build:frontend && pnpm exec esbuild vercel.ts --bundle --platform=node --format=esm --packages=external --outfile=\"api/[[...path]].js\" && cp public/dist/index.html public/index.html",
+  "buildCommand": "pnpm run build:frontend && pnpm exec esbuild vercel-api.ts --bundle --platform=node --format=esm --packages=external --outfile=\"api/[[...path]].js\" && cp public/dist/index.html public/index.html",
   "outputDirectory": "public",
   "rewrites": [
     { "source": "/v2/:path*", "destination": "/api/v2/:path*" },

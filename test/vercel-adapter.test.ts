@@ -1,4 +1,4 @@
-// Vercel 入口适配层契约测试（vercel.ts）。
+// Vercel 入口适配层契约测试（vercel-api.ts）。
 // 平台的 req/res 桥接逻辑（URL 重组、/api 前缀剥离、响应头透传、响应流回灌）
 // 不依赖 Vercel 环境：用结构兼容的 mock 直接驱动 handler，走真实 Oak 应用
 // 验证桥接正确性，与 fragile-sources.test.ts 的 stub 风格一致。
@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { PassThrough } from 'node:stream'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
-import handler from '../vercel.ts'
+import handler from '../vercel-api.ts'
 
 type MockRes = PassThrough & {
   statusCode: number
