@@ -9,5 +9,6 @@
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true
-  }
+  },
+  "exclude": ["api", ".vercel"]
 }

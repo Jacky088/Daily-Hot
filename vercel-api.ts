@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { Readable } from 'node:stream'
+import { text as readStreamText } from 'node:stream/consumers'
 
 import { app } from './src/app.ts'
 import { runWithPlatformIP } from './src/platform-ip.ts'
@@ -26,10 +27,23 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     .split(',')[0]
     .trim()
 
-  // 重写后 req.url 保留原始路径（/v2/...）；为兼容个别把目标路径透传进来的情形，
-  // /api 前缀在这里剥掉再交给路由。
-  const path = (req.url || '/').replace(/^\/api(?=\/|$)/, '')
-  const url = `${proto}://${host || 'localhost'}${path || '/'}`
+  // Vercel 对 catch-all 函数只生成单段匹配路由（^/api/([^/]+)$），多段重写目标
+  // （如 /api/v2/hot/aggregate）会落进 404 兜底——所以 rewrites 把原始业务路径放进
+  // __path 查询参数、目的地固定为单段 /api/__vh，这里优先取 __path 还原真实路径，
+  // 其余查询参数（如 force-update=1）原样透传；__path 缺省时回退为直接剥离 /api 前缀。
+  const incoming = new URL(req.url || '/', `${proto}://${host || 'localhost'}`)
+  const query = incoming.searchParams
+  const __path = query.get('__path')
+  let target: URL
+  if (__path && __path.startsWith('/')) {
+    target = new URL(__path, incoming.origin)
+    query.delete('__path')
+    for (const [key, value] of query) target.searchParams.append(key, value)
+  } else {
+    // 兼容直接打到函数自身路径的调用：/api 前缀在这里剥掉再交给路由
+    target = new URL(incoming.pathname.replace(/^\/api(?=\/|$)/, '') || '/', incoming.origin)
+    for (const [key, value] of query) target.searchParams.append(key, value)
+  }
 
   const headers = new Headers()
   for (const [key, value] of Object.entries(req.headers)) {
@@ -39,10 +53,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
   // 本项目接口全为 GET/HEAD；带体请求统一收进内存再桥接（体量小，无流式必要）
   const hasBody = !['GET', 'HEAD'].includes(req.method || 'GET')
-  const body = hasBody ? await readBody(req) : undefined
+  const body = hasBody ? await readStreamText(req) : undefined
 
   const response = await runWithPlatformIP(clientIp, () =>
-    (app.fetch as (request: Request) => Promise<Response>)(new Request(url, { method: req.method, headers, body })),
+    (app.fetch as (request: Request) => Promise<Response>)(new Request(target, { method: req.method, headers, body })),
   )
 
   res.statusCode = response.status
@@ -58,15 +72,5 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       .pipe(res)
       .on('finish', () => resolve())
       .on('error', reject)
-  })
-}
-
-/** 把 Node 请求体读成字符串（Oak 侧的 JSON / 文本解析都基于字符串） */
-function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = []
-    req.on('data', (chunk: Buffer) => chunks.push(chunk))
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')))
-    req.on('error', reject)
   })
 }

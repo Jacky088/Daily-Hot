@@ -24,3 +24,6 @@ pv-*.png
 
 # 本地天气装饰预览页（临时；放在 public 下会被一起部署，用完即删）
 public/_preview.html
+
+# Vercel CLI 本地构建输出
+.vercel/

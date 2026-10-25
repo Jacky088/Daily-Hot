@@ -1,3 +1,4 @@
+// @ts-nocheck
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __esm = (fn, res, err) => function __init() {
@@ -19324,6 +19325,7 @@ ${rows.join("\n")}`;
 
 // vercel-api.ts
 import { Readable } from "node:stream";
+import { text as readStreamText } from "node:stream/consumers";
 
 // src/app.ts
 import { Application } from "@oak/oak/application";
@@ -29265,18 +29267,30 @@ async function handler(req, res) {
   const clientIp = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
   const proto = String(req.headers["x-forwarded-proto"] || "https").split(",")[0].trim();
   const host = String(req.headers["x-forwarded-host"] || req.headers.host || "").split(",")[0].trim();
-  const path = (req.url || "/").replace(/^\/api(?=\/|$)/, "");
-  const url = `${proto}://${host || "localhost"}${path || "/"}`;
+  const incoming = new URL(req.url || "/", `${proto}://${host || "localhost"}`);
+  const query = incoming.searchParams;
+  const __path = query.get("__path");
+  let target;
+  if (__path && __path.startsWith("/")) {
+    target = new URL(__path, incoming.origin);
+    query.delete("__path");
+    for (const [key, value] of query) target.searchParams.append(key, value);
+  } else {
+    target = new URL(incoming.pathname.replace(/^\/api(?=\/|$)/, "") || "/", incoming.origin);
+    for (const [key, value] of query) target.searchParams.append(key, value);
+  }
   const headers = new Headers();
   for (const [key, value] of Object.entries(req.headers)) {
     if (value === void 0) continue;
     for (const v of Array.isArray(value) ? value : [value]) headers.append(key, v);
   }
   const hasBody = !["GET", "HEAD"].includes(req.method || "GET");
-  const body = hasBody ? await readBody(req) : void 0;
+  const body = hasBody ? await readStreamText(req) : void 0;
   const response = await runWithPlatformIP(
     clientIp,
-    () => app.fetch(new Request(url, { method: req.method, headers, body }))
+    () => app.fetch(
+      new Request(target, { method: req.method, headers, body })
+    )
   );
   res.statusCode = response.status;
   response.headers.forEach((value, key) => res.setHeader(key, value));
@@ -29286,14 +29300,6 @@ async function handler(req, res) {
   }
   await new Promise((resolve2, reject) => {
     Readable.fromWeb(response.body).on("error", reject).pipe(res).on("finish", () => resolve2()).on("error", reject);
-  });
-}
-function readBody(req) {
-  return new Promise((resolve2, reject) => {
-    const chunks = [];
-    req.on("data", (chunk) => chunks.push(chunk));
-    req.on("end", () => resolve2(Buffer.concat(chunks).toString("utf-8")));
-    req.on("error", reject);
   });
 }
 export {

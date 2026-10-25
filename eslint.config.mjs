@@ -4,6 +4,7 @@
 // ignores：
 //   - public/dist/**  构建产物（压缩后代码，误报无意义）
 //   - api/**          Vercel 函数产物（esbuild 打包的压缩代码，随源码提交）
+//   - .vercel/**      Vercel CLI 本地构建输出
 //   - .edgeone/**     EdgeOne 构建输出
 //   - public/emoji/** 本地 SVG 资源，无 JS
 import eslint from '@eslint/js'
@@ -11,7 +12,7 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['public/dist/**', 'api/**', '.edgeone/**', 'public/emoji/**'] },
+  { ignores: ['public/dist/**', 'api/**', '.vercel/**', '.edgeone/**', 'public/emoji/**'] },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {

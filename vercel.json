@@ -1,12 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm run build:frontend && pnpm exec esbuild vercel-api.ts --bundle --platform=node --format=esm --packages=external --outfile=\"api/[[...path]].js\" && cp public/dist/index.html public/index.html",
+  "buildCommand": "pnpm run build:frontend && node scripts/build-vercel.mjs",
   "outputDirectory": "public",
   "rewrites": [
-    { "source": "/v2/:path*", "destination": "/api/v2/:path*" },
-    { "source": "/img", "destination": "/api/img" },
-    { "source": "/health", "destination": "/api/health" },
-    { "source": "/endpoints", "destination": "/api/endpoints" }
+    { "source": "/v2/(.*)", "destination": "/api/__vh?__path=/v2/$1" },
+    { "source": "/img", "destination": "/api/__vh?__path=/img" },
+    { "source": "/health", "destination": "/api/__vh?__path=/health" },
+    { "source": "/endpoints", "destination": "/api/__vh?__path=/endpoints" }
   ],
   "functions": {
     "api/**": { "maxDuration": 30 }

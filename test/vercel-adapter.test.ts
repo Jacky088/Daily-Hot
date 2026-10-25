@@ -41,7 +41,7 @@ function mockRes(): MockRes {
   return res
 }
 
-describe('Vercel 适配层桥接（api/server）', () => {
+describe('Vercel 适配层桥接（vercel-api）', () => {
   it('GET /health 走通 Node req/res → Web Request → Oak → 回灌响应', async () => {
     const res = mockRes()
     await handler(mockReq('GET', '/health', { host: 'daily-hot.vercel.app' }), res as unknown as ServerResponse)
@@ -53,6 +53,17 @@ describe('Vercel 适配层桥接（api/server）', () => {
   it('重写透传进来的 /api 前缀被剥离，原始路径语义不变', async () => {
     const res = mockRes()
     await handler(mockReq('GET', '/api/health', { host: 'daily-hot.vercel.app' }), res as unknown as ServerResponse)
+    await res.store.ended
+    assert.equal(res.store.status, 200)
+    assert.equal(res.store.body, 'ok')
+  })
+
+  it('__path 查询参数（单段函数路由的路径载体）被还原为业务路径，其余查询原样透传', async () => {
+    const res = mockRes()
+    await handler(
+      mockReq('GET', '/api/__vh?__path=/health&__vh=1&force-update=1', { host: 'daily-hot.vercel.app' }),
+      res as unknown as ServerResponse,
+    )
     await res.store.ended
     assert.equal(res.store.status, 200)
     assert.equal(res.store.body, 'ok')
