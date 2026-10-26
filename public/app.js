@@ -12027,7 +12027,7 @@ function popupHost() {
   return document.fullscreenElement || document.body
 }
 
-// 顶部居中玻璃拟态提示: 不自动消失, 点击右侧"确定"后关闭
+// 顶部居中玻璃拟态提示: 不自动消失, 点击右侧"确定"后关闭; 多条并存时纵向依次下移
 function showToast(msg) {
   const t = document.createElement('div')
   t.className = 'site-toast'
@@ -12035,9 +12035,32 @@ function showToast(msg) {
     <span class="site-toast-msg">${msg}</span>
     <button type="button" class="site-toast-ok">确定</button>`
   popupHost().appendChild(t)
+  // 全屏期间 toast 挂在全屏卡片内 (fixed 的包含块是全屏元素, 位置仍贴屏幕顶部);
+  // 退出全屏后必须搬回 body —— 否则卡片自带的 backdrop-filter 会劫持 fixed 定位,
+  // toast 被压在卡片里、可用宽度骤减导致文字竖着折叠换行
+  const rehost = () => {
+    if (!document.fullscreenElement && t.isConnected && t.parentElement !== document.body) {
+      document.body.appendChild(t)
+      stackToasts()
+    }
+  }
+  document.addEventListener('fullscreenchange', rehost)
+  // 堆叠: 所有存活的 toast 从顶部 18px 起按高度依次排列, 关掉一条后自动补位
+  const stackToasts = () => {
+    let top = 18
+    document.querySelectorAll('.site-toast').forEach((el) => {
+      el.style.top = `${top}px`
+      top += el.offsetHeight + 10
+    })
+  }
+  stackToasts()
   t.querySelector('.site-toast-ok').onclick = () => {
+    document.removeEventListener('fullscreenchange', rehost)
     t.classList.add('out')
-    setTimeout(() => t.remove(), 280)
+    setTimeout(() => {
+      t.remove()
+      stackToasts()
+    }, 280)
   }
 }
 
@@ -12054,6 +12077,8 @@ function showConfirm(msg, okText = '确定', cancelText = '取消') {
           <button type="button" class="site-dialog-btn site-dialog-ok">${okText}</button>
         </div>
       </div>`
+    // 必须留在 popupHost(): 沉浸全屏时 body 上的元素被 top layer 遮挡,
+    // 之前末尾误加了一句 body.appendChild 把它搬回 body, 全屏内点跳过看不到弹窗
     popupHost().appendChild(mask)
     const close = (val) => {
       mask.classList.add('out')
@@ -12065,7 +12090,6 @@ function showConfirm(msg, okText = '确定', cancelText = '取消') {
     mask.onclick = (e) => {
       if (e.target === mask) close(false)
     }
-    document.body.appendChild(mask)
   })
 }
 
@@ -12493,7 +12517,8 @@ function rPomodoro(_, c) {
 
     if (mode === 'sbreak') {
       modeText.textContent = 'BREAK · 小憩片刻'
-      hintEl.textContent = '果实已成熟，休息一下再出发'
+      // 成熟提示已由顶部弹窗承担, 这里不再重复文案
+      hintEl.textContent = ''
     } else if (mode === 'lbreak') {
       modeText.textContent = 'RELAX · 深度长休'
       hintEl.textContent = '满树红果，好好犒劳自己'
@@ -12504,13 +12529,28 @@ function rPomodoro(_, c) {
     updateUI()
   }
 
+  // 主按钮文案跟随阶段: 休息段若仍显示「开始专注」, 用户点击后走的是休息倒计时,
+  // 却以为在开新一轮专注 —— 表现为「时间不对、树没重置」。文案必须如实反映行为
+  const syncToggleText = () => {
+    const icon = c.querySelector('.pomo-btn-icon')
+    if (isRunning) {
+      toggleText.textContent = isBreakMode() ? '暂停休息' : '暂停时钟'
+      icon.textContent = '⏸'
+    } else if (isBreakMode()) {
+      toggleText.textContent = '开始休息'
+      icon.textContent = '▶'
+    } else {
+      toggleText.textContent = '开始专注'
+      icon.textContent = '▶'
+    }
+  }
+
   const stop = () => {
     if (timer) clearInterval(timer)
     timer = null
     isRunning = false
     stopGrowthLoop()
-    toggleText.textContent = '开始专注'
-    c.querySelector('.pomo-btn-icon').textContent = '▶'
+    syncToggleText()
     toggleBtn.classList.remove('running')
     modeBadge.classList.remove('pulsing')
     // 时间停止 → 树停止摇摆生长
@@ -12563,8 +12603,7 @@ function rPomodoro(_, c) {
       stop()
     } else {
       isRunning = true
-      toggleText.textContent = '暂停时钟'
-      c.querySelector('.pomo-btn-icon').textContent = '⏸'
+      syncToggleText()
       toggleBtn.classList.add('running')
       modeBadge.classList.add('pulsing')
       pomoWrap.classList.add('is-growing')

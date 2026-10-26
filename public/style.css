@@ -14444,6 +14444,11 @@ select.tool-input-txt {
   color: #e11d48;
   margin-bottom: 2px;
   transition: all 0.3s ease;
+  /* 底色光晕: 文字压在番茄树上时靠主题底色描一圈, 保证可读性 (深浅主题自动跟随 --bg) */
+  text-shadow:
+    0 1px 3px var(--bg),
+    0 0 8px var(--bg),
+    0 0 14px var(--bg);
 }
 .pomo-mode-badge.is-break {
   background: rgba(16, 185, 129, 0.1);
@@ -14477,6 +14482,10 @@ select.tool-input-txt {
   line-height: 1.1;
   letter-spacing: -1px;
   margin: 2px 0 4px;
+  text-shadow:
+    0 1px 3px var(--bg),
+    0 0 8px var(--bg),
+    0 0 14px var(--bg);
 }
 .pomo-cycle-dots {
   display: flex;
@@ -14491,6 +14500,7 @@ select.tool-input-txt {
   border-radius: 50%;
   background: var(--border);
   transition: all 0.3s ease;
+  filter: drop-shadow(0 0 4px var(--bg)) drop-shadow(0 0 7px var(--bg));
 }
 .pomo-dot.active {
   background: var(--accent);
@@ -14505,6 +14515,10 @@ select.tool-input-txt {
   overflow: hidden;
   text-overflow: ellipsis;
   opacity: 0.85;
+  text-shadow:
+    0 1px 3px var(--bg),
+    0 0 8px var(--bg),
+    0 0 14px var(--bg);
 }
 .pomo-ctrl-bar {
   display: flex;
@@ -14566,6 +14580,9 @@ select.tool-input-txt {
   left: 50%;
   transform: translateX(-50%);
   z-index: 1400; /* 压过 fs-fake 全屏卡(999) */
+  /* max-content: 收缩适配宽度只看内容 —— 全屏卡片内 fixed 的可用宽度会被
+     包含块压窄, 缺了它弹窗会被挤成竖条、文字逐字折叠换行 */
+  width: max-content;
   max-width: min(90vw, 460px);
   display: flex;
   align-items: center;
@@ -14697,8 +14714,13 @@ select.tool-input-txt {
 }
 .site-dialog-btn.site-dialog-cancel {
   background: transparent;
-  border: 1px solid var(--border);
+  /* --border 透明度只有 0.22, 压在玻璃弹窗上形同没有边框; 用 --border-light 才立得住 */
+  border: 1px solid var(--border-light);
   color: var(--text-dim);
+}
+.site-dialog-btn.site-dialog-cancel:hover {
+  border-color: var(--text-dim);
+  color: var(--text);
 }
 .site-dialog-btn.site-dialog-ok {
   background: linear-gradient(135deg, #ff8a5c, #f4623a);
@@ -14778,6 +14800,10 @@ select.tool-input-txt {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+  /* 渐变文字填充透明, text-shadow 会从字形里透出来发糊 —— 改用 drop-shadow
+     对渲染后的渐变像素投影, 光晕效果与上方 text-shadow 等效 */
+  text-shadow: none;
+  filter: drop-shadow(0 1px 2px var(--bg)) drop-shadow(0 0 5px var(--bg)) drop-shadow(0 0 9px var(--bg));
 }
 .pomo-time-block .pomo-cycle-dots {
   gap: 3.4cqw;
