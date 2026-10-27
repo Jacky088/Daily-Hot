@@ -1,4 +1,5 @@
 import { Common, renderByEncoding } from '../../common.ts'
+import { cached } from '../../cache.ts'
 import { fetchUpstream } from '../../fetch-upstream.ts'
 
 import type { RouterMiddleware } from '@oak/oak'
@@ -7,7 +8,14 @@ class ServiceDailyEng {
   handle(): RouterMiddleware<'/daily-eng'> {
     return async (ctx) => {
       const date = await Common.getParam('date', ctx.request)
-      const result = await this.#fetch(date)
+      // 必须走 cached：open.iciba.com 对高频访问不友好（裸调曾把出口 IP 打到
+      // 连 TLS 都不给回包），而这张卡 auto:1，每次页面打开都会请求一次。
+      // 一天一换的句子 1h TTL 足够新鲜；上游断供时 48h 内的旧句兜底，好过 500
+      const result = await cached(
+        `daily-eng:${date || 'today'}`,
+        () => this.#fetch(date),
+        { ttl: 60 * 60 * 1000, staleTtl: 48 * 60 * 60 * 1000 },
+      )
 
       renderByEncoding(ctx, {
         text: () => `${result.content}\n${result.note}`,

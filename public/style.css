@@ -3981,7 +3981,12 @@ select:focus-visible {
 .fanyi-textarea {
   width: 100%;
   min-height: 80px;
-  resize: vertical;
+  /* 高度由 app.js 随内容自动增长（封顶 220px 后内部滚动），不再开放手工拖拽——
+     resize 手柄画在右下角，与滚动条叠在一起是长文下最显眼的视觉噪音 */
+  resize: none;
+  max-height: 220px;
+  /* 软换行下横向滚动永远不是想要的，长串字符交给 overflow-wrap 断行 */
+  overflow-x: hidden;
   margin-bottom: 12px;
   padding: 10px 12px;
   background: var(--bg);
@@ -3995,6 +4000,22 @@ select:focus-visible {
   line-height: 1.6;
   -webkit-appearance: none;
   appearance: none;
+  /* 细滚动条与全站统一：裸的原生滚动条自带箭头按钮，深色下是两坨突兀的三角 */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-light) transparent;
+}
+.fanyi-textarea::-webkit-scrollbar {
+  width: 6px;
+}
+.fanyi-textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+.fanyi-textarea::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+.fanyi-textarea::-webkit-scrollbar-thumb:hover {
+  background: var(--border-light);
 }
 .fanyi-textarea:focus {
   border-color: var(--accent);
@@ -4073,6 +4094,105 @@ select:focus-visible {
 }
 .fanyi-submit:active {
   transform: scale(0.98);
+}
+/* 字符计数：默认弱化不抢眼，超阈值转警示色（阈值见 app.js 的 updateCount） */
+.fanyi-count {
+  margin: -8px 4px 10px;
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-dimmer);
+  transition: color var(--dur-fast);
+}
+.fanyi-count.warn {
+  color: var(--warn);
+}
+
+/* 翻译结果块（标签行 + 正文）——替换旧 kv-row 横排：
+   72px 固定标签列会把长文压进右侧 80% 宽度里换行，整段左缘参差且浪费宽度 */
+.trans-block {
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.trans-block:last-child {
+  margin-bottom: 0;
+}
+/* 译文保留旧版「强调色左边框 + 淡底」的视觉语言：一眼区分输入与输出 */
+.trans-out {
+  background: var(--accent-bg);
+  border-left: 2px solid var(--accent);
+  border-radius: 4px 8px 8px 4px;
+}
+.trans-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.trans-tag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+}
+.trans-tag i {
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--text-dimmer);
+}
+.trans-out .trans-tag {
+  color: var(--accent-text);
+}
+.trans-copy {
+  padding: 2px 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  transition:
+    color var(--dur-fast),
+    background var(--dur-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.trans-copy:hover {
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+.trans-copy.done {
+  color: var(--success-text);
+}
+/* pre-wrap 还原原文分段；长 URL/无空格长串靠 overflow-wrap 断行防撑破 */
+.trans-text {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+.trans-block.is-folded .trans-text {
+  overflow: hidden;
+  /* 折叠态底部渐隐。用 mask 而非渐变遮罩元素：译文块是半透明底，
+     实色渐变盖上去会露出一块色差，mask 对任意底色都成立 */
+  -webkit-mask-image: linear-gradient(180deg, #000 78%, transparent 98%);
+  mask-image: linear-gradient(180deg, #000 78%, transparent 98%);
+}
+.trans-fold {
+  margin-top: 6px;
+  padding: 2px 0;
+  border: none;
+  background: transparent;
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.trans-fold:hover {
+  text-decoration: underline;
 }
 
 /* Loading & placeholder */

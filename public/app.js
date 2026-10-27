@@ -4964,6 +4964,28 @@ function makeCard(ep) {
       textInput.value = ep.inputs.find((i) => i.n === 'text')?.d || ''
       body.appendChild(textInput)
 
+      // 输入框随内容自动长高（CSS 封顶 220px，超出后内部滚动）。
+      // 此前固定 80px 高：长文粘贴进去只剩一个小窗来回滚，是长文输入体验最差的一环。
+      // border-box 下高度含上下 border（2px），scrollHeight 只含 padding，故 +2 补齐防 1px 幽灵滚动
+      const autoGrow = () => {
+        textInput.style.height = 'auto'
+        textInput.style.height = Math.min(textInput.scrollHeight + 2, 220) + 'px'
+      }
+      textInput.addEventListener('input', autoGrow)
+      autoGrow()
+
+      // 字符计数：免费端点对超长文本不保证成功，超阈值给软提示而非静默失败
+      const count = document.createElement('div')
+      count.className = 'fanyi-count'
+      const updateCount = () => {
+        const n = textInput.value.length
+        count.textContent = n ? `${n} 字符${n > 2000 ? ' · 过长，建议分段翻译' : ''}` : ''
+        count.classList.toggle('warn', n > 2000)
+      }
+      textInput.addEventListener('input', updateCount)
+      updateCount()
+      body.appendChild(count)
+
       // 语言选择行
       const langRow = document.createElement('div')
       langRow.className = 'fanyi-lang-row'
@@ -9256,23 +9278,75 @@ function rPwd(d, c) {
   }
 }
 
+// 翻译结果块：只渲染译文。原文留在输入框里，结果区再重复一遍既占空间，
+// 又把「输入 → 看结果」的视线打断。检测到的源语言压缩进译文标签行
+// （如「译文 · 中文（检测：英语）」），自动检测是否生效仍然可确认。
+// 正文 pre-wrap 保留译文的换行分段——esc() 转义后换行符会被当成空白折叠
+// 成一面文字墙，pre-wrap 把分段还原回来。
+// 长文折叠：写死「超过 N 行」会随卡片宽度/字号漂移误判，改为渲染后量实际
+// scrollHeight，只有真正超过阈值的块才进入折叠态并显示「展开全文」。
+const FANYI_FOLD_PX = 320 // 约 14 行正文；结果区只剩译文一块，460px 限高内足够余量
+
+function transBlockHTML(kind, label, meta, text) {
+  return `<div class="trans-block trans-${kind}">
+    <div class="trans-head">
+      <span class="trans-tag">${label}${meta ? `<i> · ${meta}</i>` : ''}</span>
+      <button class="trans-copy" type="button">复制</button>
+    </div>
+    <div class="trans-text">${text}</div>
+    <button class="trans-fold" type="button" hidden>展开全文</button>
+  </div>`
+}
+
 function rFanyi(d, c) {
-  // 语言名/发音缺失时不渲染括号占位，避免出现空的 []
-  const srcDesc = d.source?.type_desc
-    ? ` <span style="color:var(--text-dim);font-size:10px;">[${esc(d.source.type_desc)}]</span>`
-    : ''
-  const tgtDesc = [
-    d.target?.type_desc ? `[${esc(d.target.type_desc)}]` : '',
-    d.target?.pronounce ? esc(d.target.pronounce) : '',
+  // 语言名/发音缺失时不渲染占位，避免出现空的「 · 」。
+  // 发音只对短词查翻译有用；长文的全文注音会在标签行堆成另一面墙，超长直接弃用
+  const MAX_TAG_META = 60
+  const detected =
+    d.source?.type_desc && d.source.type_desc.length <= MAX_TAG_META
+      ? `（检测：${esc(d.source.type_desc)}）`
+      : ''
+  const tgtMeta = [
+    d.target?.type_desc && d.target.type_desc.length <= MAX_TAG_META ? esc(d.target.type_desc) : '',
+    d.target?.pronounce && d.target.pronounce.length <= MAX_TAG_META ? esc(d.target.pronounce) : '',
   ]
     .filter(Boolean)
     .join(' · ')
-  let h = ''
-  if (d.source)
-    h += `<div class="kv-row"><span class="k">原文</span><span class="v">${esc(d.source.text)}${srcDesc}</span></div>`
-  if (d.target)
-    h += `<div style="padding:8px 10px;background:var(--accent-bg);border-left:2px solid var(--accent);border-radius:4px;margin:6px 0;"><div style="font-size:13px;">${esc(d.target.text)}</div>${tgtDesc ? `<div style="font-size:10px;color:var(--text-dim);margin-top:2px;">${tgtDesc}</div>` : ''}</div>`
+  const h = d.target?.text
+    ? transBlockHTML('out', '译文', tgtMeta + detected, esc(d.target.text))
+    : ''
   c.innerHTML = h || '<div class="placeholder">暂无数据</div>'
+  if (!h) return
+  c.querySelectorAll('.trans-block').forEach((blk) => {
+    const txt = blk.querySelector('.trans-text')
+    // 复制按钮对短结果同样有用，不随折叠与否；取 textContent（emoji 已被
+    // emoji.js 换成 <img>，alt 属性即原字符，复制回去不丢 emoji）
+    const copyBtn = blk.querySelector('.trans-copy')
+    copyBtn.onclick = () => {
+      navigator.clipboard
+        .writeText(txt.textContent)
+        .then(() => {
+          copyBtn.textContent = '已复制 ✓'
+          copyBtn.classList.add('done')
+          setTimeout(() => {
+            copyBtn.textContent = '复制'
+            copyBtn.classList.remove('done')
+          }, 1500)
+        })
+        .catch(() => {})
+    }
+    // 未超高的块保持展开，不出现多余按钮
+    if (txt.scrollHeight <= FANYI_FOLD_PX) return
+    blk.classList.add('is-folded')
+    txt.style.maxHeight = FANYI_FOLD_PX + 'px'
+    const foldBtn = blk.querySelector('.trans-fold')
+    foldBtn.hidden = false
+    foldBtn.onclick = () => {
+      const folded = blk.classList.toggle('is-folded')
+      txt.style.maxHeight = folded ? FANYI_FOLD_PX + 'px' : ''
+      foldBtn.textContent = folded ? '展开全文' : '收起'
+    }
+  })
 }
 
 function rLyric(d, c) {
